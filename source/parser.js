@@ -126,7 +126,7 @@ const Parser = function(SOURCE) {
     function popBody() {
         let a = NODE_STACK.pop();
         let lambdaRef = NODE_ARRAY[NODE_STACK.top()];
-        RESOURCE.GetObject(lambdaRef).body = a;
+        RESOURCE.GetObject(lambdaRef).body = NODE_ARRAY[a];
     }
 
     // 添加新Symbol（列表项）
@@ -145,14 +145,6 @@ const Parser = function(SOURCE) {
         let lambdaRef = NODE_ARRAY[NODE_STACK.top()];
         RESOURCE.GetObject(lambdaRef).body = s;
     }
-
-
-
-
-
-
-
-
 
 
     function isSYMBOL(t) {
