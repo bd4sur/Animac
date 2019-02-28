@@ -14,12 +14,27 @@ const testcase = [
     (begin
       (set! c 123)
       c)))`,
-
+// 2
+`
+(define trav
+  (lambda (lat)
+    (if (null? lat)
+        #f
+        (begin
+          (display (car lat))
+          (trav (cdr lat))))))
+(trav (car (cdr '("Hello" ("Aurora" "Virtual" "Machine")))))
+`,
+// 3
+`
+(((lambda (x) (begin (display "@") x)) (call/cc (lambda (k) k)))
+ ((lambda (x) (begin (display "*") x)) (call/cc (lambda (k) k))))
+`,
 ]
 
 console.log(JSON.stringify(Parser.Parser(`
 ((lambda () (begin
-${testcase[1]}
+${testcase[3]}
 )))
 `)));
 

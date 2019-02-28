@@ -153,7 +153,7 @@ const Parser = function(SOURCE) {
     }
     
     function ParserLog(m) {
-        console.log(m);
+        // console.log(m);
         // STDOUT.push(m.replace(/\</gi,'&lt;').replace(/\>/gi,'&gt;'));
         // STDOUT.push('<br>');
     }

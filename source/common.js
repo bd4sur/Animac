@@ -31,6 +31,8 @@ const KEYWORDS = {
     "eq?": true,
     "define": true,
     "set!": true,
+    "null?": true,
+    "display": true,
     "call/cc": true,
     // TODO 待完善
 };
@@ -42,7 +44,7 @@ const NODE_TYPE = {
 }
 
 // 语法节点类
-const Node = function (type, index, parentIndex, bodyIndex, isQuoted) {
+const Node = function (type, index, parentIndex, body, isQuoted) {
     this.type = type;
     this.index = index;
     this.parentIndex = parentIndex;
@@ -50,7 +52,7 @@ const Node = function (type, index, parentIndex, bodyIndex, isQuoted) {
     this.isQuoted = isQuoted;
     // 仅LAMBDA节点有这些项
     this.parameters = new Array();
-    this.bodyIndex = bodyIndex || null; // 未来改成数组，以支持隐式(begin ...)
+    this.body = body || null; // 未来改成数组，以支持隐式(begin ...)
     return this;
 }
 
