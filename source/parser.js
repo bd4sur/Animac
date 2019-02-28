@@ -623,7 +623,7 @@ const Parser = function(SOURCE) {
                 // 然后替换body中的变量
                 if(isVar(node.body)) {
                     // 计算此变量所在的词法节点
-                    let lambdaRef = Common.getRefIndex(searchVarLambdaRef(node.body, ref, variableMapping));
+                    let lambdaRef = searchVarLambdaRef(node.body, ref, variableMapping);
                     // 在map中查找此变量的编号
                     let map = variableMapping[Common.getRefIndex(lambdaRef)];
                     // 处理define特殊情况
