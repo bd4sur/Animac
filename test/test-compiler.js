@@ -1,27 +1,87 @@
 const Compiler = require('../source/compiler.js');
+const Parser = require('../source/parser.js');
 
-const resource = {
-    "variables":["x","k","x","k"],
-    "symbols":[],"strings":["\"@\"","\"*\""],
-    "slists":[
-        {"type":"SLIST","index":0,"children":["$1"],"isQuoted":false,"parameters":[],"body":null},
-        {"type":"LAMBDA","index":1,"parentIndex":0,"children":[],"isQuoted":false,"parameters":[],"body":"$2"},
-        {"type":"SLIST","index":2,"parentIndex":1,"children":["begin","$3"],"isQuoted":false,"parameters":[],"body":null},
-        {"type":"SLIST","index":3,"parentIndex":2,"children":["$4","$10"],"isQuoted":false,"parameters":[],"body":null},
-        {"type":"SLIST","index":4,"parentIndex":3,"children":["$5","$8"],"isQuoted":false,"parameters":[],"body":null},
-        {"type":"LAMBDA","index":5,"parentIndex":4,"children":[],"isQuoted":false,"parameters":["&0"],"body":"$6"},
-        {"type":"SLIST","index":6,"parentIndex":5,"children":["begin","$7","&0"],"isQuoted":false,"parameters":[],"body":null},
-        {"type":"SLIST","index":7,"parentIndex":6,"children":["display","*0"],"isQuoted":false,"parameters":[],"body":null},
-        {"type":"SLIST","index":8,"parentIndex":4,"children":["call/cc","$9"],"isQuoted":false,"parameters":[],"body":null},
-        {"type":"LAMBDA","index":9,"parentIndex":8,"children":[],"isQuoted":false,"parameters":["&1"],"body":"&1"},
-        {"type":"SLIST","index":10,"parentIndex":3,"children":["$11","$14"],"isQuoted":false,"parameters":[],"body":null},
-        {"type":"LAMBDA","index":11,"parentIndex":10,"children":[],"isQuoted":false,"parameters":["&2"],"body":"$12"},
-        {"type":"SLIST","index":12,"parentIndex":11,"children":["begin","$13","&2"],"isQuoted":false,"parameters":[],"body":null},
-        {"type":"SLIST","index":13,"parentIndex":12,"children":["display","*1"],"isQuoted":false,"parameters":[],"body":null},
-        {"type":"SLIST","index":14,"parentIndex":10,"children":["call/cc","$15"],"isQuoted":false,"parameters":[],"body":null},
-        {"type":"LAMBDA","index":15,"parentIndex":14,"children":[],"isQuoted":false,"parameters":["&3"],"body":"&3"}],
-    "constants":[],
-    "refIndexes":{"*":2,"$":16,"!":0,"&":4,"#":0,"^":0}
-};
+const testcase = [
+// 0
+`(define fac
+    (lambda (n)
+        (if (= n 0)
+            1
+            (* n (fac (- n 1))))))
+(display "【编译】普通阶乘<br>")
+(display "10!=")
+(display (fac 10))
+(display "<br>")`,
+// 1
+`
+(define A
+  (lambda (k x1 x2 x3 x4 x5) (begin
+      (define B
+        (lambda () (begin
+            (set! k (- k 1))
+            (A k B x1 x2 x3 x4))))
+      (if (<= k 0)
+          (+ (x4) (x5))
+          (B)))))
+(display "【编译】Man or Boy Test<br>Result=")
+(display (A 5 (lambda () 1) (lambda () -1) (lambda () -1) (lambda () 1) (lambda () 0)))
+(display "<br>")
+`,
+// 2
+`
+(define trav
+  (lambda (lat)
+    (if (null? lat)
+        #f
+        (begin
+          (display (car lat))
+          (trav (cdr lat))))))
+(display "【编译】列表遍历测试<br>期望输出“AuroraVirtualMachine”=")
+(trav (car (cdr '("Hello" ("Aurora" "Virtual" "Machine")))))
+(display "<br>")
+`,
+// 3
+`
+(((lambda (x) (begin (display "@") x)) (call/cc (lambda (k) k)))
+ ((lambda (x) (begin (display "*") x)) (call/cc (lambda (k) k))))
+`,
+// 4
+`
+(define fac-count 0)
+(define clo-count 0)
+(define fac
+  (lambda (n cont) (begin
+    (set! fac-count (+ fac-count 1))
+    (if (= n 0)
+        (cont 1)
+        (fac (- n 1)
+             (lambda (res) (begin
+               (set! clo-count (+ clo-count 1))
+               (cont (* res n)))))))))
+(display "【编译】CPS阶乘/set!测试<br>5!=")
+(display (fac 5 (lambda (x) x)))
+(display "<br>闭包调用次数=")
+(display clo-count)
+(display "<br>阶乘递归调用次数=")
+(display fac-count)
+(display "<br>")
+`,
+// 5
+`
+(define concat
+  (lambda (lat atom)
+    (concat (cons atom lat) atom)))
+(display "【编译】测试无限cons列表的内存管理<br>")
+(concat '("Aurora" "Virtual" "Machine")
+        "Hello")
+`,
+]
 
-Compiler.Compiler(resource);
+const testcaseIndex = 5;
+let RESOURCE = Parser.Parser(`((lambda () (begin${testcase[testcaseIndex]})))`)[1];
+
+console.log('===== AST =====');
+console.log(JSON.stringify(RESOURCE));
+
+console.log('===== 指令序列 =====');
+Compiler.Compiler(RESOURCE);
