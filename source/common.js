@@ -149,6 +149,9 @@ const makeRef = function(type, index) {
 
 // 获取符号类型
 const TypeOfToken = function(token) {
+    if(token in KEYWORDS){
+        return OBJECT_TYPE.KEYWORD;
+    }
     let refType = getRefType(token);
     if(refType) {
         return refType;
@@ -166,9 +169,6 @@ const TypeOfToken = function(token) {
             }
             else if(token[0] === '"' && token[token.length-1] === '"') {
                 return OBJECT_TYPE.STRING;
-            }
-            else if(token in KEYWORDS){
-                return OBJECT_TYPE.KEYWORD;
             }
             else {
                 return OBJECT_TYPE.VARIABLE;
