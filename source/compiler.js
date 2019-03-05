@@ -3,16 +3,16 @@
 //
 // compiler.js
 // 编译器
-// 输入：AST（代码抽象语法树） × RESOURCE（静态资源）
+// 输入：AST（代码抽象语法树）
 // 输出：MODULE（经编译的模块文件）
 
 const Common = require('./common.js'); // 引入公用模块
 
 // 编译器
-const Compiler = function(RESOURCE) {
-    let MODULE = new Common.Module();
+const Compiler = function(qualifiedName, AST) {
+    let MODULE = new Common.Module(qualifiedName);
 
-    let AST = RESOURCE.slists;
+    let NODES = AST.slists;
 
     let ASM = new Array();
 
@@ -34,7 +34,7 @@ const Compiler = function(RESOURCE) {
         }
 
         if(Common.TypeOfToken(node.body) === Common.OBJECT_TYPE.REF_SLIST) {
-            bodyNode = AST[Common.getRefIndex(node.body)];
+            bodyNode = NODES[Common.getRefIndex(node.body)];
             if(bodyNode.type === Common.NODE_TYPE.LAMBDA) {
                 ASM.push(`push @${node.body}`);
             }
@@ -69,14 +69,14 @@ const Compiler = function(RESOURCE) {
         // (call/cc (lambda (kont) ...))
         if(first === 'call/cc') {
             // get到lambda里面的唯一参数
-            let lambdaNode = AST[Common.getRefIndex(children[1])];
+            let lambdaNode = NODES[Common.getRefIndex(children[1])];
             let contName = lambdaNode.parameters[0];
             ASM.push(`;; [ASC] Capture Cont @ ${contName}`);
             ASM.push(`capturecc ${contName}`);
             // 加入lambda的body
             let body = lambdaNode.body;
             if(Common.TypeOfToken(body) === Common.OBJECT_TYPE.REF_SLIST) {
-                bodyNode = AST[Common.getRefIndex(body)];
+                bodyNode = NODES[Common.getRefIndex(body)];
                 if(bodyNode.type === Common.NODE_TYPE.LAMBDA) {
                     ASM.push(`push @${body}`);
                 }
@@ -105,7 +105,7 @@ const Compiler = function(RESOURCE) {
             let rightValue = children[2];
             // load/push
             if(Common.TypeOfToken(rightValue) === Common.OBJECT_TYPE.REF_SLIST) {
-                rightValueNode = AST[Common.getRefIndex(rightValue)];
+                rightValueNode = NODES[Common.getRefIndex(rightValue)];
                 if(rightValueNode.type === Common.NODE_TYPE.LAMBDA) {
                     ASM.push(`push @${rightValue}`);
                 }
@@ -131,7 +131,7 @@ const Compiler = function(RESOURCE) {
             let rightValue = children[2];
             // load/push
             if(Common.TypeOfToken(rightValue) === Common.OBJECT_TYPE.REF_SLIST) {
-                rightValueNode = AST[Common.getRefIndex(rightValue)];
+                rightValueNode = NODES[Common.getRefIndex(rightValue)];
                 if(rightValueNode.type === Common.NODE_TYPE.LAMBDA) {
                     ASM.push(`push @${rightValue}`);
                 }
@@ -160,7 +160,7 @@ const Compiler = function(RESOURCE) {
             // 处理p
             let predicate = children[1];
             if(Common.TypeOfToken(predicate) === Common.OBJECT_TYPE.REF_SLIST) {
-                predicateNode = AST[Common.getRefIndex(predicate)];
+                predicateNode = NODES[Common.getRefIndex(predicate)];
                 if(predicateNode.type === Common.NODE_TYPE.LAMBDA) {
                     ASM.push(`load ${predicate}`);
                 }
@@ -185,7 +185,7 @@ const Compiler = function(RESOURCE) {
             // 处理false分支
             let falseBranch = children[3];
             if(Common.TypeOfToken(falseBranch) === Common.OBJECT_TYPE.REF_SLIST) {
-                falseBranchNode = AST[Common.getRefIndex(falseBranch)];
+                falseBranchNode = NODES[Common.getRefIndex(falseBranch)];
                 if(falseBranchNode.type === Common.NODE_TYPE.LAMBDA) {
                     ASM.push(`load ${falseBranch}`);
                 }
@@ -209,7 +209,7 @@ const Compiler = function(RESOURCE) {
             // 处理true分支
             let trueBranch = children[2];
             if(Common.TypeOfToken(trueBranch) === Common.OBJECT_TYPE.REF_SLIST) {
-                trueBranchNode = AST[Common.getRefIndex(trueBranch)];
+                trueBranchNode = NODES[Common.getRefIndex(trueBranch)];
                 if(trueBranchNode.type === Common.NODE_TYPE.LAMBDA) {
                     ASM.push(`load ${trueBranch}`);
                 }
@@ -237,7 +237,7 @@ const Compiler = function(RESOURCE) {
             // 转变成ANF
             let tempVarArray = new Array();
             for(let i = 0; i < children.length; i++) {
-                let childNode = AST[Common.getRefIndex(children[i])];
+                let childNode = NODES[Common.getRefIndex(children[i])];
                 if(childNode.type === Common.NODE_TYPE.LAMBDA) {
                     ASM.push(`load @${children[i]}`);
                 }
@@ -261,7 +261,7 @@ const Compiler = function(RESOURCE) {
             for(let i = 1; i < children.length; i++) {
                 // 列表参数，递归地处理之
                 if(Common.TypeOfToken(children[i]) === Common.OBJECT_TYPE.REF_SLIST) {
-                    let childNode = AST[Common.getRefIndex(children[i])];
+                    let childNode = NODES[Common.getRefIndex(children[i])];
                     if(childNode.type === Common.NODE_TYPE.LAMBDA) {
                         ASM.push(`load @${children[i]}`);
                     }
@@ -294,13 +294,16 @@ const Compiler = function(RESOURCE) {
     ASM.push(`call @$1`);
     ASM.push(`halt`);
     // 把所有的Lambda单独作为过程
-    for(let node of AST) {
+    for(let node of NODES) {
         if(node.type === Common.NODE_TYPE.LAMBDA) {
             dealLambda(node);
         }
     }
 
-    console.log(ASM.join('\n'));
+    // console.log(ASM.join('\n'));
+
+    MODULE.setASM(ASM);
+    MODULE.setAST(AST);
 
     return MODULE;
 };

@@ -4,11 +4,13 @@
 // parser.js
 // Scheme源码语法分析
 // 输入：SOURCE（Scheme源代码）
-// 输出：[AST（抽象语法树）, RESOURCE（静态资源）, TOKENS（经词法分析后的SOURCE）]
+// 输出：AST（抽象语法树，含静态资源）
 
 const Common = require('./common.js'); // 引入公用模块
 
 const Lexer = function(code) {
+    // 预处理：去掉注释
+    code = code.replace(/\;.*\n/gi, '');
     // 预处理：转义恢复
     code = code.replace(/\&lt\;/gi, '<');
     code = code.replace(/\&gt\;/gi, '>');
@@ -64,15 +66,14 @@ const Lexer = function(code) {
             }
         }
     }
-    console.log("Tokens:");
-    console.log(tokens);
+    // console.log("Tokens:");
+    // console.log(tokens);
     return tokens;
 }
 
 // 语法分析
 const Parser = function(SOURCE) {
     let AST = new Common.AST();
-    let RESOURCE = new Common.Resource();
 
     let NODE_ARRAY = new Array();
     let NODE_COUNTER = 0;
@@ -90,7 +91,7 @@ const Parser = function(SOURCE) {
         let parentIndex = NODE_STACK.top();
         let currentIndex = allocateNodeIndex();
         let slist = new Common.SList(false, currentIndex, parentIndex);
-        let slistRef = RESOURCE.NewObject(Common.OBJECT_TYPE.SLIST, slist);
+        let slistRef = AST.NewObject(Common.OBJECT_TYPE.SLIST, slist);
         NODE_ARRAY[currentIndex] = slistRef;
         NODE_STACK.push(currentIndex);
     }
@@ -99,7 +100,7 @@ const Parser = function(SOURCE) {
         let parentIndex = NODE_STACK.top();
         let currentIndex = allocateNodeIndex();
         let lambda = new Common.Lambda(false, currentIndex, parentIndex);
-        let lambdaRef = RESOURCE.NewObject(Common.OBJECT_TYPE.SLIST, lambda);
+        let lambdaRef = AST.NewObject(Common.OBJECT_TYPE.SLIST, lambda);
         NODE_ARRAY[currentIndex] = lambdaRef;
         NODE_STACK.push(currentIndex);
     }
@@ -109,7 +110,7 @@ const Parser = function(SOURCE) {
         let parentIndex = NODE_STACK.top();
         let currentIndex = allocateNodeIndex();
         let qlist = new Common.SList(true, currentIndex, parentIndex);
-        let qlistRef = RESOURCE.NewObject(Common.OBJECT_TYPE.SLIST, qlist);
+        let qlistRef = AST.NewObject(Common.OBJECT_TYPE.SLIST, qlist);
         NODE_ARRAY[currentIndex] = qlistRef;
         NODE_STACK.push(currentIndex);
     }
@@ -119,31 +120,31 @@ const Parser = function(SOURCE) {
         let a = NODE_STACK.pop();
         if(NODE_ARRAY[NODE_STACK.top()] !== undefined) {
             let slistRef = NODE_ARRAY[NODE_STACK.top()];
-            RESOURCE.GetObject(slistRef).children.push(NODE_ARRAY[a]);
+            AST.GetObject(slistRef).children.push(NODE_ARRAY[a]);
         }
     }
     // 作为函数体结束
     function popBody() {
         let a = NODE_STACK.pop();
         let lambdaRef = NODE_ARRAY[NODE_STACK.top()];
-        RESOURCE.GetObject(lambdaRef).body = NODE_ARRAY[a];
+        AST.GetObject(lambdaRef).body = NODE_ARRAY[a];
     }
 
     // 添加新Symbol（列表项）
     function addItemSymbol(s) {
-        // let symbolRef = RESOURCE.NewObject(Common.OBJECT_TYPE.SYMBOL, s);
+        // let symbolRef = AST.NewObject(Common.OBJECT_TYPE.SYMBOL, s);
         let slistRef = NODE_ARRAY[NODE_STACK.top()];
-        RESOURCE.GetObject(slistRef).children.push(s);
+        AST.GetObject(slistRef).children.push(s);
     }
     // 添加新Symbol（参数列表）
     function addParameterSymbol(s) {
         let lambdaRef = NODE_ARRAY[NODE_STACK.top()];
-        RESOURCE.GetObject(lambdaRef).parameters.push(s);
+        AST.GetObject(lambdaRef).parameters.push(s);
     }
     // 添加新Symbol（函数体）
     function addBodySymbol(s) {
         let lambdaRef = NODE_ARRAY[NODE_STACK.top()];
-        RESOURCE.GetObject(lambdaRef).body = s;
+        AST.GetObject(lambdaRef).body = s;
     }
 
 
@@ -429,23 +430,23 @@ const Parser = function(SOURCE) {
             else { // quote也走这个分支，只不过要保留'号
                 let termtype = Common.TypeOfToken(tokens[index]);
                 if(termtype === Common.OBJECT_TYPE.STRING) {
-                    let newStringRef = RESOURCE.NewObject(Common.OBJECT_TYPE.STRING, tokens[index]);
+                    let newStringRef = AST.NewObject(Common.OBJECT_TYPE.STRING, tokens[index]);
                     addItemSymbol(newStringRef);
                 }
                 else if(termtype === Common.OBJECT_TYPE.BOOLEAN || termtype === Common.OBJECT_TYPE.NUMBER) {
-                    let newConstantRef = RESOURCE.NewObject(Common.OBJECT_TYPE.CONSTANT, tokens[index]);
+                    let newConstantRef = AST.NewObject(Common.OBJECT_TYPE.CONSTANT, tokens[index]);
                     addItemSymbol(newConstantRef);
                 }
                 else {
                     if(quoteFlag) {
-                        let newSymbolRef = RESOURCE.NewObject(Common.OBJECT_TYPE.SYMBOL, tokens[index]);
+                        let newSymbolRef = AST.NewObject(Common.OBJECT_TYPE.SYMBOL, tokens[index]);
                         addItemSymbol(newSymbolRef);
                     }
                     else {
-                        // NOTE 注意这里保留变量原形，待AST形成后再进行分析（替换重名自由变量→变量入RESOURCE）
+                        // NOTE 注意这里保留变量原形，待AST形成后再进行分析（替换重名自由变量→变量入AST）
                         /*
                         if(termtype === Common.OBJECT_TYPE.VARIABLE) {
-                            let newVarRef = RESOURCE.NewObject(Common.OBJECT_TYPE.VARIABLE, tokens[index]);
+                            let newVarRef = AST.NewObject(Common.OBJECT_TYPE.VARIABLE, tokens[index]);
                             addItemSymbol(newVarRef);
                         }
                         */
@@ -492,20 +493,20 @@ const Parser = function(SOURCE) {
     // 针对(quote .)的预处理
     function dealQuote() {
         for(let i = 0; i < NODE_ARRAY.length; i++) {
-            let node = RESOURCE.GetObject(NODE_ARRAY[i]);
+            let node = AST.GetObject(NODE_ARRAY[i]);
             if(node.type === Common.NODE_TYPE.SLIST && node.children[0] === 'quote') {
                 // 取出被引用的元素，并将其父元素设置为(quote .)的父元素
                 let quoted = node.children[1];
                 let type = Common.TypeOfToken(quoted);
                 if(/^REF\_/.test(type)) {
-                    RESOURCE.GetObject(quoted).isQuote = true;
-                    RESOURCE.GetObject(quoted).parentIndex = node.parentIndex;
+                    AST.GetObject(quoted).isQuote = true;
+                    AST.GetObject(quoted).parentIndex = node.parentIndex;
                 }
                 else {
                     quoted = "'" + quoted;
                 }
                 // 将quoted的父节点的所有相应的儿子都改成quoted
-                let parentNode = RESOURCE.GetObject(NODE_ARRAY[node.parentIndex]);
+                let parentNode = AST.GetObject(NODE_ARRAY[node.parentIndex]);
                 for(let j = 0; j < parentNode.children.length; j++) {
                     if(parentNode.children[j] === NODE_ARRAY[i]) {
                         parentNode.children[j] = quoted;
@@ -525,7 +526,7 @@ const Parser = function(SOURCE) {
             let currentNodeRef = fromNodeRef;
             let currentMap = null;
             while(/*currentNodeRef >= 0 && */currentNodeRef !== undefined) {
-                let node = RESOURCE.GetObject(currentNodeRef);
+                let node = AST.GetObject(currentNodeRef);
                 if(node.type === Common.NODE_TYPE.LAMBDA) {
                     currentMap = variableMapping[Common.getRefIndex(currentNodeRef)].map;
                     if(symbol in currentMap) {
@@ -541,7 +542,7 @@ const Parser = function(SOURCE) {
         function nearestLambdaRef(ref) {
             let cref = ref;
             while(/*cref >= 0 && */cref !== undefined) {
-                let node = RESOURCE.GetObject(cref);
+                let node = AST.GetObject(cref);
                 if(node.type === Common.NODE_TYPE.LAMBDA) {
                     return cref;
                 }
@@ -567,14 +568,14 @@ const Parser = function(SOURCE) {
         for(let index = 0; index < NODE_ARRAY.length; index++) {
             let ref = NODE_ARRAY[index];
             if(!ref) continue;
-            let node = RESOURCE.GetObject(ref);
+            let node = AST.GetObject(ref);
             if(node.type === Common.NODE_TYPE.LAMBDA) {
                 // 首先注册变量，替换变量表
                 let parameters = node.parameters;
                 let varMap = new Object();
                 varMap.map = new Object();
                 for(let i = 0; i < parameters.length; i++) {
-                    let varRef = RESOURCE.NewObject(Common.OBJECT_TYPE.VARIABLE, parameters[i]);
+                    let varRef = AST.NewObject(Common.OBJECT_TYPE.VARIABLE, parameters[i]);
                     (varMap.map)[parameters[i]] = varRef; //i;
                 }
                 varMap.count = parameters.length;
@@ -589,7 +590,7 @@ const Parser = function(SOURCE) {
                         if(children[0] === 'define' && i === 1) {
                             let currentLambdaIndex = Common.getRefIndex(nearestLambdaRef(ref));
                             let varNum = variableMapping[currentLambdaIndex].count;
-                            let varRef = RESOURCE.NewObject(Common.OBJECT_TYPE.VARIABLE, s);
+                            let varRef = AST.NewObject(Common.OBJECT_TYPE.VARIABLE, s);
                             (variableMapping[currentLambdaIndex].map)[s] = varRef; //varNum;
                             variableMapping[currentLambdaIndex].count = varNum + 1;
                         }
@@ -602,7 +603,7 @@ const Parser = function(SOURCE) {
         for(let index = 0; index < NODE_ARRAY.length; index++) {
             let ref = NODE_ARRAY[index];
             if(!ref) continue;
-            let node = RESOURCE.GetObject(ref);
+            let node = AST.GetObject(ref);
             if(node.type === Common.NODE_TYPE.LAMBDA) {
                 // 首先注册变量，替换变量表
                 let parameters = node.parameters;
@@ -660,9 +661,8 @@ const Parser = function(SOURCE) {
     parseBegin(TOKENS);         // 递归下降
     dealQuote();                // 特殊处理 (quote .) 语法
     variableRename();           // 重名自由变量重命名
-    AST = NODE_ARRAY;           // TODO 这里或许没有必要
 
-    return [AST, RESOURCE, TOKENS];
+    return AST;
 };
 
 

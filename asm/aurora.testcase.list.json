@@ -1,0 +1,416 @@
+{
+  "qualifiedName": "aurora.testcase.list",
+  "name": "list",
+  "AST": {
+    "variables": [
+      "trav",
+      "lat",
+      "concat",
+      "lat",
+      "atom"
+    ],
+    "symbols": [],
+    "strings": [
+      "\"【编译】列表遍历测试<br>期望输出“AuroraVirtualMachine”=\"",
+      "\"Hello\"",
+      "\"Aurora\"",
+      "\"Virtual\"",
+      "\"Machine\"",
+      "\"<br>\"",
+      "\"【编译】测试无限cons列表的内存管理<br>\"",
+      "\"Aurora\"",
+      "\"Virtual\"",
+      "\"Machine\"",
+      "\"Hello\""
+    ],
+    "slists": [
+      {
+        "type": "SLIST",
+        "index": 0,
+        "children": [
+          "$1"
+        ],
+        "isQuoted": false,
+        "parameters": [],
+        "body": null
+      },
+      {
+        "type": "LAMBDA",
+        "index": 1,
+        "parentIndex": 0,
+        "children": [],
+        "isQuoted": false,
+        "parameters": [],
+        "body": "$2"
+      },
+      {
+        "type": "SLIST",
+        "index": 2,
+        "parentIndex": 1,
+        "children": [
+          "begin",
+          "$3",
+          "$12",
+          "$13",
+          "$18",
+          "$19",
+          "$23",
+          "$24"
+        ],
+        "isQuoted": false,
+        "parameters": [],
+        "body": null
+      },
+      {
+        "type": "SLIST",
+        "index": 3,
+        "parentIndex": 2,
+        "children": [
+          "define",
+          "&0",
+          "$4"
+        ],
+        "isQuoted": false,
+        "parameters": [],
+        "body": null
+      },
+      {
+        "type": "LAMBDA",
+        "index": 4,
+        "parentIndex": 3,
+        "children": [],
+        "isQuoted": false,
+        "parameters": [
+          "&1"
+        ],
+        "body": "$5"
+      },
+      {
+        "type": "SLIST",
+        "index": 5,
+        "parentIndex": 4,
+        "children": [
+          "if",
+          "$6",
+          "#f",
+          "$7"
+        ],
+        "isQuoted": false,
+        "parameters": [],
+        "body": null
+      },
+      {
+        "type": "SLIST",
+        "index": 6,
+        "parentIndex": 5,
+        "children": [
+          "null?",
+          "&1"
+        ],
+        "isQuoted": false,
+        "parameters": [],
+        "body": null
+      },
+      {
+        "type": "SLIST",
+        "index": 7,
+        "parentIndex": 5,
+        "children": [
+          "begin",
+          "$8",
+          "$10"
+        ],
+        "isQuoted": false,
+        "parameters": [],
+        "body": null
+      },
+      {
+        "type": "SLIST",
+        "index": 8,
+        "parentIndex": 7,
+        "children": [
+          "display",
+          "$9"
+        ],
+        "isQuoted": false,
+        "parameters": [],
+        "body": null
+      },
+      {
+        "type": "SLIST",
+        "index": 9,
+        "parentIndex": 8,
+        "children": [
+          "car",
+          "&1"
+        ],
+        "isQuoted": false,
+        "parameters": [],
+        "body": null
+      },
+      {
+        "type": "SLIST",
+        "index": 10,
+        "parentIndex": 7,
+        "children": [
+          "&0",
+          "$11"
+        ],
+        "isQuoted": false,
+        "parameters": [],
+        "body": null
+      },
+      {
+        "type": "SLIST",
+        "index": 11,
+        "parentIndex": 10,
+        "children": [
+          "cdr",
+          "&1"
+        ],
+        "isQuoted": false,
+        "parameters": [],
+        "body": null
+      },
+      {
+        "type": "SLIST",
+        "index": 12,
+        "parentIndex": 2,
+        "children": [
+          "display",
+          "*0"
+        ],
+        "isQuoted": false,
+        "parameters": [],
+        "body": null
+      },
+      {
+        "type": "SLIST",
+        "index": 13,
+        "parentIndex": 2,
+        "children": [
+          "&0",
+          "$14"
+        ],
+        "isQuoted": false,
+        "parameters": [],
+        "body": null
+      },
+      {
+        "type": "SLIST",
+        "index": 14,
+        "parentIndex": 13,
+        "children": [
+          "car",
+          "$15"
+        ],
+        "isQuoted": false,
+        "parameters": [],
+        "body": null
+      },
+      {
+        "type": "SLIST",
+        "index": 15,
+        "parentIndex": 14,
+        "children": [
+          "cdr",
+          "$16"
+        ],
+        "isQuoted": false,
+        "parameters": [],
+        "body": null
+      },
+      {
+        "type": "SLIST",
+        "index": 16,
+        "parentIndex": 15,
+        "children": [
+          "*1",
+          "$17"
+        ],
+        "isQuoted": true,
+        "parameters": [],
+        "body": null
+      },
+      {
+        "type": "SLIST",
+        "index": 17,
+        "parentIndex": 16,
+        "children": [
+          "*2",
+          "*3",
+          "*4"
+        ],
+        "isQuoted": true,
+        "parameters": [],
+        "body": null
+      },
+      {
+        "type": "SLIST",
+        "index": 18,
+        "parentIndex": 2,
+        "children": [
+          "display",
+          "*5"
+        ],
+        "isQuoted": false,
+        "parameters": [],
+        "body": null
+      },
+      {
+        "type": "SLIST",
+        "index": 19,
+        "parentIndex": 2,
+        "children": [
+          "define",
+          "&2",
+          "$20"
+        ],
+        "isQuoted": false,
+        "parameters": [],
+        "body": null
+      },
+      {
+        "type": "LAMBDA",
+        "index": 20,
+        "parentIndex": 19,
+        "children": [],
+        "isQuoted": false,
+        "parameters": [
+          "&3",
+          "&4"
+        ],
+        "body": "$21"
+      },
+      {
+        "type": "SLIST",
+        "index": 21,
+        "parentIndex": 20,
+        "children": [
+          "&2",
+          "$22",
+          "&4"
+        ],
+        "isQuoted": false,
+        "parameters": [],
+        "body": null
+      },
+      {
+        "type": "SLIST",
+        "index": 22,
+        "parentIndex": 21,
+        "children": [
+          "cons",
+          "&4",
+          "&3"
+        ],
+        "isQuoted": false,
+        "parameters": [],
+        "body": null
+      },
+      {
+        "type": "SLIST",
+        "index": 23,
+        "parentIndex": 2,
+        "children": [
+          "display",
+          "*6"
+        ],
+        "isQuoted": false,
+        "parameters": [],
+        "body": null
+      },
+      {
+        "type": "SLIST",
+        "index": 24,
+        "parentIndex": 2,
+        "children": [
+          "&2",
+          "$25",
+          "*10"
+        ],
+        "isQuoted": false,
+        "parameters": [],
+        "body": null
+      },
+      {
+        "type": "SLIST",
+        "index": 25,
+        "parentIndex": 24,
+        "children": [
+          "*7",
+          "*8",
+          "*9"
+        ],
+        "isQuoted": true,
+        "parameters": [],
+        "body": null
+      }
+    ],
+    "constants": [],
+    "refIndexes": {
+      "*": 11,
+      "$": 26,
+      "!": 0,
+      "&": 5,
+      "#": 0,
+      "^": 0
+    }
+  },
+  "ASM": [
+    "call @$1",
+    "halt",
+    ";; [ASC] Function @ $1",
+    "@$1",
+    ";; [ASC] DEFINE",
+    "push @$4",
+    "store &0",
+    "push *0",
+    "display",
+    "push $16",
+    "cdr",
+    "car",
+    "call &0",
+    "push *5",
+    "display",
+    ";; [ASC] DEFINE",
+    "push @$20",
+    "store &2",
+    "push *6",
+    "display",
+    "push $25",
+    "push *10",
+    "call &2",
+    "begin",
+    "return",
+    ";; [ASC] Function @ $4",
+    "@$4",
+    "store &1",
+    "load &1",
+    "null?",
+    ";; [ASC] IF",
+    "iftrue @712op0dm3ma",
+    "load &1",
+    "car",
+    "display",
+    "load &1",
+    "cdr",
+    "call &0",
+    "begin",
+    "goto @dpvmjt8aj0a",
+    "@712op0dm3ma",
+    "push #f",
+    "@dpvmjt8aj0a",
+    "return",
+    ";; [ASC] Function @ $20",
+    "@$20",
+    "store &4",
+    "store &3",
+    "load &4",
+    "load &3",
+    "cons",
+    "load &4",
+    "call &2",
+    "return"
+  ]
+}

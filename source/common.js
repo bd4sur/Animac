@@ -33,6 +33,7 @@ const KEYWORDS = {
     "set!": true,
     "null?": true,
     "display": true,
+    "newline": true,
     "call/cc": true,
     // TODO 待完善
 };
@@ -62,11 +63,6 @@ const SList = function(isQuote, index, parentIndex) {
 }
 const Lambda = function(isQuote, index, parentIndex) {
     return new Node(NODE_TYPE.LAMBDA, index, parentIndex, null, isQuote);
-}
-
-// AST类
-const AST = function () {
-    return this;
 }
 
 // 对象类型枚举
@@ -177,8 +173,8 @@ const TypeOfToken = function(token) {
     }
 };
 
-// Resource类
-const Resource = function () {
+// AST类
+const AST = function () {
     this.variables = new Array();
     this.symbols = new Array();
     this.strings = new Array();
@@ -195,7 +191,7 @@ const Resource = function () {
 
     return this;
 }
-Resource.prototype = {
+AST.prototype = {
     GetObject: function(ref) {
         // TODO 输入检查
         let prefix = ref[0];
@@ -248,9 +244,19 @@ Resource.prototype = {
 
 
 // 模块类
-const Module = function() {
+const Module = function(qualifiedName) {
+    this.qualifiedName = qualifiedName; // :string
+    this.name = (qualifiedName.split(/\./gi)).top(); // :string
+    this.AST = null; // :AST
+    this.ASM = null; // :Array<Instruction>
     return this;
 };
+Module.prototype.setAST = function(ast) {
+    this.AST = ast;
+}
+Module.prototype.setASM = function(asm) {
+    this.ASM = asm;
+}
 
 // 线程类
 const Thread = function() {
@@ -270,7 +276,6 @@ module.exports.getRefIndex = getRefIndex;
 module.exports.getRefType = getRefType;
 module.exports.makeRef = makeRef;
 module.exports.TypeOfToken = TypeOfToken;
-module.exports.Resource = Resource;
 module.exports.Module = Module;
 module.exports.Thread = Thread;
 
