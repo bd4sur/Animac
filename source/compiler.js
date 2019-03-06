@@ -14,17 +14,26 @@ const Compiler = function(qualifiedName, AST) {
 
     let NODES = AST.slists;
 
+    // 虚拟机指令序列
     let ASM = new Array();
 
-    // 生成随机字符串
+    // 生成随机且不重复的字符串
+    let randomStringDict = new Object();
     function getRandomString() {
-        return Math.random().toString(36).substr(2); // TODO 这个地方需要更细致地考虑
+        while(1) {
+            let randomString = Math.random().toString(36).substr(2);
+            if(!(randomString in randomStringDict)) {
+                randomStringDict[randomString] = true;
+                return randomString;
+            }
+        }
     }
 
     // 处理简单Application，即第一项不为SLIST的Application
-    function dealLambda(node) {
+    function compileLambda(nodeRef) {
+        let node = AST.GetObject(nodeRef);
         // 插入注释
-        ASM.push(`;; [ASC] Function @ $${node.index}`);
+        ASM.push(`;; [SSC] Function @ $${node.index}`);
         // 插入标签，格式为@$x
         ASM.push(`@$${node.index}`);
         // 按参数列表逆序，插入store指令
@@ -34,7 +43,7 @@ const Compiler = function(qualifiedName, AST) {
         }
 
         if(Common.TypeOfToken(node.body) === Common.OBJECT_TYPE.REF_SLIST) {
-            bodyNode = NODES[Common.getRefIndex(node.body)];
+            bodyNode = AST.GetObject(node.body);
             if(bodyNode.type === Common.NODE_TYPE.LAMBDA) {
                 ASM.push(`push @${node.body}`);
             }
@@ -42,7 +51,7 @@ const Compiler = function(qualifiedName, AST) {
                 ASM.push(`push ${node.body}`);
             }
             else {
-                dealSList(bodyNode);
+                compileSList(node.body);
             }
         }
         else if(Common.TypeOfToken(node.body) === Common.OBJECT_TYPE.REF_VARIABLE) {
@@ -54,201 +63,229 @@ const Compiler = function(qualifiedName, AST) {
         ASM.push(`return`);
     }
 
+    // 处理call/cc
+    function compileCallCC(nodeRef) {
+        let node = AST.GetObject(nodeRef);
+        // 参数：可能是lambda，也可能是变量
+        let thunk = node.children[1];
+        // cont临时变量，同时也是cont返回标签
+        let contName = Common.makeRef(Common.OBJECT_TYPE.VARIABLE, `CC-${thunk}-${getRandomString()}`);
+        ASM.push(`;; [SSC] Current Continuation captured, stored in ${contName}`);
+        ASM.push(`capturecc ${contName}`);
+        ASM.push(`load ${contName}`);
+        if(Common.TypeOfToken(thunk) === Common.OBJECT_TYPE.REF_SLIST) {
+            let thunkNode = AST.GetObject(thunk);
+            if(thunkNode.type === Common.NODE_TYPE.LAMBDA) {
+                ASM.push(`call @${thunk}`);
+            }
+            else {
+                throw `[SSC] Error: A thunk required`;
+            }
+        }
+        else if(Common.TypeOfToken(thunk) === Common.OBJECT_TYPE.REF_VARIABLE) {
+            ASM.push(`call ${thunk}`);
+        }
+        else {
+            throw `[SSC] Error: A thunk required`;
+        }
+        ASM.push(`@${contName}`);
+        return;
+    }
+
+    // 处理define
+    function compileDefine(nodeRef) {
+        let node = AST.GetObject(nodeRef);
+        ASM.push(`;; [SSC] DEFINE`);
+        let rightValue = node.children[2];
+        // load/push
+        if(Common.TypeOfToken(rightValue) === Common.OBJECT_TYPE.REF_SLIST) {
+            let rightValueNode = AST.GetObject(rightValue);
+            if(rightValueNode.type === Common.NODE_TYPE.LAMBDA) {
+                ASM.push(`push @${rightValue}`);
+            }
+            else {
+                ASM.push(`push ${rightValue}`);
+            }
+        }
+        else if(Common.TypeOfToken(rightValue) === Common.OBJECT_TYPE.REF_VARIABLE) {
+            ASM.push(`load ${rightValue}`);
+        }
+        else {
+            ASM.push(`push ${rightValue}`);
+        }
+        // store
+        let leftVariable = node.children[1];
+        if(Common.TypeOfToken(leftVariable) === Common.OBJECT_TYPE.REF_VARIABLE) {
+            ASM.push(`store ${leftVariable}`);
+        }
+        else {
+            throw `[SSC] Error: The first parameter of 'define' should be REF_VARIABLE`
+        }
+        return;
+    }
+
+    // 处理set!
+    function compileSet(nodeRef) {
+        let node = AST.GetObject(nodeRef);
+        ASM.push(`;; [SSC] SET!`);
+        let rightValue = node.children[2];
+        // load/push
+        if(Common.TypeOfToken(rightValue) === Common.OBJECT_TYPE.REF_SLIST) {
+            let rightValueNode = AST.GetObject(rightValue);
+            if(rightValueNode.type === Common.NODE_TYPE.LAMBDA) {
+                ASM.push(`push @${rightValue}`);
+            }
+            else if(rightValueNode.isQuoted === true) {
+                ASM.push(`push ${rightValue}`);
+            }
+            else {
+                compileSList(rightValue);
+            }
+        }
+        else if(Common.TypeOfToken(rightValue) === Common.OBJECT_TYPE.REF_VARIABLE) {
+            ASM.push(`load ${rightValue}`);
+        }
+        else {
+            ASM.push(`push ${rightValue}`);
+        }
+        // store
+        let leftVariable = node.children[1];
+        if(Common.TypeOfToken(leftVariable) === Common.OBJECT_TYPE.REF_VARIABLE) {
+            ASM.push(`set! ${leftVariable}`);
+        }
+        else {
+            throw `[SSC] Error: The first parameter of 'set!' should be REF_VARIABLE`
+        }
+        return;
+    }
+
+    // 处理if
+    // (if p t f)
+    // TODO 此处可以加比较高级的编译优化
+    function compileIf(nodeRef) {
+        let node = AST.GetObject(nodeRef);
+        ASM.push(`;; [SSC] IF`);
+        // 处理p
+        let predicate = node.children[1];
+        if(Common.TypeOfToken(predicate) === Common.OBJECT_TYPE.REF_SLIST) {
+            let predicateNode = AST.GetObject(predicate);
+            if(predicateNode.type === Common.NODE_TYPE.LAMBDA) {
+                ASM.push(`load ${predicate}`);
+            }
+            else if(predicateNode.isQuoted === true) {
+                ASM.push(`push ${predicate}`);
+            }
+            else {
+                compileSList(predicate);
+            }
+        }
+        else if(Common.TypeOfToken(predicate) === Common.OBJECT_TYPE.REF_VARIABLE) {
+            ASM.push(`load ${predicate}`);
+        }
+        else { // TODO 此处可以作优化
+            ASM.push(`push ${predicate}`);
+        }
+        // 认为取f分支的概率较大，因此使用iftrue指令
+        let trueTag = `@${getRandomString()}`; // true分支标签
+        let endTag = `@${getRandomString()}`; // if语句结束标签
+        ASM.push(`iftrue ${trueTag}`);
+        // 处理false分支
+        let falseBranch = node.children[3];
+        if(Common.TypeOfToken(falseBranch) === Common.OBJECT_TYPE.REF_SLIST) {
+            let falseBranchNode = AST.GetObject(falseBranch);
+            if(falseBranchNode.type === Common.NODE_TYPE.LAMBDA) {
+                ASM.push(`load ${falseBranch}`);
+            }
+            else if(falseBranchNode.isQuoted === true) {
+                ASM.push(`push ${falseBranch}`);
+            }
+            else {
+                compileSList(falseBranch);
+            }
+        }
+        else if(Common.TypeOfToken(falseBranch) === Common.OBJECT_TYPE.REF_VARIABLE) {
+            ASM.push(`load ${falseBranch}`);
+        }
+        else {
+            ASM.push(`push ${falseBranch}`);
+        }
+        // 跳转到结束标签
+        ASM.push(`goto ${endTag}`);
+        // 添加true分支标签
+        ASM.push(trueTag);
+        // 处理true分支
+        let trueBranch = node.children[2];
+        if(Common.TypeOfToken(trueBranch) === Common.OBJECT_TYPE.REF_SLIST) {
+            let trueBranchNode = AST.GetObject(trueBranch);
+            if(trueBranchNode.type === Common.NODE_TYPE.LAMBDA) {
+                ASM.push(`load ${trueBranch}`);
+            }
+            else if(trueBranchNode.isQuoted === true) {
+                ASM.push(`push ${trueBranch}`);
+            }
+            else {
+                compileSList(trueBranch);
+            }
+        }
+        else if(Common.TypeOfToken(trueBranch) === Common.OBJECT_TYPE.REF_VARIABLE) {
+            ASM.push(`load ${trueBranch}`);
+        }
+        else {
+            ASM.push(`push ${trueBranch}`);
+        }
+        // 结束标签
+        ASM.push(endTag);
+        return;
+    }
+
     // 处理简单Application，即第一项不为Application的Application
-    function dealSList(node) {
+    function compileSList(nodeRef) {
+        let node = AST.GetObject(nodeRef);
         let children = node.children;
         // 空表，直接返回
-        if(children.length === 0) {
-            return;
-        }
+        if(children.length === 0) { return; }
+
         // 检查第一项的类型，区别对待SLIST/LAMBDA和原子
-        // TODO Lambda的优化以后再说
         let first = children[0];
 
         // 首先处理特殊格式
-        // (call/cc (lambda (kont) ...))
-        if(first === 'call/cc') {
-            // get到lambda里面的唯一参数
-            let lambdaNode = NODES[Common.getRefIndex(children[1])];
-            let contName = lambdaNode.parameters[0];
-            ASM.push(`;; [ASC] Capture Cont @ ${contName}`);
-            ASM.push(`capturecc ${contName}`);
-            // 加入lambda的body
-            let body = lambdaNode.body;
-            if(Common.TypeOfToken(body) === Common.OBJECT_TYPE.REF_SLIST) {
-                bodyNode = NODES[Common.getRefIndex(body)];
-                if(bodyNode.type === Common.NODE_TYPE.LAMBDA) {
-                    ASM.push(`push @${body}`);
-                }
-                else if(bodyNode.isQuoted === true) {
-                    ASM.push(`push ${body}`);
-                }
-                else {
-                    dealSList(bodyNode);
-                }
-            }
-            else if(Common.TypeOfToken(body) === Common.OBJECT_TYPE.REF_VARIABLE) {
-                ASM.push(`load ${body}`);
-            }
-            else {
-                ASM.push(`push ${body}`);
-            }
-            // continuation返回标签
-            ASM.push(`;; [ASC] Cont @ ${contName} Re-entry`);
-            ASM.push(`@${contName}`);
-            return;
-        }
+        if(first === 'call/cc') { return compileCallCC(nodeRef); }
+        else if(first === 'define') { return compileDefine(nodeRef); }
+        else if(first === 'set!') { return compileSet(nodeRef); }
+        else if(first === 'if') { return compileIf(nodeRef);}
 
-        // (define variable x)
-        else if(first === 'define') {
-            ASM.push(`;; [ASC] DEFINE`);
-            let rightValue = children[2];
-            // load/push
-            if(Common.TypeOfToken(rightValue) === Common.OBJECT_TYPE.REF_SLIST) {
-                rightValueNode = NODES[Common.getRefIndex(rightValue)];
-                if(rightValueNode.type === Common.NODE_TYPE.LAMBDA) {
-                    ASM.push(`push @${rightValue}`);
-                }
-                else {
-                    ASM.push(`push ${rightValue}`);
-                }
-            }
-            else if(Common.TypeOfToken(rightValue) === Common.OBJECT_TYPE.REF_VARIABLE) {
-                ASM.push(`load ${rightValue}`);
-            }
-            else {
-                ASM.push(`push ${rightValue}`);
-            }
-            // store
-            let leftVariable = children[1];
-            ASM.push(`store ${leftVariable}`);
-            return;
-        }
-
-        // (set! variable expr)
-        else if(first === 'set!') {
-            ASM.push(`;; [ASC] SET!`);
-            let rightValue = children[2];
-            // load/push
-            if(Common.TypeOfToken(rightValue) === Common.OBJECT_TYPE.REF_SLIST) {
-                rightValueNode = NODES[Common.getRefIndex(rightValue)];
-                if(rightValueNode.type === Common.NODE_TYPE.LAMBDA) {
-                    ASM.push(`push @${rightValue}`);
-                }
-                else if(rightValueNode.isQuoted === true) {
-                    ASM.push(`push ${rightValue}`);
-                }
-                else {
-                    dealSList(rightValueNode);
-                }
-            }
-            else if(Common.TypeOfToken(rightValue) === Common.OBJECT_TYPE.REF_VARIABLE) {
-                ASM.push(`load ${rightValue}`);
-            }
-            else {
-                ASM.push(`push ${rightValue}`);
-            }
-            // store
-            let leftVariable = children[1];
-            ASM.push(`set! ${leftVariable}`);
-            return;
-        }
-
-        // (if p t f)
-        // TODO 此处可以加比较高级的编译优化
-        else if(first === 'if') {
-            // 处理p
-            let predicate = children[1];
-            if(Common.TypeOfToken(predicate) === Common.OBJECT_TYPE.REF_SLIST) {
-                predicateNode = NODES[Common.getRefIndex(predicate)];
-                if(predicateNode.type === Common.NODE_TYPE.LAMBDA) {
-                    ASM.push(`load ${predicate}`);
-                }
-                else if(predicateNode.isQuoted === true) {
-                    ASM.push(`push ${predicate}`);
-                }
-                else {
-                    dealSList(predicateNode);
-                }
-            }
-            else if(Common.TypeOfToken(predicate) === Common.OBJECT_TYPE.REF_VARIABLE) {
-                ASM.push(`load ${predicate}`);
-            }
-            else {
-                ASM.push(`push ${predicate}`);
-            }
-            // 认为取f分支的概率较大，因此使用iftrue指令
-            let trueTag = `@${getRandomString()}`; // true分支标签
-            let endTag = `@${getRandomString()}`; // if语句结束标签
-            ASM.push(`;; [ASC] IF`);
-            ASM.push(`iftrue ${trueTag}`);
-            // 处理false分支
-            let falseBranch = children[3];
-            if(Common.TypeOfToken(falseBranch) === Common.OBJECT_TYPE.REF_SLIST) {
-                falseBranchNode = NODES[Common.getRefIndex(falseBranch)];
-                if(falseBranchNode.type === Common.NODE_TYPE.LAMBDA) {
-                    ASM.push(`load ${falseBranch}`);
-                }
-                else if(falseBranchNode.isQuoted === true) {
-                    ASM.push(`push ${falseBranch}`);
-                }
-                else {
-                    dealSList(falseBranchNode);
-                }
-            }
-            else if(Common.TypeOfToken(falseBranch) === Common.OBJECT_TYPE.REF_VARIABLE) {
-                ASM.push(`load ${falseBranch}`);
-            }
-            else {
-                ASM.push(`push ${falseBranch}`);
-            }
-            // 跳转到结束标签
-            ASM.push(`goto ${endTag}`);
-            // 添加true分支标签
-            ASM.push(trueTag);
-            // 处理true分支
-            let trueBranch = children[2];
-            if(Common.TypeOfToken(trueBranch) === Common.OBJECT_TYPE.REF_SLIST) {
-                trueBranchNode = NODES[Common.getRefIndex(trueBranch)];
-                if(trueBranchNode.type === Common.NODE_TYPE.LAMBDA) {
-                    ASM.push(`load ${trueBranch}`);
-                }
-                else if(trueBranchNode.isQuoted === true) {
-                    ASM.push(`push ${trueBranch}`);
-                }
-                else {
-                    dealSList(trueBranchNode);
-                }
-            }
-            else if(Common.TypeOfToken(trueBranch) === Common.OBJECT_TYPE.REF_VARIABLE) {
-                ASM.push(`load ${trueBranch}`);
-            }
-            else {
-                ASM.push(`push ${trueBranch}`);
-            }
-            // 结束标签
-            ASM.push(endTag);
-            return;
-        }
-
+        // TODO Lambda的优化
         // 根据第一项是否是列表（暂且含lambda），采取ANF变换和直接生成汇编两种策略
+        // TODO 此处不正确。即对于(A=SList ...)这种形式，应当进行一次η变换，变成((lambda (a ...) (a ...)) A ...)的形式
+        // TODO   也就是说，临时变量不能被绑定在当前闭包中
+        // TODO   这个变换需要在前端完成
         let typeOfFirst = Common.TypeOfToken(first);
-        if(typeOfFirst === Common.OBJECT_TYPE.REF_SLIST) {
-            // 转变成ANF
-            let tempVarArray = new Array();
+        if(typeOfFirst === Common.OBJECT_TYPE.REF_SLIST && AST.GetObject(first).type !== Common.NODE_TYPE.LAMBDA) {
+            let tempVarArray = new Array(); // 中间变量名称（ANF变换）
             for(let i = 0; i < children.length; i++) {
-                let childNode = NODES[Common.getRefIndex(children[i])];
-                if(childNode.type === Common.NODE_TYPE.LAMBDA) {
-                    ASM.push(`load @${children[i]}`);
+                let child = children[i];
+                if(Common.TypeOfToken(child) === Common.OBJECT_TYPE.REF_SLIST) {
+                    let childNode = AST.GetObject(child);
+                    if(childNode.type === Common.NODE_TYPE.LAMBDA) {
+                        ASM.push(`load @${child}`);
+                    }
+                    else if(childNode.isQuoted === true) {
+                        ASM.push(`push ${child}`);
+                    }
+                    else {
+                        compileSList(child);
+                    }
                 }
-                else if(childNode.isQuoted === true) {
-                    ASM.push(`push ${children[i]}`);
+                // 变量参数用load
+                else if(Common.TypeOfToken(child) === Common.OBJECT_TYPE.REF_VARIABLE) {
+                    ASM.push(`load ${child}`);
                 }
+                // 其他类型的引用用push
                 else {
-                    dealSList(childNode);
+                    ASM.push(`push ${child}`);
                 }
-                let tempVar = getRandomString();
-                tempVarArray[i] = `&${tempVar}`;
+                let tempVar = getRandomString(); // 中间变量
+                tempVarArray[i] = Common.makeRef(Common.OBJECT_TYPE.VARIABLE, tempVar);
                 ASM.push(`store ${tempVarArray[i]}`);
             }
             for(let i = 1; i < children.length; i++) {
@@ -257,46 +294,61 @@ const Compiler = function(qualifiedName, AST) {
             ASM.push(`call ${tempVarArray[0]}`);
         }
         else {
-            // 处理参数项
-            for(let i = 1; i < children.length; i++) {
-                // 列表参数，递归地处理之
-                if(Common.TypeOfToken(children[i]) === Common.OBJECT_TYPE.REF_SLIST) {
-                    let childNode = NODES[Common.getRefIndex(children[i])];
+            for(let i = 1; i < children.length; i++) { // 处理参数列表
+                let child = children[i];
+                if(Common.TypeOfToken(child) === Common.OBJECT_TYPE.REF_SLIST) {
+                    let childNode = AST.GetObject(child);
                     if(childNode.type === Common.NODE_TYPE.LAMBDA) {
-                        ASM.push(`load @${children[i]}`);
+                        ASM.push(`load @${child}`);
                     }
                     else if(childNode.isQuoted === true) {
-                        ASM.push(`push ${children[i]}`);
+                        ASM.push(`push ${child}`);
                     }
                     else {
-                        dealSList(childNode);
+                        compileSList(child);
                     }
                 }
                 // 变量参数用load
-                else if(Common.TypeOfToken(children[i]) === Common.OBJECT_TYPE.REF_VARIABLE) {
-                    ASM.push(`load ${children[i]}`);
+                else if(Common.TypeOfToken(child) === Common.OBJECT_TYPE.REF_VARIABLE) {
+                    ASM.push(`load ${child}`);
                 }
                 // 其他类型的引用用push
                 else {
-                    ASM.push(`push ${children[i]}`);
+                    ASM.push(`push ${child}`);
                 }
             }
-            // 调用第一项，TODO：尾递归
+            // 调用
             if(typeOfFirst === Common.OBJECT_TYPE.KEYWORD) {
-                ASM.push(`${first}`);
+                if(first !== 'begin') { // begin不加入指令序列
+                    ASM.push(`${first}`);
+                }
+            }
+            else if(node.isTail) { // 尾调用（尾递归）
+                if(typeOfFirst === Common.OBJECT_TYPE.REF_SLIST) {
+                    ASM.push(`tailcall @${first}`);
+                }
+                else {
+                    ASM.push(`tailcall ${first}`);
+                }
             }
             else {
-                ASM.push(`call ${first}`);
+                if(typeOfFirst === Common.OBJECT_TYPE.REF_SLIST) {
+                    ASM.push(`call @${first}`);
+                }
+                else {
+                    ASM.push(`call ${first}`);
+                }
             }
         }
     }
 
+    // 程序入口（顶级函数）
     ASM.push(`call @$1`);
     ASM.push(`halt`);
     // 把所有的Lambda单独作为过程
     for(let node of NODES) {
         if(node.type === Common.NODE_TYPE.LAMBDA) {
-            dealLambda(node);
+            compileLambda(Common.makeRef(Common.OBJECT_TYPE.SLIST, node.index));
         }
     }
 

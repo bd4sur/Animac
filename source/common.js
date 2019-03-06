@@ -140,7 +140,12 @@ const getRefType = function(ref) {
 
 const makeRef = function(type, index) {
     if(index === undefined) return undefined;
-    return `${REF_PREFIX["REF_"+type]}${parseInt(index)}`;
+    if(isNaN(index)) {
+        return `${REF_PREFIX["REF_"+type]}${index}`;
+    }
+    else {
+        return `${REF_PREFIX["REF_"+type]}${parseInt(index)}`;
+    }
 }
 
 // 获取符号类型
@@ -195,7 +200,8 @@ AST.prototype = {
     GetObject: function(ref) {
         // TODO 输入检查
         let prefix = ref[0];
-        let index = parseInt(ref.substring(1));
+        // let index = parseInt(ref.substring(1));
+        let index = getRefIndex(ref);
         if(prefix === REF_PREFIX.REF_STRING) {
             return this.strings[index];
         }

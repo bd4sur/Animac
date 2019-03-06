@@ -3,6 +3,8 @@
   "name": "yin-yang-puzzle",
   "AST": {
     "variables": [
+      "a",
+      "b",
       "x",
       "k",
       "x",
@@ -51,19 +53,8 @@
         "parentIndex": 2,
         "children": [
           "$4",
-          "$10"
-        ],
-        "isQuoted": false,
-        "parameters": [],
-        "body": null
-      },
-      {
-        "type": "SLIST",
-        "index": 4,
-        "parentIndex": 3,
-        "children": [
-          "$5",
-          "$8"
+          "$6",
+          "$12"
         ],
         "isQuoted": false,
         "parameters": [],
@@ -71,23 +62,23 @@
       },
       {
         "type": "LAMBDA",
-        "index": 5,
-        "parentIndex": 4,
+        "index": 4,
+        "parentIndex": 3,
         "children": [],
         "isQuoted": false,
         "parameters": [
-          "&0"
+          "&0",
+          "&1"
         ],
-        "body": "$6"
+        "body": "$5"
       },
       {
         "type": "SLIST",
-        "index": 6,
-        "parentIndex": 5,
+        "index": 5,
+        "parentIndex": 4,
         "children": [
-          "begin",
-          "$7",
-          "&0"
+          "&0",
+          "&1"
         ],
         "isQuoted": false,
         "parameters": [],
@@ -95,8 +86,44 @@
       },
       {
         "type": "SLIST",
+        "index": 6,
+        "parentIndex": 3,
+        "children": [
+          "$7",
+          "$10"
+        ],
+        "isQuoted": false,
+        "parameters": [],
+        "body": null
+      },
+      {
+        "type": "LAMBDA",
         "index": 7,
         "parentIndex": 6,
+        "children": [],
+        "isQuoted": false,
+        "parameters": [
+          "&2"
+        ],
+        "body": "$8"
+      },
+      {
+        "type": "SLIST",
+        "index": 8,
+        "parentIndex": 7,
+        "children": [
+          "begin",
+          "$9",
+          "&2"
+        ],
+        "isQuoted": false,
+        "parameters": [],
+        "body": null
+      },
+      {
+        "type": "SLIST",
+        "index": 9,
+        "parentIndex": 8,
         "children": [
           "display",
           "*0"
@@ -107,34 +134,11 @@
       },
       {
         "type": "SLIST",
-        "index": 8,
-        "parentIndex": 4,
+        "index": 10,
+        "parentIndex": 6,
         "children": [
           "call/cc",
-          "$9"
-        ],
-        "isQuoted": false,
-        "parameters": [],
-        "body": null
-      },
-      {
-        "type": "LAMBDA",
-        "index": 9,
-        "parentIndex": 8,
-        "children": [],
-        "isQuoted": false,
-        "parameters": [
-          "&1"
-        ],
-        "body": "&1"
-      },
-      {
-        "type": "SLIST",
-        "index": 10,
-        "parentIndex": 3,
-        "children": [
-          "$11",
-          "$14"
+          "$11"
         ],
         "isQuoted": false,
         "parameters": [],
@@ -147,18 +151,41 @@
         "children": [],
         "isQuoted": false,
         "parameters": [
-          "&2"
+          "&3"
         ],
-        "body": "$12"
+        "body": "&3"
       },
       {
         "type": "SLIST",
         "index": 12,
-        "parentIndex": 11,
+        "parentIndex": 3,
+        "children": [
+          "$13",
+          "$16"
+        ],
+        "isQuoted": false,
+        "parameters": [],
+        "body": null
+      },
+      {
+        "type": "LAMBDA",
+        "index": 13,
+        "parentIndex": 12,
+        "children": [],
+        "isQuoted": false,
+        "parameters": [
+          "&4"
+        ],
+        "body": "$14"
+      },
+      {
+        "type": "SLIST",
+        "index": 14,
+        "parentIndex": 13,
         "children": [
           "begin",
-          "$13",
-          "&2"
+          "$15",
+          "&4"
         ],
         "isQuoted": false,
         "parameters": [],
@@ -166,8 +193,8 @@
       },
       {
         "type": "SLIST",
-        "index": 13,
-        "parentIndex": 12,
+        "index": 15,
+        "parentIndex": 14,
         "children": [
           "display",
           "*1"
@@ -178,11 +205,11 @@
       },
       {
         "type": "SLIST",
-        "index": 14,
-        "parentIndex": 10,
+        "index": 16,
+        "parentIndex": 12,
         "children": [
           "call/cc",
-          "$15"
+          "$17"
         ],
         "isQuoted": false,
         "parameters": [],
@@ -190,22 +217,22 @@
       },
       {
         "type": "LAMBDA",
-        "index": 15,
-        "parentIndex": 14,
+        "index": 17,
+        "parentIndex": 16,
         "children": [],
         "isQuoted": false,
         "parameters": [
-          "&3"
+          "&5"
         ],
-        "body": "&3"
+        "body": "&5"
       }
     ],
     "constants": [],
     "refIndexes": {
       "*": 2,
-      "$": 16,
+      "$": 18,
       "!": 0,
-      "&": 4,
+      "&": 6,
       "#": 0,
       "^": 0
     }
@@ -213,59 +240,52 @@
   "ASM": [
     "call @$1",
     "halt",
-    ";; [ASC] Function @ $1",
+    ";; [SSC] Function @ $1",
     "@$1",
-    "load @$5",
-    "store &r6t5histyen",
-    ";; [ASC] Capture Cont @ &1",
-    "capturecc &1",
-    "load &1",
-    ";; [ASC] Cont @ &1 Re-entry",
-    "@&1",
-    "store &ncnbop211l8",
-    "load &ncnbop211l8",
-    "call &r6t5histyen",
-    "store &7zhbor4tbqs",
-    "load @$11",
-    "store &pbbirzj7zrl",
-    ";; [ASC] Capture Cont @ &3",
-    "capturecc &3",
-    "load &3",
-    ";; [ASC] Cont @ &3 Re-entry",
-    "@&3",
-    "store &1kgemx5byvz",
-    "load &1kgemx5byvz",
-    "call &pbbirzj7zrl",
-    "store &9o65qycbss",
-    "load &9o65qycbss",
-    "call &7zhbor4tbqs",
-    "begin",
+    ";; [SSC] Current Continuation captured, stored in &CC-$11-q4x32byw6m",
+    "capturecc &CC-$11-q4x32byw6m",
+    "load &CC-$11-q4x32byw6m",
+    "call @$11",
+    "@&CC-$11-q4x32byw6m",
+    "call @$7",
+    ";; [SSC] Current Continuation captured, stored in &CC-$17-1j2q3sljbpo",
+    "capturecc &CC-$17-1j2q3sljbpo",
+    "load &CC-$17-1j2q3sljbpo",
+    "call @$17",
+    "@&CC-$17-1j2q3sljbpo",
+    "call @$13",
+    "call @$4",
     "return",
-    ";; [ASC] Function @ $5",
-    "@$5",
+    ";; [SSC] Function @ $4",
+    "@$4",
+    "store &1",
     "store &0",
+    "load &1",
+    "call &0",
+    "return",
+    ";; [SSC] Function @ $7",
+    "@$7",
+    "store &2",
     "push *0",
     "display",
-    "load &0",
-    "begin",
-    "return",
-    ";; [ASC] Function @ $9",
-    "@$9",
-    "store &1",
-    "load &1",
-    "return",
-    ";; [ASC] Function @ $11",
-    "@$11",
-    "store &2",
-    "push *1",
-    "display",
     "load &2",
-    "begin",
     "return",
-    ";; [ASC] Function @ $15",
-    "@$15",
+    ";; [SSC] Function @ $11",
+    "@$11",
     "store &3",
     "load &3",
+    "return",
+    ";; [SSC] Function @ $13",
+    "@$13",
+    "store &4",
+    "push *1",
+    "display",
+    "load &4",
+    "return",
+    ";; [SSC] Function @ $17",
+    "@$17",
+    "store &5",
+    "load &5",
     "return"
   ]
 }

@@ -31,7 +31,7 @@ fs.readFile(moduleFilePath, {encoding:"utf-8"}, (error, data)=> {
             if(error) { throw error; }
             console.log(`[SSC] Module '${moduleFilePath}': `);
             console.log(`[SSC]   Target code @ '${outFilePath}'.`);
-            console.log(`[SSC]   Successfully Compiled.`);
+            console.log(`[SSC]   Successfully Compiled. (${new Date().toISOString()})`);
         });
     }
 

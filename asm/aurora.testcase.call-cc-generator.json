@@ -1,28 +1,16 @@
 {
-  "qualifiedName": "aurora.testcase.list",
-  "name": "list",
+  "qualifiedName": "aurora.testcase.call-cc-generator",
+  "name": "call-cc-generator",
   "AST": {
     "variables": [
-      "trav",
-      "lat",
-      "concat",
-      "lat",
-      "atom"
+      "count",
+      "generator",
+      "g",
+      "init",
+      "Kont"
     ],
     "symbols": [],
-    "strings": [
-      "\"【编译】列表遍历测试<br>期望输出“AuroraVirtualMachine”=\"",
-      "\"Hello\"",
-      "\"Aurora\"",
-      "\"Virtual\"",
-      "\"Machine\"",
-      "\"<br>\"",
-      "\"【编译】测试无限cons列表的内存管理<br>\"",
-      "\"Aurora\"",
-      "\"Virtual\"",
-      "\"Machine\"",
-      "\"Hello\""
-    ],
+    "strings": [],
     "slists": [
       {
         "type": "SLIST",
@@ -50,12 +38,11 @@
         "children": [
           "begin",
           "$3",
-          "$12",
-          "$13",
+          "$4",
+          "$5",
+          "$16",
           "$18",
-          "$19",
-          "$23",
-          "$24"
+          "$19"
         ],
         "isQuoted": false,
         "parameters": [],
@@ -68,7 +55,33 @@
         "children": [
           "define",
           "&0",
-          "$4"
+          "#0"
+        ],
+        "isQuoted": false,
+        "parameters": [],
+        "body": null
+      },
+      {
+        "type": "SLIST",
+        "index": 4,
+        "parentIndex": 2,
+        "children": [
+          "define",
+          "&1",
+          "#f"
+        ],
+        "isQuoted": false,
+        "parameters": [],
+        "body": null
+      },
+      {
+        "type": "SLIST",
+        "index": 5,
+        "parentIndex": 2,
+        "children": [
+          "define",
+          "&2",
+          "$6"
         ],
         "isQuoted": false,
         "parameters": [],
@@ -76,73 +89,46 @@
       },
       {
         "type": "LAMBDA",
-        "index": 4,
-        "parentIndex": 3,
-        "children": [],
-        "isQuoted": false,
-        "parameters": [
-          "&1"
-        ],
-        "body": "$5"
-      },
-      {
-        "type": "SLIST",
-        "index": 5,
-        "parentIndex": 4,
-        "children": [
-          "if",
-          "$6",
-          "#f",
-          "$7"
-        ],
-        "isQuoted": false,
-        "parameters": [],
-        "body": null
-      },
-      {
-        "type": "SLIST",
         "index": 6,
         "parentIndex": 5,
-        "children": [
-          "null?",
-          "&1"
-        ],
+        "children": [],
         "isQuoted": false,
         "parameters": [],
-        "body": null
+        "body": "$7"
       },
       {
         "type": "SLIST",
         "index": 7,
-        "parentIndex": 5,
+        "parentIndex": 6,
         "children": [
-          "begin",
           "$8",
-          "$10"
+          "#2"
         ],
         "isQuoted": false,
         "parameters": [],
         "body": null
       },
       {
-        "type": "SLIST",
+        "type": "LAMBDA",
         "index": 8,
         "parentIndex": 7,
-        "children": [
-          "display",
-          "$9"
-        ],
+        "children": [],
         "isQuoted": false,
-        "parameters": [],
-        "body": null
+        "parameters": [
+          "&3"
+        ],
+        "body": "$9"
       },
       {
         "type": "SLIST",
         "index": 9,
         "parentIndex": 8,
         "children": [
-          "car",
-          "&1"
+          "begin",
+          "$10",
+          "$13",
+          "$15",
+          "&3"
         ],
         "isQuoted": false,
         "parameters": [],
@@ -151,9 +137,9 @@
       {
         "type": "SLIST",
         "index": 10,
-        "parentIndex": 7,
+        "parentIndex": 9,
         "children": [
-          "&0",
+          "call/cc",
           "$11"
         ],
         "isQuoted": false,
@@ -161,24 +147,24 @@
         "body": null
       },
       {
-        "type": "SLIST",
+        "type": "LAMBDA",
         "index": 11,
         "parentIndex": 10,
-        "children": [
-          "cdr",
-          "&1"
-        ],
+        "children": [],
         "isQuoted": false,
-        "parameters": [],
-        "body": null
+        "parameters": [
+          "&4"
+        ],
+        "body": "$12"
       },
       {
         "type": "SLIST",
         "index": 12,
-        "parentIndex": 2,
+        "parentIndex": 11,
         "children": [
-          "display",
-          "*0"
+          "set!",
+          "&1",
+          "&4"
         ],
         "isQuoted": false,
         "parameters": [],
@@ -187,9 +173,10 @@
       {
         "type": "SLIST",
         "index": 13,
-        "parentIndex": 2,
+        "parentIndex": 9,
         "children": [
-          "&0",
+          "set!",
+          "&3",
           "$14"
         ],
         "isQuoted": false,
@@ -201,8 +188,9 @@
         "index": 14,
         "parentIndex": 13,
         "children": [
-          "car",
-          "$15"
+          "+",
+          "&3",
+          "#1"
         ],
         "isQuoted": false,
         "parameters": [],
@@ -211,10 +199,11 @@
       {
         "type": "SLIST",
         "index": 15,
-        "parentIndex": 14,
+        "parentIndex": 9,
         "children": [
-          "cdr",
-          "$16"
+          "set!",
+          "&0",
+          "&3"
         ],
         "isQuoted": false,
         "parameters": [],
@@ -223,12 +212,12 @@
       {
         "type": "SLIST",
         "index": 16,
-        "parentIndex": 15,
+        "parentIndex": 2,
         "children": [
-          "*1",
+          "display",
           "$17"
         ],
-        "isQuoted": true,
+        "isQuoted": false,
         "parameters": [],
         "body": null
       },
@@ -237,11 +226,9 @@
         "index": 17,
         "parentIndex": 16,
         "children": [
-          "*2",
-          "*3",
-          "*4"
+          "&2"
         ],
-        "isQuoted": true,
+        "isQuoted": false,
         "parameters": [],
         "body": null
       },
@@ -250,8 +237,7 @@
         "index": 18,
         "parentIndex": 2,
         "children": [
-          "display",
-          "*5"
+          "newline"
         ],
         "isQuoted": false,
         "parameters": [],
@@ -262,34 +248,35 @@
         "index": 19,
         "parentIndex": 2,
         "children": [
-          "define",
-          "&2",
-          "$20"
+          "if",
+          "$20",
+          "#4",
+          "$21"
         ],
         "isQuoted": false,
         "parameters": [],
         "body": null
       },
       {
-        "type": "LAMBDA",
+        "type": "SLIST",
         "index": 20,
         "parentIndex": 19,
-        "children": [],
-        "isQuoted": false,
-        "parameters": [
-          "&3",
-          "&4"
+        "children": [
+          ">=",
+          "&0",
+          "#3"
         ],
-        "body": "$21"
+        "isQuoted": false,
+        "parameters": [],
+        "body": null
       },
       {
         "type": "SLIST",
         "index": 21,
-        "parentIndex": 20,
+        "parentIndex": 19,
         "children": [
-          "&2",
-          "$22",
-          "&4"
+          "display",
+          "$22"
         ],
         "isQuoted": false,
         "parameters": [],
@@ -300,60 +287,28 @@
         "index": 22,
         "parentIndex": 21,
         "children": [
-          "cons",
-          "&4",
-          "&3"
+          "&1",
+          "#5"
         ],
         "isQuoted": false,
-        "parameters": [],
-        "body": null
-      },
-      {
-        "type": "SLIST",
-        "index": 23,
-        "parentIndex": 2,
-        "children": [
-          "display",
-          "*6"
-        ],
-        "isQuoted": false,
-        "parameters": [],
-        "body": null
-      },
-      {
-        "type": "SLIST",
-        "index": 24,
-        "parentIndex": 2,
-        "children": [
-          "&2",
-          "$25",
-          "*10"
-        ],
-        "isQuoted": false,
-        "parameters": [],
-        "body": null
-      },
-      {
-        "type": "SLIST",
-        "index": 25,
-        "parentIndex": 24,
-        "children": [
-          "*7",
-          "*8",
-          "*9"
-        ],
-        "isQuoted": true,
         "parameters": [],
         "body": null
       }
     ],
-    "constants": [],
+    "constants": [
+      "0",
+      "1",
+      "0",
+      "10",
+      "100",
+      "666"
+    ],
     "refIndexes": {
-      "*": 11,
-      "$": 26,
+      "*": 0,
+      "$": 23,
       "!": 0,
       "&": 5,
-      "#": 0,
+      "#": 6,
       "^": 0
     }
   },
@@ -363,52 +318,69 @@
     ";; [SSC] Function @ $1",
     "@$1",
     ";; [SSC] DEFINE",
-    "push @$4",
+    "push #0",
     "store &0",
-    "push *0",
-    "display",
-    "push $16",
-    "cdr",
-    "car",
-    "call &0",
-    "push *5",
-    "display",
     ";; [SSC] DEFINE",
-    "push @$20",
-    "store &2",
-    "push *6",
-    "display",
-    "push $25",
-    "push *10",
-    "call &2",
-    "return",
-    ";; [SSC] Function @ $4",
-    "@$4",
-    "store &1",
-    ";; [SSC] IF",
-    "load &1",
-    "null?",
-    "iftrue @zxaaq968bja",
-    "load &1",
-    "car",
-    "display",
-    "load &1",
-    "cdr",
-    "call &0",
-    "goto @gsnguxjy2nr",
-    "@zxaaq968bja",
     "push #f",
-    "@gsnguxjy2nr",
-    "return",
-    ";; [SSC] Function @ $20",
-    "@$20",
-    "store &4",
-    "store &3",
-    "load &4",
-    "load &3",
-    "cons",
-    "load &4",
+    "store &1",
+    ";; [SSC] DEFINE",
+    "push @$6",
+    "store &2",
     "call &2",
+    "display",
+    "newline",
+    ";; [SSC] IF",
+    "load &0",
+    "push #3",
+    ">=",
+    "iftrue @shbgg876dpm",
+    "push #5",
+    "call &1",
+    "display",
+    "goto @5zv50ipla3d",
+    "@shbgg876dpm",
+    "push #4",
+    "@5zv50ipla3d",
+    "return",
+    ";; [SSC] Function @ $6",
+    "@$6",
+    ";; [SSC] η temporary function",
+    "@ETA-FUNC-7adxq9n9z5q",
+    "store &t71ao8kad8q",
+    "store &qbbmjv3b4z",
+    "load &t71ao8kad8q",
+    "tailcall &qbbmjv3b4z",
+    ";; [SSC] Call temporary function",
+    "load @$8",
+    "load &qbbmjv3b4z",
+    "push #2",
+    "load &t71ao8kad8q",
+    "call &t71ao8kad8q",
+    "return",
+    ";; [SSC] Function @ $8",
+    "@$8",
+    "store &3",
+    ";; [SSC] Current Continuation captured, stored in &CC-$11-f32aiikfvbs",
+    "capturecc &CC-$11-f32aiikfvbs",
+    "load &CC-$11-f32aiikfvbs",
+    "call @$11",
+    "@&CC-$11-f32aiikfvbs",
+    ";; [SSC] SET!",
+    "load &3",
+    "push #1",
+    "+",
+    "set! &3",
+    ";; [SSC] SET!",
+    "load &3",
+    "set! &0",
+    "load &3",
+    "return",
+    ";; [SSC] Function @ $11",
+    "@$11",
+    "store &4",
+    ";; [SSC] SET!",
+    "load &4",
+    "set! &1",
     "return"
   ]
 }
