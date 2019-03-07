@@ -5,7 +5,7 @@ const Parser = require('../source/parser.js');
 // 测试时修改此处
 const sourcePath = "./demo"; // 代码基准目录
 const modulePath = "/aurora/testcase/"; // 模块目录
-const moduleFileName = "yin-yang-puzzle.scm"; // 模块文件名（与模块名相同）
+const moduleFileName = "factorial.scm"; // 模块文件名（与模块名相同）
 
 let moduleFilePath = [sourcePath, modulePath, moduleFileName].join('');
 let moduleName = moduleFileName.replace(/\.[^\.]*$/gi, "");
@@ -27,7 +27,7 @@ fs.readFile(moduleFilePath, {encoding:"utf-8"}, (error, data)=> {
     let MODULE = Compiler.Compiler(moduleQualifiedName, AST);
 
     function outputTarget() {
-        fs.writeFile(outFilePath, JSON.stringify(MODULE, "", 2), {flag:'w'}, (error)=> {
+        fs.writeFile(outFilePath, JSON.stringify(MODULE/*, "", 2*/), {flag:'w'}, (error)=> {
             if(error) { throw error; }
             console.log(`[SSC] Module '${moduleFilePath}': `);
             console.log(`[SSC]   Target code @ '${outFilePath}'.`);

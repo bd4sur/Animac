@@ -14,8 +14,9 @@
       (set! count init)
       init)) 0)))
 
+(display "【SSC编译】生成器：")
 (display (g))
-(newline)
+(display " ")
 (if (>= count 10)
-    100
+    (newline)
     (display (generator 666)))

@@ -255,13 +255,31 @@ const Module = function(qualifiedName) {
     this.name = (qualifiedName.split(/\./gi)).top(); // :string
     this.AST = null; // :AST
     this.ASM = null; // :Array<Instruction>
+    this.labelDict = new Object(); // :Map<label,instIndex>
     return this;
 };
 Module.prototype.setAST = function(ast) {
     this.AST = ast;
 }
-Module.prototype.setASM = function(asm) {
-    this.ASM = asm;
+// 注意此函数会同时设置labelDict
+Module.prototype.setASM = function(asmlines) {
+    this.ASM = new Array();
+    this.labelDict = new Object();
+    for(let line of asmlines) {
+        if(line.length <= 0) { continue; }
+        else if(/^\s*\;[\s\S]*$/.test(line)) { this.ASM.push(line); }
+        else { this.ASM.push(line.trim()); }
+    }
+
+    for(let i = 0; i < this.ASM.length; i++) {
+        let line = this.ASM[i];
+        if(line[0] === '@') { // 标签行
+            if(line in this.labelDict) {
+                throw `[汇编错误] 标签重复出现`;
+            }
+            this.labelDict[line] = i;
+        }
+    }
 }
 
 // 线程类

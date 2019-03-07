@@ -41,7 +41,7 @@ const Compiler = function(qualifiedName, AST) {
         if(Common.TypeOfToken(node.body) === Common.OBJECT_TYPE.REF_SLIST) {
             bodyNode = AST.GetObject(node.body);
             if(bodyNode.type === Common.NODE_TYPE.LAMBDA) {
-                ASM.push(`push @${node.body}`);
+                ASM.push(`load @${node.body}`);
             }
             else if(bodyNode.isQuoted === true) {
                 ASM.push(`push ${node.body}`);
@@ -182,8 +182,8 @@ const Compiler = function(qualifiedName, AST) {
             ASM.push(`push ${predicate}`);
         }
         // 认为取f分支的概率较大，因此使用iftrue指令
-        let trueTag = `@${UniqueString()}`; // true分支标签
-        let endTag = `@${UniqueString()}`; // if语句结束标签
+        let trueTag = `@IF-TRUE-${UniqueString()}`; // true分支标签
+        let endTag = `@END-IF-${UniqueString()}`; // if语句结束标签
         ASM.push(`iftrue ${trueTag}`);
         // 处理false分支
         let falseBranch = node.children[3];
@@ -234,6 +234,91 @@ const Compiler = function(qualifiedName, AST) {
         return;
     }
 
+    // 处理and特殊结构
+    // (and c1 c2 ...)
+    // TODO 可优化
+    function compileAnd(nodeRef) {
+        let node = AST.GetObject(nodeRef);
+        ASM.push(`;; [SSC] AND @${nodeRef}`);
+        // 结束位置标签
+        let endTag = `@END-AND-${UniqueString()}`;
+        let falseTag = `@AND-FALSE-${UniqueString()}`;
+        // 遍历每一项
+        for(let i = 1; i < node.children.length; i++) {
+            let clause = node.children[i];
+            if(Common.TypeOfToken(clause) === Common.OBJECT_TYPE.REF_SLIST) {
+                let clauseNode = AST.GetObject(clause);
+                if(clauseNode.type === Common.NODE_TYPE.LAMBDA) {
+                    ASM.push(`load ${clause}`);
+                }
+                else if(clauseNode.isQuoted === true) {
+                    ASM.push(`push ${clause}`);
+                }
+                else {
+                    compileSList(clause);
+                }
+            }
+            else if(Common.TypeOfToken(clause) === Common.OBJECT_TYPE.REF_VARIABLE) {
+                ASM.push(`load ${clause}`);
+            }
+            else { // TODO 此处可以作优化
+                ASM.push(`push ${clause}`);
+            }
+            ASM.push(`iffalse ${falseTag}`);
+        }
+        // 没有任何一项为假
+        ASM.push(`push #t`);
+        ASM.push(`goto ${endTag}`);
+        // 有任何一项为#f都会跳到这里
+        ASM.push(falseTag);
+        ASM.push(`push #f`);
+        // 结束标签
+        ASM.push(endTag);
+        return;
+    }
+
+    // 处理or特殊结构
+    // (or c1 c2 ...)
+    // TODO 可优化
+    function compileOr(nodeRef) {
+        let node = AST.GetObject(nodeRef);
+        ASM.push(`;; [SSC] OR @${nodeRef}`);
+        // 结束位置标签
+        let trueTag = `@OR-TRUE-${UniqueString()}`;
+        let endTag = `@END-OR-${UniqueString()}`;
+        // 遍历每一项
+        for(let i = 1; i < node.children.length; i++) {
+            let clause = node.children[i];
+            if(Common.TypeOfToken(clause) === Common.OBJECT_TYPE.REF_SLIST) {
+                let clauseNode = AST.GetObject(clause);
+                if(clauseNode.type === Common.NODE_TYPE.LAMBDA) {
+                    ASM.push(`load ${clause}`);
+                }
+                else if(clauseNode.isQuoted === true) {
+                    ASM.push(`push ${clause}`);
+                }
+                else {
+                    compileSList(clause);
+                }
+            }
+            else if(Common.TypeOfToken(clause) === Common.OBJECT_TYPE.REF_VARIABLE) {
+                ASM.push(`load ${clause}`);
+            }
+            else { // TODO 此处可以作优化
+                ASM.push(`push ${clause}`);
+            }
+            ASM.push(`iftrue ${trueTag}`);
+        }
+        // 没有任何一项为真（非假）
+        ASM.push(`push #f`);
+        ASM.push(`goto ${endTag}`);
+        // 有任何一项为#t（非#f）都会跳到这里
+        ASM.push(trueTag);
+        ASM.push(`push #t`);
+        // 结束标签
+        ASM.push(endTag);
+        return;
+    }
 
     // 处理简单Application，即第一项不为Application的Application
     function compileSList(nodeRef) {
@@ -250,6 +335,8 @@ const Compiler = function(qualifiedName, AST) {
         else if(first === 'define') { return compileDefine(nodeRef); }
         else if(first === 'set!') { return compileSet(nodeRef); }
         else if(first === 'if') { return compileIf(nodeRef);}
+        else if(first === 'and') { return compileAnd(nodeRef);}
+        else if(first === 'or') { return compileOr(nodeRef);}
 
         // TODO Lambda的优化
         // 根据第一项是否是Application，采取ANF变换和直接生成汇编两种策略
@@ -265,7 +352,9 @@ const Compiler = function(qualifiedName, AST) {
             ASM.push(`goto ${startTag}`);
 
             // 构造临时函数
-            let tempLambdaName = `TEMP-LAMBDA-${UniqueString()}`;
+            let tempName = UniqueString();
+            let tempLambdaName = `TEMP-LAMBDA-${tempName}`;
+            let tempLambdaRetName = `TEMP-LAMBDA-RET-${tempName}`;
             let tempVarArray = new Array();
             for(let i = 0; i < children.length; i++) {
                 tempVarArray[i] = Common.makeRef(Common.OBJECT_TYPE.VARIABLE, UniqueString());
@@ -279,6 +368,8 @@ const Compiler = function(qualifiedName, AST) {
                 ASM.push(`load ${tempVarArray[i]}`);
             }
             ASM.push(`tailcall ${tempVarArray[0]}`);
+            // 以下二选一
+            // ASM.push(`goto @${tempLambdaRetName}`); // 不用return，直接返回调用临时函数的位置
             ASM.push(`return`);
 
             // 主体开始
@@ -309,7 +400,10 @@ const Compiler = function(qualifiedName, AST) {
                     ASM.push(`push ${child}`);
                 }
             }
+            // 以下二选一
+            // ASM.push(`goto @${tempLambdaName}`); // 不用call
             ASM.push(`call @${tempLambdaName}`);
+            ASM.push(`@${tempLambdaRetName}`); // 临时函数调用返回点
         }
         // 首项是原子对象，包括字面Lambda
         else {
