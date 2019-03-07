@@ -652,6 +652,53 @@ const Parser = function(SOURCE) {
         }
     }
 
+    // 尾位置标记（参照R5RS的归纳定义）
+    function markTailCall(nodeRef, isTail) {
+        if(Common.TypeOfToken(nodeRef) !== Common.NODE_TYPE.REF_SLIST) { return; }
+        let node = AST.GetObject(nodeRef);
+        if(node.type === Common.NODE_TYPE.SLIST) {
+            // if 特殊构造
+            if(node.children[0] === 'if') {
+                markTailCall(node.children[1], false);
+                markTailCall(node.children[2], true);
+                markTailCall(node.children[3], true);
+            }
+            // cond 特殊构造
+            else if(node.children[0] === 'cond') {
+                for(let i = 1; i < node.children.length; i++) {
+                    markTailCall(AST.GetObject(node.children[i]).children[0], false);
+                    markTailCall(AST.GetObject(node.children[i]).children[1], true);
+                }
+            }
+            // 其他构造，含begin、and、or，这些形式的尾位置是一样的
+            else {
+                for(let i = 0; i < node.children.length; i++) {
+                    let istail = false;
+                    if(i === node.children.length-1) {
+                        if(node.children[0] === 'begin' || node.children[0] === 'and' || node.children[0] === 'or') {
+                            istail = true;
+                        }
+                    }
+                    markTailCall(node.children[i], istail);
+                }
+                if(isTail) {
+                    AST.GetObject(nodeRef).isTail = true; // 标记为尾（调用）位置
+                }
+            }
+        }
+        else if(node.type === Common.NODE_TYPE.LAMBDA) {
+            let node = AST.GetObject(nodeRef);
+            markTailCall(node.body, true);
+        }
+        else {
+            return;
+        }
+    }
+
+    function TailCallAnalysis() {
+        markTailCall(Common.makeRef(Common.OBJECT_TYPE.SLIST, 0), false);
+    }
+
     function parseBegin(tokens) {
         NT_Term(tokens, 0);
     }
@@ -661,6 +708,7 @@ const Parser = function(SOURCE) {
     parseBegin(TOKENS);         // 递归下降
     dealQuote();                // 特殊处理 (quote .) 语法
     variableRename();           // 重名自由变量重命名
+    TailCallAnalysis();         // 尾位置标注
 
     return AST;
 };
