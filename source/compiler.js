@@ -17,16 +17,12 @@ const Compiler = function(qualifiedName, AST) {
     // 虚拟机指令序列
     let ASM = new Array();
 
-    // 生成随机且不重复的字符串
-    let randomStringDict = new Object();
-    function getRandomString() {
-        while(1) {
-            let randomString = Math.random().toString(36).substr(2);
-            if(!(randomString in randomStringDict)) {
-                randomStringDict[randomString] = true;
-                return randomString;
-            }
-        }
+    // 生成不重复的字符串
+    let stringIncCounter = 0;
+    function UniqueString() {
+        let uniqueString = `TEMP${stringIncCounter.toString()}`;
+        stringIncCounter++;
+        return uniqueString;
     }
 
     // 处理简单Application，即第一项不为SLIST的Application
@@ -69,7 +65,7 @@ const Compiler = function(qualifiedName, AST) {
         // 参数：可能是lambda，也可能是变量
         let thunk = node.children[1];
         // cont临时变量，同时也是cont返回标签
-        let contName = Common.makeRef(Common.OBJECT_TYPE.VARIABLE, `CC-${thunk}-${getRandomString()}`);
+        let contName = Common.makeRef(Common.OBJECT_TYPE.VARIABLE, `CC-${thunk}-${UniqueString()}`);
         ASM.push(`;; [SSC] Current Continuation captured, stored in ${contName}`);
         ASM.push(`capturecc ${contName}`);
         ASM.push(`load ${contName}`);
@@ -186,8 +182,8 @@ const Compiler = function(qualifiedName, AST) {
             ASM.push(`push ${predicate}`);
         }
         // 认为取f分支的概率较大，因此使用iftrue指令
-        let trueTag = `@${getRandomString()}`; // true分支标签
-        let endTag = `@${getRandomString()}`; // if语句结束标签
+        let trueTag = `@${UniqueString()}`; // true分支标签
+        let endTag = `@${UniqueString()}`; // if语句结束标签
         ASM.push(`iftrue ${trueTag}`);
         // 处理false分支
         let falseBranch = node.children[3];
@@ -238,6 +234,7 @@ const Compiler = function(qualifiedName, AST) {
         return;
     }
 
+
     // 处理简单Application，即第一项不为Application的Application
     function compileSList(nodeRef) {
         let node = AST.GetObject(nodeRef);
@@ -255,14 +252,41 @@ const Compiler = function(qualifiedName, AST) {
         else if(first === 'if') { return compileIf(nodeRef);}
 
         // TODO Lambda的优化
-        // 根据第一项是否是列表（暂且含lambda），采取ANF变换和直接生成汇编两种策略
-        // TODO 此处不正确。即对于(A=SList ...)这种形式，应当进行一次η变换，变成((lambda (a ...) (a ...)) A ...)的形式
-        // TODO   也就是说，临时变量不能被绑定在当前闭包中
-        // TODO   这个变换需要在前端完成
+        // 根据第一项是否是Application，采取ANF变换和直接生成汇编两种策略
+        // 对于(A=SList ...)这种形式，应当进行一次η变换，变成((lambda (a ...) (a ...)) A ...)的形式
+        //   也就是说，临时变量不能被绑定在当前闭包中
+
         let typeOfFirst = Common.TypeOfToken(first);
-        if(typeOfFirst === Common.OBJECT_TYPE.REF_SLIST && AST.GetObject(first).type !== Common.NODE_TYPE.LAMBDA) {
-            let tempVarArray = new Array(); // 中间变量名称（ANF变换）
+
+        // 首项是待求值的Application，需要进行η变换
+        if(typeOfFirst === Common.OBJECT_TYPE.REF_SLIST && AST.GetObject(first).type === Common.NODE_TYPE.SLIST) {
+
+            let startTag = `@APPLY-BEGIN-${UniqueString()}`;
+            ASM.push(`goto ${startTag}`);
+
+            // 构造临时函数
+            let tempLambdaName = `TEMP-LAMBDA-${UniqueString()}`;
+            let tempVarArray = new Array();
             for(let i = 0; i < children.length; i++) {
+                tempVarArray[i] = Common.makeRef(Common.OBJECT_TYPE.VARIABLE, UniqueString());
+            }
+            ASM.push(`;; [SSC] Temporary Function @${tempLambdaName}`);
+            ASM.push(`@${tempLambdaName}`);
+            for(let i = children.length - 1; i >= 0; i--) {
+                ASM.push(`store ${tempVarArray[i]}`);
+            }
+            for(let i = 1; i < children.length; i++) {
+                ASM.push(`load ${tempVarArray[i]}`);
+            }
+            ASM.push(`tailcall ${tempVarArray[0]}`);
+            ASM.push(`return`);
+
+            // 主体开始
+            ASM.push(`;; [SSC] Call Temporary Function @${tempLambdaName}`);
+            ASM.push(startTag);
+
+            for(let i = 0; i < children.length; i++) {
+                ASM.push(`;; [SSC] Push item ${i}`);
                 let child = children[i];
                 if(Common.TypeOfToken(child) === Common.OBJECT_TYPE.REF_SLIST) {
                     let childNode = AST.GetObject(child);
@@ -284,15 +308,10 @@ const Compiler = function(qualifiedName, AST) {
                 else {
                     ASM.push(`push ${child}`);
                 }
-                let tempVar = getRandomString(); // 中间变量
-                tempVarArray[i] = Common.makeRef(Common.OBJECT_TYPE.VARIABLE, tempVar);
-                ASM.push(`store ${tempVarArray[i]}`);
             }
-            for(let i = 1; i < children.length; i++) {
-                ASM.push(`load ${tempVarArray[i]}`);
-            }
-            ASM.push(`call ${tempVarArray[0]}`);
+            ASM.push(`call @${tempLambdaName}`);
         }
+        // 首项是原子对象，包括字面Lambda
         else {
             for(let i = 1; i < children.length; i++) { // 处理参数列表
                 let child = children[i];
@@ -317,7 +336,7 @@ const Compiler = function(qualifiedName, AST) {
                     ASM.push(`push ${child}`);
                 }
             }
-            // 调用
+            // 调用，需要区分Lambda和非Lambda
             if(typeOfFirst === Common.OBJECT_TYPE.KEYWORD) {
                 if(first !== 'begin') { // begin不加入指令序列
                     ASM.push(`${first}`);
@@ -351,8 +370,6 @@ const Compiler = function(qualifiedName, AST) {
             compileLambda(Common.makeRef(Common.OBJECT_TYPE.SLIST, node.index));
         }
     }
-
-    // console.log(ASM.join('\n'));
 
     MODULE.setASM(ASM);
     MODULE.setAST(AST);
