@@ -10,7 +10,7 @@
 // 输入：MODULE（经模块加载器加载的模块）
 // 输出：无（执行）
 
-const Common = require('common.js'); // 引入公用模块
+const Common = require('./common.js'); // 引入公用模块
 
 // 运行时
 const Runtime = function(MODULE) {

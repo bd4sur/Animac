@@ -93,45 +93,48 @@ const OBJECT_TYPE = {
     // SLIST的子类型（没有用）
     "LAMBDA": "LAMBDA",
     "QUOTED_SLIST": "QUOTED_SLIST",
+
+    // 标签
+    "LABEL": "LABEL",
 };
 
 // 引用前缀
 const REF_PREFIX = {
-    "REF_STRING":   "*",
-    "REF_SLIST":    "$",
-    "REF_SYMBOL":   "!",
-    "REF_VARIABLE": "&",
-    "REF_CONSTANT": "#",
-    "REF_CLOSURE":  "^",
-    "REF_CONTINUATION":  "~",
+    "STRING":   "*",
+    "SLIST":    "$",
+    "SYMBOL":   "!",
+    "VARIABLE": "&",
+    "CONSTANT": "#",
+    "CLOSURE":  "^",
+    "CONTINUATION":  "~",
 };
 
 const getRefIndex = function(ref) {
     if(ref === undefined) return undefined;
-    return parseInt(ref.substring(1));
+    return ref.substring(1);
 };
 const getRefType = function(ref) {
     if(ref === undefined) return undefined;
-    if(ref[0] === REF_PREFIX.REF_STRING) {
-        return OBJECT_TYPE.REF_STRING;
+    if(ref[0] === REF_PREFIX['STRING']) {
+        return "REF_STRING";
     }
-    else if(ref[0] === REF_PREFIX.REF_SLIST) {
-        return OBJECT_TYPE.REF_SLIST;
+    else if(ref[0] === REF_PREFIX['SLIST']) {
+        return "REF_SLIST";
     }
-    else if(ref[0] === REF_PREFIX.REF_SYMBOL) {
-        return OBJECT_TYPE.REF_SYMBOL;
+    else if(ref[0] === REF_PREFIX['SYMBOL']) {
+        return "REF_SYMBOL";
     }
-    else if(ref[0] === REF_PREFIX.REF_VARIABLE) {
-        return OBJECT_TYPE.REF_VARIABLE;
+    else if(ref[0] === REF_PREFIX['VARIABLE']) {
+        return "REF_VARIABLE";
     }
-    else if(ref[0] === REF_PREFIX.REF_CONSTANT) {
-        return OBJECT_TYPE.REF_CONSTANT;
+    else if(ref[0] === REF_PREFIX['CONSTANT']) {
+        return "REF_CONSTANT";
     }
-    else if(ref[0] === REF_PREFIX.REF_CLOSURE) {
-        return OBJECT_TYPE.REF_CLOSURE;
+    else if(ref[0] === REF_PREFIX['CLOSURE']) {
+        return "REF_CLOSURE";
     }
-    else if(ref[0] === REF_PREFIX.REF_CONTINUATION) {
-        return OBJECT_TYPE.REF_CONTINUATION;
+    else if(ref[0] === REF_PREFIX['CONTINUATION']) {
+        return "REF_CONTINUATION";
     }
     else {
         return null;
@@ -141,10 +144,10 @@ const getRefType = function(ref) {
 const makeRef = function(type, index) {
     if(index === undefined) return undefined;
     if(isNaN(index)) {
-        return `${REF_PREFIX["REF_"+type]}${index}`;
+        return `${REF_PREFIX[type]}${index}`;
     }
     else {
-        return `${REF_PREFIX["REF_"+type]}${parseInt(index)}`;
+        return `${REF_PREFIX[type]}${parseInt(index)}`;
     }
 }
 
@@ -161,6 +164,9 @@ const TypeOfToken = function(token) {
         if(typeof token === 'string') {
             if(token[0] === '\'') {
                 return OBJECT_TYPE.SYMBOL;
+            }
+            else if(token[0] === '@') {
+                return OBJECT_TYPE.LABEL;
             }
             else if(token === '#t' || token === '#f') {
                 return OBJECT_TYPE.BOOLEAN;
@@ -187,12 +193,11 @@ const AST = function () {
     this.constants = new Array();
 
     this.refIndexes = new Object();
-    this.refIndexes[REF_PREFIX.REF_STRING] = 0;
-    this.refIndexes[REF_PREFIX.REF_SLIST] = 0;
-    this.refIndexes[REF_PREFIX.REF_SYMBOL] = 0;
-    this.refIndexes[REF_PREFIX.REF_VARIABLE] = 0;
-    this.refIndexes[REF_PREFIX.REF_CONSTANT] = 0;
-    this.refIndexes[REF_PREFIX.REF_CLOSURE] = 0;
+    this.refIndexes['STRING'] = 0;
+    this.refIndexes['SLIST'] = 0;
+    this.refIndexes['SYMBOL'] = 0;
+    this.refIndexes['VARIABLE'] = 0;
+    this.refIndexes['CONSTANT'] = 0;
 
     return this;
 }
@@ -200,21 +205,20 @@ AST.prototype = {
     GetObject: function(ref) {
         // TODO 输入检查
         let prefix = ref[0];
-        // let index = parseInt(ref.substring(1));
         let index = getRefIndex(ref);
-        if(prefix === REF_PREFIX.REF_STRING) {
+        if(prefix === REF_PREFIX['STRING']) {
             return this.strings[index];
         }
-        else if(prefix === REF_PREFIX.REF_SLIST) {
+        else if(prefix === REF_PREFIX['SLIST']) {
             return this.slists[index];
         }
-        else if(prefix === REF_PREFIX.REF_SYMBOL) {
+        else if(prefix === REF_PREFIX['SYMBOL']) {
             return this.symbols[index];
         }
-        else if(prefix === REF_PREFIX.REF_VARIABLE) {
+        else if(prefix === REF_PREFIX['VARIABLE']) {
             return this.variables[index];
         }
-        else if(prefix === REF_PREFIX.REF_CONSTANT) {
+        else if(prefix === REF_PREFIX['CONSTANT']) {
             return this.constants[index];
         }
         else {
@@ -224,26 +228,26 @@ AST.prototype = {
     },
     NewObject: function(type, value) {
         // TODO 参数检查
-        let index = this.refIndexes[REF_PREFIX[`REF_${type}`]];
-        if(type === OBJECT_TYPE.STRING) {
+        let index = this.refIndexes[type];
+        if(type === "STRING") {
             this.strings[index] = value;
         }
-        else if(type === OBJECT_TYPE.SLIST) {
+        else if(type === "SLIST") {
             this.slists[index] = value;
         }
-        else if(type === OBJECT_TYPE.SYMBOL) {
+        else if(type === "SYMBOL") {
             this.symbols[index] = value;
         }
-        else if(type === OBJECT_TYPE.VARIABLE) {
+        else if(type === "VARIABLE") {
             this.variables[index] = value;
         }
-        else if(type === OBJECT_TYPE.CONSTANT) {
+        else if(type === "CONSTANT") {
             this.constants[index] = value;
         }
         else {
             throw `type error`;
         }
-        this.refIndexes[REF_PREFIX[`REF_${type}`]]++;
+        this.refIndexes[type]++;
         return makeRef(type, index);
     },
 };
@@ -282,9 +286,15 @@ Module.prototype.setASM = function(asmlines) {
     }
 }
 
-// 线程类
-const Thread = function() {
-    return this;
+
+// 进程状态
+const PROCESS_STATE = {
+    'DEFAULT'     : -1, // 默认
+    'RUNNING'     : 1,  // 运行
+    'SLEEPING'    : 2,  // 睡眠（可中断）
+    'DEEPSLEEPING': 3,  // 深度睡眠（不可中断）
+    'SUSPENDED'   : 4,  // 挂起
+    'DEAD'        : 5,  // 销毁
 };
 
 
@@ -301,5 +311,5 @@ module.exports.getRefType = getRefType;
 module.exports.makeRef = makeRef;
 module.exports.TypeOfToken = TypeOfToken;
 module.exports.Module = Module;
-module.exports.Thread = Thread;
+module.exports.PROCESS_STATE = PROCESS_STATE;
 

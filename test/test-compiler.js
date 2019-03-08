@@ -5,7 +5,7 @@ const Parser = require('../source/parser.js');
 // 测试时修改此处
 const sourcePath = "./demo"; // 代码基准目录
 const modulePath = "/aurora/testcase/"; // 模块目录
-const moduleFileName = "factorial.scm"; // 模块文件名（与模块名相同）
+const moduleFileName = "generator.scm"; // 模块文件名（与模块名相同）
 
 let moduleFilePath = [sourcePath, modulePath, moduleFileName].join('');
 let moduleName = moduleFileName.replace(/\.[^\.]*$/gi, "");

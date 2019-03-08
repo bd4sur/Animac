@@ -528,7 +528,7 @@ const Parser = function(SOURCE) {
             while(/*currentNodeRef >= 0 && */currentNodeRef !== undefined) {
                 let node = AST.GetObject(currentNodeRef);
                 if(node.type === Common.NODE_TYPE.LAMBDA) {
-                    currentMap = variableMapping[Common.getRefIndex(currentNodeRef)].map;
+                    currentMap = variableMapping[parseInt(Common.getRefIndex(currentNodeRef))].map;
                     if(symbol in currentMap) {
                         return currentNodeRef;
                     }
@@ -579,7 +579,7 @@ const Parser = function(SOURCE) {
                     (varMap.map)[parameters[i]] = varRef; //i;
                 }
                 varMap.count = parameters.length;
-                variableMapping[Common.getRefIndex(ref)] = varMap;
+                variableMapping[parseInt(Common.getRefIndex(ref))] = varMap;
             }
             else if(node.type === Common.NODE_TYPE.SLIST) {
                 let children = node.children;
@@ -588,7 +588,7 @@ const Parser = function(SOURCE) {
                     if(isVar(s)) {
                         // 变量被defined，无论上级是否有定义过，都要使用本级Lambda
                         if(children[0] === 'define' && i === 1) {
-                            let currentLambdaIndex = Common.getRefIndex(nearestLambdaRef(ref));
+                            let currentLambdaIndex = parseInt(Common.getRefIndex(nearestLambdaRef(ref)));
                             let varNum = variableMapping[currentLambdaIndex].count;
                             let varRef = AST.NewObject(Common.OBJECT_TYPE.VARIABLE, s);
                             (variableMapping[currentLambdaIndex].map)[s] = varRef; //varNum;
@@ -607,7 +607,7 @@ const Parser = function(SOURCE) {
             if(node.type === Common.NODE_TYPE.LAMBDA) {
                 // 首先注册变量，替换变量表
                 let parameters = node.parameters;
-                let varMap = variableMapping[Common.getRefIndex(ref)].map;
+                let varMap = variableMapping[parseInt(Common.getRefIndex(ref))].map;
                 for(let i = 0; i < parameters.length; i++) {
                     let variable = parameters[i];
                     (node.parameters)[i] = varPattern(ref, varMap[variable]);
@@ -618,7 +618,7 @@ const Parser = function(SOURCE) {
                     // 计算此变量所在的词法节点
                     let lambdaRef = searchVarLambdaRef(node.body, ref, variableMapping);
                     // 在map中查找此变量的编号
-                    let map = variableMapping[Common.getRefIndex(lambdaRef)];
+                    let map = variableMapping[parseInt(Common.getRefIndex(lambdaRef))];
                     // 处理define特殊情况
                     if(node.body in map.map) {
                         node.body = varPattern(lambdaRef, (map.map)[node.body]);
@@ -639,7 +639,7 @@ const Parser = function(SOURCE) {
                             throw `[预处理] 变量${s}未定义`;
                         }
                         // 在map中查找此变量的编号
-                        let map = variableMapping[Common.getRefIndex(lambdaRef)];
+                        let map = variableMapping[parseInt(Common.getRefIndex(lambdaRef))];
                         if(s in map.map) {
                             (node.children)[i] = varPattern(lambdaRef, (map.map)[s]);
                         }
