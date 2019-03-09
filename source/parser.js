@@ -71,8 +71,9 @@ const Lexer = function(code) {
     return tokens;
 }
 
-// 语法分析
-const Parser = function(SOURCE) {
+// 递归下降分析+尾位置标记
+// 生成AST
+const GenarateAST = function(TOKENS) {
     let AST = new Common.AST();
 
     let NODE_ARRAY = new Array();
@@ -518,139 +519,7 @@ const Parser = function(SOURCE) {
         }
     }
 
-    // 变量名称唯一化，为汇编做准备。针对AST进行操作。
-    // 2019.01.23
-    function variableRename() {
-        // 从某个节点开始，向上查找某个变量归属的Lambda节点
-        function searchVarLambdaRef(symbol, fromNodeRef, variableMapping) {
-            let currentNodeRef = fromNodeRef;
-            let currentMap = null;
-            while(/*currentNodeRef >= 0 && */currentNodeRef !== undefined) {
-                let node = AST.GetObject(currentNodeRef);
-                if(node.type === Common.NODE_TYPE.LAMBDA) {
-                    currentMap = variableMapping[parseInt(Common.getRefIndex(currentNodeRef))].map;
-                    if(symbol in currentMap) {
-                        return currentNodeRef;
-                    }
-                }
-                currentNodeRef = Common.makeRef(Common.OBJECT_TYPE.SLIST, node.parentIndex);
-            }
-            return null; // 变量未定义
-        }
-
-        // 查找某个node上面最近的lambda节点的地址
-        function nearestLambdaRef(ref) {
-            let cref = ref;
-            while(/*cref >= 0 && */cref !== undefined) {
-                let node = AST.GetObject(cref);
-                if(node.type === Common.NODE_TYPE.LAMBDA) {
-                    return cref;
-                }
-                cref = Common.makeRef(Common.OBJECT_TYPE.SLIST, node.parentIndex);
-            }
-            return null;
-        }
-
-        // 替换模式
-        let varPattern = function(lambdaRef, index) {
-            return index;
-            // return `VAR@${lambdaRef}:${index}`;
-        };
-        // 变量判断
-        let isVar = function(s) {
-            return (Common.TypeOfToken(s) === 'VARIABLE');
-        };
-        // 用于记录每个Lambda拥有哪些直属变量，以及它们的编号（含参数列表和define的）
-        let variableMapping = new Array();
-
-        // 需要扫描AST两遍。第一遍进行词法域定位，第二遍替换。
-        // 第一遍扫描：确定所有的参数和defined变量所在的Lambda节点和编号
-        for(let index = 0; index < NODE_ARRAY.length; index++) {
-            let ref = NODE_ARRAY[index];
-            if(!ref) continue;
-            let node = AST.GetObject(ref);
-            if(node.type === Common.NODE_TYPE.LAMBDA) {
-                // 首先注册变量，替换变量表
-                let parameters = node.parameters;
-                let varMap = new Object();
-                varMap.map = new Object();
-                for(let i = 0; i < parameters.length; i++) {
-                    let varRef = AST.NewObject(Common.OBJECT_TYPE.VARIABLE, parameters[i]);
-                    (varMap.map)[parameters[i]] = varRef; //i;
-                }
-                varMap.count = parameters.length;
-                variableMapping[parseInt(Common.getRefIndex(ref))] = varMap;
-            }
-            else if(node.type === Common.NODE_TYPE.SLIST) {
-                let children = node.children;
-                for(let i = 0; i < children.length; i++) {
-                    let s = children[i];
-                    if(isVar(s)) {
-                        // 变量被defined，无论上级是否有定义过，都要使用本级Lambda
-                        if(children[0] === 'define' && i === 1) {
-                            let currentLambdaIndex = parseInt(Common.getRefIndex(nearestLambdaRef(ref)));
-                            let varNum = variableMapping[currentLambdaIndex].count;
-                            let varRef = AST.NewObject(Common.OBJECT_TYPE.VARIABLE, s);
-                            (variableMapping[currentLambdaIndex].map)[s] = varRef; //varNum;
-                            variableMapping[currentLambdaIndex].count = varNum + 1;
-                        }
-                    }
-                }
-            }
-        }
-
-        // 第二遍扫描：替换
-        for(let index = 0; index < NODE_ARRAY.length; index++) {
-            let ref = NODE_ARRAY[index];
-            if(!ref) continue;
-            let node = AST.GetObject(ref);
-            if(node.type === Common.NODE_TYPE.LAMBDA) {
-                // 首先注册变量，替换变量表
-                let parameters = node.parameters;
-                let varMap = variableMapping[parseInt(Common.getRefIndex(ref))].map;
-                for(let i = 0; i < parameters.length; i++) {
-                    let variable = parameters[i];
-                    (node.parameters)[i] = varPattern(ref, varMap[variable]);
-                }
-
-                // 然后替换body中的变量
-                if(isVar(node.body)) {
-                    // 计算此变量所在的词法节点
-                    let lambdaRef = searchVarLambdaRef(node.body, ref, variableMapping);
-                    // 在map中查找此变量的编号
-                    let map = variableMapping[parseInt(Common.getRefIndex(lambdaRef))];
-                    // 处理define特殊情况
-                    if(node.body in map.map) {
-                        node.body = varPattern(lambdaRef, (map.map)[node.body]);
-                    }
-                    else {
-                        throw `[预处理] 变量${node.body}未定义`;
-                    }
-                }
-            }
-            else if(node.type === Common.NODE_TYPE.SLIST) {
-                let children = node.children;
-                for(let i = 0; i < children.length; i++) {
-                    let s = children[i];
-                    if(isVar(s)) {
-                        // 计算此变量所在的词法节点
-                        let lambdaRef = searchVarLambdaRef(s, ref, variableMapping);
-                        if(lambdaRef === null) {
-                            throw `[预处理] 变量${s}未定义`;
-                        }
-                        // 在map中查找此变量的编号
-                        let map = variableMapping[parseInt(Common.getRefIndex(lambdaRef))];
-                        if(s in map.map) {
-                            (node.children)[i] = varPattern(lambdaRef, (map.map)[s]);
-                        }
-                        else {
-                            throw `[预处理] 变量${s}未定义`;
-                        }
-                    }
-                }
-            }
-        }
-    }
+    
 
     // 尾位置标记（参照R5RS的归纳定义）
     function markTailCall(nodeRef, isTail) {
@@ -703,15 +572,149 @@ const Parser = function(SOURCE) {
         NT_Term(tokens, 0);
     }
 
-    // 以下是Parser流程
-    let TOKENS = Lexer(SOURCE); // 词法分析
     parseBegin(TOKENS);         // 递归下降
     dealQuote();                // 特殊处理 (quote .) 语法
-    variableRename();           // 重名自由变量重命名
     TailCallAnalysis();         // 尾位置标注
 
     return AST;
 };
 
+// 作用域分析
+// 变量名称唯一化，为汇编做准备。针对AST进行操作。
+const DomainAnalysis = function(AST) {
+    // 从某个节点开始，向上查找某个变量归属的Lambda节点
+    function searchVarLambdaIndex(symbol, fromNodeIndex, variableMapping) {
+        let currentNodeIndex = fromNodeIndex;
+        let currentMap = null;
+        while(/*currentNodeIndex >= 0 && */currentNodeIndex !== undefined) {
+            let node = AST.GetObject(Common.makeRef("SLIST", currentNodeIndex));
+            if(node.type === Common.NODE_TYPE.LAMBDA) {
+                currentMap = variableMapping[currentNodeIndex].map;
+                if(symbol in currentMap) {
+                    return currentNodeIndex;
+                }
+            }
+            currentNodeIndex = node.parentIndex;
+        }
+        return null; // 变量未定义
+    }
+
+    // 查找某个node上面最近的lambda节点的地址
+    function nearestLambdaIndex(index) {
+        let cindex = index;
+        while(/*cindex >= 0 && */cindex !== undefined) {
+            let node = AST.GetObject(Common.makeRef("SLIST", cindex));
+            if(node.type === Common.NODE_TYPE.LAMBDA) {
+                return cindex;
+            }
+            cindex = node.parentIndex;
+        }
+        return null;
+    }
+
+    // 替换模式
+    let varPattern = function(lambdaRef, index) {
+        return index;
+        // return `VAR@${lambdaRef}:${index}`;
+    };
+    // 变量判断
+    let isVar = function(s) {
+        return (Common.TypeOfToken(s) === 'VARIABLE');
+    };
+    // 用于记录每个Lambda拥有哪些直属变量，以及它们的编号（含参数列表和define的）
+    let variableMapping = new Array();
+
+    // 需要扫描AST两遍。第一遍进行词法域定位，第二遍替换。
+    // 第一遍扫描：确定所有的参数和defined变量所在的Lambda节点和编号
+    for(let index = 0; index < AST.slists.length; index++) {
+        let node = AST.GetObject(Common.makeRef("SLIST", index));
+        if(node.type === Common.NODE_TYPE.LAMBDA) {
+            // 首先注册变量，替换变量表
+            let parameters = node.parameters;
+            let varMap = new Object();
+            varMap.map = new Object();
+            for(let i = 0; i < parameters.length; i++) {
+                let varRef = AST.NewObject(Common.OBJECT_TYPE.VARIABLE, parameters[i]);
+                (varMap.map)[parameters[i]] = varRef; //i;
+            }
+            varMap.count = parameters.length;
+            variableMapping[index] = varMap;
+        }
+        else if(node.type === Common.NODE_TYPE.SLIST) {
+            let children = node.children;
+            for(let i = 0; i < children.length; i++) {
+                let s = children[i];
+                if(isVar(s)) {
+                    // 变量被defined，无论上级是否有定义过，都要使用本级Lambda
+                    if(children[0] === 'define' && i === 1) {
+                        let currentLambdaIndex = nearestLambdaIndex(index);
+                        let varNum = variableMapping[currentLambdaIndex].count;
+                        let varRef = AST.NewObject(Common.OBJECT_TYPE.VARIABLE, s);
+                        (variableMapping[currentLambdaIndex].map)[s] = varRef; //varNum;
+                        variableMapping[currentLambdaIndex].count = varNum + 1;
+                    }
+                }
+            }
+        }
+    }
+
+    // 第二遍扫描：替换
+    for(let index = 0; index < AST.slists.length; index++) {
+        let node = AST.GetObject(Common.makeRef("SLIST", index));
+        if(node.type === Common.NODE_TYPE.LAMBDA) {
+            // 首先注册变量，替换变量表
+            let parameters = node.parameters;
+            let varMap = variableMapping[index].map;
+            for(let i = 0; i < parameters.length; i++) {
+                let variable = parameters[i];
+                (node.parameters)[i] = varPattern(Common.makeRef("SLIST", index), varMap[variable]);
+            }
+
+            // 然后替换body中的变量
+            if(isVar(node.body)) {
+                // 计算此变量所在的词法节点
+                let lambdaIndex = searchVarLambdaIndex(node.body, index, variableMapping);
+                // 在map中查找此变量的编号
+                let map = variableMapping[lambdaIndex];
+                // 处理define特殊情况
+                if(node.body in map.map) {
+                    node.body = varPattern(Common.makeRef("SLIST", lambdaIndex), (map.map)[node.body]);
+                }
+                else {
+                    throw `[预处理] 变量${node.body}未定义`;
+                }
+            }
+        }
+        else if(node.type === Common.NODE_TYPE.SLIST) {
+            let children = node.children;
+            for(let i = 0; i < children.length; i++) {
+                let s = children[i];
+                if(isVar(s)) {
+                    // 计算此变量所在的词法节点
+                    let lambdaIndex = searchVarLambdaIndex(s, index, variableMapping);
+                    if(lambdaIndex === null) {
+                        throw `[预处理] 变量${s}未定义`;
+                    }
+                    // 在map中查找此变量的编号
+                    let map = variableMapping[lambdaIndex];
+                    if(s in map.map) {
+                        (node.children)[i] = varPattern(Common.makeRef("SLIST", lambdaIndex), (map.map)[s]);
+                    }
+                    else {
+                        throw `[预处理] 变量${s}未定义`;
+                    }
+                }
+            }
+        }
+    }
+}
+
+// 代码→完整AST
+const Parser = function(SOURCE) {
+    let TOKENS = Lexer(SOURCE); // 词法分析
+    let AST = GenarateAST(TOKENS);
+    DomainAnalysis(AST);
+    return AST;
+};
 
 module.exports.Parser = Parser;
