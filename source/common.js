@@ -35,6 +35,7 @@ const KEYWORDS = {
     "display": true,
     "newline": true,
     "call/cc": true,
+    "import": true,
     // TODO 待完善
 };
 
@@ -114,27 +115,27 @@ const getRefIndex = function(ref) {
     return ref.substring(1);
 };
 const getRefType = function(ref) {
-    if(ref === undefined) return undefined;
+    if(!ref) return undefined;
     if(ref[0] === REF_PREFIX['STRING']) {
-        return "REF_STRING";
+        return "STRING";
     }
     else if(ref[0] === REF_PREFIX['SLIST']) {
-        return "REF_SLIST";
+        return "SLIST";
     }
     else if(ref[0] === REF_PREFIX['SYMBOL']) {
-        return "REF_SYMBOL";
+        return "SYMBOL";
     }
     else if(ref[0] === REF_PREFIX['VARIABLE']) {
-        return "REF_VARIABLE";
+        return "VARIABLE";
     }
     else if(ref[0] === REF_PREFIX['CONSTANT']) {
-        return "REF_CONSTANT";
+        return "CONSTANT";
     }
     else if(ref[0] === REF_PREFIX['CLOSURE']) {
-        return "REF_CLOSURE";
+        return "CLOSURE";
     }
     else if(ref[0] === REF_PREFIX['CONTINUATION']) {
-        return "REF_CONTINUATION";
+        return "CONTINUATION";
     }
     else {
         return null;
@@ -158,7 +159,7 @@ const TypeOfToken = function(token) {
     }
     let refType = getRefType(token);
     if(refType) {
-        return refType;
+        return `REF_${refType}`;
     }
     else {
         if(typeof token === 'string') {
@@ -192,7 +193,8 @@ const AST = function () {
     this.slists = new Array();
     this.constants = new Array();
 
-    this.aliases = new Object(); // 存储import指定的别名和模块路径之间的映射，供模块加载器使用
+    this.dependencies = new Object(); // 存储import指定的别名和模块路径之间的映射，供模块加载器使用
+    this.aliases = new Object();      // 存储import指定的别名和模块全限定名之间的映射，供模块加载器使用
 
     this.refIndexes = new Object();
     this.refIndexes['STRING'] = 0;

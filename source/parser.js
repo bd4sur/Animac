@@ -651,7 +651,7 @@ const DomainAnalysis = function(AST) {
                     node.children[1] = AST.GetObject(children[1]); // 替换为字符串，方便分析
                     let alias = children[2];
                     if(alias && alias.length > 0) {
-                        AST.aliases[alias] = node.children[1];
+                        AST.dependencies[alias] = node.children[1].substring(1, node.children[1].length - 1); // 去掉双引号
                     }
                 }
                 continue;

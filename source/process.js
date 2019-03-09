@@ -264,6 +264,9 @@ Process.prototype = {
 
     // 将对象转换为相应的字符串
     ObjectToString: function(ref) {
+        if(Common.TypeOfToken(ref) === "KEYWORD" || !(/^REF\_/g.test(Common.TypeOfToken(ref)))) {
+            return ref;
+        }
         let obj = this.GetObject(ref);
         let type = obj.type;
         if(type === Common.OBJECT_TYPE.CONSTANT || type === Common.OBJECT_TYPE.VARIABLE) {
@@ -281,13 +284,34 @@ Process.prototype = {
         }
         else if(type === Common.OBJECT_TYPE.SLIST) {
             let node = obj.value;
-            let str = (node.isQuoted) ? "'(" : "(";
-            for(let i = 0; i < node.children.length-1; i++) {
-                str += this.ObjectToString.call(this, node.children[i]);
-                str += " ";
+            let str = '';
+            if(node.type === 'SLIST') {
+                str = (node.isQuoted) ? "'(" : "(";
+                if(node.children.length > 0) {
+                    for(let i = 0; i < node.children.length-1; i++) {
+                        str += this.ObjectToString.call(this, node.children[i]);
+                        str += " ";
+                    }
+                    str += this.ObjectToString.call(this, node.children[node.children.length-1]);
+                }
+                str += ')';
             }
-            str += this.ObjectToString.call(this, node.children[node.children.length-1]);
-            str += ')';
+            else if(node.type === 'LAMBDA') {
+                str = "(lambda (";
+                // parameters
+                if(node.parameters.length > 0) {
+                    for(let i = 0; i < node.parameters.length-1; i++) {
+                        str += this.ObjectToString.call(this, node.parameters[i]);
+                        str += " ";
+                    }
+                    str += this.ObjectToString.call(this, node.parameters[node.parameters.length-1]);
+                }
+                str += ') ';
+                // body
+                str += this.ObjectToString.call(this, node.body);
+                str += ')';
+            }
+            
             return str;
         }
     },

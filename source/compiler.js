@@ -331,7 +331,8 @@ const Compiler = function(qualifiedName, AST) {
         let first = children[0];
 
         // 首先处理特殊格式
-        if(first === 'call/cc') { return compileCallCC(nodeRef); }
+        if(first === 'import') { return; }
+        else if(first === 'call/cc') { return compileCallCC(nodeRef); }
         else if(first === 'define') { return compileDefine(nodeRef); }
         else if(first === 'set!') { return compileSet(nodeRef); }
         else if(first === 'if') { return compileIf(nodeRef);}
@@ -460,6 +461,7 @@ const Compiler = function(qualifiedName, AST) {
     ASM.push(`halt`);
     // 把所有的Lambda单独作为过程
     for(let node of NODES) {
+        if(!node) {continue;}
         if(node.type === Common.NODE_TYPE.LAMBDA) {
             compileLambda(Common.makeRef(Common.OBJECT_TYPE.SLIST, node.index));
         }
