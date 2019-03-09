@@ -192,6 +192,8 @@ const AST = function () {
     this.slists = new Array();
     this.constants = new Array();
 
+    this.aliases = new Object(); // 存储import指定的别名和模块路径之间的映射，供模块加载器使用
+
     this.refIndexes = new Object();
     this.refIndexes['STRING'] = 0;
     this.refIndexes['SLIST'] = 0;
