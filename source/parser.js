@@ -625,7 +625,7 @@ const DomainAnalysis = function(AST) {
     let variableMapping = new Array();
 
     // 需要扫描AST两遍。第一遍进行词法域定位，第二遍替换。
-    // 第一遍扫描：确定所有的参数和defined变量所在的Lambda节点和编号
+    // 第一遍扫描：确定所有的参数和defined变量所在的Lambda节点和编号，以及记录所有import的别名
     for(let index = 0; index < AST.slists.length; index++) {
         let node = AST.GetObject(Common.makeRef("SLIST", index));
         if(node.type === Common.NODE_TYPE.LAMBDA) {
@@ -642,6 +642,20 @@ const DomainAnalysis = function(AST) {
         }
         else if(node.type === Common.NODE_TYPE.SLIST) {
             let children = node.children;
+            // 特殊处理import：将别名列入别名字典，且保留
+            if(children[0] === 'import') {
+                if(Common.TypeOfToken(children[1]) !== "REF_STRING") {
+                    throw `[SSC预处理] import的来源路径必须写成字符串`;
+                }
+                else {
+                    node.children[1] = AST.GetObject(children[1]); // 替换为字符串，方便分析
+                    let alias = children[2];
+                    if(alias && alias.length > 0) {
+                        AST.aliases[alias] = node.children[1];
+                    }
+                }
+                continue;
+            }
             for(let i = 0; i < children.length; i++) {
                 let s = children[i];
                 if(isVar(s)) {
@@ -649,7 +663,9 @@ const DomainAnalysis = function(AST) {
                     if(children[0] === 'define' && i === 1) {
                         let currentLambdaIndex = nearestLambdaIndex(index);
                         let varNum = variableMapping[currentLambdaIndex].count;
-                        let varRef = AST.NewObject(Common.OBJECT_TYPE.VARIABLE, s);
+                        // NOTE：凡是defined的变量，都需要加上前缀“%MODULE_QUALIFIED_NAME%.”，以方便模块加载器将其替换成模块的全限定名
+                        // NOTE：为简单起见，并不检查是否是顶级变量
+                        let varRef = AST.NewObject(Common.OBJECT_TYPE.VARIABLE, `%MODULE_QUALIFIED_NAME%.${s}`);
                         (variableMapping[currentLambdaIndex].map)[s] = varRef; //varNum;
                         variableMapping[currentLambdaIndex].count = varNum + 1;
                     }
@@ -661,6 +677,9 @@ const DomainAnalysis = function(AST) {
     // 第二遍扫描：替换
     for(let index = 0; index < AST.slists.length; index++) {
         let node = AST.GetObject(Common.makeRef("SLIST", index));
+        if(node.children[0] === 'import') {
+            continue;
+        }
         if(node.type === Common.NODE_TYPE.LAMBDA) {
             // 首先注册变量，替换变量表
             let parameters = node.parameters;
@@ -680,6 +699,10 @@ const DomainAnalysis = function(AST) {
                 if(node.body in map.map) {
                     node.body = varPattern(Common.makeRef("SLIST", lambdaIndex), (map.map)[node.body]);
                 }
+                // 处理没有注册的且有点号分隔的符号
+                else if(/\./gi.test(node.body)) {
+                    node.body = AST.NewObject("VARIABLE", node.body);
+                }
                 else {
                     throw `[预处理] 变量${node.body}未定义`;
                 }
@@ -693,7 +716,14 @@ const DomainAnalysis = function(AST) {
                     // 计算此变量所在的词法节点
                     let lambdaIndex = searchVarLambdaIndex(s, index, variableMapping);
                     if(lambdaIndex === null) {
-                        throw `[预处理] 变量${s}未定义`;
+                        // 处理没有注册的且有点号分隔的符号
+                        if(/\./gi.test(s)) {
+                            (node.children)[i] = AST.NewObject("VARIABLE", s);
+                            continue;
+                        }
+                        else {
+                            throw `[预处理] 变量${s}未定义`;
+                        }
                     }
                     // 在map中查找此变量的编号
                     let map = variableMapping[lambdaIndex];
@@ -717,4 +747,5 @@ const Parser = function(SOURCE) {
     return AST;
 };
 
+module.exports.Lexer = Lexer;
 module.exports.Parser = Parser;
