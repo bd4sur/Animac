@@ -16,9 +16,19 @@ const Compiler = require('../source/compiler.js');
 const ModuleLoader = function(mainModulePath, SOURCE_PATH) {
 
     // 辅助过程：从某个位置获取模块代码
+    let SOURCE_CACHE = new Object();
     function fetchSource(basename, currentPath) {
         let absolutePath = getAbsolutePath(basename, currentPath);
-        let source = fs.readFileSync(absolutePath, {encoding:"utf-8"}).toString();
+        let source = null;
+        if(!(absolutePath in SOURCE_CACHE)) {
+            console.log(`[SSC] 首次读取源文件：${basename}`);
+            source = fs.readFileSync(absolutePath, {encoding:"utf-8"}).toString();
+            SOURCE_CACHE[absolutePath] = source;
+        }
+        else {
+            console.log(`[SSC] 缓存命中：${basename}`);
+            source = SOURCE_CACHE[absolutePath];
+        }
         return source;
     }
 
