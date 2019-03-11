@@ -338,6 +338,10 @@ const Compiler = function(qualifiedName, AST) {
         else if(first === 'if') { return compileIf(nodeRef);}
         else if(first === 'and') { return compileAnd(nodeRef);}
         else if(first === 'or') { return compileOr(nodeRef);}
+        else if(first === 'fork') {
+            ASM.push(`fork ${children[1]}`);
+            return;
+        }
 
         // TODO Lambda的优化
         // 根据第一项是否是Application，采取ANF变换和直接生成汇编两种策略
