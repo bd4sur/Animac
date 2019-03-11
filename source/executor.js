@@ -5,10 +5,14 @@
 // 执行机
 //   执行进程PC指定的代码，并访问线程内部或外部的存储区域
 
-const Common = require('./common.js'); // 引入公用模块
+const path = require('path');
+const Common = require('./common.js');
+const Compiler = require('./compiler.js');
+const Process = require('./process.js');
+const ModuleLoader = require('./module-loader.js');
 
 // 运行时
-const Executor = function(PROCESS/*, 预留访问VM环境的接口*/) {
+const Executor = function(PROCESS, RUNTIME/*, 预留访问VM环境的接口*/) {
 
     // 上溯闭包，获取变量绑定的值
     function getBoundValue(variable) {
@@ -64,7 +68,7 @@ const Executor = function(PROCESS/*, 预留访问VM环境的接口*/) {
         PROCESS.PC++;
     }
     else if(mnemonic === 'halt') {
-        console.info(`[虚拟机通知] 进程[${PROCESS.PID}]执行完毕。`);
+        // console.info(`[虚拟机通知] 进程[${PROCESS.PID}]执行完毕。`);
         state = Common.PROCESS_STATE.DEAD;
     }
     else if(mnemonic === 'display') {
@@ -108,7 +112,7 @@ const Executor = function(PROCESS/*, 预留访问VM环境的接口*/) {
                 let retTargetTag = PROCESS.loadContinuation(value);
 
                 PROCESS.OPSTACK.push(top);
-                console.log(`Continuation已恢复，返回标签：${retTargetTag}`);
+                // console.log(`Continuation已恢复，返回标签：${retTargetTag}`);
                 PROCESS.PC = PROCESS.LABEL_DICT[retTargetTag];
             }
             else {
@@ -473,18 +477,52 @@ const Executor = function(PROCESS/*, 预留访问VM环境的接口*/) {
         let variable = argIndex;
         let retTargetTag = `@${arg}`; // @+cont的变量引用=cont返回点的标签名称
         let contRef = PROCESS.newContinuation(retTargetTag);
-        console.log(`Continuation ${variable} 已捕获，对应的返回标签 ${retTargetTag}`);
+        // console.log(`Continuation ${variable} 已捕获，对应的返回标签 ${retTargetTag}`);
         ((PROCESS.CLOSURES)[parseInt(Common.getRefIndex(PROCESS.CURRENT_CLOSURE_REF))].env)[variable] = contRef;
         PROCESS.PC++;
     }
 
     else if(mnemonic === 'gc') { // TODO 仅调试用
         PROCESS.GC();
-        thread.PROCESS.PC++;
+        PROCESS.PC++;
     }
 
     else if(mnemonic === 'begin') { // TODO 暂且迁就编译器
-        thread.PROCESS.PC++;
+        PROCESS.PC++;
+    }
+
+    else if(mnemonic === 'fork') {
+        let code = arg; // $x，fork的参数必须是作为代码的SList。此list会作为((lambda () ..))的body被立即执行
+        // 判断参数类型：参数必须是SList或者字符串引用
+        if(argType === "REF_SLIST") {
+            // 从现有进程重建AST
+            let AST = PROCESS.rebuildAST();
+            // 将$x对应的SList挂载到顶级lambda（$1）的body
+            AST.GetObject('$1').body = code;
+            AST.GetObject(code).parentIndex = 1;
+            // 编译AST
+            let MODULE = Compiler.Compiler(PROCESS.MODULE_QUALIFIED_NAME+".test", PROCESS.MODULE_PATH, AST);
+            // 构造新进程
+            let newProcess = new Process.Process();
+            newProcess.Init(PROCESS.PID+1, PROCESS.PID, PROCESS.USER, PROCESS.MAX_HEAP_INDEX, MODULE);
+            // 在当前runtime中加入进程
+            RUNTIME.AddProcess(newProcess);
+        }
+        else if(argType === "REF_STRING") {
+            let basename = Common.trimQuotes(PROCESS.GetObject(arg).value);
+            let absolutePath = path.join(path.dirname(PROCESS.MODULE_PATH), basename);
+            let MODULE = ModuleLoader.ModuleLoader(absolutePath, Common.SYSTEM_CONFIGURATION.SOURCE_PATH);
+            // 构造新进程
+            let newProcess = new Process.Process();
+            newProcess.Init(PROCESS.PID+1, PROCESS.PID, PROCESS.USER, PROCESS.MAX_HEAP_INDEX, MODULE);
+            // 在当前runtime中加入进程
+            RUNTIME.AddProcess(newProcess);
+        }
+        else {
+            throw `[虚拟机错误] fork指令参数类型不正确`;
+        }
+
+        PROCESS.PC++;
     }
 
     return state;
