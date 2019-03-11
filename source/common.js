@@ -7,6 +7,11 @@
 
 Array.prototype.top = function() { return this[this.length - 1]; }
 
+// 全局参数（TODO 系统初始化的配置，每个参数的生命周期可能不一样。这块需要进一步优化）
+let SYSTEM_CONFIGURATION = {
+    SOURCE_PATH: './demo'
+};
+
 // 关键字集合
 const KEYWORDS = {
     "car": true,
@@ -36,6 +41,7 @@ const KEYWORDS = {
     "newline": true,
     "call/cc": true,
     "import": true,
+    "fork": true,
     // TODO 待完善
 };
 
@@ -258,8 +264,9 @@ AST.prototype = {
 
 
 // 模块类
-const Module = function(qualifiedName) {
+const Module = function(qualifiedName, modulePath) {
     this.qualifiedName = qualifiedName; // :string
+    this.modulePath = modulePath; // :string
     this.name = (qualifiedName.split(/\./gi)).top(); // :string
     this.AST = null; // :AST
     this.ASM = null; // :Array<Instruction>
@@ -301,7 +308,17 @@ const PROCESS_STATE = {
     'DEAD'        : 5,  // 销毁
 };
 
+// 去掉生字符串两端的双引号
+const trimQuotes = function(str) {
+    if(str[0] === '"' && str[str.length-1] === '"') {
+        return str.substring(1, str.length-1);
+    }
+    else {
+        return str;
+    }
+};
 
+module.exports.SYSTEM_CONFIGURATION = SYSTEM_CONFIGURATION;
 module.exports.KEYWORDS = KEYWORDS;
 module.exports.NODE_TYPE = NODE_TYPE;
 module.exports.Node = Node;
@@ -316,4 +333,5 @@ module.exports.makeRef = makeRef;
 module.exports.TypeOfToken = TypeOfToken;
 module.exports.Module = Module;
 module.exports.PROCESS_STATE = PROCESS_STATE;
+module.exports.trimQuotes = trimQuotes;
 
