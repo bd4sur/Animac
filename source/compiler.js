@@ -9,8 +9,8 @@
 const Common = require('./common.js'); // 引入公用模块
 
 // 编译器
-const Compiler = function(qualifiedName, AST) {
-    let MODULE = new Common.Module(qualifiedName);
+const Compiler = function(qualifiedName, modulePath, AST) {
+    let MODULE = new Common.Module(qualifiedName, modulePath);
 
     let NODES = AST.slists;
 
