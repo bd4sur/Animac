@@ -23,6 +23,7 @@ const Process = function() {
     this.CHILDREN = new Array(); // 子进程PID列表
     this.USER = null;            // 进程所属用户
     this.MODULE_QUALIFIED_NAME = null;  // 主模块全限定名
+    this.MODULE_PATH = null;     // 主模块源文件路径
 
     // 进程状态
     this.PRIORITY = 0;    // 进程优先级
@@ -70,6 +71,9 @@ Process.prototype = {
         this.PARENT = parentPID;
         this.CHILDREN = new Array();
         this.USER = user;
+        // 20190311
+        this.MODULE_QUALIFIED_NAME = compiledModule.qualifiedName;
+        this.MODULE_PATH = compiledModule.modulePath;
 
         // 进程状态
         this.PRIORITY = 0;
@@ -276,11 +280,7 @@ Process.prototype = {
             return `'${obj.value}`;
         }
         else if(type === Common.OBJECT_TYPE.STRING) {
-            let str = obj.value;
-            if(str[0] === '"' && str[str.length-1] === '"') {
-                str = str.substring(1, str.length-1);
-            }
-            return `${str}`;
+            return Common.trimQuotes(obj.value);
         }
         else if(type === Common.OBJECT_TYPE.SLIST) {
             let node = obj.value;
@@ -367,6 +367,38 @@ Process.prototype = {
                 delete (this.HEAP)[index];
             }
         }
+    },
+
+    // 从进程中已存在的所有词法节点信息，重建AST。可理解成反编译（的第一个环节）
+    rebuildAST: function() {
+        let AST = new Common.AST();
+        const SetObject = function(AST, ref, value) {
+            // TODO 输入检查
+            let prefix = ref[0];
+            let index = Common.getRefIndex(ref);
+            if(prefix === Common.REF_PREFIX['STRING']) {
+                AST.strings[index] = value;
+            }
+            else if(prefix === Common.REF_PREFIX['SLIST']) {
+                AST.slists[index] = value;
+            }
+            else if(prefix === Common.REF_PREFIX['SYMBOL']) {
+                AST.symbols[index] = value;
+            }
+            else if(prefix === Common.REF_PREFIX['VARIABLE']) {
+                AST.variables[index] = value;
+            }
+            else if(prefix === Common.REF_PREFIX['CONSTANT']) {
+                AST.constants[index] = value;
+            }
+            else {
+                throw `ref error`;
+            }
+        };
+        for(let ref in this.REFMAP) {
+            SetObject(AST, ref, this.GetObject(ref).value);
+        }
+        return AST;
     },
 
 };
