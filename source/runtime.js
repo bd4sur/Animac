@@ -11,12 +11,42 @@
 // 输出：无（执行）
 
 const Common = require('./common.js'); // 引入公用模块
+const Executor = require('./executor.js');
 
 // 运行时
-const Runtime = function(MODULE) {
-    let status = null;
-
-    return status;
+// TODO 试验性代码
+const Runtime = function() {
+    this.PROCESS_POOL = new Array();
+    this.PROCESS_POOL_SIZE = 0;
+    this.POINTER = 0;
 };
+
+Runtime.prototype = {
+    AddProcess: function(process) {
+        this.PROCESS_POOL.push(process);
+        this.PROCESS_POOL_SIZE++;
+    },
+
+    Tick: function() {
+        if(!(this.POINTER in this.PROCESS_POOL)) {
+            this.POINTER++; return Common.PROCESS_STATE.DEFAULT;
+        }
+        let process = this.PROCESS_POOL[this.POINTER];
+        let state = null;
+        if(process.STATE !== Common.PROCESS_STATE.DEAD) {
+            state = Executor.Executor(process, this);
+        }
+        else {
+            state = Common.PROCESS_STATE.DEFAULT;
+            this.PROCESS_POOL[this.POINTER] = undefined;
+            this.PROCESS_POOL_SIZE--;
+        }
+        this.POINTER++;
+        if(this.POINTER >= this.PROCESS_POOL.length) {
+            this.POINTER = 0;
+        }
+        return state;
+    },
+}
 
 module.exports.Runtime = Runtime;
