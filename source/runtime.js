@@ -19,9 +19,18 @@ const Runtime = function() {
     this.PROCESS_POOL = new Array();
     this.PROCESS_POOL_SIZE = 0;
     this.POINTER = 0;
+
+    this.PORTS = new Object();
 };
 
 Runtime.prototype = {
+    // 运行时初始化
+    Init: function() {
+        // 定义系统级端口
+        // 启动init进程
+        // 加载系统配置 等等
+    },
+
     AddProcess: function(process) {
         this.PROCESS_POOL.push(process);
         this.PROCESS_POOL_SIZE++;
@@ -46,6 +55,24 @@ Runtime.prototype = {
             this.POINTER = 0;
         }
         return state;
+    },
+
+    GetPort: function(portName) {
+        if(portName in this.PORTS) {
+            return this.PORTS[portName];
+        }
+        else {
+            throw `[运行时错误] 不存在的端口`;
+        }
+    },
+
+    NewPort: function(portName) {
+        if(portName[0] !== Common.PORT_PREFIX) {
+            throw `[运行时错误] 端口名称不合法（应该以“${Common.PORT_PREFIX}”为前缀）`;
+        }
+        else {
+            // 新端口
+        }
     },
 }
 

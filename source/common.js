@@ -90,6 +90,8 @@ const OBJECT_TYPE = {
     "REF_CLOSURE": "REF_CLOSURE",
     "REF_CONTINUATION": "REF_CONTINUATION",
 
+    "PORT": "PORT",
+
     // 关键字
     "KEYWORD": "KEYWORD",
 
@@ -115,6 +117,9 @@ const REF_PREFIX = {
     "CLOSURE":  "^",
     "CONTINUATION":  "~",
 };
+
+// 端口前缀
+const PORT_PREFIX = ':';
 
 const getRefIndex = function(ref) {
     if(ref === undefined) return undefined;
@@ -143,6 +148,9 @@ const getRefType = function(ref) {
     else if(ref[0] === REF_PREFIX['CONTINUATION']) {
         return "CONTINUATION";
     }
+    else if(ref[0] === REF_PREFIX['PORT']) {
+        return "PORT";
+    }
     else {
         return null;
     }
@@ -169,7 +177,10 @@ const TypeOfToken = function(token) {
     }
     else {
         if(typeof token === 'string') {
-            if(token[0] === '\'') {
+            if(token[0] === PORT_PREFIX) {
+                return OBJECT_TYPE.PORT;
+            }
+            else if(token[0] === '\'') {
                 return OBJECT_TYPE.SYMBOL;
             }
             else if(token[0] === '@') {
@@ -318,6 +329,20 @@ const trimQuotes = function(str) {
     }
 };
 
+// 端口
+// 是对共享内存、文件系统、外设的抽象。
+// 端口分为两种，其一是runtime定义的系统端口，用于模拟文件系统等。其二是用户端口，充当进程通信手段，例如（进程安全的）共享内存。
+// 为简单起见，端口使用哈希表进行寻址。这意味着任何“:”开头的字符串（在不引起混淆的情况下，也称为“端口”）都可以用来寻址端口。
+const Port = function() {
+    this.semaphore = 0;          // 信号量。
+    this.bufferSize = 0;         // 缓冲队列长度。
+    this.buffer = new Array();   // 数据缓冲队列。注意，经端口传输的数据，必须是经编码（序列化）的**Scheme对象**。编码协议暂定为JSON字符串，细节另行设计。TODO 要考虑到代码和数据的一致性。
+};
+
+Port.prototype = {
+    // 定义端口操作，包括端口新建和初始化、同步原语、队列读写等。
+};
+
 module.exports.SYSTEM_CONFIGURATION = SYSTEM_CONFIGURATION;
 module.exports.KEYWORDS = KEYWORDS;
 module.exports.NODE_TYPE = NODE_TYPE;
@@ -327,6 +352,7 @@ module.exports.Lambda = Lambda;
 module.exports.AST = AST;
 module.exports.OBJECT_TYPE = OBJECT_TYPE;
 module.exports.REF_PREFIX = REF_PREFIX;
+module.exports.PORT_PREFIX = PORT_PREFIX;
 module.exports.getRefIndex = getRefIndex;
 module.exports.getRefType = getRefType;
 module.exports.makeRef = makeRef;
@@ -334,4 +360,5 @@ module.exports.TypeOfToken = TypeOfToken;
 module.exports.Module = Module;
 module.exports.PROCESS_STATE = PROCESS_STATE;
 module.exports.trimQuotes = trimQuotes;
+module.exports.Port = Port;
 
