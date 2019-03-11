@@ -21,12 +21,12 @@ const ModuleLoader = function(mainModulePath, SOURCE_PATH) {
         let absolutePath = getAbsolutePath(basename, currentPath);
         let source = null;
         if(!(absolutePath in SOURCE_CACHE)) {
-            console.log(`[SSC] 首次读取源文件：${basename}`);
+            // console.log(`[SSC] 首次读取源文件：${basename}`);
             source = fs.readFileSync(absolutePath, {encoding:"utf-8"}).toString();
             SOURCE_CACHE[absolutePath] = source;
         }
         else {
-            console.log(`[SSC] 缓存命中：${basename}`);
+            // console.log(`[SSC] 缓存命中：${basename}`);
             source = SOURCE_CACHE[absolutePath];
         }
         return source;
@@ -331,7 +331,7 @@ const ModuleLoader = function(mainModulePath, SOURCE_PATH) {
     }
 
     // 编译
-    let MODULE = Compiler.Compiler(moduleQualifiedName, AST);
+    let MODULE = Compiler.Compiler(moduleQualifiedName, mainModulePath, AST);
     return MODULE;
 };
 
