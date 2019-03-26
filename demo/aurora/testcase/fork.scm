@@ -12,6 +12,8 @@
                           (if (= n 0)
                               1
                               (* n (foo (- n 1))))))
+                     (https.request "https://mikukonai.com/feed.xml")
+                     (display "子进程内部的阻塞过程执行完毕，继续执行后面的过程")
                      ((lambda (res)
                         (begin (display "子进程里计算阶乘的结果：")
                                (display res)))
