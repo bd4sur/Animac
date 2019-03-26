@@ -14,8 +14,7 @@ PROCESS.Init(1, 0, "Test", 10000, MODULE);
 let RUNTIME = new Runtime.Runtime();
 RUNTIME.AddProcess(PROCESS);
 
-let state = Common.PROCESS_STATE.DEFAULT;
-while(RUNTIME.PROCESS_POOL_SIZE > 0) {
-    state = RUNTIME.Tick();
-    // console.log(RUNTIME);
-}
+// 假装有调度器
+setInterval(()=> {
+    RUNTIME.Tick();
+}, 0);
