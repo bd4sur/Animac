@@ -5,6 +5,7 @@
 // 执行机
 //   执行进程PC指定的代码，并访问线程内部或外部的存储区域
 
+const child_process = require('child_process');
 const path = require('path');
 const Common = require('./common.js');
 const Compiler = require('./compiler.js');
@@ -523,6 +524,27 @@ const Executor = function(PROCESS, RUNTIME/*, 预留访问VM环境的接口*/) {
         }
 
         PROCESS.PC++;
+    }
+    
+    // 阻塞（当前进程）的https请求（试验性实现，施工中）
+    else if(mnemonic === 'https-request') {
+        if(PROCESS.STATE === Common.PROCESS_STATE.SLEEPING) {
+            state = Common.PROCESS_STATE.SLEEPING;
+        }
+        else {
+            console.log(`开始阻塞`);
+            let url = PROCESS.GetObject(arg).value;
+            child_process.exec(`node ${RUNTIME.LIBPATH}/lib-https-request.js "${url}"`, (err, stdout, stderr)=> {
+                if(stderr) {
+                    console.error(stderr);
+                }
+                console.log(stdout.toString());
+                PROCESS.STATE = Common.PROCESS_STATE.RUNNING;
+                PROCESS.PC++;
+            });
+            state = Common.PROCESS_STATE.SLEEPING;
+            PROCESS.STATE = Common.PROCESS_STATE.SLEEPING;
+        }
     }
 
     return state;
