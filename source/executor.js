@@ -17,16 +17,20 @@ const Executor = function(PROCESS, RUNTIME/*, 预留访问VM环境的接口*/) {
 
     // 上溯闭包，获取变量绑定的值
     function getBoundValue(variable) {
-        let curCloRef = PROCESS.CURRENT_CLOSURE_REF;
-        let currentClosure = PROCESS.getClosure(curCloRef);
-        while(parseInt(Common.getRefIndex(curCloRef)) >= PROCESS.FIRST_CLOSURE_INDEX && currentClosure) {
-            if(variable in currentClosure.env) {
-                return (currentClosure.env)[variable];
+        try {
+            let curCloRef = PROCESS.CURRENT_CLOSURE_REF;
+            let currentClosure = PROCESS.getClosure(curCloRef);
+            while(parseInt(Common.getRefIndex(curCloRef)) >= PROCESS.FIRST_CLOSURE_INDEX && currentClosure) {
+                if(variable in currentClosure.env) {
+                    return (currentClosure.env)[variable];
+                }
+                currentClosure = PROCESS.getClosure(currentClosure.parentClosureRef);
+                curCloRef = currentClosure.parentClosureRef;
             }
-            currentClosure = PROCESS.getClosure(currentClosure.parentClosureRef);
-            curCloRef = currentClosure.parentClosureRef;
         }
-        throw `[虚拟机错误] 变量'${variable}' at Closure${PROCESS.CURRENT_CLOSURE_REF}未定义`;
+        catch(e) {
+            throw `[虚拟机错误] 变量'${variable}' at Closure${PROCESS.CURRENT_CLOSURE_REF}未定义：${e.toString()}`;
+        }
     }
 
     // 指令解析
@@ -496,8 +500,9 @@ const Executor = function(PROCESS, RUNTIME/*, 预留访问VM环境的接口*/) {
         let code = arg; // $x，fork的参数必须是作为代码的SList。此list会作为((lambda () ..))的body被立即执行
         // 判断参数类型：参数必须是SList或者字符串引用
         if(argType === "REF_SLIST") {
-            // 从现有进程重建AST
-            let AST = PROCESS.rebuildAST();
+            // 拷贝进程的AST
+            let AST = JSON.parse(JSON.stringify(PROCESS.AST));
+            AST.__proto__ = Common.AST.prototype;
             // 将$x对应的SList挂载到顶级lambda（$1）的body
             AST.GetObject('$1').body = code;
             AST.GetObject(code).parentIndex = 1;
@@ -510,7 +515,7 @@ const Executor = function(PROCESS, RUNTIME/*, 预留访问VM环境的接口*/) {
             RUNTIME.AddProcess(newProcess);
         }
         else if(argType === "REF_STRING") {
-            let basename = Common.trimQuotes(PROCESS.GetObject(arg).value);
+            let basename = PROCESS.GetObject(arg).value;
             let absolutePath = path.join(path.dirname(PROCESS.MODULE_PATH), basename);
             let MODULE = ModuleLoader.ModuleLoader(absolutePath, Common.SYSTEM_CONFIGURATION.SOURCE_PATH);
             // 构造新进程
@@ -525,26 +530,26 @@ const Executor = function(PROCESS, RUNTIME/*, 预留访问VM环境的接口*/) {
 
         PROCESS.PC++;
     }
-    
-    // 阻塞（当前进程）的https请求（试验性实现，施工中）
-    else if(mnemonic === 'https-request') {
-        if(PROCESS.STATE === Common.PROCESS_STATE.SLEEPING) {
-            state = Common.PROCESS_STATE.SLEEPING;
+
+    // 调用native函数
+    else if(mnemonic === 'callnative') {
+        let arity = parseInt(arg);  // 注意：arity数含函数名称
+        let nativeArgs = new Array();
+        for(let i = arity - 1; i >= 0; i--) {
+            nativeArgs[i] = PROCESS.OPSTACK.pop();
         }
-        else {
-            console.log(`开始阻塞`);
-            let url = PROCESS.GetObject(arg).value;
-            child_process.exec(`node ${RUNTIME.LIBPATH}/lib-https-request.js "${url}"`, (err, stdout, stderr)=> {
-                if(stderr) {
-                    console.error(stderr);
-                }
-                console.log(stdout.toString());
-                PROCESS.STATE = Common.PROCESS_STATE.RUNNING;
-                PROCESS.PC++;
-            });
-            state = Common.PROCESS_STATE.SLEEPING;
-            PROCESS.STATE = Common.PROCESS_STATE.SLEEPING;
-        }
+
+        // 获取native函数所在的模块
+        let nativeQualifiedName = nativeArgs.top();
+        let nativeLibName = nativeQualifiedName.split('.')[0];
+        let nativeFunctionName = nativeQualifiedName.split('.')[1];
+        let nativeLib = require(`${RUNTIME.NATIVE_LIB_PATH}${nativeLibName}.js`);
+
+        // 调用外部实现的native函数
+        // TODO 应该对外部代码做一些validate
+        nativeArgs.pop(); // 去掉栈顶的函数名
+        (nativeLib[nativeFunctionName])(nativeArgs, PROCESS, RUNTIME); // NOTE：这里实际上体现了VM与native开发者所做的接口格式约定，类似于javah生成的那个头文件
+        // TODO 虚拟机运行逻辑完全交由native库实现。因此此处需要做更多判断，或者后处理。
     }
 
     return state;

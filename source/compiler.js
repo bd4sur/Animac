@@ -332,6 +332,8 @@ const Compiler = function(qualifiedName, modulePath, AST) {
 
         // 首先处理特殊格式
         if(first === 'import') { return; }
+        else if(first === 'native') { return; }
+
         else if(first === 'call/cc') { return compileCallCC(nodeRef); }
         else if(first === 'define') { return compileDefine(nodeRef); }
         else if(first === 'set!') { return compileSet(nodeRef); }
@@ -410,7 +412,7 @@ const Compiler = function(qualifiedName, modulePath, AST) {
             ASM.push(`call @${tempLambdaName}`);
             ASM.push(`@${tempLambdaRetName}`); // 临时函数调用返回点
         }
-        // 首项是原子对象，包括字面Lambda
+        // 首项是原子对象，包括字面Lambda、native函数
         else {
             for(let i = 1; i < children.length; i++) { // 处理参数列表
                 let child = children[i];
@@ -435,8 +437,14 @@ const Compiler = function(qualifiedName, modulePath, AST) {
                     ASM.push(`push ${child}`);
                 }
             }
-            // 调用，需要区分Lambda和非Lambda
-            if(typeOfFirst === Common.OBJECT_TYPE.KEYWORD) {
+            // 调用，需要区分Lambda、字面函数、关键字等，并处理尾递归
+            let firstString = AST.GetObject(first);
+            if((typeof(firstString) === 'string') && ((firstString.split('.'))[0] in AST.natives)) {
+                let arity = children.length; // 注意：arity包含函数名，即参数个数+1
+                ASM.push(`push ${firstString}`);  // native函数名的字符串字面值在栈顶（形如“String.charAt”，不带引号）
+                ASM.push(`callnative ${arity}`);  // 虚拟机指令：调用native方法，唯一参数是传入arity数（含函数名）
+            }
+            else if(typeOfFirst === Common.OBJECT_TYPE.KEYWORD) {
                 if(first !== 'begin') { // begin不加入指令序列
                     ASM.push(`${first}`);
                 }

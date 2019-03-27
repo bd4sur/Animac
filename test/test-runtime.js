@@ -4,7 +4,7 @@ const ModuleLoader = require('../source/module-loader.js');
 const Runtime = require('../source/runtime.js');
 
 // 载入模块（依赖分析→编译）
-let MODULE = ModuleLoader.ModuleLoader('./demo/aurora/testcase/fork.scm', './demo');
+let MODULE = ModuleLoader.ModuleLoader('./demo/aurora/testcase/native.scm', './demo');
 
 // 初始化进程
 let PROCESS = new Process.Process();

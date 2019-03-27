@@ -579,6 +579,38 @@ const GenarateAST = function(TOKENS) {
     return AST;
 };
 
+
+// 预处理语句分析
+const Preprocess = function(AST) {
+    for(let index = 0; index < AST.slists.length; index++) {
+        let node = AST.GetObject(Common.makeRef("SLIST", index));
+        if(node.type === Common.NODE_TYPE.SLIST) {
+            let children = node.children;
+            // import：将别名列入别名字典，且保留
+            if(children[0] === 'import') {
+                if(Common.TypeOfToken(children[1]) !== "REF_STRING") {
+                    throw `[SSC预处理] import的来源路径必须写成字符串`;
+                }
+                else {
+                    node.children[1] = AST.GetObject(children[1]); // 替换为字符串，方便分析
+                    let alias = children[2];
+                    if(alias && alias.length > 0) {
+                        AST.dependencies[alias] = Common.trimQuotes(node.children[1]); // 去掉双引号
+                    }
+                }
+                continue;
+            }
+            // native：指定native库名称
+            else if(children[0] === 'native') {
+                // TODO：更多断言，例如重复判断、native库存在性判断等
+                let nativeName = AST.GetObject(children[1]);
+                AST.natives[nativeName] = true; // TODO：可以存一点有意义的东西
+                continue;
+            }
+        }
+    }
+};
+
 // 作用域分析
 // 变量名称唯一化，为汇编做准备。针对AST进行操作。
 const DomainAnalysis = function(AST) {
@@ -586,7 +618,7 @@ const DomainAnalysis = function(AST) {
     function searchVarLambdaIndex(symbol, fromNodeIndex, variableMapping) {
         let currentNodeIndex = fromNodeIndex;
         let currentMap = null;
-        while(/*currentNodeIndex >= 0 && */currentNodeIndex !== undefined) {
+        while(currentNodeIndex !== undefined) {
             let node = AST.GetObject(Common.makeRef("SLIST", currentNodeIndex));
             if(node.type === Common.NODE_TYPE.LAMBDA) {
                 currentMap = variableMapping[currentNodeIndex].map;
@@ -602,7 +634,7 @@ const DomainAnalysis = function(AST) {
     // 查找某个node上面最近的lambda节点的地址
     function nearestLambdaIndex(index) {
         let cindex = index;
-        while(/*cindex >= 0 && */cindex !== undefined) {
+        while(cindex !== undefined) {
             let node = AST.GetObject(Common.makeRef("SLIST", cindex));
             if(node.type === Common.NODE_TYPE.LAMBDA) {
                 return cindex;
@@ -642,18 +674,27 @@ const DomainAnalysis = function(AST) {
         }
         else if(node.type === Common.NODE_TYPE.SLIST) {
             let children = node.children;
-            // 特殊处理import：将别名列入别名字典，且保留
+
+            // 以下是一些预处理指令，注意：第二遍扫描处也需要修改
+            // import：将别名列入别名字典，且保留
             if(children[0] === 'import') {
-                if(Common.TypeOfToken(children[1]) !== "REF_STRING") {
-                    throw `[SSC预处理] import的来源路径必须写成字符串`;
-                }
-                else {
-                    node.children[1] = AST.GetObject(children[1]); // 替换为字符串，方便分析
-                    let alias = children[2];
-                    if(alias && alias.length > 0) {
-                        AST.dependencies[alias] = node.children[1].substring(1, node.children[1].length - 1); // 去掉双引号
-                    }
-                }
+                // if(Common.TypeOfToken(children[1]) !== "REF_STRING") {
+                //     throw `[SSC预处理] import的来源路径必须写成字符串`;
+                // }
+                // else {
+                //     node.children[1] = AST.GetObject(children[1]); // 替换为字符串，方便分析
+                //     let alias = children[2];
+                //     if(alias && alias.length > 0) {
+                //         AST.dependencies[alias] = node.children[1].substring(1, node.children[1].length - 1); // 去掉双引号
+                //     }
+                // }
+                continue;
+            }
+            // native：指定native库名称
+            else if(children[0] === 'native') {
+                // TODO：更多断言，例如重复判断、native库存在性判断等
+                // let nativeName = AST.GetObject(children[1]);
+                // AST.natives[nativeName] = true; // TODO：可以存一点有意义的东西
                 continue;
             }
             for(let i = 0; i < children.length; i++) {
@@ -678,6 +719,9 @@ const DomainAnalysis = function(AST) {
     for(let index = 0; index < AST.slists.length; index++) {
         let node = AST.GetObject(Common.makeRef("SLIST", index));
         if(node.children[0] === 'import') {
+            continue;
+        }
+        if(node.children[0] === 'native') {
             continue;
         }
         if(node.type === Common.NODE_TYPE.LAMBDA) {
@@ -737,12 +781,13 @@ const DomainAnalysis = function(AST) {
             }
         }
     }
-}
+};
 
 // 代码→完整AST
 const Parser = function(SOURCE) {
     let TOKENS = Lexer(SOURCE); // 词法分析
     let AST = GenarateAST(TOKENS);
+    Preprocess(AST);
     DomainAnalysis(AST);
     return AST;
 };

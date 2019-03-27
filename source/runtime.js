@@ -16,6 +16,8 @@ const Executor = require('./executor.js');
 // 运行时
 // TODO 试验性代码
 const Runtime = function() {
+    this.NATIVE_LIB_PATH = './nativelib/'; // native库目录（相对于JS代码所在目录，因为使用时是通过require引入）
+
     this.PROCESS_POOL = new Array();
     this.PROCESS_POOL_SIZE = 0;
     this.POINTER = 0;
@@ -41,12 +43,14 @@ Runtime.prototype = {
             this.POINTER++; return Common.PROCESS_STATE.DEFAULT;
         }
         let process = this.PROCESS_POOL[this.POINTER];
-        let state = null;
-        if(process.STATE !== Common.PROCESS_STATE.DEAD) {
-            state = Executor.Executor(process, this);
+
+        if(process.STATE !== Common.PROCESS_STATE.DEAD && process.STATE !== Common.PROCESS_STATE.SLEEPING) {
+            Executor.Executor(process, this);
+        }
+        else if(process.STATE === Common.PROCESS_STATE.SLEEPING) {
+            // TODO
         }
         else {
-            state = Common.PROCESS_STATE.DEFAULT;
             this.PROCESS_POOL[this.POINTER] = undefined;
             this.PROCESS_POOL_SIZE--;
         }
@@ -54,7 +58,6 @@ Runtime.prototype = {
         if(this.POINTER >= this.PROCESS_POOL.length) {
             this.POINTER = 0;
         }
-        return state;
     },
 
     GetPort: function(portName) {

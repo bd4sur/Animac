@@ -113,12 +113,15 @@ Process.prototype = {
         this.PC = PROGRAM_START_FROM;
         this.WDT = 100000;
 
+        // 保留模块的AST
+        this.AST = compiledModule.AST;
+
         // 将AST载入POOL
         let poolCounter = 0;
         let resources = compiledModule.AST;
         // 添加变量
         const newHeapObject = function(objType, obj) {
-            (this.POOL)[poolCounter] = new RuntimeObject(objType, obj);
+            (this.POOL)[poolCounter] = new RuntimeObject(objType, (objType === Common.OBJECT_TYPE.STRING) ? Common.trimQuotes(obj) : obj);
             let newref = `${Common.REF_PREFIX[objType]}${this.REF_INDEX[objType]}`;
             (this.REFMAP)[newref] = poolCounter;
             (this.REF_INDEX)[objType]++;
@@ -260,7 +263,7 @@ Process.prototype = {
         // 引用-物理地址映射
         (this.REFMAP)[reference] = newHeapIndex;
         // 存储对象
-        (this.HEAP)[newHeapIndex] = new RuntimeObject(type, value);
+        (this.HEAP)[newHeapIndex] = new RuntimeObject(type, (type === Common.OBJECT_TYPE.STRING) ? Common.trimQuotes(value) : value);
         // 返回引用
         return reference;
     },
@@ -280,7 +283,7 @@ Process.prototype = {
             return `'${obj.value}`;
         }
         else if(type === Common.OBJECT_TYPE.STRING) {
-            return Common.trimQuotes(obj.value);
+            return obj.value;
         }
         else if(type === Common.OBJECT_TYPE.SLIST) {
             let node = obj.value;
@@ -369,7 +372,9 @@ Process.prototype = {
         }
     },
 
-    // 从进程中已存在的所有词法节点信息，重建AST。可理解成反编译（的第一个环节）
+    // 【废弃】从进程中已存在的所有词法节点信息，重建AST。可理解成反编译（的第一个环节）
+    // NOTE：Process内部保存AST，因此不再需要这个函数
+    /*
     rebuildAST: function() {
         let AST = new Common.AST();
         const SetObject = function(AST, ref, value) {
@@ -400,6 +405,7 @@ Process.prototype = {
         }
         return AST;
     },
+    */
 
 };
 

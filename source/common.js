@@ -41,6 +41,7 @@ const KEYWORDS = {
     "newline": true,
     "call/cc": true,
     "import": true,
+    "native": true,
     "fork": true,
     // TODO 待完善
 };
@@ -213,6 +214,8 @@ const AST = function () {
     this.dependencies = new Object(); // 存储import指定的别名和模块路径之间的映射，供模块加载器使用
     this.aliases = new Object();      // 存储import指定的别名和模块全限定名之间的映射，供模块加载器使用
 
+    this.natives = new Object();  // 存储native模块名，供编译器识别native函数
+
     this.refIndexes = new Object();
     this.refIndexes['STRING'] = 0;
     this.refIndexes['SLIST'] = 0;
@@ -227,7 +230,11 @@ AST.prototype = {
         // TODO 输入检查
         let prefix = ref[0];
         let index = getRefIndex(ref);
-        if(prefix === REF_PREFIX['STRING']) {
+        // 避免*乘号等关键字与ref混淆
+        if(ref in KEYWORDS) {
+            return ref;
+        }
+        else if(prefix === REF_PREFIX['STRING']) {
             return this.strings[index];
         }
         else if(prefix === REF_PREFIX['SLIST']) {
