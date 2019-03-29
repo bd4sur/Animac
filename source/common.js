@@ -319,6 +319,7 @@ Module.prototype.setASM = function(asmlines) {
 // 进程状态
 const PROCESS_STATE = {
     'DEFAULT'     : -1, // 默认
+    'READY'       : 0,  // 就绪，等待调度
     'RUNNING'     : 1,  // 运行
     'SLEEPING'    : 2,  // 睡眠（可中断）
     'DEEPSLEEPING': 3,  // 深度睡眠（不可中断）

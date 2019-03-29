@@ -14,13 +14,16 @@ const request = function(avmArgs, avmProcess, avmRuntime) {
         avmProcess.STATE = Common.PROCESS_STATE.SLEEPING;
     }
     else {
-        // console.log(`开始阻塞`);
+        // console.log(`开始阻塞(https)`);
         avmProcess.STATE = Common.PROCESS_STATE.SLEEPING;
 
         let url = new URL(avmProcess.GetObject(avmArgs[0]).value);
         function callback() {
             avmProcess.STATE = Common.PROCESS_STATE.RUNNING;
             avmProcess.PC++;
+            // 将自身从runtime的睡眠线程中换到线程池中，并重启时钟
+            avmRuntime.AddProcess(avmProcess);
+            avmRuntime.StartClock();
         }
 
         setTimeout(()=> {

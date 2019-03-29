@@ -18,9 +18,9 @@ const Executor = require('./executor.js');
 const Runtime = function() {
     this.NATIVE_LIB_PATH = './nativelib/'; // native库目录（相对于JS代码所在目录，因为使用时是通过require引入）
 
-    this.PROCESS_POOL = new Array();
-    this.PROCESS_POOL_SIZE = 0;
-    this.POINTER = 0;
+    this.PROCESSES = new Object();
+
+    this.PROCESS_QUEUE = new Array();
 
     this.PORTS = new Object();
 };
@@ -33,30 +33,57 @@ Runtime.prototype = {
         // 加载系统配置 等等
     },
 
+    // 将线程加入线程池
     AddProcess: function(process) {
-        this.PROCESS_POOL.push(process);
-        this.PROCESS_POOL_SIZE++;
+        // 检查是否已存在此线程
+        if(!(process.PID in this.PROCESSES)) {
+            this.PROCESSES[process.PID] = process;
+        }
+        this.PROCESS_QUEUE.push(process.PID); // 加入队尾
+
+        // this.PROCESS_POOL.push(process);
+        // this.PROCESS_POOL_SIZE++;
+    },
+
+    // 此函数用于启动执行时钟
+    // 典型应用场景为程序冷启动，以及异步IO调用的回调函数中恢复睡眠线程执行
+    // 参数：结束条件
+    StartClock: function(stopCondition) {
+        // 假装有调度器
+        while(1) {
+            let rtState = this.Tick();
+            if(stopCondition) {
+                // console.info(`VM实例执行结束。`);
+                break;
+            }
+            if(rtState === "VM_TERMINATED") {
+                // console.info(`所有进程执行结束。`);
+                break;
+            }
+        }
     },
 
     Tick: function() {
-        if(!(this.POINTER in this.PROCESS_POOL)) {
-            this.POINTER++; return Common.PROCESS_STATE.DEFAULT;
-        }
-        let process = this.PROCESS_POOL[this.POINTER];
+        // 取出队头线程
+        let currentPID = this.PROCESS_QUEUE.shift();
+        let currentProcess = this.PROCESSES[currentPID];
 
-        if(process.STATE !== Common.PROCESS_STATE.DEAD && process.STATE !== Common.PROCESS_STATE.SLEEPING) {
-            Executor.Executor(process, this);
+        Executor.Executor(currentProcess, this);
+
+        if(currentProcess.STATE === Common.PROCESS_STATE.SLEEPING) {
+            // 将睡眠的进程移入等待区，睡眠结束调用回调时，将其重新加入队列，并启动时钟
+            // this.WAITING.push(currentProcess);
         }
-        else if(process.STATE === Common.PROCESS_STATE.SLEEPING) {
-            // TODO
+        else if(currentProcess.STATE !== Common.PROCESS_STATE.DEAD && currentProcess.STATE !== Common.PROCESS_STATE.SLEEPING) {
+            // 仍在运行的进程加入队尾
+            this.PROCESS_QUEUE.push(currentPID);
+        }
+
+        if(this.PROCESS_QUEUE.length <= 0) {
+            return "VM_TERMINATED";
         }
         else {
-            this.PROCESS_POOL[this.POINTER] = undefined;
-            this.PROCESS_POOL_SIZE--;
-        }
-        this.POINTER++;
-        if(this.POINTER >= this.PROCESS_POOL.length) {
-            this.POINTER = 0;
+            return "VM_RUNNING";
         }
     },
 

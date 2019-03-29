@@ -74,7 +74,7 @@ const Executor = function(PROCESS, RUNTIME/*, 预留访问VM环境的接口*/) {
     }
     else if(mnemonic === 'halt') {
         // console.info(`[虚拟机通知] 进程[${PROCESS.PID}]执行完毕。`);
-        state = Common.PROCESS_STATE.DEAD;
+        PROCESS.STATE = Common.PROCESS_STATE.DEAD;
     }
     else if(mnemonic === 'display') {
         let arg = PROCESS.OPSTACK.pop();
@@ -149,7 +149,7 @@ const Executor = function(PROCESS, RUNTIME/*, 预留访问VM环境的接口*/) {
                 let retTargetTag = PROCESS.loadContinuation(value);
 
                 PROCESS.OPSTACK.push(top);
-                console.log(`Continuation已恢复，返回标签：${retTargetTag}`);
+                // console.log(`Continuation已恢复，返回标签：${retTargetTag}`);
                 PROCESS.PC = PROCESS.LABEL_DICT[retTargetTag];
             }
             else {
@@ -510,7 +510,8 @@ const Executor = function(PROCESS, RUNTIME/*, 预留访问VM环境的接口*/) {
             let MODULE = Compiler.Compiler(PROCESS.MODULE_QUALIFIED_NAME+".test", PROCESS.MODULE_PATH, AST);
             // 构造新进程
             let newProcess = new Process.Process();
-            newProcess.Init(PROCESS.PID+1, PROCESS.PID, PROCESS.USER, PROCESS.MAX_HEAP_INDEX, MODULE);
+            // TODO: 此处的PID应当改进，保证在VM执行周期中生成的ID都不相同。
+            newProcess.Init(Math.floor(Math.random() * 10000)/*PROCESS.PID+1*/, PROCESS.PID, PROCESS.USER, PROCESS.MAX_HEAP_INDEX, MODULE);
             // 在当前runtime中加入进程
             RUNTIME.AddProcess(newProcess);
         }
@@ -520,7 +521,8 @@ const Executor = function(PROCESS, RUNTIME/*, 预留访问VM环境的接口*/) {
             let MODULE = ModuleLoader.ModuleLoader(absolutePath, Common.SYSTEM_CONFIGURATION.SOURCE_PATH);
             // 构造新进程
             let newProcess = new Process.Process();
-            newProcess.Init(PROCESS.PID+1, PROCESS.PID, PROCESS.USER, PROCESS.MAX_HEAP_INDEX, MODULE);
+            // TODO: 此处的PID应当改进，保证在VM执行周期中生成的ID都不相同。
+            newProcess.Init(Math.floor(Math.random() * 10000)/*PROCESS.PID+1*/, PROCESS.PID, PROCESS.USER, PROCESS.MAX_HEAP_INDEX, MODULE);
             // 在当前runtime中加入进程
             RUNTIME.AddProcess(newProcess);
         }

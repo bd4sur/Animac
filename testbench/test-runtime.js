@@ -4,7 +4,18 @@ const ModuleLoader = require('../source/module-loader.js');
 const Runtime = require('../source/runtime.js');
 
 // 载入模块（依赖分析→编译）
-let MODULE = ModuleLoader.ModuleLoader('./testcase/aurora/testcase/native.scm', './testcase');
+// let modulePath = './testcase/aurora/testcase/factorial.scm';
+// let modulePath = './testcase/aurora/testcase/factorial-cps.scm';
+// let modulePath = './testcase/aurora/testcase/factorial-purecps.scm';
+// let modulePath = './testcase/aurora/testcase/fork.scm';
+// let modulePath = './testcase/aurora/testcase/generator.scm';
+// let modulePath = './testcase/aurora/testcase/main.scm';
+// let modulePath = './testcase/aurora/testcase/man-or-boy-test.scm';
+let modulePath = './testcase/aurora/testcase/native.scm';
+// let modulePath = './testcase/aurora/testcase/quicksort.scm';
+// let modulePath = './testcase/aurora/testcase/yin-yang-puzzle.scm';
+
+let MODULE = ModuleLoader.ModuleLoader(modulePath, './testcase');
 
 // 初始化进程
 let PROCESS = new Process.Process();
@@ -14,7 +25,5 @@ PROCESS.Init(1, 0, "Test", 10000, MODULE);
 let RUNTIME = new Runtime.Runtime();
 RUNTIME.AddProcess(PROCESS);
 
-// 假装有调度器
-setInterval(()=> {
-    RUNTIME.Tick();
-}, 0);
+// 启动
+RUNTIME.StartClock(false);

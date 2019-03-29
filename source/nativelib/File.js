@@ -19,7 +19,7 @@ const read = function(avmArgs, avmProcess, avmRuntime) {
         avmProcess.STATE = Common.PROCESS_STATE.SLEEPING;
     }
     else {
-        // console.log(`开始阻塞`);
+        // console.log(`开始阻塞(file)`);
         avmProcess.STATE = Common.PROCESS_STATE.SLEEPING;
 
         let path = avmProcess.GetObject(avmArgs[0]).value;
@@ -63,18 +63,24 @@ const read = function(avmArgs, avmProcess, avmRuntime) {
             else {
                 throw `[Native:File.read] 回调函数必须是函数或闭包`;
             }
-
+            // 将自身从runtime的睡眠线程中换到线程池中，并重启时钟
+            avmRuntime.AddProcess(avmProcess);
             // 执行Scheme回调函数，直至返回此条指令的下一条指令的位置
-            let newVM = setInterval(()=> {
-                if(avmProcess.PC !== currentPC + 1) {
-                    clearInterval(newVM);
-                    return;
+            avmRuntime.StartClock(avmProcess.PC === currentPC + 1);
+            /*
+            while(1) {
+            // let newVM = setInterval(()=> {
+                if(avmProcess.PC === currentPC + 1) {
+                    // clearInterval(newVM);
+                    // return;
+                    break;
                 }
                 if(avmProcess.STATE !== Common.PROCESS_STATE.SLEEPING) {
                     Executor.Executor(avmProcess, avmRuntime);
                 }
-            }, 0);
-
+            // }, 0);
+            }
+            */
         });
     }
 };
