@@ -50,6 +50,41 @@ const substring = function(avmArgs, avmProcess, avmRuntime) {
     avmProcess.PC++;
 }
 
+const split = function(avmArgs, avmProcess, avmRuntime) {
+    let argString = avmProcess.GetObject(avmArgs[0]);
+    let argSeperator = avmProcess.GetObject(avmArgs[1]);
+
+    if(argString.type !== 'STRING' || argSeperator.type !== 'STRING') {
+        throw '[Native:String.split] 参数类型不正确。';
+    }
+    else {
+        let str = argString.value;
+        let septor = argSeperator.value;
+
+        let segs = str.split(new RegExp(septor));
+        let newlist = {
+            "type": "SLIST",
+            "index": null, // 待定
+            "parentIndex": 0,
+            "children": new Array(),
+            "isQuoted": true,
+            "parameters": null,
+            "body": null,
+        };
+        for(let i = 0; i < segs.length; i++) {
+            let segRef = avmProcess.NewObject('STRING', segs[i]);
+            newlist.children.push(segRef);
+        }
+
+        let slistRef = avmProcess.NewObject('SLIST', newlist);
+        newlist.index = parseInt(Common.getRefIndex(slistRef));
+
+        avmProcess.OPSTACK.push(slistRef);
+    }
+    avmProcess.PC++;
+}
+
 module.exports.length = length;
 module.exports.charAt = charAt;
 module.exports.substring = substring;
+module.exports.split = split;
