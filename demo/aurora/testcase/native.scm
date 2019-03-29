@@ -1,13 +1,15 @@
 (native HTTPS)
 (native String)
 (native Math)
+(native File)
 
-;; TODO 模块import机制有重大缺陷：import的模块，不要求值其顶级作用域begin内部的子表达式。
+(import "./factorial.scm" Fac)
+
+;; NOTE （已修复：凡是被引用的模块，其顶级作用域的非define节点会被逻辑删除）模块import机制有重大缺陷：import的模块，不要求值其顶级作用域begin内部的子表达式。
 
 ;; HTTPS测试
 (define res #f)
 (set! res (HTTPS.request "https://mikukonai.com/feed.xml"))
-;(display res)
 
 ;; File测试：读取文件，并将其内容按行打印出来
 (File.read
@@ -33,4 +35,4 @@
 ;; Math测试
 (display (Math.sin (Math.PI)))
 (display (Math.dot '(1 2 3 4) '(5 6 7 8)))
-(display (Math.scale (* 2 5) '(1 2 3 4)))
+(display (Math.scale (Fac.fac 5) '(1 2 3 4)))
