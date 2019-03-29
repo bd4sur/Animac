@@ -80,7 +80,7 @@ const ModuleLoader = function(mainModulePath, SOURCE_PATH) {
     }
 
     // 辅助过程：AST融合（AST1←AST2）
-    function mergeAST(AST1, AST2) {
+    function mergeAST(AST1, AST2, isMergeTop) {
         // 引用index平移
         function refShift(ref, shamt) {
             return Common.makeRef(Common.getRefType(ref), (parseInt(Common.getRefIndex(ref)) + shamt));
@@ -137,6 +137,11 @@ const ModuleLoader = function(mainModulePath, SOURCE_PATH) {
         // 忽略外层包裹的((lambda () (begin ...)))节点
         for(let i = 3; i < AST2.slists.length; i++) {
             let node = AST2.slists[i];
+            // 20190329
+            // 舍弃直接挂接在begin顶级作用域下的，非define节点
+            if(!isMergeTop && node.parentIndex === 2 && node.children[0] !== 'define') {
+                continue;
+            }
             node.index = node.index + slistsOffset;
             // 注意：对parentIndex=2作特殊处理（AST2的顶级节点统一挂接到AST1的外层begin节点上）
             node.parentIndex = (node.parentIndex === 2) ? 2 : node.parentIndex + slistsOffset;
@@ -198,6 +203,11 @@ const ModuleLoader = function(mainModulePath, SOURCE_PATH) {
         AST1.refIndexes['SYMBOL'] += AST2.refIndexes['SYMBOL'];
         AST1.refIndexes['VARIABLE'] += AST2.refIndexes['VARIABLE'];
         AST1.refIndexes['CONSTANT'] += AST2.refIndexes['CONSTANT'];
+
+        // 20190329 natives融合
+        for(let n in AST2.natives) {
+            AST1.natives[n] = AST2.natives[n];
+        }
 
     }
 
@@ -327,7 +337,27 @@ const ModuleLoader = function(mainModulePath, SOURCE_PATH) {
     // AST融合
     let AST = modules[0].AST;
     for(let i = 1; i < modules.length; i++) {
-        mergeAST(AST, modules[i].AST);
+        // 如果能够进入这个循环，说明第0个AST必然是被引用的，需要去除它顶级作用域的非define节点
+        if(i === 1) {
+            for(let c = 0; c < AST.slists.length; c++) {
+                let node = AST.slists[c];
+                if(node.parentIndex === 2 && node.children[0] !== 'define') { // 直接挂接在begin上，且非define
+                    // ①从begin列表中删去这个节点
+                    for(let n = 0; n < AST.slists[2].children.length; n++) {
+                        if(AST.slists[2].children[n] === Common.makeRef("SLIST", c)) {
+                            AST.slists[2].children[n] = undefined;
+                        }
+                    }
+                    // ②在AST中删去这个节点
+                    // AST.slists[c] = undefined;
+                }
+            }
+        }
+        let isMergeTop = false;
+        if(modules[i].qualifiedName === moduleQualifiedName) {
+            isMergeTop = true;
+        }
+        mergeAST(AST, modules[i].AST, isMergeTop);
     }
 
     // 编译
