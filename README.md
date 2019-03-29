@@ -6,6 +6,16 @@ AuroraVM - A stack-based virtual machine for Scheme. 基于栈的Scheme虚拟机
 
 [JavaScript实现的原型](https://mikukonai.com/auroravm.html)
 
+## Commit message 内容规范
+
+使用前缀（标签）来提示本次提交的主要内容。同一个commit可以有多个标签，但是要按照以下顺序排列。
+
+- 【开发】指实现或者试验性地实现新特性、新功能，是从无到有的工作。
+- 【优化】针对现有代码的优化、重构，是从有到优的工作。
+- 【修复】故障排查与修复。
+- 【测试】新增、完善、改进测试用例和测试平台（testbench）。
+- 【文档】指文档维护工作。
+
 ## 这是什么
 
 AuroraVM 是一部 Scheme 虚拟机（语言实现），可以执行由 Scheme 代码编译得到的虚拟机指令码文件。
@@ -26,18 +36,22 @@ AuroraVM 是一部 Scheme 虚拟机（语言实现），可以执行由 Scheme �
 - 基于标记-清除的垃圾回收。
 - 运行时新建进程（fork），用于实现用户程序层次的多进程。
 - 类似JNI的Native库函数机制，允许开发者使用JavaScript实现扩展库。【正在完善】
-- 基于上一条特性，实现了若干Native库函数（String、HTTPS、Math）。
+- 基于上一条特性，实现了若干Native库函数（String、HTTPS、Math、File等）。
 
 近期计划实现的特性：
 
 - 高精度数值运算。
+- 功能有限的准引用（quasiquote）。
+- 字符串模板（类似于JavaScript的）和正则表达式。
 - 进程调度器。
 - 提升Native库机制的JS与Scheme的互操作性，以及接口的友好性。
-- 完善基础库。目前计划实现字符串、正则表达式、文件操作、网络。
-- 调试工具，计划采用B/S方案。
+- 完善基础库（nativelib）和应用库（applib），分别指利用ANI机制由JS编写的库，和直接使用Scheme编写的库。
+- 可视化的调试工具。
 
 暂未列入计划的特性：
 
+- 编译时类型检查、推导，或者强类型语言。
+- 模式匹配。
 - 卫生宏。
 - 可以由卫生宏所实现的一系列结构，例如`let`块、`delay`/`force`、柯里化和CPST等等。
 
