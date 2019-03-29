@@ -9,6 +9,22 @@
 (set! res (HTTPS.request "https://mikukonai.com/feed.xml"))
 ;(display res)
 
+;; File测试：读取文件，并将其内容按行打印出来
+(File.read
+    "E:/text.txt"
+    (lambda (content) (begin
+      (define segs #f)
+      ;; TODO 这里define的行为与预想的有偏差：应当区别对待lambda和SList的求值。Lambda不作处理，但SList需要求值。
+      ;; 或者，干脆就把define的语义设计成这样吧。
+      (set! segs (String.split content "\n"))
+      (define show
+        (lambda (segs)
+          (if (null? segs)
+              #f
+              (begin (display (car segs))
+                     (show (cdr segs))))))
+      (show segs))))
+
 ;; String测试
 (display (String.length    res        ))
 (display (String.charAt    res  10    ))
