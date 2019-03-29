@@ -19,7 +19,7 @@ const read = function(avmArgs, avmProcess, avmRuntime) {
         avmProcess.STATE = Common.PROCESS_STATE.SLEEPING;
     }
     else {
-        console.log(`开始阻塞`);
+        // console.log(`开始阻塞`);
         avmProcess.STATE = Common.PROCESS_STATE.SLEEPING;
 
         let path = avmProcess.GetObject(avmArgs[0]).value;
@@ -65,9 +65,15 @@ const read = function(avmArgs, avmProcess, avmRuntime) {
             }
 
             // 执行Scheme回调函数，直至返回此条指令的下一条指令的位置
-            while(avmProcess.PC !== currentPC + 1) {
-                Executor.Executor(avmProcess, avmRuntime);
-            }
+            let newVM = setInterval(()=> {
+                if(avmProcess.PC !== currentPC + 1) {
+                    clearInterval(newVM);
+                    return;
+                }
+                if(avmProcess.STATE !== Common.PROCESS_STATE.SLEEPING) {
+                    Executor.Executor(avmProcess, avmRuntime);
+                }
+            }, 0);
 
         });
     }

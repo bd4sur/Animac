@@ -6,7 +6,7 @@ const Process = require('../source/process.js');
 const Executor = require('../source/executor.js');
 
 // 测试时修改此处
-const sourcePath = "./demo"; // 代码基准目录
+const sourcePath = "./testcase"; // 代码基准目录
 const modulePath = "/aurora/testcase/"; // 模块目录
 const moduleFileName = "factorial-purecps.scm"; // 模块文件名（与模块名相同）
 

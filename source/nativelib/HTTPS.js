@@ -14,7 +14,7 @@ const request = function(avmArgs, avmProcess, avmRuntime) {
         avmProcess.STATE = Common.PROCESS_STATE.SLEEPING;
     }
     else {
-        console.log(`开始阻塞`);
+        // console.log(`开始阻塞`);
         avmProcess.STATE = Common.PROCESS_STATE.SLEEPING;
 
         let url = new URL(avmProcess.GetObject(avmArgs[0]).value);
@@ -25,7 +25,7 @@ const request = function(avmArgs, avmProcess, avmRuntime) {
 
         setTimeout(()=> {
             let responseData = '';
-            console.log(`开始请求：${url}`);
+            // console.log(`开始请求：${url}`);
             const req = https.request({
                 hostname: url.hostname,
                 path: url.pathname,
@@ -39,14 +39,14 @@ const request = function(avmArgs, avmProcess, avmRuntime) {
                     // console.log(responseData.toString());
                     let resRef = avmProcess.NewObject('STRING', responseData);
                     avmProcess.OPSTACK.push(resRef);
-                    console.log(`响应状态：${res.statusCode}`);
+                    // console.log(`响应状态：${res.statusCode}`);
                     callback();
                 });
             });
             req.on('error', (e) => {
                 let resRef = avmProcess.NewObject('STRING', e.toString());
                 avmProcess.OPSTACK.push(resRef);
-                console.log(`响应状态：${res.statusCode}`);
+                console.error(e.toString());
                 callback();
             });
             req.end();

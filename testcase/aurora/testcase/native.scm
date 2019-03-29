@@ -9,11 +9,18 @@
 
 ;; HTTPS测试
 (define res #f)
+(display "请求作者博客RSS……")
 (set! res (HTTPS.request "https://mikukonai.com/feed.xml"))
+(display "完成。响应文本已保存。")
 
-;; File测试：读取文件，并将其内容按行打印出来
+; 此文件内容是若干个URL（HTTPS），每行一个。
+(define path  "E:/text.txt")
+; 此文件内容是提示语，用于提示文件已被正确读出。
+(define path2 "E:/text2.txt")
+
+;; File测试：按行读取第一个文件的URL，逐个请求。每轮循环都会读取一次第二个文件。
 (File.read
-    "E:/text.txt"
+    path
     (lambda (content) (begin
       (define segs #f)
       ;; TODO 这里define的行为与预想的有偏差：应当区别对待lambda和SList的求值。Lambda不作处理，但SList需要求值。
@@ -23,9 +30,14 @@
         (lambda (segs)
           (if (null? segs)
               #f
-              (begin (display (car segs))
+              (begin (display "请求URL：")
+                     (display (car segs))
+                     (display (String.substring (HTTPS.request (car segs)) 0 20))
+                     (display "请求完成，现在开始读取文件：")
+                     (File.read path2 (lambda (content) (display content)))
                      (show (cdr segs))))))
-      (show segs))))
+      (show segs)
+      )))
 
 ;; String测试
 (display (String.length    res        ))

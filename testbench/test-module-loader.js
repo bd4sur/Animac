@@ -4,7 +4,7 @@ const ModuleLoader = require('../source/module-loader.js');
 const Executor = require('../source/executor.js');
 
 // 载入模块（依赖分析→编译）
-let MODULE = ModuleLoader.ModuleLoader('./demo/aurora/testcase/main.scm', './demo');
+let MODULE = ModuleLoader.ModuleLoader('./testcase/aurora/testcase/main.scm', './testcase');
 console.log(`编译完成`);
 
 // 初始化进程

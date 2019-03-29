@@ -9,7 +9,7 @@ Array.prototype.top = function() { return this[this.length - 1]; }
 
 // 全局参数（TODO 系统初始化的配置，每个参数的生命周期可能不一样。这块需要进一步优化）
 let SYSTEM_CONFIGURATION = {
-    SOURCE_PATH: './demo'
+    SOURCE_PATH: './testcase',
 };
 
 // 关键字集合
