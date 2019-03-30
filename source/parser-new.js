@@ -497,8 +497,13 @@ const GenarateAST = function(TOKENS) {
         }
         else if(node.type === Common.NODE_TYPE.LAMBDA) {
             let node = AST.GetObject(nodeRef);
-            for(let bodyItem of node.body) {
-                markTailCall(bodyItem, true);
+            for(let i = 0; i < node.body.length; i++) {
+                if(i === node.body.length - 1) {
+                    markTailCall((node.body)[i], true);
+                }
+                else {
+                    markTailCall((node.body)[i], false);
+                }
             }
         }
         else {
