@@ -311,7 +311,9 @@ Process.prototype = {
                 }
                 str += ') ';
                 // body
-                str += this.ObjectToString.call(this, node.body);
+                for(let i = 0; i < node.body.length; i++) {
+                    str += this.ObjectToString.call(this, (node.body)[i]);
+                }
                 str += ')';
             }
             
