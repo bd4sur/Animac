@@ -131,12 +131,15 @@ const Executor = function(PROCESS, RUNTIME/*, 预留访问VM环境的接口*/) {
             // TODO 增加对primitive的一等支持
         }
         else if(argType === 'LABEL') {
-            PROCESS.PC = (PROCESS.LABEL_DICT)[arg];
+            let instAddr = (PROCESS.LABEL_DICT)[arg];
+            PROCESS.CURRENT_CLOSURE_REF = PROCESS.newClosure(instAddr, PROCESS.CURRENT_CLOSURE_REF);
+            PROCESS.PC = instAddr;
         }
         else if(argType === 'REF_VARIABLE') {
             let value = getBoundValue(argIndex);
             if(Common.TypeOfToken(value) === 'LABEL') {
                 let instAddr = (PROCESS.LABEL_DICT)[value];
+                PROCESS.CURRENT_CLOSURE_REF = PROCESS.newClosure(instAddr, PROCESS.CURRENT_CLOSURE_REF);
                 PROCESS.PC = instAddr;
             }
             else if(Common.TypeOfToken(value) === 'REF_CLOSURE') {
