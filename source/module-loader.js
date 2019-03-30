@@ -83,7 +83,7 @@ const ModuleLoader = function(mainModulePath, SOURCE_PATH) {
     function mergeAST(AST1, AST2, isMergeTop) {
         // 引用index平移
         function refShift(ref, shamt) {
-            return Common.makeRef(Common.getRefType(ref), (parseInt(Common.getRefIndex(ref)) + shamt));
+            return Common.makeRef(Common.getRefType(ref), (parseInt(Common.getRefIndex(ref)) + parseInt(shamt)));
         }
 
         // 查找AST1相同的全限定变量的ref
@@ -142,9 +142,9 @@ const ModuleLoader = function(mainModulePath, SOURCE_PATH) {
             if(!isMergeTop && node.parentIndex === 2 && node.children[0] !== 'define') {
                 continue;
             }
-            node.index = node.index + slistsOffset;
+            node.index = parseInt(node.index) + parseInt(slistsOffset);
             // 注意：对parentIndex=2作特殊处理（AST2的顶级节点统一挂接到AST1的外层begin节点上）
-            node.parentIndex = (node.parentIndex === 2) ? 2 : node.parentIndex + slistsOffset;
+            node.parentIndex = (node.parentIndex === 2) ? 2 : parseInt(node.parentIndex) + parseInt(slistsOffset);
             if(node.parentIndex === 2) {
                 AST1.slists[2].children.push(Common.makeRef("SLIST", node.index));
             }
@@ -180,19 +180,23 @@ const ModuleLoader = function(mainModulePath, SOURCE_PATH) {
                 else { throw `[SSC·模块加载器] lambda参数必须是变量`; }
             }
             // body ref平移
-            let type = Common.getRefType(node.body);
-            if(type === "VARIABLE") {
-                if(node.body in sameVariableRefMapping) {
-                    node.body = sameVariableRefMapping[node.body];
+            for(let bIndex = 0; bIndex < node.body.length; bIndex++) {
+                let bodyItem = (node.body)[bIndex];
+                let type = Common.getRefType(bodyItem);
+                if(type === "VARIABLE") {
+                    if(bodyItem in sameVariableRefMapping) {
+                        (node.body)[bIndex] = sameVariableRefMapping[bodyItem];
+                    }
+                    else {
+                        (node.body)[bIndex] = refShift(bodyItem, variablesOffset);
+                    }
                 }
-                else {
-                    node.body = refShift(node.body, variablesOffset);
-                }
+                if(type === "STRING")   { (node.body)[bIndex] = refShift(bodyItem, stringsOffset); }
+                if(type === "SYMBOL")   { (node.body)[bIndex] = refShift(bodyItem, symbolsOffset); }
+                if(type === "CONSTANT") { (node.body)[bIndex] = refShift(bodyItem, constantsOffset); }
+                if(type === "SLIST")    { (node.body)[bIndex] = refShift(bodyItem, slistsOffset); }
             }
-            if(type === "STRING")   { node.body = refShift(node.body, stringsOffset); }
-            if(type === "SYMBOL")   { node.body = refShift(node.body, symbolsOffset); }
-            if(type === "CONSTANT") { node.body = refShift(node.body, constantsOffset); }
-            if(type === "SLIST")    { node.body = refShift(node.body, slistsOffset); }
+            
 
             AST1.slists[slistsOffset + i] = node;
         }
