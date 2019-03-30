@@ -1,12 +1,16 @@
-# AuroraVM
+# AuroraScheme
 
-AuroraVM - A stack-based virtual machine for Scheme. 基于栈的Scheme虚拟机。
+![GitHub top language](https://img.shields.io/github/languages/top/mikukonai/AuroraScheme.svg) ![GitHub](https://img.shields.io/github/license/mikukonai/AuroraScheme.svg?label=Licence) 
 
-## Demo/Prototype
+Scheme语言实现（编译器+虚拟机） / A Scheme Implementation (Compiler & Virtual Machine)
 
-[JavaScript实现的原型](https://mikukonai.com/auroravm.html)
+由JavaScript实现，基于Node.js。
 
-## Commit message 内容规范
+## 可视化演示
+
+[调试工具（部分功能）](https://mikukonai.com/auroravm.html)
+
+## 提交信息规范
 
 使用前缀（标签）来提示本次提交的主要内容。同一个commit可以有多个标签，但是要按照以下顺序排列。
 
@@ -32,13 +36,13 @@ AuroraVM 是一部 Scheme 虚拟机（语言实现），可以执行由 Scheme �
 - 已打通 模块加载-分析-编译-执行机 流程。
 - 基于栈的虚拟机。
 - 支持头等的函数和续延（continuation）。
-- 模块加载器（依赖关系与命名空间分析）。【有缺陷，待修复】
+- 模块加载器（依赖关系与命名空间分析）。
 - 基于标记-清除的垃圾回收。
 - 运行时新建进程（fork），用于实现用户程序层次的多进程。
 - 类似JNI的Native库函数机制，允许开发者使用JavaScript实现扩展库。【正在完善】
 - 基于上一条特性，实现了若干Native库函数（String、HTTPS、Math、File等）。
 
-近期计划实现的特性：
+近期工作和计划实现的特性：
 
 - 高精度数值运算。
 - 功能有限的准引用（quasiquote）。
@@ -47,6 +51,7 @@ AuroraVM 是一部 Scheme 虚拟机（语言实现），可以执行由 Scheme �
 - 提升Native库机制的JS与Scheme的互操作性，以及接口的友好性。
 - 完善基础库（nativelib）和应用库（applib），分别指利用ANI机制由JS编写的库，和直接使用Scheme编写的库。
 - 可视化的调试工具。
+- 自动化测试。
 
 暂未列入计划的特性：
 
@@ -56,6 +61,28 @@ AuroraVM 是一部 Scheme 虚拟机（语言实现），可以执行由 Scheme �
 - 可以由卫生宏所实现的一系列结构，例如`let`块、`delay`/`force`、柯里化和CPST等等。
 
 随着开发过程的推进，可能会增减特性。
+
+## BNF
+
+```
+          <Term> ::= <SList> | <Lambda> | <Quote> | <Unquote> | <Quasiquote> | <Symbol>
+         <SList> ::= ( <SListSeq> )
+      <SListSeq> ::= <Term> <SListSeq> | ε
+        <Lambda> ::= ( lambda <ArgList> <Body> )
+       <ArgList> ::= ( <ArgListSeq> )
+    <ArgListSeq> ::= <ArgSymbol> <ArgListSeq> | ε
+     <ArgSymbol> ::= <Symbol>
+          <Body> ::= <BodyTerm> <Body_>
+         <Body_> ::= <BodyTerm> <Body_> | ε
+      <BodyTerm> ::= <Term>
+         <Quote> ::= ' <QuoteTerm>
+       <Unquote> ::= , <UnquoteTerm>
+    <Quasiquote> ::= ` <QuasiquoteTerm>
+     <QuoteTerm> ::= <Term>
+   <UnquoteTerm> ::= <Term>
+<QuasiquoteTerm> ::= <Term>
+        <Symbol> ::= SYMBOL
+```
 
 ## 设计思想简述
 
