@@ -42,8 +42,9 @@
 
 (define NUM_TO_LAMBDA
   (lambda (number)
-    (cond ((= number 0) <0>)
-          (else (INC (NUM_TO_LAMBDA (- number 1)))))))
+    (if (= number 0)
+        <0>
+        (INC (NUM_TO_LAMBDA (- number 1))))))
 
 (define <0> (lambda (f a) a))
 
@@ -178,8 +179,9 @@
 
 (define SHOWINT
   (lambda (int)
-    (cond ((SHOWBOOL (INT_SGN int)) (display "+") (SHOWNUM (INT_ABS int)))
-          (else                     (display "-") (SHOWNUM (INT_ABS int))))))
+    (if (SHOWBOOL (INT_SGN int))
+        {(display "+") (SHOWNUM (INT_ABS int))}
+        {(display "-") (SHOWNUM (INT_ABS int))})))
 
 (define INT_ADD
   (lambda (i j)
@@ -216,8 +218,10 @@
 ; 列表（二叉树）
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; TODO NOTE 【注意】这里体现了AuroraScheme的define与标准define的不同之处。Aurora的被define的项是不求值的，因此如果想使用它的值，就需要把它封装成一个thunk，使用的时候调用之。
 (define NULL_LIST
-  (PAIR TRUE TRUE))
+  (lambda ()
+    (PAIR TRUE TRUE)))
 
 (define IS_NULLLIST
   (lambda (list)
@@ -247,19 +251,22 @@
      l)))
 
 (display "Count(1,2,3,3,3)=")
-(display (SHOWNUM (COUNT (CONS <1> (CONS <2> (CONS <3> (CONS <3> (CONS <3> NULL_LIST))))))))
+(display (SHOWNUM (COUNT (CONS <1> (CONS <2> (CONS <3> (CONS <3> (CONS <3> (NULL_LIST)))))))))
 (newline)
 
 (define SHOWLIST
   (lambda (list)
-    (cond ((SHOWBOOL (IS_NULLLIST list)) (display "N)"))
-          (else (begin
-                  (display (SHOWNUM (CAR list)))
-                  (display ",")
-                  (SHOWLIST (CDR list)))))))
+    (if (SHOWBOOL (IS_NULLLIST list))
+        (display "N)")
+        {
+            (display (SHOWNUM (CAR list)))
+            ;(display ",")
+            (SHOWLIST (CDR list))
+        }
+    )))
 
 (display "List=(")
-(SHOWLIST (CONS <1> (CONS <2> (CONS <3> (CONS <4> (CONS <5> NULL_LIST))))))
+(SHOWLIST (CONS <1> (CONS <2> (CONS <3> (CONS <4> (CONS <5> (NULL_LIST)))))))
 (newline)
 
 ;闭区间
@@ -272,7 +279,7 @@
             (IF (IS_LE a b)
                 (lambda (z) ((CONS a ((f (INC a)) b))
                                z ))
-                NULL_LIST
+                (NULL_LIST)
             )))))m)n)))
 
 (COUNT (RANGE <2> <4>))
@@ -301,7 +308,7 @@
            (lambda (l)
              (lambda (g)
                (IF (IS_NULLLIST l)
-                   NULL_LIST
+                   (NULL_LIST)
                    (lambda (x) ((CONS (g (CAR l)) ((f (CDR l)) g)) x))
                 )))))list)func)))
 
