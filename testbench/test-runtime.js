@@ -11,9 +11,10 @@ const Runtime = require('../source/runtime.js');
 // let modulePath = './testcase/aurora/testcase/generator.scm';
 // let modulePath = './testcase/aurora/testcase/main.scm';
 // let modulePath = './testcase/aurora/testcase/man-or-boy-test.scm';
-let modulePath = './testcase/aurora/testcase/native.scm';
+// let modulePath = './testcase/aurora/testcase/native.scm';
 // let modulePath = './testcase/aurora/testcase/quicksort.scm';
 // let modulePath = './testcase/aurora/testcase/yin-yang-puzzle.scm';
+let modulePath = './testcase/aurora/testcase/church-encoding.scm';
 
 let MODULE = ModuleLoader.ModuleLoader(modulePath, './testcase');
 

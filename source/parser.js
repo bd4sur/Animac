@@ -23,7 +23,7 @@ const Lexer = function(code) {
     var inspace = false; // 是否在多个空格中
 
     for(var i = 0; i < code.length; i++) {
-        if(code[i] === '(' || code[i] === ')' || code[i] === '[' || code[i] === ']' || code[i] === '{' || code[i] === '}' || code[i] === '\'' || code[i] === '"') {
+        if(code[i] === '(' || code[i] === ')' || code[i] === '[' || code[i] === ']' || code[i] === '{' || code[i] === '}' || code[i] === '\''  || code[i] === ','  || code[i] === '`' || code[i] === '"') {
             if(token_temp.length > 0) {
                 var new_token = token_temp.join('');
                 tokens.push(new_token);
@@ -66,464 +66,402 @@ const Lexer = function(code) {
             }
         }
     }
+
+    // 处理begin的大括号
+    let newTokens = new Array();
+    for(let i = 0; i < tokens.length; i++) {
+        if(tokens[i] === '{') {
+            newTokens.push('(');
+            newTokens.push('begin');
+        }
+        else if(tokens[i] === '}') {
+            newTokens.push(')');
+        }
+        else {
+            newTokens.push(tokens[i]);
+        }
+    }
+
+    // 处理quote、quasiquote和unquote
+    let newTokens2 = new Array();
+    let skipMark = "0(SKIP)0";
+    for(let i = 0; i < newTokens.length; i++) {
+        if(newTokens[i] === skipMark) {
+            continue;
+        }
+        if(newTokens[i] === '(' && (
+            newTokens[i+1] === 'quote' ||
+            newTokens[i+1] === 'unquote' ||
+            newTokens[i+1] === 'quasiquote')) {
+            // 去掉(*quote对应的括号
+            let bracketCount = 0
+            for(let j = i+1; j < newTokens.length; j++) {
+                if(newTokens[j] === '(') { bracketCount++; }
+                else if(newTokens[j] === ')') {
+                    if(bracketCount === 0) { newTokens[j] = skipMark; break;}
+                    else {bracketCount--; }
+                }
+            }
+            if(newTokens[i+1] === 'quote') { newTokens2.push('\''); }
+            else if(newTokens[i+1] === 'quasiquote') { newTokens2.push('`'); }
+            else if(newTokens[i+1] === 'unquote') { newTokens2.push(','); }
+            i++;
+        }
+        else {
+            newTokens2.push(newTokens[i]);
+        }
+    }
+
     // console.log("Tokens:");
-    // console.log(tokens);
-    return tokens;
-}
+    // console.log(newTokens2);
+    return newTokens2;
+};
+
+/*
+          <Term> ::= <SList> | <Lambda> | <Quote> | <Unquote> | <Quasiquote> | <Symbol>
+         <SList> ::= ( ※ <SListSeq> )
+      <SListSeq> ::= <Term> ※ <SListSeq> | ε
+        <Lambda> ::= ( ※ lambda <ArgList> <Body> )
+       <ArgList> ::= ( ※1 <ArgListSeq> ※2)
+    <ArgListSeq> ::= <ArgSymbol> ※ <ArgListSeq> | ε
+     <ArgSymbol> ::= <Symbol>
+          <Body> ::= <BodyTerm> ※ <Body_>
+         <Body_> ::= <BodyTerm> ※ <Body_> | ε
+      <BodyTerm> ::= <Term>
+         <Quote> ::= ' ※1 <QuoteTerm> ※2
+       <Unquote> ::= , ※1 <UnquoteTerm> ※2
+    <Quasiquote> ::= ` ※1 <QuasiquoteTerm> ※2
+     <QuoteTerm> ::= <Term>
+   <UnquoteTerm> ::= <Term>
+<QuasiquoteTerm> ::= <Term>
+        <Symbol> ::= ※ SYMBOL
+*/
 
 // 递归下降分析+尾位置标记
 // 生成AST
 const GenarateAST = function(TOKENS) {
+
+    function parseLog(msg) {
+        // console.log(msg);
+    }
+
+    function isSymbol(token) {
+        if(token === 'lambda') { return false; }
+        // 关于下一行注释掉的说明：词法分析阶段这些就已经被消灭掉了
+        if(token === "(" || token === ")" || token === "{" || token === "}" || token === "[" || token === "]"){ return false; }
+        if(/^[\'\`\,]/gi.test(token)) { return false; } // 不允许开头的字符
+        return true; // 其余的都是词法意义上的Symbol
+    }
+
     let AST = new Common.AST();
 
-    let NODE_ARRAY = new Array();
-    let NODE_COUNTER = 0;
     let NODE_STACK = new Array();
+    let STATE_STACK = new Array();
 
-    // 分配一个新的AST节点索引
-    function allocateNodeIndex() {
-        let ret = NODE_COUNTER;
-        NODE_COUNTER++;
-        return ret;
-    }
+    NODE_STACK.push('');
 
-    // 压入新SList节点
-    function pushSList() {
-        let parentIndex = NODE_STACK.top();
-        let currentIndex = allocateNodeIndex();
-        let slist = new Common.SList(false, currentIndex, parentIndex);
-        let slistRef = AST.NewObject(Common.OBJECT_TYPE.SLIST, slist);
-        NODE_ARRAY[currentIndex] = slistRef;
-        NODE_STACK.push(currentIndex);
-    }
-    // 压入新Lambda节点
-    function pushLambda() {
-        let parentIndex = NODE_STACK.top();
-        let currentIndex = allocateNodeIndex();
-        let lambda = new Common.Lambda(false, currentIndex, parentIndex);
-        let lambdaRef = AST.NewObject(Common.OBJECT_TYPE.SLIST, lambda);
-        NODE_ARRAY[currentIndex] = lambdaRef;
-        NODE_STACK.push(currentIndex);
+    function NewNode(nodeType, quoteType, parentRef) {
+        let parentIndex = isNaN(parseInt(parentRef.substring(1))) ? void(0) : parseInt(parentRef.substring(1));
+        // TODO 此处过于随意，应该与Common中定义的类型保持一致
+        let node = {
+            type: nodeType,
+            index: 0, // 待定
+            parentIndex: parentIndex,
+            children: new Array(),
+            body: new Array(),
+            parameters: new Array(),
+            quoteType: quoteType,
+        };
+        let newNodeRef = AST.NewObject(Common.OBJECT_TYPE.SLIST, node);
+        // TODO 修改index字段的工作应该整合进AST.NewObject这个函数中。
+        node.index = Common.getRefIndex(newNodeRef);
+        return newNodeRef;
     }
 
-    // 压入新QuotedSList节点
-    function pushQuotedSList() {
-        let parentIndex = NODE_STACK.top();
-        let currentIndex = allocateNodeIndex();
-        let qlist = new Common.SList(true, currentIndex, parentIndex);
-        let qlistRef = AST.NewObject(Common.OBJECT_TYPE.SLIST, qlist);
-        NODE_ARRAY[currentIndex] = qlistRef;
-        NODE_STACK.push(currentIndex);
+    function GetNode(nodeRef) {
+        return AST.GetObject(nodeRef);
     }
 
-    // 作为列表项结束
-    function popItem() {
-        let a = NODE_STACK.pop();
-        if(NODE_ARRAY[NODE_STACK.top()] !== undefined) {
-            let slistRef = NODE_ARRAY[NODE_STACK.top()];
-            AST.GetObject(slistRef).children.push(NODE_ARRAY[a]);
-        }
-    }
-    // 作为函数体结束
-    function popBody() {
-        let a = NODE_STACK.pop();
-        let lambdaRef = NODE_ARRAY[NODE_STACK.top()];
-        AST.GetObject(lambdaRef).body = NODE_ARRAY[a];
+    // type: STRING/SYMBOL/VARIABLE/CONSTANT
+    function NewAtom(atomType, atom) {
+        let newAtomRef = AST.NewObject(atomType, atom);
+        return newAtomRef;
     }
 
-    // 添加新Symbol（列表项）
-    function addItemSymbol(s) {
-        // let symbolRef = AST.NewObject(Common.OBJECT_TYPE.SYMBOL, s);
-        let slistRef = NODE_ARRAY[NODE_STACK.top()];
-        AST.GetObject(slistRef).children.push(s);
-    }
-    // 添加新Symbol（参数列表）
-    function addParameterSymbol(s) {
-        let lambdaRef = NODE_ARRAY[NODE_STACK.top()];
-        AST.GetObject(lambdaRef).parameters.push(s);
-    }
-    // 添加新Symbol（函数体）
-    function addBodySymbol(s) {
-        let lambdaRef = NODE_ARRAY[NODE_STACK.top()];
-        AST.GetObject(lambdaRef).body = s;
-    }
-
-
-    function isSYMBOL(t) {
-        if(t === '(' || t === ')' || t === '[' || t === ']' || t === '{' || t === '}' || t === undefined) { return false; }
-        else { return true; }
-    }
-    
-    function ParserLog(m) {
-        // console.log(m);
-        // STDOUT.push(m.replace(/\</gi,'&lt;').replace(/\>/gi,'&gt;'));
-        // STDOUT.push('<br>');
-    }
-    function ParserError(m) {
-        console.error(m);
-        // STDOUT.push(`<span style="color:red;">${m.replace(/\</gi,'&lt;').replace(/\>/gi,'&gt;')}</span>`);
-        // STDOUT.push('<br>');
-        throw 'ParseError';
-    }
-    
-    // 用于记录quote状态
-    let quoteFlag = false;
-    // 用于记录body节点的退出
-    let lambdaBodyFlag = new Array();
-    // 用于记录body是否是单独的symbol
-    let symbolBodyFlag = false;
-    
-    // 起始非终结符（NT）
-    function NT_Term(tokens, index) {
-        let next = index + 1;
-        if(tokens[index] === '(') {
-            // <Lambda>
-            if(quoteFlag !== true && tokens[index+1] === 'lambda') {
-                ParserLog(`<Term> → <Lambda> @ ${tokens[index]}`);
-                next = NT_Lambda(tokens, index);
-                return next;
-            }
-            // <SList>
-            else {
-                ParserLog(`<Term> → <SList> @ ${tokens[index]}`);
-                next = NT_SList(tokens, index);
-                return next;
-            }
-        }
-        // <Quote>
-        else if(tokens[index] === '\'') {
-            ParserLog(`<Term> → <Quote> @ ${tokens[index]}`);
-            next = NT_Quote(tokens, index);
-            return next;
-        }
-        // <Quasiquote>
-        else if(tokens[index] === '[') {
-            ParserLog(`<Term> → <Quasiquote> @ ${tokens[index]}`);
-            next = NT_Quasiquote(tokens, index);
-            return next;
-        }
-        // <Symbol>
-        else if(isSYMBOL(tokens[index])) {
-            ParserLog(`<Term> → <Symbol> @ ${tokens[index]}`);
-            next = NT_Symbol(tokens, index);
-            return next;
-        }
-        else {
-            ParserError(`<Term> 意外前缀 @ ${next}`);
-            return;
-        }
-    }
-    
-    
-    // <SList> ::= ( <SListSeq> )
-    function NT_SList(tokens, index) {
-        let next = index + 1;
-        if(tokens[index] === '(') {
-            ParserLog(`<SList> → ( <SListSeq> ) @ ${tokens[index]}`);
-            // lambdaBodyFlag.push(false);
-            // 判断是不是quote后面的
-            if(quoteFlag === true) {
-                pushQuotedSList();
-            }
-            else {
-                pushSList();
-            }
-            next = NT_SListSeq(tokens, next);
-            if(tokens[next] === ')') {
-                let isBody = lambdaBodyFlag.pop();
-                if(isBody === true) {
-                    popBody();
-                }
-                else {
-                    popItem();
-                }
-                return (next+1);
-            }
-            else {
-                ParserError(`<SList> 缺少右括号 @ ${next}`);
-                return;
-            }
-        }
-        else {
-            ParserError(`<SList> 意外前缀 @ ${next}`);
-            return;
-        }
-    }
-    
-    // <Lambda> ::= ( lambda <ArgList> <Term> )
-    function NT_Lambda(tokens, index) {
-        let next = index + 1;
+    function ParseTerm(tokens, index) {
         if(tokens[index] === '(' && tokens[index+1] === 'lambda') {
-            ParserLog(`<Lambda> → ( lambda <ArgList> <Term> ) @ ${tokens[index]}`);
-            // lambdaBodyFlag.push(false);
-            pushLambda();
-            next = NT_ArgList(tokens, index+2);
-            // lambdaBodyFlag.push(true);
-            next = NT_Body(tokens, next);
-            if(tokens[next] === ')') {
-                let isBody = lambdaBodyFlag.pop();
-                if(isBody === true) {
-                    popBody();
-                }
-                else {
-                    popItem();
-                }
-                return (next+1);
-            }
-            else {
-                ParserError(`<Lambda> 缺少右括号 @ ${next}`);
-                return next;
-            }
+            parseLog('<Term> → <Lambda>');
+            return ParseLambda(tokens, index);
+        }
+        else if(tokens[index] === '(') {
+            parseLog('<Term> → <SList>');
+            return ParseSList(tokens, index);
+        }
+        else if(tokens[index] === '\'') {
+            parseLog('<Term> → <Quote>');
+            return ParseQuote(tokens, index);
+        }
+        else if(tokens[index] === ',') {
+            parseLog('<Term> → <Unquote>');
+            return ParseUnquote(tokens, index);
+        }
+        else if(tokens[index] === '`') {
+            parseLog('<Term> → <Quasiquote>');
+            return ParseQuasiquote(tokens, index);
+        }
+        else if(isSymbol(tokens[index])) {
+            parseLog('<Term> → <Symbol>');
+            return ParseSymbol(tokens, index);
         }
         else {
-            ParserError(`<Lambda> 意外前缀 @ ${next}`);
-            return next;
-        }
-    }
-    
-    // <Body> ::= <Term>
-    function NT_Body(tokens, index) {
-        let next = index + 1;
-        // <Term>
-        if(tokens[index] === '(' || tokens[index] === '[' || tokens[index] === '\'') {
-            ParserLog(`<Body> → <Term> @ ${tokens[index]}`);
-            lambdaBodyFlag.push(true);
-            next = NT_Term(tokens, index);
-            return next;
-        }
-        // <Symbol>
-        else if(isSYMBOL(tokens[index])) {
-            ParserLog(`<Body> → <BodySymbol> @ ${tokens[index]}`);
-            symbolBodyFlag = true;
-            next = NT_BodySymbol(tokens, index);
-            return next;
-        }
-        else {
-            ParserError(`<Body> 意外前缀 @ ${next}`);
-            return;
-        }
-    }
-    
-    // <SListSeq> ::= <Term> <SListSeq> | ε
-    function NT_SListSeq(tokens, index) {
-        let next = index + 1;
-        if(tokens[index] === '(' || tokens[index] === '[' || tokens[index] === '\'' || isSYMBOL(tokens[index])) {
-            ParserLog(`<SListSeq> → <Term> <SListSeq> @ ${tokens[index]}`);
-            lambdaBodyFlag.push(false);
-            next = NT_Term(tokens, index);
-            next = NT_SListSeq(tokens, next);
-            return next;
-        }
-        ParserLog(`<SListSeq> → ε @ ${tokens[index]}`);
-        return index; // epsilon不吃token
-    }
-    
-    // <ArgListSeq> ::= <ArgSymbol> <ArgListSeq> | ε
-    function NT_ArgListSeq(tokens, index) {
-        let next = index + 1;
-        if(isSYMBOL(tokens[index])) {
-            ParserLog(`<ArgListSeq> → <ArgSymbol> <ArgListSeq> @ ${tokens[index]}`);
-            next = NT_ArgSymbol(tokens, index);
-            next = NT_ArgListSeq(tokens, next);
-            return next;
-        }
-        ParserLog(`<ArgListSeq> → ε @ ${tokens[index]}`);
-        return index; // epsilon不吃token
-    }
-    
-    // <ArgList> ::= ( <ArgListSeq> )
-    function NT_ArgList(tokens, index) {
-        let next = index + 1;
-        if(tokens[index] === '(') {
-            ParserLog(`<ArgList> → ( <ArgListSeq> ) @ ${tokens[index]}`);
-            next = NT_ArgListSeq(tokens, index+1);
-            if(tokens[next] === ')') {
-                return (next+1);
-            }
-            else {
-                ParserError(`<ArgList> 缺少右括号 @ ${next}`);
-                return next;
-            }
-        }
-        else {
-            ParserError(`<ArgList> 意外前缀 @ ${next}`);
-            return next;
-        }
-    }
-    
-    // <Quote> ::= ' <SList> | ' <Symbol>
-    function NT_Quote(tokens, index) {
-        let next = index + 1;
-        if(tokens[index] === '\'') {
-            if(tokens[index+1] === '(') {
-                ParserLog(`<Quote> → ' <SList> @ ${tokens[index]}`);
-                quoteFlag = true;
-                // lambdaBodyFlag.push(false);
-                next = NT_SList(tokens, next);
-                quoteFlag = false;
-                return next;
-            }
-            // <Quasiquote>
-            else if(tokens[index+1] === '[') {
-                ParserLog(`<Quote> → <Quasiquote> @ ${tokens[index]}`);
-                // quoteFlag = true;
-                next = NT_Quasiquote(tokens, next);
-                // quoteFlag = false;
-                return next;
-            }
-            else if(isSYMBOL(tokens[index+1]) === true || tokens[index+1] === 'lambda') {
-                ParserLog(`<Quote> → ' <Symbol> @ ${tokens[index]}`);
-                quoteFlag = true;
-                // lambdaBodyFlag.push(false);
-                next = NT_Symbol(tokens, next);
-                quoteFlag = false;
-                return next;
-            }
-            else {
-                ParserError(`<Quote> 意外前缀 @ ${next}`);
-                return next;
-            }
-        }
-        else {
-            ParserError(`<Quote> 意外前缀 @ ${next}`);
-            return next;
-        }
-    }
-    
-    // <Quasiquote> ::= [ <SListSeq> ]
-    function NT_Quasiquote(tokens, index) {
-        let next = index + 1;
-        if(tokens[index] === '[') {
-            ParserLog(`<SList> → [ <SListSeq> ] @ ${tokens[index]}`);
-            pushQuotedSList(); //quasiquote目前以quote看待
-            next = NT_SListSeq(tokens, next);
-            if(tokens[next] === ']') {
-                let isBody = lambdaBodyFlag.pop();
-                if(isBody === true) {
-                    popBody();
-                }
-                else {
-                    popItem();
-                }
-                return (next+1);
-            }
-            else {
-                ParserError(`<Quasiquote> 缺少右括号 @ ${next}`);
-                return;
-            }
-        }
-        else {
-            ParserError(`<Quasiquote> 意外前缀 @ ${next}`);
-            return;
-        }
-    }
-    
-    // <Symbol> ::= SYMBOL
-    function NT_Symbol(tokens, index) {
-        let next = index + 1;
-        if(isSYMBOL(tokens[index])) {
-            ParserLog(`<Symbol> → SYMBOL @ ${tokens[index]}`);
-            let isBody = lambdaBodyFlag.pop();
-            if(isBody === true && symbolBodyFlag == true) {
-                addBodySymbol(tokens[index]);
-                symbolBodyFlag = false;
-            }
-            else { // quote也走这个分支，只不过要保留'号
-                let termtype = Common.TypeOfToken(tokens[index]);
-                if(termtype === Common.OBJECT_TYPE.STRING) {
-                    let newStringRef = AST.NewObject(Common.OBJECT_TYPE.STRING, tokens[index]);
-                    addItemSymbol(newStringRef);
-                }
-                else if(termtype === Common.OBJECT_TYPE.BOOLEAN || termtype === Common.OBJECT_TYPE.NUMBER) {
-                    let newConstantRef = AST.NewObject(Common.OBJECT_TYPE.CONSTANT, tokens[index]);
-                    addItemSymbol(newConstantRef);
-                }
-                else {
-                    if(quoteFlag) {
-                        let newSymbolRef = AST.NewObject(Common.OBJECT_TYPE.SYMBOL, tokens[index]);
-                        addItemSymbol(newSymbolRef);
-                    }
-                    else {
-                        // NOTE 注意这里保留变量原形，待AST形成后再进行分析（替换重名自由变量→变量入AST）
-                        /*
-                        if(termtype === Common.OBJECT_TYPE.VARIABLE) {
-                            let newVarRef = AST.NewObject(Common.OBJECT_TYPE.VARIABLE, tokens[index]);
-                            addItemSymbol(newVarRef);
-                        }
-                        */
-                        addItemSymbol(tokens[index]);
-                    }
-                }
-            }
-            return next;
-        }
-        else {
-            ParserError(`<Symbol> 意外前缀 @ ${next}`);
-            return next;
-        }
-    }
-    
-    // <BodySymbol> ::= SYMBOL
-    function NT_BodySymbol(tokens, index) {
-        let next = index + 1;
-        if(isSYMBOL(tokens[index])) {
-            ParserLog(`<BodySymbol> → SYMBOL @ ${tokens[index]}`);
-            addBodySymbol(tokens[index]);
-            return next;
-        }
-        else {
-            ParserError(`<BodySymbol> 意外前缀 @ ${next}`);
-            return next;
-        }
-    }
-    
-    // <ArgSymbol> ::= SYMBOL
-    function NT_ArgSymbol(tokens, index) {
-        let next = index + 1;
-        if(isSYMBOL(tokens[index])) {
-            ParserLog(`<ArgSymbol> → SYMBOL @ ${tokens[index]}`);
-            addParameterSymbol(tokens[index]);
-            return next;
-        }
-        else {
-            ParserError(`<ArgSymbol> 意外前缀 @ ${next}`);
-            return next;
+            throw `<Term>`;
         }
     }
 
-    // 针对(quote .)的预处理
-    function dealQuote() {
-        for(let i = 0; i < NODE_ARRAY.length; i++) {
-            let node = AST.GetObject(NODE_ARRAY[i]);
-            if(node.type === Common.NODE_TYPE.SLIST && node.children[0] === 'quote') {
-                // 取出被引用的元素，并将其父元素设置为(quote .)的父元素
-                let quoted = node.children[1];
-                let type = Common.TypeOfToken(quoted);
-                if(/^REF\_/.test(type)) {
-                    AST.GetObject(quoted).isQuote = true;
-                    AST.GetObject(quoted).parentIndex = node.parentIndex;
-                }
-                else {
-                    quoted = "'" + quoted;
-                }
-                // 将quoted的父节点的所有相应的儿子都改成quoted
-                let parentNode = AST.GetObject(NODE_ARRAY[node.parentIndex]);
-                for(let j = 0; j < parentNode.children.length; j++) {
-                    if(parentNode.children[j] === NODE_ARRAY[i]) {
-                        parentNode.children[j] = quoted;
-                    }
-                }
-                // 删除(quote .)元素
-                delete NODE_ARRAY[i];
-            }
+    function ParseSList(tokens, index) {
+        parseLog('<SList> → ( ※ <SListSeq> )');
+
+        // Action：向节点栈内压入一个新的SList，其中quoteType从状态栈栈顶取得。
+        let quoteType = STATE_STACK.top();
+        let newSListRef = NewNode("SLIST", (quoteType) ? quoteType : false, NODE_STACK.top());
+        NODE_STACK.push(newSListRef);
+
+        let nextIndex = ParseSListSeq(tokens, index+1);
+
+        if(tokens[nextIndex] === ')') { return nextIndex + 1; }
+        else { throw `<SList>`; }
+    }
+
+    function ParseSListSeq(tokens, index) {
+        parseLog('<SListSeq> → <Term> ※ <SListSeq> | ε');
+        let currentToken = tokens[index];
+        if( currentToken === "(" || currentToken === "'" || currentToken === "," ||
+            currentToken === "`" || isSymbol(currentToken))
+        {
+            let nextIndex = ParseTerm(tokens, index);
+
+            // Action：从节点栈顶弹出节点，追加到新栈顶节点的children中。
+            let childnode = NODE_STACK.pop();
+            GetNode(NODE_STACK.top()).children.push(childnode);
+        
+            nextIndex = ParseSListSeq(tokens, nextIndex);
+            return nextIndex;
+        }
+        else {
+            return index;
         }
     }
 
-    
+    function ParseLambda(tokens, index) {
+        parseLog('<Lambda> → ( ※ lambda <ArgList> <Body> )');
+
+        // Action：pushLambda() 向节点栈内压入一个新的Lambda，忽略状态。
+        let newLambdaRef = NewNode("LAMBDA", false, NODE_STACK.top());
+        NODE_STACK.push(newLambdaRef);
+
+        let nextIndex = ParseArgList(tokens, index+2);
+        nextIndex = ParseBody(tokens, nextIndex);
+
+        if(tokens[nextIndex] === ')') { return nextIndex + 1; }
+        else { throw `<Lambda>`; }
+    }
+
+    function ParseArgList(tokens, index) {
+        parseLog('<ArgList> → ( ※1 <ArgListSeq> ※2)');
+        // Action1
+        STATE_STACK.push("PARAMETER");
+        let nextIndex = ParseArgListSeq(tokens, index+1);
+        // Action2
+        STATE_STACK.pop();
+
+        if(tokens[nextIndex] === ')') { return nextIndex + 1; }
+        else { throw `<ArgList>`; }
+    }
+
+    function ParseArgListSeq(tokens, index) {
+        parseLog('<ArgListSeq> → <ArgSymbol> ※ <ArgListSeq> | ε');
+        if(isSymbol(tokens[index])) {
+            let nextIndex = ParseArgSymbol(tokens, index);
+
+            // Action：从节点栈顶弹出节点（必须是符号），追加到新栈顶Lambda节点的parameters中。
+            let paramnode = NODE_STACK.pop();
+            GetNode(NODE_STACK.top()).parameters.push(paramnode);
+        
+            nextIndex = ParseArgListSeq(tokens, nextIndex);
+            return nextIndex;
+        }
+        else {
+            return index;
+        }
+    }
+
+    function ParseArgSymbol(tokens, index) {
+        parseLog('<ArgSymbol> → <Symbol>');
+        return ParseSymbol(tokens, index);
+    }
+
+    function ParseBody(tokens, index) {
+        parseLog('<Body> → <BodyTerm> ※ <Body_>');
+        let nextIndex = ParseBodyTerm(tokens, index);
+
+        // Action：从节点栈顶弹出节点，追加到新栈顶Lambda节点的body中。
+        let bodynode = NODE_STACK.pop();
+        GetNode(NODE_STACK.top()).body.push(bodynode);
+
+        nextIndex = ParseBodyTail(tokens, nextIndex);
+        return nextIndex;
+    }
+
+    function ParseBodyTail(tokens, index) {
+        parseLog('<Body_> → <BodyTerm> ※ <Body_> | ε');
+        let currentToken = tokens[index];
+        if( currentToken === "(" || currentToken === "'" || currentToken === "," ||
+            currentToken === "`" || isSymbol(currentToken))
+        {
+            let nextIndex = ParseBodyTerm(tokens, index);
+
+            // Action：从节点栈顶弹出节点，追加到新栈顶Lambda节点的body中。
+            let bodynode = NODE_STACK.pop();
+            GetNode(NODE_STACK.top()).body.push(bodynode);
+
+            nextIndex = ParseBodyTail(tokens, nextIndex);
+            return nextIndex;
+        }
+        else {
+            return index;
+        }
+    }
+
+    function ParseBodyTerm(tokens, index) {
+        parseLog('<BodyTerm> → <Term>');
+        return ParseTerm(tokens, index);
+    }
+
+    function ParseQuote(tokens, index) {
+        parseLog('<Quote> → \' ※1 <QuoteTerm> ※2');
+        // Action1
+        STATE_STACK.push('QUOTE');
+        let nextIndex = ParseQuoteTerm(tokens, index+1);
+        // Action2
+        STATE_STACK.pop();
+        return nextIndex;
+    }
+
+    function ParseUnquote(tokens, index) {
+        parseLog('<Unquote> → , ※1 <UnquoteTerm> ※2');
+        // Action1
+        STATE_STACK.push('UNQUOTE');
+        let nextIndex = ParseUnquoteTerm(tokens, index+1);
+        // Action2
+        STATE_STACK.pop();
+        return nextIndex;
+    }
+
+    function ParseQuasiquote(tokens, index) {
+        parseLog('<Quasiquote> → ` ※1 <QuasiquoteTerm> ※2');
+        // Action1
+        STATE_STACK.push('QUASIQUOTE');
+        let nextIndex = ParseQuasiquoteTerm(tokens, index+1);
+        // Action2
+        STATE_STACK.pop();
+        return nextIndex;
+    }
+
+    function ParseQuoteTerm(tokens, index) {
+        parseLog('<QuoteTerm> → <Term>');
+        return ParseTerm(tokens, index);
+    }
+
+    function ParseUnquoteTerm(tokens, index) {
+        parseLog('<UnquoteTerm> → <Term>');
+        return ParseTerm(tokens, index);
+    }
+
+    function ParseQuasiquoteTerm(tokens, index) {
+        parseLog('<QuasiquoteTerm> → <Term>');
+        return ParseTerm(tokens, index);
+    }
+
+    function ParseSymbol(tokens, index) {
+        if(isSymbol(tokens[index])) {
+            // Action
+            let state = STATE_STACK.top();
+            if(state === 'QUOTE' || state === 'QUASIQUOTE') {
+                let type = Common.TypeOfToken(tokens[index]);
+                // 被quote的常量和字符串不受影响
+                if(type === "NUMBER") {
+                    NODE_STACK.push(NewAtom("CONSTANT", tokens[index]));
+                }
+                else if(type === "STRING") {
+                    NODE_STACK.push(NewAtom("STRING", tokens[index]));
+                }
+                else if(type === "SYMBOL") {
+                    NODE_STACK.push(tokens[index]);
+                }
+                // 被quote的变量和关键字（除了quote、unquote和quasiquote），变成symbol
+                else if(type === "VARIABLE" || ((type === "KEYWORD") && 
+                        tokens[index] !== "quasiquote" || tokens[index] !== "quote" || tokens[index] !== "unquote")) {
+                    NODE_STACK.push(NewAtom("SYMBOL", `'${tokens[index]}`));
+                }
+                else { // 含boolean
+                    NODE_STACK.push(tokens[index]);
+                }
+            }
+            else if(state === 'UNQUOTE') {
+                let type = Common.TypeOfToken(tokens[index]);
+                // 符号会被解除引用
+                if(type === "SYMBOL") {
+                    NODE_STACK.push(NewAtom("VARIABLE", tokens[index].replace(/^\'*/gi, "")));
+                }
+                // 其他所有类型不受影响
+                else if(type === "NUMBER") {
+                    NODE_STACK.push(NewAtom("CONSTANT", tokens[index]));
+                }
+                else if(type === "STRING") {
+                    NODE_STACK.push(NewAtom("STRING", tokens[index]));
+                }
+                else if(type === "VARIABLE" || type === "KEYWORD" || type === "BOOLEAN") {
+                    NODE_STACK.push(tokens[index]); // VARIABLE原样保留，在作用域分析的时候才被录入AST
+                }
+                else {
+                    throw `<Symbol> Illegal symbol.`
+                }
+/*
+                let noderef = NewNode("SLIST", "UNQUOTE", NODE_STACK.top());
+                GetNode(noderef).children.push('unquote');
+                let atomRef = NewAtom("VARIABLE", tokens[index]);
+                GetNode(noderef).children.push(atomRef);
+                NODE_STACK.push(noderef);
+*/
+            }
+            else {
+                let type = Common.TypeOfToken(tokens[index]);
+                if(type === "NUMBER") {
+                    NODE_STACK.push(NewAtom("CONSTANT", tokens[index]));
+                }
+                else if(type === "STRING") {
+                    NODE_STACK.push(NewAtom("STRING", tokens[index]));
+                }
+                else if(type === "SYMBOL") {
+                    NODE_STACK.push(NewAtom("SYMBOL", tokens[index]));
+                }
+                else if(type === "VARIABLE" || type === "KEYWORD" || type === "BOOLEAN") {
+                    NODE_STACK.push(tokens[index]); // VARIABLE原样保留，在作用域分析的时候才被录入AST
+                }
+                else {
+                    throw `<Symbol> Illegal symbol.`
+                }
+            }
+            return index + 1;
+        }
+        else {
+            throw `<Symbol>`;
+        }
+    }
 
     // 尾位置标记（参照R5RS的归纳定义）
     function markTailCall(nodeRef, isTail) {
-        if(Common.TypeOfToken(nodeRef) !== Common.NODE_TYPE.REF_SLIST) { return; }
+        if(Common.TypeOfToken(nodeRef) !== "REF_SLIST") { return; }
         let node = AST.GetObject(nodeRef);
         if(node.type === Common.NODE_TYPE.SLIST) {
             // if 特殊构造
@@ -557,7 +495,14 @@ const GenarateAST = function(TOKENS) {
         }
         else if(node.type === Common.NODE_TYPE.LAMBDA) {
             let node = AST.GetObject(nodeRef);
-            markTailCall(node.body, true);
+            for(let i = 0; i < node.body.length; i++) {
+                if(i === node.body.length - 1) {
+                    markTailCall((node.body)[i], true);
+                }
+                else {
+                    markTailCall((node.body)[i], false);
+                }
+            }
         }
         else {
             return;
@@ -569,14 +514,14 @@ const GenarateAST = function(TOKENS) {
     }
 
     function parseBegin(tokens) {
-        NT_Term(tokens, 0);
+        ParseTerm(tokens, 0);
     }
 
     parseBegin(TOKENS);         // 递归下降
-    dealQuote();                // 特殊处理 (quote .) 语法
-    TailCallAnalysis();         // 尾位置标注
+    // TailCallAnalysis();         // 尾位置标注
 
     return AST;
+
 };
 
 
@@ -584,6 +529,7 @@ const GenarateAST = function(TOKENS) {
 const Preprocess = function(AST) {
     for(let index = 0; index < AST.slists.length; index++) {
         let node = AST.GetObject(Common.makeRef("SLIST", index));
+        if(!node) {continue;}
         if(node.type === Common.NODE_TYPE.SLIST) {
             let children = node.children;
             // import：将别名列入别名字典，且保留
@@ -660,6 +606,7 @@ const DomainAnalysis = function(AST) {
     // 第一遍扫描：确定所有的参数和defined变量所在的Lambda节点和编号，以及记录所有import的别名
     for(let index = 0; index < AST.slists.length; index++) {
         let node = AST.GetObject(Common.makeRef("SLIST", index));
+        if(!node) {continue;}
         if(node.type === Common.NODE_TYPE.LAMBDA) {
             // 首先注册变量，替换变量表
             let parameters = node.parameters;
@@ -718,6 +665,7 @@ const DomainAnalysis = function(AST) {
     // 第二遍扫描：替换
     for(let index = 0; index < AST.slists.length; index++) {
         let node = AST.GetObject(Common.makeRef("SLIST", index));
+        if(!node) {continue;}
         if(node.children[0] === 'import') {
             continue;
         }
@@ -734,21 +682,24 @@ const DomainAnalysis = function(AST) {
             }
 
             // 然后替换body中的变量
-            if(isVar(node.body)) {
-                // 计算此变量所在的词法节点
-                let lambdaIndex = searchVarLambdaIndex(node.body, index, variableMapping);
-                // 在map中查找此变量的编号
-                let map = variableMapping[lambdaIndex];
-                // 处理define特殊情况
-                if(node.body in map.map) {
-                    node.body = varPattern(Common.makeRef("SLIST", lambdaIndex), (map.map)[node.body]);
-                }
-                // 处理没有注册的且有点号分隔的符号
-                else if(/\./gi.test(node.body)) {
-                    node.body = AST.NewObject("VARIABLE", node.body);
-                }
-                else {
-                    throw `[预处理] 变量${node.body}未定义`;
+            for(let i = 0; i < node.body.length; i++) {
+                let bodyItem = node.body[i];
+                if(isVar(bodyItem)) {
+                    // 计算此变量所在的词法节点
+                    let lambdaIndex = searchVarLambdaIndex(bodyItem, index, variableMapping);
+                    // 在map中查找此变量的编号
+                    let map = variableMapping[lambdaIndex];
+                    // 处理define特殊情况
+                    if(bodyItem in map.map) {
+                        node.body[i] = varPattern(Common.makeRef("SLIST", lambdaIndex), (map.map)[bodyItem]);
+                    }
+                    // 处理没有注册的且有点号分隔的符号
+                    else if(/\./gi.test(bodyItem)) {
+                        node.body[i] = AST.NewObject("VARIABLE", bodyItem);
+                    }
+                    else {
+                        throw `[预处理] 变量${bodyItem}未定义`;
+                    }
                 }
             }
         }

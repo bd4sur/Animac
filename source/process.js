@@ -170,6 +170,7 @@ Process.prototype = {
             instructionIndex: instructionIndex,
             parentClosureRef: parentClosureRef,
             env: new Object(),
+            upvalue: new Object(),
         };
         (this.CLOSURES)[this.MAX_CLOSURE_INDEX] = closure;
         let newIndex = this.MAX_CLOSURE_INDEX;

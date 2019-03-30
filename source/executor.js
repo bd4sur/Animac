@@ -20,9 +20,29 @@ const Executor = function(PROCESS, RUNTIME/*, 预留访问VM环境的接口*/) {
         try {
             let curCloRef = PROCESS.CURRENT_CLOSURE_REF;
             let currentClosure = PROCESS.getClosure(curCloRef);
+            // 首先查找自己的env
+            let upvalue = null;
+            if(variable in currentClosure.env) {
+                return (currentClosure.env)[variable].replace(/\!$/gi, "");
+            }
+            // 然后查找自己的upvalue
+            if(variable in currentClosure.upvalue) {
+                upvalue = (currentClosure.upvalue)[variable];
+            }
+            // 最后上溯闭包
             while(parseInt(Common.getRefIndex(curCloRef)) >= PROCESS.FIRST_CLOSURE_INDEX && currentClosure) {
                 if(variable in currentClosure.env) {
-                    return (currentClosure.env)[variable];
+                    // 比对这个值与upvalue的值，如果一致则直接返回，如果不一致，以上溯的结果为准
+                    let val = (currentClosure.env)[variable]
+                    if(upvalue !== val) {
+                        if(/\!$/.test(val)) {
+                            return val.replace(/\!$/gi, "");
+                        }
+                        else {
+                            return upvalue.replace(/\!$/gi, "");
+                        }
+                    }
+                    return val;
                 }
                 currentClosure = PROCESS.getClosure(currentClosure.parentClosureRef);
                 curCloRef = currentClosure.parentClosureRef;
@@ -97,14 +117,37 @@ const Executor = function(PROCESS, RUNTIME/*, 预留访问VM环境的接口*/) {
         }
         else if(argType === 'LABEL') {
             let instAddr = (PROCESS.LABEL_DICT)[arg];
-            PROCESS.CURRENT_CLOSURE_REF = PROCESS.newClosure(instAddr, PROCESS.CURRENT_CLOSURE_REF);
+            let closureAddr = PROCESS.newClosure(instAddr, PROCESS.CURRENT_CLOSURE_REF);
+
+            let currentClosure = PROCESS.getClosure(PROCESS.CURRENT_CLOSURE_REF);
+            for(let v in currentClosure.upvalue) {
+                PROCESS.getClosure(closureAddr).upvalue[v] = currentClosure.upvalue[v];
+            }
+            for(let v in currentClosure.env) {
+                PROCESS.getClosure(closureAddr).upvalue[v] = currentClosure.env[v];
+            }
+
+            PROCESS.CURRENT_CLOSURE_REF = closureAddr;
+
             PROCESS.PC = instAddr;
         }
         else if(argType === 'REF_VARIABLE') {
             let value = getBoundValue(argIndex);
             if(Common.TypeOfToken(value) === 'LABEL') {
                 let instAddr = (PROCESS.LABEL_DICT)[value];
-                PROCESS.CURRENT_CLOSURE_REF = PROCESS.newClosure(instAddr, PROCESS.CURRENT_CLOSURE_REF);
+                let closureAddr = PROCESS.newClosure(instAddr, PROCESS.CURRENT_CLOSURE_REF);
+
+                let currentClosure = PROCESS.getClosure(PROCESS.CURRENT_CLOSURE_REF);
+                for(let v in currentClosure.upvalue) {
+                    PROCESS.getClosure(closureAddr).upvalue[v] = currentClosure.upvalue[v];
+                }
+                for(let v in currentClosure.env) {
+                    PROCESS.getClosure(closureAddr).upvalue[v] = currentClosure.env[v];
+                }
+    
+                PROCESS.CURRENT_CLOSURE_REF = closureAddr;
+
+
                 PROCESS.PC = instAddr;
             }
             else if(Common.TypeOfToken(value) === 'REF_CLOSURE') {
@@ -132,14 +175,39 @@ const Executor = function(PROCESS, RUNTIME/*, 预留访问VM环境的接口*/) {
         }
         else if(argType === 'LABEL') {
             let instAddr = (PROCESS.LABEL_DICT)[arg];
-            PROCESS.CURRENT_CLOSURE_REF = PROCESS.newClosure(instAddr, PROCESS.CURRENT_CLOSURE_REF);
+            let closureAddr = PROCESS.newClosure(instAddr, PROCESS.CURRENT_CLOSURE_REF);
+
+            let currentClosure = PROCESS.getClosure(PROCESS.CURRENT_CLOSURE_REF);
+            for(let v in currentClosure.upvalue) {
+                PROCESS.getClosure(closureAddr).upvalue[v] = currentClosure.upvalue[v];
+            }
+            for(let v in currentClosure.env) {
+                PROCESS.getClosure(closureAddr).upvalue[v] = currentClosure.env[v];
+            }
+
+            PROCESS.CURRENT_CLOSURE_REF = closureAddr;
+
             PROCESS.PC = instAddr;
         }
         else if(argType === 'REF_VARIABLE') {
             let value = getBoundValue(argIndex);
             if(Common.TypeOfToken(value) === 'LABEL') {
                 let instAddr = (PROCESS.LABEL_DICT)[value];
-                PROCESS.CURRENT_CLOSURE_REF = PROCESS.newClosure(instAddr, PROCESS.CURRENT_CLOSURE_REF);
+                
+                let closureAddr = PROCESS.newClosure(instAddr, PROCESS.CURRENT_CLOSURE_REF);
+
+                let currentClosure = PROCESS.getClosure(PROCESS.CURRENT_CLOSURE_REF);
+                for(let v in currentClosure.upvalue) {
+                    PROCESS.getClosure(closureAddr).upvalue[v] = currentClosure.upvalue[v];
+                }
+                for(let v in currentClosure.env) {
+                    PROCESS.getClosure(closureAddr).upvalue[v] = currentClosure.env[v];
+                }
+    
+                PROCESS.CURRENT_CLOSURE_REF = closureAddr;
+
+
+
                 PROCESS.PC = instAddr;
             }
             else if(Common.TypeOfToken(value) === 'REF_CLOSURE') {
@@ -180,6 +248,13 @@ const Executor = function(PROCESS, RUNTIME/*, 预留访问VM环境的接口*/) {
         if(argType === 'LABEL') {
             let instAddr = (PROCESS.LABEL_DICT)[arg];
             let closureAddr = PROCESS.newClosure(instAddr, PROCESS.CURRENT_CLOSURE_REF);
+            let currentClosure = PROCESS.getClosure(PROCESS.CURRENT_CLOSURE_REF);
+            for(let v in currentClosure.upvalue) {
+                PROCESS.getClosure(closureAddr).upvalue[v] = currentClosure.upvalue[v];
+            }
+            for(let v in currentClosure.env) {
+                PROCESS.getClosure(closureAddr).upvalue[v] = currentClosure.env[v];
+            }
             (PROCESS.OPSTACK).push(closureAddr);
         }
         else if(argType === 'REF_VARIABLE') {
@@ -188,6 +263,15 @@ const Executor = function(PROCESS, RUNTIME/*, 预留访问VM环境的接口*/) {
             if(Common.TypeOfToken(value) === 'LABEL') { // 指令地址，需要新建闭包
                 let instAddr = (PROCESS.LABEL_DICT)[value];
                 let closureAddr = PROCESS.newClosure(instAddr, PROCESS.CURRENT_CLOSURE_REF);
+
+                let currentClosure = PROCESS.getClosure(PROCESS.CURRENT_CLOSURE_REF);
+                for(let v in currentClosure.upvalue) {
+                    PROCESS.getClosure(closureAddr).upvalue[v] = currentClosure.upvalue[v];
+                }
+                for(let v in currentClosure.env) {
+                    PROCESS.getClosure(closureAddr).upvalue[v] = currentClosure.env[v];
+                }
+
                 (PROCESS.OPSTACK).push(closureAddr);
             }
             else {
@@ -202,11 +286,19 @@ const Executor = function(PROCESS, RUNTIME/*, 预留访问VM环境的接口*/) {
     else if(mnemonic === 'set!') {
         let symbol = argIndex;
         let value = (PROCESS.OPSTACK).pop();
+        // 修改upvalue
+        let currentClosure = PROCESS.getClosure(PROCESS.CURRENT_CLOSURE_REF);
+        if(symbol in currentClosure.env) {
+            PROCESS.getClosure(PROCESS.CURRENT_CLOSURE_REF).env[symbol] = `${value}!`;
+        }
+        if(symbol in currentClosure.upvalue) {
+            PROCESS.getClosure(PROCESS.CURRENT_CLOSURE_REF).upvalue[symbol] = `${value}!`;
+        }
         // 沿闭包链修改，直到找到约束变量绑定，修改之
         let closureIndex = parseInt(Common.getRefIndex(PROCESS.CURRENT_CLOSURE_REF));
         while(closureIndex >= PROCESS.FIRST_CLOSURE_INDEX && closureIndex in PROCESS.CLOSURES) {
             if(symbol in ((PROCESS.CLOSURES)[closureIndex]).env) {
-                (((PROCESS.CLOSURES)[closureIndex]).env)[symbol] = value;
+                (((PROCESS.CLOSURES)[closureIndex]).env)[symbol] = `${value}!`;
                 break;
             }
             closureIndex = parseInt(Common.getRefIndex((PROCESS.CLOSURES)[closureIndex].parentClosureRef));
