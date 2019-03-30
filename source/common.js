@@ -172,34 +172,29 @@ const TypeOfToken = function(token) {
     if(token in KEYWORDS){
         return OBJECT_TYPE.KEYWORD;
     }
-    let refType = getRefType(token);
-    if(refType) {
-        return `REF_${refType}`;
+    else if(token[0] === PORT_PREFIX) {
+        return OBJECT_TYPE.PORT;
+    }
+    else if(token === '#t' || token === '#f') {
+        return OBJECT_TYPE.BOOLEAN;
+    }
+    else if(getRefType(token)) {
+        return `REF_${getRefType(token)}`;
+    }
+    else if(token[0] === '\'') {
+        return OBJECT_TYPE.SYMBOL;
+    }
+    else if(token[0] === '@') {
+        return OBJECT_TYPE.LABEL;
+    }
+    else if(/^\-?\d+(\.\d+)?$/gi.test(token)) {
+        return OBJECT_TYPE.NUMBER;
+    }
+    else if(token[0] === '"' && token[token.length-1] === '"') {
+        return OBJECT_TYPE.STRING;
     }
     else {
-        if(typeof token === 'string') {
-            if(token[0] === PORT_PREFIX) {
-                return OBJECT_TYPE.PORT;
-            }
-            else if(token[0] === '\'') {
-                return OBJECT_TYPE.SYMBOL;
-            }
-            else if(token[0] === '@') {
-                return OBJECT_TYPE.LABEL;
-            }
-            else if(token === '#t' || token === '#f') {
-                return OBJECT_TYPE.BOOLEAN;
-            }
-            else if(/^\-?\d+(\.\d+)?$/gi.test(token)) {
-                return OBJECT_TYPE.NUMBER;
-            }
-            else if(token[0] === '"' && token[token.length-1] === '"') {
-                return OBJECT_TYPE.STRING;
-            }
-            else {
-                return OBJECT_TYPE.VARIABLE;
-            }
-        }
+        return OBJECT_TYPE.VARIABLE;
     }
 };
 
