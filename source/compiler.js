@@ -38,24 +38,29 @@ const Compiler = function(qualifiedName, modulePath, AST) {
             ASM.push(`store ${parameters[i]}`);
         }
 
-        if(Common.TypeOfToken(node.body) === Common.OBJECT_TYPE.REF_SLIST) {
-            bodyNode = AST.GetObject(node.body);
-            if(bodyNode.type === Common.NODE_TYPE.LAMBDA) {
-                ASM.push(`load @${node.body}`);
+        // 编译函数体，等价于begin块
+        for(let i = 0; i < node.body.length; i++) {
+            let bodyItem = (node.body)[i];
+            if(Common.TypeOfToken(bodyItem) === Common.OBJECT_TYPE.REF_SLIST) {
+                let bodyNode = AST.GetObject(bodyItem);
+                if(bodyNode.type === Common.NODE_TYPE.LAMBDA) {
+                    ASM.push(`load @${bodyItem}`);
+                }
+                else if(bodyNode.quoteType !== false) {
+                    ASM.push(`push ${bodyItem}`);
+                }
+                else {
+                    compileSList(bodyItem);
+                }
             }
-            else if(bodyNode.isQuoted === true) {
-                ASM.push(`push ${node.body}`);
+            else if(Common.TypeOfToken(bodyItem) === Common.OBJECT_TYPE.REF_VARIABLE) {
+                ASM.push(`load ${bodyItem}`);
             }
             else {
-                compileSList(node.body);
+                ASM.push(`push ${bodyItem}`);
             }
         }
-        else if(Common.TypeOfToken(node.body) === Common.OBJECT_TYPE.REF_VARIABLE) {
-            ASM.push(`load ${node.body}`);
-        }
-        else {
-            ASM.push(`push ${node.body}`);
-        }
+
         ASM.push(`return`);
     }
 
@@ -131,7 +136,7 @@ const Compiler = function(qualifiedName, modulePath, AST) {
             if(rightValueNode.type === Common.NODE_TYPE.LAMBDA) {
                 ASM.push(`push @${rightValue}`);
             }
-            else if(rightValueNode.isQuoted === true) {
+            else if(rightValueNode.quoteType !== false) {
                 ASM.push(`push ${rightValue}`);
             }
             else {
@@ -168,7 +173,7 @@ const Compiler = function(qualifiedName, modulePath, AST) {
             if(predicateNode.type === Common.NODE_TYPE.LAMBDA) {
                 ASM.push(`load ${predicate}`);
             }
-            else if(predicateNode.isQuoted === true) {
+            else if(predicateNode.quoteType !== false) {
                 ASM.push(`push ${predicate}`);
             }
             else {
@@ -192,7 +197,7 @@ const Compiler = function(qualifiedName, modulePath, AST) {
             if(falseBranchNode.type === Common.NODE_TYPE.LAMBDA) {
                 ASM.push(`load ${falseBranch}`);
             }
-            else if(falseBranchNode.isQuoted === true) {
+            else if(falseBranchNode.quoteType !== false) {
                 ASM.push(`push ${falseBranch}`);
             }
             else {
@@ -216,7 +221,7 @@ const Compiler = function(qualifiedName, modulePath, AST) {
             if(trueBranchNode.type === Common.NODE_TYPE.LAMBDA) {
                 ASM.push(`load ${trueBranch}`);
             }
-            else if(trueBranchNode.isQuoted === true) {
+            else if(trueBranchNode.quoteType !== false) {
                 ASM.push(`push ${trueBranch}`);
             }
             else {
@@ -251,7 +256,7 @@ const Compiler = function(qualifiedName, modulePath, AST) {
                 if(clauseNode.type === Common.NODE_TYPE.LAMBDA) {
                     ASM.push(`load ${clause}`);
                 }
-                else if(clauseNode.isQuoted === true) {
+                else if(clauseNode.quoteType !== false) {
                     ASM.push(`push ${clause}`);
                 }
                 else {
@@ -294,7 +299,7 @@ const Compiler = function(qualifiedName, modulePath, AST) {
                 if(clauseNode.type === Common.NODE_TYPE.LAMBDA) {
                     ASM.push(`load ${clause}`);
                 }
-                else if(clauseNode.isQuoted === true) {
+                else if(clauseNode.quoteType !== false) {
                     ASM.push(`push ${clause}`);
                 }
                 else {
@@ -391,7 +396,7 @@ const Compiler = function(qualifiedName, modulePath, AST) {
                     if(childNode.type === Common.NODE_TYPE.LAMBDA) {
                         ASM.push(`load @${child}`);
                     }
-                    else if(childNode.isQuoted === true) {
+                    else if(childNode.quoteType !== false) {
                         ASM.push(`push ${child}`);
                     }
                     else {
@@ -416,12 +421,13 @@ const Compiler = function(qualifiedName, modulePath, AST) {
         else {
             for(let i = 1; i < children.length; i++) { // 处理参数列表
                 let child = children[i];
+                if(!child) { continue; }
                 if(Common.TypeOfToken(child) === Common.OBJECT_TYPE.REF_SLIST) {
                     let childNode = AST.GetObject(child);
                     if(childNode.type === Common.NODE_TYPE.LAMBDA) {
                         ASM.push(`load @${child}`);
                     }
-                    else if(childNode.isQuoted === true) {
+                    else if(childNode.quoteType !== false) {
                         ASM.push(`push ${child}`);
                     }
                     else {
