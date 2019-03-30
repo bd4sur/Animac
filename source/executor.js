@@ -504,7 +504,7 @@ const Executor = function(PROCESS, RUNTIME/*, 预留访问VM环境的接口*/) {
             let AST = JSON.parse(JSON.stringify(PROCESS.AST));
             AST.__proto__ = Common.AST.prototype;
             // 将$x对应的SList挂载到顶级lambda（$1）的body
-            AST.GetObject('$1').body = code;
+            AST.GetObject('$1').body = [code];
             AST.GetObject(code).parentIndex = 1;
             // 编译AST
             let MODULE = Compiler.Compiler(PROCESS.MODULE_QUALIFIED_NAME+".test", PROCESS.MODULE_PATH, AST);
