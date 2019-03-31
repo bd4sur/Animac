@@ -150,20 +150,20 @@ const ModuleLoader = function(mainModulePath, SOURCE_PATH) {
             }
             // children ref平移
             for(let c = 0; c < node.children.length; c++) {
-                let ref = node.children[c];
-                let type = Common.getRefType(ref);
-                if(type === "VARIABLE") {
-                    if(ref in sameVariableRefMapping) {
-                        node.children[c] = sameVariableRefMapping[ref];
+                let child = node.children[c];
+                let type = Common.TypeOfToken(child);
+                if(type === "REF_VARIABLE") {
+                    if(child in sameVariableRefMapping) {
+                        node.children[c] = sameVariableRefMapping[child];
                     }
                     else {
-                        node.children[c] = refShift(ref, variablesOffset);
+                        node.children[c] = refShift(child, variablesOffset);
                     }
                 }
-                if(type === "STRING")   { node.children[c] = refShift(ref, stringsOffset); }
-                if(type === "SYMBOL")   { node.children[c] = refShift(ref, symbolsOffset); }
-                if(type === "CONSTANT") { node.children[c] = refShift(ref, constantsOffset); }
-                if(type === "SLIST")    { node.children[c] = refShift(ref, slistsOffset); }
+                if(type === "REF_STRING")   { node.children[c] = refShift(child, stringsOffset); }
+                if(type === "REF_SYMBOL")   { node.children[c] = refShift(child, symbolsOffset); }
+                if(type === "REF_CONSTANT") { node.children[c] = refShift(child, constantsOffset); }
+                if(type === "REF_SLIST")    { node.children[c] = refShift(child, slistsOffset); }
             }
             // parameters ref平移
             for(let c = 0; c < node.parameters.length; c++) {

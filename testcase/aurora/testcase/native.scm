@@ -48,3 +48,9 @@
 (display (Math.sin (Math.PI)))
 (display (Math.dot '(1 2 3 4) '(5 6 7 8)))
 (display (Math.scale (Fac.fac 5) '(1 2 3 4)))
+
+;; AppLib测试
+(import "../../../source/applib/list.scm" List)
+(define multiply
+  (lambda (x y) (* x y)))
+(display (List.reduce '(1 2 3 4 5 6 7 8 9 10) multiply 1))
