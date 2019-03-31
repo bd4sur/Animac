@@ -84,7 +84,39 @@ const split = function(avmArgs, avmProcess, avmRuntime) {
     avmProcess.PC++;
 }
 
+const charCodeAt = function(avmArgs, avmProcess, avmRuntime) {
+    let argObj1 = avmProcess.GetObject(avmArgs[0]);
+    let argObj2 = avmProcess.GetObject(avmArgs[1]);
+    if(argObj1.type !== 'CONSTANT' || argObj2.type !== 'STRING') {
+        throw '[Native:String.charCodeAt] 参数类型不正确。';
+    }
+    else {
+        let index = argObj1.value;
+        let str = argObj2.value;
+        avmProcess.OPSTACK.push(str.charCodeAt(index));
+    }
+    avmProcess.PC++;
+}
+
+const fromCharCode = function(avmArgs, avmProcess, avmRuntime) {
+    let argObj1 = avmProcess.GetObject(avmArgs[0]);
+    if(argObj1.type !== 'SLIST') {
+        throw '[Native:String.fromCharCode] 参数类型不正确。';
+    }
+    else {
+        let codeSList = argObj1.value.children;
+        let codeArray = new Array();
+        for(let i = 0; i < codeSList.length; i++) {
+            codeArray[i] = avmProcess.GetObject(codeSList[i]).value;
+        }
+        avmProcess.OPSTACK.push(String.fromCharCode.apply(null, codeArray));
+    }
+    avmProcess.PC++;
+}
+
 module.exports.length = length;
 module.exports.charAt = charAt;
 module.exports.substring = substring;
 module.exports.split = split;
+module.exports.charCodeAt = charCodeAt;
+module.exports.fromCharCode = fromCharCode;

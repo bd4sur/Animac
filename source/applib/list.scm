@@ -22,3 +22,11 @@
         init
         (f (car lst) (reduce (cdr lst) f init)))))
 
+(define ref
+  (lambda (lst index)
+    (define iter
+      (lambda (l count)
+        (if (= count index)
+            (car l)
+            (iter (cdr l) (+ 1 count)))))
+    (iter lst 0)))

@@ -49,7 +49,7 @@ const Executor = function(PROCESS, RUNTIME/*, 预留访问VM环境的接口*/) {
             }
         }
         catch(e) {
-            throw `[虚拟机错误] 变量'${variable}' at Closure${PROCESS.CURRENT_CLOSURE_REF}未定义：${e.toString()}`;
+            throw `[虚拟机错误] 变量'${PROCESS.GetObject(Common.makeRef("VARIABLE", variable)).value}' at Closure${PROCESS.CURRENT_CLOSURE_REF}未定义：${e.toString()}`;
         }
     }
 

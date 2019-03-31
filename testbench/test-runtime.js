@@ -14,13 +14,14 @@ const Runtime = require('../source/runtime.js');
 // let modulePath = './testcase/aurora/testcase/native.scm';
 // let modulePath = './testcase/aurora/testcase/quicksort.scm';
 // let modulePath = './testcase/aurora/testcase/yin-yang-puzzle.scm';
-let modulePath = './testcase/aurora/testcase/church-encoding.scm';
+// let modulePath = './testcase/aurora/testcase/church-encoding.scm';
+let modulePath = './testcase/aurora/testcase/brainfuck.scm';
 
 let MODULE = ModuleLoader.ModuleLoader(modulePath, './testcase');
 
 // 初始化进程
 let PROCESS = new Process.Process();
-PROCESS.Init(1, 0, "Test", 10000, MODULE);
+PROCESS.Init(1, 0, "Test", 99999999, MODULE);
 
 // 初始化环境
 let RUNTIME = new Runtime.Runtime();
