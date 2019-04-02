@@ -23,7 +23,7 @@ const Executor = function(PROCESS, RUNTIME/*, 预留访问VM环境的接口*/) {
             // 首先查找自己的env
             let upvalue = null;
             if(variable in currentClosure.env) {
-                return (currentClosure.env)[variable].replace(/\!$/gi, "");
+                return (currentClosure.env)[variable].toString().replace(/\!$/gi, "");
             }
             // 然后查找自己的upvalue
             if(variable in currentClosure.upvalue) {
