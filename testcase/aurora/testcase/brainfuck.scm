@@ -50,7 +50,7 @@
                     (if (> iter (+ (+ cp_init (String.length code_str)) 1))
                         '()
                         {
-                            (display (String.fromCharCode (cons (String.charCodeAt (- iter (+ 2 cp_init)) code_str) '())))
+                            ;(display (String.fromCharCode (cons (String.charCodeAt (- iter (+ 2 cp_init)) code_str) '())))
                             (cons (String.charCodeAt (- iter (+ 2 cp_init)) code_str)
                                   ((env_constructer dp_init cp_init code_str) (+ iter 1)))
                         })))))))
@@ -64,7 +64,8 @@
 ; 打印一行字符串
 (define printstr
   (lambda (cstr)
-    (display (String.fromCharCode cstr))))
+    ;(display (String.fromCharCode cstr))))
+    (display cstr)))
 
 ; 调试输出
 (define BF_DEBUG
@@ -74,7 +75,7 @@
     (display " CP = ")(display (car (cdr env)))(newline)
     (display " LA : 0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF")(newline)
     (display "MEM = ")
-    (printstr (cdr (cdr env)))
+    (printstr (cdr (cdr env)))(newline)
     (display "======================================================================")(newline)
   ))
 
@@ -277,18 +278,28 @@
 ;   读取到空白字符（32）时停止，并输出调试信息
 (define bf_interpreter
   (lambda (env cnt)
-    (if (= (read_code env) 32)
+    (if (= (read_code env) (String.charCodeAt 0 " "))
         {
             (BF_DEBUG env)
             (display "iteration steps = ")
-            (display cnt)
+            (display cnt)(newline)
         }
-        (bf_interpreter (step env) (+ cnt 1)))))
+        {
+            ;(display cnt)
+            (bf_interpreter (step env) (+ cnt 1))
+        }
+        )))
 
 ; 设置环境
-(define env
-  (lambda ()
-    (ENV_INIT 0 20 "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++. ")))
+(define env #f)
+(set! env (ENV_INIT 0 20 "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++. "))
+
+; (set! env (ENV_INIT 0 20 "[->+<] "))
+; (set! env (MEM_SET env 0 10))
+; (set! env (MEM_SET env 1 20))
 
 ; 开始解释执行
-(bf_interpreter (env) 0)
+(display "此用例是Brainfuck的Scheme实现。")(newline)
+(display "当时出于学习目的，所有的递归全部使用Y组合子实现，因此性能极其低下。")(newline)
+(display "Hello World 程序运行需要986个时钟。视机器性能，可能需要十分钟或者更长的时间。")(newline)
+(bf_interpreter env 0)
