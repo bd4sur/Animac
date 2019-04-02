@@ -330,7 +330,7 @@ Process.prototype = {
     //   [进阶特性]为防止堆空间碎片化，可将所有存活对象迁移到低地址侧连续存放（但不要挤占池空间地址），同时重置堆地址计数器，以便再分配新的堆空间时，可以保持连续。
     //   由于REFMAP将物理地址与实际使用的对象引用（逻辑地址）隔离，因此碎片整理过程不会修改引用，对用户代码而言是透明的。
     GC: function() {
-        console.info(`[GC] 垃圾回收开始`);
+        console.info(`[GC] 垃圾回收开始（${this.HEAP.length}）`);
         // 获取闭包空间的全部绑定、以及操作数栈内的引用（称为**活动引用**），作为可达性分析的起点（即gcroot）
         let gcroots = new Object();
         for(let c of this.CLOSURES) {
@@ -352,9 +352,9 @@ Process.prototype = {
             if(reftype === Common.OBJECT_TYPE.REF_SLIST) {
                 let index = (this.REFMAP)[rootref];
                 aliveObjects[index] = true;
-                let children = this.GetObject(rootref).children;
+                let children = this.GetObject(rootref).value.children;
                 for(let r of children) {
-                    GCMark.call(this, r);
+                    GCMark.call(this, r.toString().replace(/\!$/gi, ""));
                 }
             }
             else {
@@ -363,13 +363,13 @@ Process.prototype = {
             }
         }
         for(let r in gcroots) {
-            GCMark.call(this, r);
+            GCMark.call(this, r.toString().replace(/\!$/gi, ""));
         }
 
         // 遍历全部堆对象，删除没有被标记为“存活”的对象
         for(let index = 0; index < this.HEAP.length; index++) {
             if(!(index in aliveObjects)) {
-                console.info(`[GC] 堆空间@${index} 已回收`);
+                // console.info(`[GC] 堆空间@${index} 已回收`);
                 delete (this.HEAP)[index];
             }
         }
