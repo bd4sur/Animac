@@ -109,7 +109,8 @@ const fromCharCode = function(avmArgs, avmProcess, avmRuntime) {
         for(let i = 0; i < codeSList.length; i++) {
             codeArray[i] = avmProcess.GetObject(codeSList[i]).value;
         }
-        avmProcess.OPSTACK.push(String.fromCharCode.apply(null, codeArray));
+        let strRef = avmProcess.NewObject('STRING', String.fromCharCode.apply(null, codeArray));
+        avmProcess.OPSTACK.push(strRef);
     }
     avmProcess.PC++;
 }
