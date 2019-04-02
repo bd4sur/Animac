@@ -100,10 +100,7 @@ const charCodeAt = function(avmArgs, avmProcess, avmRuntime) {
 
 const fromCharCode = function(avmArgs, avmProcess, avmRuntime) {
     let argObj1 = avmProcess.GetObject(avmArgs[0]);
-    if(argObj1.type !== 'SLIST') {
-        throw '[Native:String.fromCharCode] 参数类型不正确。';
-    }
-    else {
+    if(argObj1.type === 'SLIST') {
         let codeSList = argObj1.value.children;
         let codeArray = new Array();
         for(let i = 0; i < codeSList.length; i++) {
@@ -111,6 +108,14 @@ const fromCharCode = function(avmArgs, avmProcess, avmRuntime) {
         }
         let strRef = avmProcess.NewObject('STRING', String.fromCharCode.apply(null, codeArray));
         avmProcess.OPSTACK.push(strRef);
+    }
+    else if(argObj1.type === 'CONSTANT') {
+        let code = argObj1.value;
+        let strRef = avmProcess.NewObject('STRING', String.fromCharCode(code));
+        avmProcess.OPSTACK.push(strRef);
+    }
+    else {
+        throw '[Native:String.fromCharCode] 参数类型不正确。';
     }
     avmProcess.PC++;
 }
