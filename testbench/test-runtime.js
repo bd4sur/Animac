@@ -15,7 +15,8 @@ const Runtime = require('../source/runtime.js');
 // let modulePath = './testcase/aurora/testcase/quicksort.scm';
 // let modulePath = './testcase/aurora/testcase/yin-yang-puzzle.scm';
 // let modulePath = './testcase/aurora/testcase/church-encoding.scm';
-let modulePath = './testcase/aurora/testcase/brainfuck.scm';
+// let modulePath = './testcase/aurora/testcase/brainfuck.scm';
+let modulePath = './testcase/aurora/testcase/quine.scm';
 
 let MODULE = ModuleLoader.ModuleLoader(modulePath, './testcase');
 

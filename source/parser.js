@@ -146,7 +146,7 @@ const GenarateAST = function(TOKENS) {
     }
 
     function isSymbol(token) {
-        if(token === 'lambda') { return false; }
+        // if(token === 'lambda') { return false; }
         // 关于下一行注释掉的说明：词法分析阶段这些就已经被消灭掉了
         if(token === "(" || token === ")" || token === "{" || token === "}" || token === "[" || token === "]"){ return false; }
         if(/^[\'\`\,]/gi.test(token)) { return false; } // 不允许开头的字符
@@ -189,7 +189,8 @@ const GenarateAST = function(TOKENS) {
     }
 
     function ParseTerm(tokens, index) {
-        if(tokens[index] === '(' && tokens[index+1] === 'lambda') {
+        let quoteState = STATE_STACK.top();
+        if(quoteState !== "QUOTE" && quoteState !== "QUASIQUOTE" && tokens[index] === '(' && tokens[index+1] === 'lambda') {
             parseLog('<Term> → <Lambda>');
             return ParseLambda(tokens, index);
         }
@@ -401,7 +402,7 @@ const GenarateAST = function(TOKENS) {
                 // 被quote的变量和关键字（除了quote、unquote和quasiquote），变成symbol
                 else if(type === "VARIABLE" || ((type === "KEYWORD") && 
                         tokens[index] !== "quasiquote" || tokens[index] !== "quote" || tokens[index] !== "unquote")) {
-                    NODE_STACK.push(NewAtom("SYMBOL", `'${tokens[index]}`));
+                    NODE_STACK.push(NewAtom("SYMBOL", tokens[index]));
                 }
                 else { // 含boolean
                     NODE_STACK.push(tokens[index]);

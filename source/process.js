@@ -281,7 +281,7 @@ Process.prototype = {
             return obj.value;
         }
         else if(type === Common.OBJECT_TYPE.SYMBOL) {
-            return `'${obj.value}`;
+            return obj.value;
         }
         else if(type === Common.OBJECT_TYPE.STRING) {
             return obj.value;
