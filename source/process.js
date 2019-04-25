@@ -375,40 +375,111 @@ Process.prototype = {
         }
     },
 
-    // 【废弃】从进程中已存在的所有词法节点信息，重建AST。可理解成反编译（的第一个环节）
-    // NOTE：Process内部保存AST，因此不再需要这个函数
-    /*
-    rebuildAST: function() {
-        let AST = new Common.AST();
-        const SetObject = function(AST, ref, value) {
-            // TODO 输入检查
-            let prefix = ref[0];
-            let index = Common.getRefIndex(ref);
-            if(prefix === Common.REF_PREFIX['STRING']) {
-                AST.strings[index] = value;
-            }
-            else if(prefix === Common.REF_PREFIX['SLIST']) {
-                AST.slists[index] = value;
-            }
-            else if(prefix === Common.REF_PREFIX['SYMBOL']) {
-                AST.symbols[index] = value;
-            }
-            else if(prefix === Common.REF_PREFIX['VARIABLE']) {
-                AST.variables[index] = value;
-            }
-            else if(prefix === Common.REF_PREFIX['CONSTANT']) {
-                AST.constants[index] = value;
-            }
-            else {
-                throw `ref error`;
-            }
-        };
-        for(let ref in this.REFMAP) {
-            SetObject(AST, ref, this.GetObject(ref).value);
-        }
-        return AST;
+
+    /* 以下是新的VMI接口：进程VMI */
+
+    /* 进程私有内存操作 */
+
+    // 动态分配堆对象把柄
+    NewHandle: function(type) {
+
     },
-    */
+
+    // 动态回收堆对象把柄
+    DeleteHandle: function(hd) {
+
+    },
+
+    // 根据把柄获取对象
+    GetObject: function(hd) {
+
+    },
+
+    // 设置把柄的对象值
+    SetObject: function(hd, obj) {
+
+    },
+
+    /* 栈和闭包操作 */
+
+    // 向操作数栈中压入值
+    PushOperand: function(value) {
+
+    },
+
+    // 从操作数栈中弹出一个值
+    PopOperand: function(value) {
+
+    },
+
+    // 压入函数调用栈帧
+    PushStackFrame: function(hdClosure, returnToIndex) {
+
+    },
+
+    // 弹出函数调用栈帧
+    PopStackFrame: function() {
+
+    },
+
+    // 新建闭包并返回把柄
+    NewClosure: function(instructionIndex, hdParentClosure) {
+
+    },
+
+    // 根据闭包把柄获取闭包
+    GetClosure: function(hdClosure) {
+
+    },
+
+    // 获取进程的当前闭包
+    GetCurrentClosure: function() {
+
+    },
+
+    // 设置进程的当前闭包
+    SetCurrentClosure: function(hdClosure) {
+
+    },
+
+    // 变量解引用（解引/用引）
+    Dereference: function(variableName) {
+
+    },
+
+    /* 程序流程控制 */
+
+    // 解析标签为指令索引（地址）
+    ParseLabel: function(label) {
+
+    },
+
+    // 前进一步（PC加一）
+    Step: function() {
+
+    },
+
+    // 前进一步跳转到（PC置数）
+    Goto: function(instructionIndex) {
+
+    },
+
+    // 捕获当前续延并返回其把柄
+    CaptureContinuation: function(returnToIndex) {
+
+    },
+
+    // 恢复指定的续延
+    LoadContinuation: function(hdContinuation) {
+
+    },
+
+    /* 进程状态控制 */
+
+    // 设置进程状态
+    SetProcessState: function(pstate) {
+
+    }
 
 };
 
