@@ -26,35 +26,26 @@ enum HandleType {
 };
 
 // 基于哈希表（Map）的对象存储区，用于实现pool、heap等
-class Memory {
-    private hashTable: Map<string, any>;
-
-    constructor() {
-        this.hashTable = new Map<string, any>();
-    }
-
-    // 读
-    public get(handle: Handle): any {
-        return this.hashTable[handle.handleString];
-    }
-
-    // 写
-    public set(handle: Handle, value: any): number {
-        this.hashTable[handle.handleString] = value;
-        return SUCCEED;
-    }
-
-    // 删除
-    public delete(handle: Handle): number {
-        delete this.hashTable[handle.handleString];
-        return SUCCEED;
-    }
-
-    // 验证把柄对应的对象是否存在
-    public hasHandle(handle: Handle): boolean {
-        return this.hashTable.has(handle.handleString);
-    }
+interface Map<K, V> {
+    getByHandle(handle: Handle): any;
+    setByHandle(handle: Handle, value: any): void;
+    deleteByHandle(handle: Handle): void;
+    hasHandle(handle: Handle): boolean;
 }
+
+Map.prototype.getByHandle = function(handle: Handle): any {
+    return this.get(handle.handleString);
+};
+Map.prototype.setByHandle = function(handle: Handle, value: any): void {
+    this.set(handle.handleString, value);
+};
+Map.prototype.deleteByHandle = function(handle: Handle): void {
+    delete this[handle.handleString];
+};
+Map.prototype.hasHandle = function(handle: Handle): boolean {
+    return this.has(handle.handleString);
+};
+
 
 // 栈帧
 class StackFrame {
@@ -114,8 +105,8 @@ class Process {
     public labelMapping: Map<string, number>;  // 标签-指令索引映射
 
     // 静态资源池和堆
-    public pool: Memory;                // 静态资源池
-    public heap: Memory;                // 堆
+    public pool: Map<string, any>;             // 静态资源池
+    public heap: Map<string, any>;             // 堆
 
     public heapOffset: number = 0;          // 堆起始地址（即pool的length）
     public maxHeapIndex: number = 0;        // 堆最大地址
@@ -129,10 +120,10 @@ class Process {
     public currentClosureHandle: Handle;    // 当前闭包把柄
 
     public OPSTACK: Array<any>;             // 操作数栈
-    public FSTACK: Array<StackFrame>;              // 调用栈（活动记录栈）
+    public FSTACK: Array<StackFrame>;       // 调用栈（活动记录栈）
 
-    public CLOSURES: Memory;            // 闭包区
-    public CONTINUATIONS: Memory;       // Continuation区
+    public CLOSURES: Map<string, any>;       // 闭包区
+    public CONTINUATIONS: Map<string, any>;  // Continuation区
 
     /* 进程私有内存操作 */
 
@@ -145,17 +136,17 @@ class Process {
     }
 
     // 动态回收堆对象把柄：删除堆中相应位置
-    public DeleteHandle (handle: Handle): number {
-        return this.heap.delete(handle);
+    public DeleteHandle (handle: Handle): void {
+        this.heap.deleteByHandle(handle);
     }
 
     // 根据把柄获取对象
     public GetObject(handle: Handle): any {
         if(this.pool.hasHandle(handle)) {
-            return this.pool.get(handle);
+            return this.pool.getByHandle(handle);
         }
         else if(this.heap.hasHandle(handle)){
-            return this.heap.get(handle);
+            return this.heap.getByHandle(handle);
         }
         else {
             throw `[GetObject] 空引用`;
@@ -163,8 +154,8 @@ class Process {
     }
 
     // 设置把柄的对象值
-    public SetObject(handle: Handle, value: any): number {
-        return this.heap.set(handle, value);
+    public SetObject(handle: Handle, value: any): void {
+        this.heap.setByHandle(handle, value);
     }
 
     /* 栈和闭包操作 */
@@ -191,23 +182,25 @@ class Process {
     }
 
     // 新建闭包并返回把柄
-    public NewClosure(instructionIndex: number, parentClosureHandle: Handle): number {
+    public NewClosure(instructionIndex: number, parentClosureHandle: Handle): Handle {
         // 首先申请一个新的闭包把柄
         let newClosureHandle = this.NewHandle(HandleType.CLOSURE);
         // 新建一个空的闭包对象
         let closure = new Closure(instructionIndex, parentClosureHandle);
         // 将闭包存到闭包存储中（TODO：未来也可以统一存到堆区）
-        return this.CLOSURES.set(newClosureHandle, closure);
+        this.CLOSURES.setByHandle(newClosureHandle, closure);
+
+        return newClosureHandle;
     }
 
     // 根据闭包把柄获取闭包
     public GetClosure(closureHandle: Handle): Closure {
-        return this.CLOSURES.get(closureHandle);
+        return this.CLOSURES.getByHandle(closureHandle);
     }
 
     // 获取进程的当前闭包
     public GetCurrentClosure(): Closure {
-        return this.CLOSURES.get(this.currentClosureHandle);
+        return this.CLOSURES.getByHandle(this.currentClosureHandle);
     }
 
     // 设置进程的当前闭包
@@ -280,7 +273,7 @@ class Process {
         // 分配一个续延把柄
         let contHandle = this.NewHandle(HandleType.CONTINUATION);
         // 将续延存到续延存储中（TODO：未来也可以统一存到堆区）
-        this.CONTINUATIONS.set(contHandle, cont);
+        this.CONTINUATIONS.setByHandle(contHandle, cont);
 
         return contHandle;
     }
@@ -304,5 +297,5 @@ class Process {
     public SetProcessState(pstate: number): void {
         this.state = pstate;
     }
-
 }
+
