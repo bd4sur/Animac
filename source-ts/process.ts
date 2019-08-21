@@ -1,51 +1,82 @@
 // 状态常量
 const SUCCEED = 0;
 
-// 把柄
-class Handle {
-    public handleString: string;
-    public handleIndex: number;
-    public handleType: HandleType;
+type Handle = string;
 
-    constructor(handleType: HandleType, index: number) {
-        this.handleType = handleType;
-        this.handleIndex = index;
-        this.handleString = `${HandleType[this.handleType]}${this.handleIndex}`;
-    }
+interface Metadata {
+    static: boolean,
+    readOnly: boolean,
+    status: string, // allocated modified free ...
+    referrer: Array<Handle|void>
 }
-
-// 把柄的类型枚举
-enum HandleType {
-    STRING = "SYMBLE",
-    SYMBOL = "SYMBOL",
-    CONSTANT = "CONSTANT",
-    LIST = "LIST",
-    VARIABLE = "VARIABLE",
-    CLOSURE = "CLOSURE",
-    CONTINUATION = "CONTINUATION"
-};
 
 // 基于哈希表（Map）的对象存储区，用于实现pool、heap等
-interface Map<K, V> {
-    getByHandle(handle: Handle): any;
-    setByHandle(handle: Handle, value: any): void;
-    deleteByHandle(handle: Handle): void;
-    hasHandle(handle: Handle): boolean;
+class Memory {
+    // 数据Map
+    public data: Map<Handle, any>;
+    // 元数据Map（[静态标记,只读标记,使用状态标记,[主引对象把柄]]）
+    public metadata: Map<Handle, Metadata>;
+    // 自增的计数器，用于生成把柄
+    public handleCounter: number;
+
+    // 组装把柄字符串
+    private makeHandle(hdCounter: number): Handle {
+        return `&${hdCounter}`;
+    }
+
+    // 动态分配堆对象把柄
+    public NewHandle(referrer: Handle|void): Handle {
+        let handle = this.makeHandle(this.handleCounter);
+        this.metadata.set(handle, {
+            static: false,
+            readOnly: false,
+            status: 'allocated',
+            referrer: [referrer]
+        });
+        this.handleCounter++;
+        return handle;
+    }
+
+    // 动态回收堆对象把柄：删除堆中相应位置
+    public DeleteHandle (handle: Handle): void {
+        this.data.delete(handle);
+        this.metadata.set(handle, {
+            static: false,
+            readOnly: false,
+            status: 'free',
+            referrer: null
+        });
+    }
+
+    // 根据把柄获取对象
+    public Get(handle: Handle): any {
+        if(this.data.has(handle)) {
+            return this.data.get(handle);
+        }
+        else {
+            throw `[Memory.Get] 空把柄:${handle}`;
+        }
+    }
+
+    // 设置把柄的对象值
+    public Set(handle: Handle, value: any): void {
+        let metadata = this.metadata.get(handle);
+        if(this.data.has(handle) === false) {
+            throw `[Memory.Set] 未分配的把柄:${handle}`;
+        }
+        else if(metadata.readOnly) {
+            throw `[Memory.Set] 不允许修改只读对象:${handle}`;
+        }
+        else if(metadata.static) {
+            console.warn(`[Memory.Set] 修改了静态对象:${handle}`);
+        }
+        else {
+            metadata.status = 'modified';
+            this.metadata.set(handle, metadata);
+            this.data.set(handle, value);
+        }
+    }
 }
-
-Map.prototype.getByHandle = function(handle: Handle): any {
-    return this.get(handle.handleString);
-};
-Map.prototype.setByHandle = function(handle: Handle, value: any): void {
-    this.set(handle.handleString, value);
-};
-Map.prototype.deleteByHandle = function(handle: Handle): void {
-    delete this[handle.handleString];
-};
-Map.prototype.hasHandle = function(handle: Handle): boolean {
-    return this.has(handle.handleString);
-};
-
 
 // 栈帧
 class StackFrame {
@@ -87,6 +118,13 @@ class Continuation {
     }
 }
 
+interface Instruction {
+    isLabel: boolean,
+    instruction: string,
+    mnemonic: string,
+    argument: any
+}
+
 class Process {
     // 进程基本信息
     public processID: number;                  // 进程ID
@@ -104,12 +142,10 @@ class Process {
     public instructions: Array<string>;        // 指令序列
     public labelMapping: Map<string, number>;  // 标签-指令索引映射
 
-    // 静态资源池和堆
-    public pool: Map<string, any>;             // 静态资源池
-    public heap: Map<string, any>;             // 堆
-
-    public heapOffset: number = 0;          // 堆起始地址（即pool的length）
-    public maxHeapIndex: number = 0;        // 堆最大地址
+    // 堆 TODO 闭包区和Continuation区也统一存储在堆区
+    public heap: Memory;                       // 堆存储区（静态资源+运行时动态分配）
+    // public CLOSURES: Map<string, any>;       // 闭包区
+    // public CONTINUATIONS: Map<string, any>;  // Continuation区
 
     // 把柄分配计数器
     //   注：每分配一个新把柄，计数器就加一，以保证每个新把柄都与已有的不同
@@ -121,42 +157,6 @@ class Process {
 
     public OPSTACK: Array<any>;             // 操作数栈
     public FSTACK: Array<StackFrame>;       // 调用栈（活动记录栈）
-
-    public CLOSURES: Map<string, any>;       // 闭包区
-    public CONTINUATIONS: Map<string, any>;  // Continuation区
-
-    /* 进程私有内存操作 */
-
-    // 动态分配堆对象把柄
-    public NewHandle(handleType: HandleType): Handle {
-        let handleIndex = this.handleCounter;
-        let handle = new Handle(handleType, handleIndex);
-        this.handleCounter++;
-        return handle;
-    }
-
-    // 动态回收堆对象把柄：删除堆中相应位置
-    public DeleteHandle (handle: Handle): void {
-        this.heap.deleteByHandle(handle);
-    }
-
-    // 根据把柄获取对象
-    public GetObject(handle: Handle): any {
-        if(this.pool.hasHandle(handle)) {
-            return this.pool.getByHandle(handle);
-        }
-        else if(this.heap.hasHandle(handle)){
-            return this.heap.getByHandle(handle);
-        }
-        else {
-            throw `[GetObject] 空引用`;
-        }
-    }
-
-    // 设置把柄的对象值
-    public SetObject(handle: Handle, value: any): void {
-        this.heap.setByHandle(handle, value);
-    }
 
     /* 栈和闭包操作 */
 
@@ -184,23 +184,23 @@ class Process {
     // 新建闭包并返回把柄
     public NewClosure(instructionIndex: number, parentClosureHandle: Handle): Handle {
         // 首先申请一个新的闭包把柄
-        let newClosureHandle = this.NewHandle(HandleType.CLOSURE);
+        let newClosureHandle = this.heap.NewHandle();
         // 新建一个空的闭包对象
         let closure = new Closure(instructionIndex, parentClosureHandle);
-        // 将闭包存到闭包存储中（TODO：未来也可以统一存到堆区）
-        this.CLOSURES.setByHandle(newClosureHandle, closure);
+        // 存到堆区
+        this.heap.Set(newClosureHandle, closure);
 
         return newClosureHandle;
     }
 
     // 根据闭包把柄获取闭包
     public GetClosure(closureHandle: Handle): Closure {
-        return this.CLOSURES.getByHandle(closureHandle);
+        return this.heap.Get(closureHandle);
     }
 
     // 获取进程的当前闭包
     public GetCurrentClosure(): Closure {
-        return this.CLOSURES.getByHandle(this.currentClosureHandle);
+        return this.heap.Get(this.currentClosureHandle);
     }
 
     // 设置进程的当前闭包
@@ -240,10 +240,34 @@ class Process {
             currentClosure = this.GetClosure(currentClosure.parentClosureHandle);
             closureHandle = currentClosure.parentClosureHandle;
         }
-        throw `[Dereference] 变量'${variableName}' at Closure${this.currentClosureHandle.handleString}未定义`;
+        throw `[Dereference] 变量'${variableName}' at Closure${this.currentClosureHandle}未定义`;
     }
 
     /* 程序流程控制 */
+
+    // 获取并解析当前指令
+    public CurrentInstruction(): Instruction {
+        let instString: string = (this.instructions)[this.PC];
+        if(instString[0] === '@') {
+            return {
+                isLabel: true,
+                instruction: instString,
+                mnemonic: undefined,
+                argument: undefined
+            };
+        }
+        else {
+            let fields = instString.split(/\s+/i);
+            let mnemonic = fields[0].toLowerCase();
+            let argument = fields[1];
+            return {
+                isLabel: false,
+                instruction: instString,
+                mnemonic: mnemonic,
+                argument: argument
+            };
+        }
+    }
 
     // 解析标签为指令索引（地址）
     public ParseLabel(label: string): number {
@@ -271,9 +295,9 @@ class Process {
         // 新建续延对象
         let cont = new Continuation(partialEnvironment, contReturnTargetLable);
         // 分配一个续延把柄
-        let contHandle = this.NewHandle(HandleType.CONTINUATION);
-        // 将续延存到续延存储中（TODO：未来也可以统一存到堆区）
-        this.CONTINUATIONS.setByHandle(contHandle, cont);
+        let contHandle = this.heap.NewHandle();
+        // 将续延存到堆区
+        this.heap.Set(contHandle, cont);
 
         return contHandle;
     }
@@ -281,7 +305,7 @@ class Process {
     // 恢复指定的续延，并返回其返回目标位置的标签
     public LoadContinuation(continuationHandle): string {
         // 获取续延，并反序列化之
-        let cont: Continuation = this.CONTINUATIONS.get(continuationHandle);
+        let cont: Continuation = this.heap.Get(continuationHandle);
         let newConfiguration: any = JSON.parse(cont.partialEnvironmentJson);
         // 恢复续延保存的环境
         this.currentClosureHandle = newConfiguration.currentClosureHandle;
