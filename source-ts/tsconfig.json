@@ -1,0 +1,10 @@
+{
+    "compilerOptions": {
+        "target": "ES2018"
+    },
+    "files": [
+        "SchemeObject.ts",
+        "Process.ts",
+        "Instruction.ts"
+    ]
+}
