@@ -4,6 +4,8 @@
     },
     "files": [
         "SchemeObject.ts",
+        "Lexer.ts",
+        "Parser.ts",
         "Process.ts",
         "Instruction.ts"
     ]

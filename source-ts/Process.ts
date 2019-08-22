@@ -19,14 +19,10 @@ class Memory {
     // 自增的计数器，用于生成把柄
     public handleCounter: number;
 
-    // 组装把柄字符串
-    private makeHandle(hdCounter: number): Handle {
-        return `&${hdCounter}`;
-    }
-
     // 动态分配堆对象把柄
-    public NewHandle(referrer: Handle|void): Handle {
-        let handle = this.makeHandle(this.handleCounter);
+    public NewHandle(typeTag: string, referrer: Handle|void): Handle {
+        typeTag = typeTag || "OBJECT";
+        let handle = `&${typeTag}_${this.handleCounter}`;
         this.metadata.set(handle, {
             static: false,
             readOnly: false,
@@ -184,7 +180,7 @@ class Process {
     // 新建闭包并返回把柄
     public NewClosure(instructionIndex: number, parentClosureHandle: Handle): Handle {
         // 首先申请一个新的闭包把柄
-        let newClosureHandle = this.heap.NewHandle();
+        let newClosureHandle = this.heap.NewHandle("CLOSURE");
         // 新建一个空的闭包对象
         let closure = new Closure(instructionIndex, parentClosureHandle);
         // 存到堆区
@@ -295,7 +291,7 @@ class Process {
         // 新建续延对象
         let cont = new Continuation(partialEnvironment, contReturnTargetLable);
         // 分配一个续延把柄
-        let contHandle = this.heap.NewHandle();
+        let contHandle = this.heap.NewHandle("CONTINUATION");
         // 将续延存到堆区
         this.heap.Set(contHandle, cont);
 
