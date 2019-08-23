@@ -1,7 +1,6 @@
-interface Array<T> {
-    top(): any;
-}
-Array.prototype.top = ()=>{ return this[this.length - 1]; }
+
+// Parser.ts
+// 词法分析
 
 interface Scope {
     parent: Handle;
@@ -60,10 +59,12 @@ const KEYWORDS = {
 class AST {
     // Scheme源码
     public source: string;
+    // 词法单元
+    public tokens: Array<Token>;
     // 词法节点
     public nodes: Memory;
     // 词法节点到源码位置的映射
-    public indexes: Map<Handle, number>;
+    public nodeIndexes: HashMap<Handle, number>;
 
     // 所有Lambda节点的把柄
     public lambdaHandles: Array<Handle>;
@@ -72,28 +73,28 @@ class AST {
     public tailcall: Array<Handle>;
 
     // 作用域
-    public scopes: Map<Handle, Scope>;
+    public scopes: HashMap<Handle, Scope>;
 
     // 外部依赖模块
-    public dependencies: Map<string, string>; // 模块别名→模块路径
+    public dependencies: HashMap<string, string>; // 模块别名→模块路径
     // 模块全限定名
-    public aliases: Map<string, string>; // 模块别名→模块全限定名
+    public aliases: HashMap<string, string>; // 模块别名→模块全限定名
 
     // 使用到的Native模块
-    public natives: Map<string, string> // Native模块名→（TODO 可能是模块的路径）
+    public natives: HashMap<string, string> // Native模块名→（TODO 可能是模块的路径）
 
     //////////////////////////////////////////////////
 
     constructor(source: string) {
         this.source = source;
         this.nodes = new Memory();
-        this.indexes = new Map();
+        this.nodeIndexes = new HashMap();
         this.lambdaHandles = new Array();
         this.tailcall = new Array();
-        this.scopes = new Map();
-        this.dependencies = new Map();
-        this.aliases = new Map();
-        this.natives = new Map();
+        this.scopes = new HashMap();
+        this.dependencies = new HashMap();
+        this.aliases = new HashMap();
+        this.natives = new HashMap();
     }
 
     // 取出某节点
@@ -112,13 +113,25 @@ class AST {
 
     // 创建一个Application节点，保存，并返回其把柄
     public MakeApplicationNode(parentHandle: Handle, quoteType: string|void) {
-        let handle = this.nodes.NewHandle("LAMBDA");
+        let handle: any;
         let node: any;
         switch(quoteType) {
-            case "QUOTE":      node = new QuoteObject(parentHandle); break;
-            case "QUASIQUOTE": node = new QuasiquoteObject(parentHandle); break;
-            case "UNQUOTE":    node = new QuoteObject(parentHandle); break;
-            default:           node = new ApplicationObject(parentHandle); break;
+            case "QUOTE":
+                handle = this.nodes.NewHandle("QUOTE");
+                node = new QuoteObject(parentHandle);
+                break;
+            case "QUASIQUOTE":
+                handle = this.nodes.NewHandle("QUASIQUOTE");
+                node = new QuasiquoteObject(parentHandle);
+                break;
+            case "UNQUOTE":
+                handle = this.nodes.NewHandle("UNQUOTE");
+                node = new QuoteObject(parentHandle);
+                break;
+            default:
+                handle = this.nodes.NewHandle("APPLICATION");
+                node = new ApplicationObject(parentHandle);
+                break;
         }
         this.nodes.Set(handle, node);
         return handle;
@@ -137,13 +150,16 @@ class AST {
 function Parse(code: string): AST {
     let ast = new AST(code);
     let tokens = Lexer(code);
+    ast.tokens = tokens;
     // 节点把柄栈
     let NODE_STACK: Array<any> = new Array();  NODE_STACK.push('');
     // 状态栈
     let STATE_STACK: Array<string> = new Array();
 
     // 解析输出
-    function parseLog(msg: string) {}
+    function parseLog(msg: string) {
+        // console.log(msg);
+    }
     // 判断是否为定界符
     function isSymbol(token: string) {
         if(token === "(" || token === ")" || token === "{" || token === "}" || token === "[" || token === "]"){ return false; }
@@ -157,7 +173,7 @@ function Parse(code: string): AST {
     ///////////////////////////////
 
     function ParseTerm(tokens: Array<Token>, index: number) {
-        let quoteState = STATE_STACK.top();
+        let quoteState = Top(STATE_STACK);
         if(quoteState !== "QUOTE" && quoteState !== "QUASIQUOTE" && tokens[index].string === '(' && tokens[index+1].string === 'lambda') {
             parseLog('<Term> → <Lambda>');
             return ParseLambda(tokens, index);
@@ -192,11 +208,11 @@ function Parse(code: string): AST {
         parseLog('<SList> → ( ※ <SListSeq> )');
 
         // Action：向节点栈内压入一个新的SList，其中quoteType从状态栈栈顶取得。
-        let quoteType = STATE_STACK.top();
-        let listHandle = ast.MakeApplicationNode(NODE_STACK.top(), ((quoteType) ? quoteType : false));
+        let quoteType = Top(STATE_STACK);
+        let listHandle = ast.MakeApplicationNode(Top(NODE_STACK), ((quoteType) ? quoteType : false));
         NODE_STACK.push(listHandle);
 
-        ast.indexes.set(listHandle, tokens[index].index);
+        ast.nodeIndexes.set(listHandle, tokens[index].index);
 
         let nextIndex = ParseSListSeq(tokens, index+1);
 
@@ -214,7 +230,7 @@ function Parse(code: string): AST {
 
             // Action：从节点栈顶弹出节点，追加到新栈顶节点的children中。
             let childHandle = NODE_STACK.pop();
-            ast.GetNode(NODE_STACK.top()).content.children.push(childHandle);
+            ast.GetNode(Top(NODE_STACK)).children.push(childHandle);
 
             nextIndex = ParseSListSeq(tokens, nextIndex);
             return nextIndex;
@@ -228,10 +244,10 @@ function Parse(code: string): AST {
         parseLog('<Lambda> → ( ※ lambda <ArgList> <Body> )');
 
         // Action：pushLambda() 向节点栈内压入一个新的Lambda，忽略状态。
-        let lambdaHandle = ast.MakeLambdaNode(NODE_STACK.top());
+        let lambdaHandle = ast.MakeLambdaNode(Top(NODE_STACK));
         NODE_STACK.push(lambdaHandle);
 
-        ast.indexes.set(lambdaHandle, tokens[index].index);
+        ast.nodeIndexes.set(lambdaHandle, tokens[index].index);
 
         let nextIndex = ParseArgList(tokens, index+2);
         nextIndex = ParseBody(tokens, nextIndex);
@@ -259,7 +275,7 @@ function Parse(code: string): AST {
 
             // Action：从节点栈顶弹出节点（必须是符号），追加到新栈顶Lambda节点的parameters中。
             let parameter = NODE_STACK.pop();
-            ast.GetNode(NODE_STACK.top()).addParameter(parameter);
+            ast.GetNode(Top(NODE_STACK)).addParameter(parameter);
         
             nextIndex = ParseArgListSeq(tokens, nextIndex);
             return nextIndex;
@@ -280,7 +296,7 @@ function Parse(code: string): AST {
 
         // Action：从节点栈顶弹出节点，追加到新栈顶Lambda节点的body中。
         let bodyNode = NODE_STACK.pop();
-        ast.GetNode(NODE_STACK.top()).addBody(bodyNode);
+        ast.GetNode(Top(NODE_STACK)).addBody(bodyNode);
 
         nextIndex = ParseBodyTail(tokens, nextIndex);
         return nextIndex;
@@ -296,7 +312,7 @@ function Parse(code: string): AST {
 
             // Action：从节点栈顶弹出节点，追加到新栈顶Lambda节点的body中。
             let bodyNode = NODE_STACK.pop();
-            ast.GetNode(NODE_STACK.top()).addBody(bodyNode);
+            ast.GetNode(Top(NODE_STACK)).addBody(bodyNode);
 
             nextIndex = ParseBodyTail(tokens, nextIndex);
             return nextIndex;
@@ -387,7 +403,7 @@ function Parse(code: string): AST {
         let currentToken = tokens[index].string;
         if(isSymbol(currentToken)) {
             // Action
-            let state = STATE_STACK.top();
+            let state = Top(STATE_STACK);
             if(state === 'QUOTE' || state === 'QUASIQUOTE') {
                 let type: string = TypeOfToken(currentToken);
                 // 被quote的常量和字符串不受影响
@@ -397,6 +413,7 @@ function Parse(code: string): AST {
                 else if(type === "STRING") {
                     let stringHandle = ast.MakeStringNode(currentToken); // TODO:去掉两边的引号
                     NODE_STACK.push(stringHandle);
+                    ast.nodeIndexes.set(stringHandle, tokens[index].index);
                 }
                 else if(type === "SYMBOL") {
                     NODE_STACK.push(currentToken); // 压入string
@@ -404,7 +421,7 @@ function Parse(code: string): AST {
                 // 被quote的变量和关键字（除了quote、unquote和quasiquote），变成symbol
                 else if(type === "VARIABLE" || type === "KEYWORD" || 
                         (currentToken !== "quasiquote" && currentToken !== "quote" && currentToken !== "unquote")) {
-                    NODE_STACK.push(currentToken);
+                    NODE_STACK.push(`'${currentToken}`);
                 }
                 else { // 含boolean在内的变量、把柄等
                     NODE_STACK.push(currentToken);
@@ -423,6 +440,7 @@ function Parse(code: string): AST {
                 else if(type === "STRING") {
                     let stringHandle = ast.MakeStringNode(currentToken); // TODO:去掉两边的引号
                     NODE_STACK.push(stringHandle);
+                    ast.nodeIndexes.set(stringHandle, tokens[index].index);
                 }
                 else if(type === "VARIABLE" || type === "KEYWORD" || type === "BOOLEAN") {
                     NODE_STACK.push(currentToken); // VARIABLE原样保留，在作用域分析的时候才被录入AST
@@ -430,13 +448,6 @@ function Parse(code: string): AST {
                 else {
                     throw `<Symbol> Illegal symbol.`
                 }
-/*
-                let noderef = NewNode("SLIST", "UNQUOTE", NODE_STACK.top());
-                GetNode(noderef).children.push('unquote');
-                let atomRef = NewAtom("VARIABLE", currentToken);
-                GetNode(noderef).children.push(atomRef);
-                NODE_STACK.push(noderef);
-*/
             }
             else {
                 let type = TypeOfToken(currentToken);
@@ -446,6 +457,7 @@ function Parse(code: string): AST {
                 else if(type === "STRING") {
                     let stringHandle = ast.MakeStringNode(currentToken); // TODO:去掉两边的引号
                     NODE_STACK.push(stringHandle);
+                    ast.nodeIndexes.set(stringHandle, tokens[index].index);
                 }
                 else if(type === "SYMBOL") {
                     NODE_STACK.push(currentToken);
@@ -463,6 +475,8 @@ function Parse(code: string): AST {
             throw `<Symbol>`;
         }
     }
+
+    ParseTerm(tokens, 0);
 
     return ast;
 }

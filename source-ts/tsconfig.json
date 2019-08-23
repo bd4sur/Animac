@@ -3,10 +3,12 @@
         "target": "ES2018"
     },
     "files": [
+        "Utility.ts",
         "SchemeObject.ts",
         "Lexer.ts",
         "Parser.ts",
+        "Instruction.ts",
         "Process.ts",
-        "Instruction.ts"
+        "UT.ts"
     ]
 }

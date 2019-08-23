@@ -1,78 +1,6 @@
-// 状态常量
-const SUCCEED = 0;
 
-type Handle = string;
-
-interface Metadata {
-    static: boolean,
-    readOnly: boolean,
-    status: string, // allocated modified free ...
-    referrer: Array<Handle|void>
-}
-
-// 基于哈希表（Map）的对象存储区，用于实现pool、heap等
-class Memory {
-    // 数据Map
-    public data: Map<Handle, any>;
-    // 元数据Map（[静态标记,只读标记,使用状态标记,[主引对象把柄]]）
-    public metadata: Map<Handle, Metadata>;
-    // 自增的计数器，用于生成把柄
-    public handleCounter: number;
-
-    // 动态分配堆对象把柄
-    public NewHandle(typeTag: string, referrer: Handle|void): Handle {
-        typeTag = typeTag || "OBJECT";
-        let handle = `&${typeTag}_${this.handleCounter}`;
-        this.metadata.set(handle, {
-            static: false,
-            readOnly: false,
-            status: 'allocated',
-            referrer: [referrer]
-        });
-        this.handleCounter++;
-        return handle;
-    }
-
-    // 动态回收堆对象把柄：删除堆中相应位置
-    public DeleteHandle (handle: Handle): void {
-        this.data.delete(handle);
-        this.metadata.set(handle, {
-            static: false,
-            readOnly: false,
-            status: 'free',
-            referrer: null
-        });
-    }
-
-    // 根据把柄获取对象
-    public Get(handle: Handle): any {
-        if(this.data.has(handle)) {
-            return this.data.get(handle);
-        }
-        else {
-            throw `[Memory.Get] 空把柄:${handle}`;
-        }
-    }
-
-    // 设置把柄的对象值
-    public Set(handle: Handle, value: any): void {
-        let metadata = this.metadata.get(handle);
-        if(this.data.has(handle) === false) {
-            throw `[Memory.Set] 未分配的把柄:${handle}`;
-        }
-        else if(metadata.readOnly) {
-            throw `[Memory.Set] 不允许修改只读对象:${handle}`;
-        }
-        else if(metadata.static) {
-            console.warn(`[Memory.Set] 修改了静态对象:${handle}`);
-        }
-        else {
-            metadata.status = 'modified';
-            this.metadata.set(handle, metadata);
-            this.data.set(handle, value);
-        }
-    }
-}
+// Process.ts
+// 进程数据结构
 
 // 栈帧
 class StackFrame {
@@ -89,17 +17,17 @@ class StackFrame {
 class Closure {
     public instructionIndex: number;        // 指令地址
     public parentClosureHandle: Handle;     // 亲代闭包把柄
-    public bound: Map<string, any>;         // 约束变量
-    public upvalue: Map<string, any>;       // 自由变量
-    public dirtyFlag: Map<string, boolean>; // 脏标记
+    public bound: HashMap<string, any>;         // 约束变量
+    public upvalue: HashMap<string, any>;       // 自由变量
+    public dirtyFlag: HashMap<string, boolean>; // 脏标记
 
     constructor(instructionIndex: number,
                 parentClosureHandle: Handle) {
         this.instructionIndex = instructionIndex;
         this.parentClosureHandle = parentClosureHandle;
-        this.bound = new Map<string, any>();
-        this.upvalue = new Map<string, any>();
-        this.dirtyFlag = new Map<string, boolean>();
+        this.bound = new HashMap<string, any>();
+        this.upvalue = new HashMap<string, any>();
+        this.dirtyFlag = new HashMap<string, boolean>();
     }
 }
 
@@ -112,13 +40,6 @@ class Continuation {
         this.partialEnvironmentJson = JSON.stringify(partialEnvironment);
         this.contReturnTargetLable = contReturnTargetLable;
     }
-}
-
-interface Instruction {
-    isLabel: boolean,
-    instruction: string,
-    mnemonic: string,
-    argument: any
 }
 
 class Process {
@@ -136,12 +57,12 @@ class Process {
 
     // 进程程序区
     public instructions: Array<string>;        // 指令序列
-    public labelMapping: Map<string, number>;  // 标签-指令索引映射
+    public labelMapping: HashMap<string, number>;  // 标签-指令索引映射
 
     // 堆 TODO 闭包区和Continuation区也统一存储在堆区
     public heap: Memory;                       // 堆存储区（静态资源+运行时动态分配）
-    // public CLOSURES: Map<string, any>;       // 闭包区
-    // public CONTINUATIONS: Map<string, any>;  // Continuation区
+    // public CLOSURES: HashMap<string, any>;       // 闭包区
+    // public CONTINUATIONS: HashMap<string, any>;  // Continuation区
 
     // 把柄分配计数器
     //   注：每分配一个新把柄，计数器就加一，以保证每个新把柄都与已有的不同

@@ -1,3 +1,7 @@
+
+// Instruction.ts
+// 指令集定义
+
 /**
 # 指令集实现
 
@@ -44,3 +48,11 @@
 - halt 停止当前进程
 
 */
+
+
+interface Instruction {
+    isLabel: boolean,
+    instruction: string,
+    mnemonic: string,
+    argument: any
+}

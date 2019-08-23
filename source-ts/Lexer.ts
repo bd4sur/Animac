@@ -1,8 +1,11 @@
+
+// Lexer.ts
+// 词法分析
+
 interface Token {
     string: string;
     index: number;
 }
-
 
 // 词法分析：源码→Token序列
 function Lexer(code: string): Array<Token> {
@@ -143,20 +146,3 @@ function Lexer(code: string): Array<Token> {
 
     return newTokens2;
 }
-
-// Test
-const test = `(   import       "./test2.scm"     TEST2   )
-(   import       "../test3.scm"    TEST3   )
-(define hello
-  (lambda   (  )
-  ; abcdasd
-    {
-      (quote TEST2.hello) ;abc
-      (TEST3.hello)}))
-(hello)
-
-`;
-
-Lexer(test).forEach((v)=>{
-    console.log(`${v.string}\t${v.index}`);
-});
