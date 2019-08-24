@@ -93,6 +93,15 @@ class Memory {
             this.data.set(handle, value);
         }
     }
+
+    // 遍历
+    // 注意：输入函数通过返回"break"来结束循环，通过返回其他任意值来中止一轮循环（continue）。
+    public ForEach(f: (handle: Handle)=>any): void {
+        for(let handle in this.data) {
+            let ctrl = f(handle);
+            if(ctrl === "break") break;
+        }
+    }
 }
 
 class SchemeObject {
@@ -181,11 +190,13 @@ class LambdaObject extends SchemeObject {
         this.parent = parent;
         this.children = new Array<any>();
         this.children[0] = "lambda";
-        this.children[1] = new Array();
+        this.children[1] = new Array<string>();
     }
 
     public addParameter(param: string): void {
-        this.children[1].push(param);
+        if(this.children[1].indexOf(param) < 0) { // 如果有同名的变量则不添加
+            this.children[1].push(param);
+        }
     }
 
     public addBody(body: any): void {

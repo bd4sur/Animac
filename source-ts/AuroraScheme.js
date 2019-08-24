@@ -6,6 +6,15 @@ const SUCCEED = 0;
 function Top(arr) {
     return arr[arr.length - 1];
 }
+// 去掉生字符串两端的双引号
+function TrimQuotes(str) {
+    if (str[0] === '"' && str[str.length - 1] === '"') {
+        return str.substring(1, str.length - 1);
+    }
+    else {
+        return str;
+    }
+}
 // SchemeObjects.ts
 // 内存管理和对象定义
 class HashMap extends Object {
@@ -77,6 +86,15 @@ class Memory {
             this.data.set(handle, value);
         }
     }
+    // 遍历
+    // 注意：输入函数通过返回"break"来结束循环，通过返回其他任意值来中止一轮循环（continue）。
+    ForEach(f) {
+        for (let handle in this.data) {
+            let ctrl = f(handle);
+            if (ctrl === "break")
+                break;
+        }
+    }
 }
 class SchemeObject {
 }
@@ -145,7 +163,9 @@ class LambdaObject extends SchemeObject {
         this.children[1] = new Array();
     }
     addParameter(param) {
-        this.children[1].push(param);
+        if (this.children[1].indexOf(param) < 0) { // 如果有同名的变量则不添加
+            this.children[1].push(param);
+        }
     }
     addBody(body) {
         this.children.push(body);
@@ -309,6 +329,21 @@ function Lexer(code) {
 }
 // Parser.ts
 // 词法分析
+class Scope {
+    constructor(parent) {
+        this.parent = parent;
+        this.children = new Array();
+        this.boundVariables = new Array();
+    }
+    addChild(child) {
+        this.children.push(child);
+    }
+    addParameter(param) {
+        if (this.boundVariables.indexOf(param) < 0) { // 如果有同名的变量则不添加
+            this.boundVariables.push(param);
+        }
+    }
+}
 var NodeType;
 (function (NodeType) {
     NodeType["LAMBDA"] = "LAMBDA";
@@ -356,16 +391,16 @@ const KEYWORDS = {
     "unquote": true,
 };
 class AST {
-    //////////////////////////////////////////////////
-    constructor(source) {
+    constructor(source, moduleQualifiedName) {
         this.source = source;
+        this.moduleQualifiedName = moduleQualifiedName;
         this.nodes = new Memory();
         this.nodeIndexes = new HashMap();
         this.lambdaHandles = new Array();
         this.tailcall = new Array();
         this.scopes = new HashMap();
+        this.variableMapping = new HashMap();
         this.dependencies = new HashMap();
-        this.aliases = new HashMap();
         this.natives = new HashMap();
     }
     // 取出某节点
@@ -413,13 +448,21 @@ class AST {
         return handle;
     }
 }
-function Parse(code) {
-    let ast = new AST(code);
+const TOP_NODE_HANDLE = "&TOP_NODE";
+//////////////////////////////////////////////////
+//
+//  语法分析器：完成语法分析、作用域分析，生成AST
+//
+//  注意：输入代码必须是`((lambda () <code>))`格式
+//
+//////////////////////////////////////////////////
+function Parse(code, moduleQualifiedName) {
+    let ast = new AST(code, moduleQualifiedName);
     let tokens = Lexer(code);
     ast.tokens = tokens;
     // 节点把柄栈
     let NODE_STACK = new Array();
-    NODE_STACK.push('');
+    NODE_STACK.push(TOP_NODE_HANDLE);
     // 状态栈
     let STATE_STACK = new Array();
     // 解析输出
@@ -436,8 +479,39 @@ function Parse(code) {
         } // 不允许开头的字符
         return true; // 其余的都是词法意义上的Symbol
     }
+    // 根据字面的格式，判断token类型
+    function TypeOfToken(token) {
+        if (token in KEYWORDS) {
+            return "KEYWORD";
+        }
+        else if (token === '#t' || token === '#f') {
+            return "BOOLEAN";
+        }
+        else if (token[0] === '&') {
+            return "HANDLE";
+        }
+        else if (token[0] === '\'') {
+            return "SYMBOL";
+        }
+        else if (token[0] === '@') {
+            return "LABEL";
+        }
+        else if (/^\-?\d+(\.\d+)?$/gi.test(token)) {
+            return "NUMBER";
+        }
+        else if (token[0] === '"' && token[token.length - 1] === '"') {
+            return "STRING";
+        }
+        else {
+            return "VARIABLE";
+        }
+    }
+    // 判断token是不是变量
+    function isVariable(token) {
+        return (TypeOfToken(token) === "VARIABLE");
+    }
     ///////////////////////////////
-    //  以下是递归下降分析
+    //  递归下降分析
     ///////////////////////////////
     function ParseTerm(tokens, index) {
         let quoteState = Top(STATE_STACK);
@@ -615,32 +689,6 @@ function Parse(code) {
         parseLog('<QuasiquoteTerm> → <Term>');
         return ParseTerm(tokens, index);
     }
-    function TypeOfToken(token) {
-        if (token in KEYWORDS) {
-            return "KEYWORD";
-        }
-        else if (token === '#t' || token === '#f') {
-            return "BOOLEAN";
-        }
-        else if (token[0] === '&') {
-            return "HANDLE";
-        }
-        else if (token[0] === '\'') {
-            return "SYMBOL";
-        }
-        else if (token[0] === '@') {
-            return "LABEL";
-        }
-        else if (/^\-?\d+(\.\d+)?$/gi.test(token)) {
-            return "NUMBER";
-        }
-        else if (token[0] === '"' && token[token.length - 1] === '"') {
-            return "STRING";
-        }
-        else {
-            return "VARIABLE";
-        }
-    }
     function ParseSymbol(tokens, index) {
         let currentToken = tokens[index].string;
         if (isSymbol(currentToken)) {
@@ -653,7 +701,7 @@ function Parse(code) {
                     NODE_STACK.push(parseFloat(currentToken)); // 压入number
                 }
                 else if (type === "STRING") {
-                    let stringHandle = ast.MakeStringNode(currentToken); // TODO:去掉两边的引号
+                    let stringHandle = ast.MakeStringNode(TrimQuotes(currentToken));
                     NODE_STACK.push(stringHandle);
                     ast.nodeIndexes.set(stringHandle, tokens[index].index);
                 }
@@ -680,7 +728,7 @@ function Parse(code) {
                     NODE_STACK.push(parseFloat(currentToken));
                 }
                 else if (type === "STRING") {
-                    let stringHandle = ast.MakeStringNode(currentToken); // TODO:去掉两边的引号
+                    let stringHandle = ast.MakeStringNode(TrimQuotes(currentToken));
                     NODE_STACK.push(stringHandle);
                     ast.nodeIndexes.set(stringHandle, tokens[index].index);
                 }
@@ -697,7 +745,7 @@ function Parse(code) {
                     NODE_STACK.push(parseFloat(currentToken));
                 }
                 else if (type === "STRING") {
-                    let stringHandle = ast.MakeStringNode(currentToken); // TODO:去掉两边的引号
+                    let stringHandle = ast.MakeStringNode(TrimQuotes(currentToken));
                     NODE_STACK.push(stringHandle);
                     ast.nodeIndexes.set(stringHandle, tokens[index].index);
                 }
@@ -717,7 +765,197 @@ function Parse(code) {
             throw `<Symbol>`;
         }
     }
+    ///////////////////////////////
+    //  预处理指令解析（包括import等）
+    ///////////////////////////////
+    function PreprocessAnalysis() {
+        // 遍历所有的node，寻找预处理指令
+        ast.nodes.ForEach((nodeHandle) => {
+            let node = ast.GetNode(nodeHandle);
+            let nodeType = node.type;
+            // import指令
+            if (nodeType === "APPLICATION" && node.children[0] === "import") {
+                let pathStringHandle = node.children[1]; // 模块路径字符串（的把柄）
+                let moduleAlias = node.children[2]; // 模块的别名
+                let pathStringObject = ast.GetNode(pathStringHandle); // 若不存在，会抛出异常
+                if (pathStringObject.type !== "STRING") {
+                    throw `[预处理] import的来源路径必须写成字符串`;
+                }
+                let path = TrimQuotes(pathStringObject.content);
+                ast.dependencies.set(moduleAlias, path);
+            }
+            // native指令
+            else if (nodeType === "APPLICATION" && node.children[0] === "native") {
+                let native = node.children[1];
+                ast.natives.set(native, "enabled"); // TODO: 这里可以写native库的路径。更多断言，例如重复判断、native库存在性判断等
+            }
+        });
+    }
+    ///////////////////////////////
+    //  作用域解析，变量换名
+    ///////////////////////////////
+    // 从某个节点开始，向上查找某个变量归属的Lambda节点
+    function searchVarLambdaHandle(variable, fromNodeHandle) {
+        let currentNodeHandle = fromNodeHandle;
+        while (currentNodeHandle !== TOP_NODE_HANDLE) {
+            let node = ast.GetNode(currentNodeHandle);
+            if (node.type === "LAMBDA") {
+                // 注意：从scopes中获取换名前的作用域信息
+                let bounds = ast.scopes.get(currentNodeHandle).boundVariables;
+                if (bounds.indexOf(variable) >= 0) {
+                    return currentNodeHandle;
+                }
+            }
+            currentNodeHandle = node.parent;
+        }
+        return null; // 变量未定义
+    }
+    // 查找某个node上面最近的lambda节点的地址
+    function nearestLambdaHandle(fromNodeHandle) {
+        let currentNodeHandle = fromNodeHandle;
+        while (currentNodeHandle !== TOP_NODE_HANDLE) {
+            let node = ast.GetNode(currentNodeHandle);
+            if (node.type === "LAMBDA") {
+                return currentNodeHandle;
+            }
+            currentNodeHandle = node.parent;
+        }
+        return null;
+    }
+    // 生成模块内唯一的变量名
+    function MakeUniqueVariable(lambdaHandle, variable) {
+        return `${ast.moduleQualifiedName}.${lambdaHandle}.${variable}`;
+    }
+    // 以下是作用域解析：需要对所有node扫描两遍
+    function ScopeAnalysis() {
+        // 首先初始化所有scope
+        for (let nodeHandle of ast.lambdaHandles) {
+            let scope = new Scope(null);
+            ast.scopes.set(nodeHandle, scope);
+        }
+        // 第1趟扫描：在ast.scopes中注册作用域的树状嵌套关系；处理define行为
+        ast.nodes.ForEach((nodeHandle) => {
+            let node = ast.GetNode(nodeHandle);
+            let nodeType = node.type;
+            // Lambda节点
+            if (nodeType === "LAMBDA") {
+                // 寻找上级lambda节点
+                let parentLambdaHandle = nearestLambdaHandle(node.parent);
+                // 非顶级lambda
+                if (parentLambdaHandle !== null) {
+                    // 记录上级lambda节点
+                    ast.scopes.get(nodeHandle).parent = parentLambdaHandle;
+                    // 为上级lambda节点增加下级成员（也就是当前lambda）
+                    ast.scopes.get(parentLambdaHandle).addChild(nodeHandle);
+                }
+                else {
+                    // 记录上级lambda节点
+                    ast.scopes.get(nodeHandle).parent = TOP_NODE_HANDLE;
+                }
+                // 记录当前lambda的约束变量
+                ast.scopes.get(nodeHandle).boundVariables = Array.from(node.getParameters()); // ES6+
+            }
+            // define结构：变量被defined，会覆盖掉上级同名变量（类似JS的var）
+            else if (nodeType === "APPLICATION" && node.children[0] === "define") {
+                // 寻找define结构所在的lambda节点
+                let parentLambdaHandle = nearestLambdaHandle(nodeHandle);
+                if (parentLambdaHandle !== null) {
+                    let definedVariable = node.children[1];
+                    // 将defined变量*同时*记录到所在lambda节点和所在作用域中（如果不存在的话）
+                    ast.GetNode(parentLambdaHandle).addParameter(definedVariable);
+                    ast.scopes.get(parentLambdaHandle).addParameter(definedVariable);
+                }
+                else {
+                    throw `[作用域分析] 不可在顶级作用域之外define。`;
+                }
+            }
+        });
+        // 第2趟扫描：根据作用域嵌套关系，替换所有节点中出现的bound和free变量 为 全局唯一的变量，并在ast.variableMapping中登记映射关系
+        ast.nodes.ForEach((nodeHandle) => {
+            let node = ast.GetNode(nodeHandle);
+            let nodeType = node.type;
+            // Lambda节点：替换parameter和bodies中出现的所有Variable
+            if (nodeType === "LAMBDA") {
+                // 处理Lambda节点的parameters
+                for (let i = 0; i < node.getParameters().length; i++) {
+                    let originVar = (node.getParameters())[i];
+                    let newVar;
+                    // 顶级lambda：的所有bound均通过其直属的define获得
+                    // if(nodeHandle === TopLambdaHandle) {
+                    //     newVar = MakeTopVariable(originVar);
+                    // }
+                    // else {
+                    newVar = MakeUniqueVariable(nodeHandle, originVar);
+                    // }
+                    (ast.GetNode(nodeHandle).getParameters())[i] = newVar;
+                    ast.variableMapping.set(newVar, originVar);
+                }
+                // 处理body中出现的单独的变量（例如(lambda (x) *x*)）
+                for (let i = 2; i < node.children.length; i++) {
+                    let child = (node.children)[i];
+                    if (isVariable(child)) {
+                        // 查找此变量所在的lambda
+                        let lambdaHandle = searchVarLambdaHandle(child, nodeHandle);
+                        // 未定义的变量：①是native或者import的模块中的变量，②是未定义变量
+                        if (lambdaHandle === null) {
+                            let variablePrefix = child.split(".")[0];
+                            // 如果第一个点号前的变量名前缀并非已声明的Native模块名或者外部模块别名，则判定为未定义变量
+                            if (!(ast.natives.has(variablePrefix) || ast.dependencies.has(variablePrefix))) {
+                                throw `[作用域解析] 变量"${child}"未定义。`;
+                            }
+                        }
+                        // 全局变量
+                        // else if(lambdaHandle === TopLambdaHandle) {
+                        //     let newVar = MakeTopVariable(child);
+                        //     (ast.GetNode(nodeHandle).children)[i] = newVar;
+                        // }
+                        else {
+                            let newVar = MakeUniqueVariable(lambdaHandle, child);
+                            (ast.GetNode(nodeHandle).children)[i] = newVar;
+                        }
+                    }
+                }
+            }
+            // Application节点：处理方式类似body
+            else if (nodeType === "APPLICATION" || nodeType === "UNQUOTE") {
+                // 跳过若干特殊类型的node
+                let first = node.children[0];
+                if (["native", "import"].indexOf(first) >= 0) {
+                    return; // 相当于continue;
+                }
+                for (let i = 0; i < node.children.length; i++) {
+                    let child = (node.children)[i];
+                    if (isVariable(child)) {
+                        // 查找此变量所在的lambda
+                        let lambdaHandle = searchVarLambdaHandle(child, nodeHandle);
+                        // 未定义的变量：①是native或者import的模块中的变量，②是未定义变量
+                        if (lambdaHandle === null) {
+                            let variablePrefix = child.split(".")[0];
+                            // 如果第一个点号前的变量名前缀并非已声明的Native模块名或者外部模块别名，则判定为未定义变量
+                            if (!(ast.natives.has(variablePrefix) || ast.dependencies.has(variablePrefix))) {
+                                throw `[作用域解析] 变量"${child}"未定义。`;
+                            }
+                        }
+                        // 全局变量
+                        // else if(lambdaHandle === TopLambdaHandle) {
+                        //     let newVar = MakeTopVariable(child);
+                        //     (ast.GetNode(nodeHandle).children)[i] = newVar;
+                        // }
+                        else {
+                            let newVar = MakeUniqueVariable(lambdaHandle, child);
+                            (ast.GetNode(nodeHandle).children)[i] = newVar;
+                        }
+                    }
+                }
+            }
+        }); // 所有节点扫描完毕
+    }
+    // 递归下降语法分析
     ParseTerm(tokens, 0);
+    // 预处理指令解析
+    PreprocessAnalysis();
+    // 作用域解析
+    ScopeAnalysis();
     return ast;
 }
 // Instruction.ts
@@ -910,21 +1148,49 @@ const TESTCASE = `
 ((lambda ()
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define A
-  (lambda (k x1 x2 x3 x4 x5) (begin
-      (define B
-        (lambda () (begin
-            (set! k (- k 1))
-            (A k B x1 x2 x3 x4))))
-      (if (<= k 0)
-          (+ (x4) (x5))
-          (B)))))
-(display "【AuroraScheme编译】Man or Boy Test = ")
-(display (A 10 (lambda () 1) (lambda () -1) (lambda () -1) (lambda () 1) (lambda () 0)))
+;; AppLib测试
+(native HTTPS)
+(native String)
+(native Math)
+(native File)
+(import "../../../source/applib/list.scm" List)
+(define multiply
+  (lambda (x y) (Math.mul x y)))
+(display (List.reduce '(1 2 3 4 5 6 7 8 9 10) multiply 1))
+
+(define filter
+  (lambda (f lst)
+    (if (null? lst)
+        '()
+        (if (f (car lst))
+            (cons (car lst) (filter f (cdr lst)))
+            (filter f (cdr lst))))))
+
+(define concat
+  (lambda (a b)
+    (if (null? a)
+        b
+        (cons (car a) (concat (cdr a) b)))))
+
+(define quicksort
+  (lambda (array)
+    (if (or (null? array) (null? (cdr array)))
+        array
+        (concat (quicksort (filter (lambda (x)
+                                     (if (< x (car array)) #t #f))
+                                   array))
+                           (cons (car array)
+                                 (quicksort (filter (lambda (x)
+                                                      (if (> x (car array)) #t #f))
+                                                    array)))))))
+
+(display "【SSC编译】快速排序：")
+(display (quicksort '(5 9 1 7 (5 3 0) 4 6 8 2)))
 (newline)
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ))
 `;
-let ast = Parse(TESTCASE);
+let ast = Parse(TESTCASE, "me.aurora.TestModule");
 console.log(JSON.stringify(ast));
