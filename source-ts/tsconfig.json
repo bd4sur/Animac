@@ -7,8 +7,8 @@
         "SchemeObject.ts",
         "Lexer.ts",
         "Parser.ts",
-        "Instruction.ts",
         "Process.ts",
+        "Instruction.ts",
         "UT.ts"
     ]
 }

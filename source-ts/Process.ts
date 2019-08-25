@@ -5,41 +5,17 @@
 // 栈帧
 class StackFrame {
     public closureHandle: Handle;     // 闭包把柄
-    public returnTargetIndex: number; // 返回指令地址
+    public returnTargetAddress: number; // 返回指令地址
 
     constructor(closureHandle: Handle, target: number) {
         this.closureHandle = closureHandle;
-        this.returnTargetIndex = target;
+        this.returnTargetAddress = target;
     }
 }
 
-// 闭包
-class Closure {
-    public instructionIndex: number;        // 指令地址
-    public parentClosureHandle: Handle;     // 亲代闭包把柄
-    public bound: HashMap<string, any>;         // 约束变量
-    public upvalue: HashMap<string, any>;       // 自由变量
-    public dirtyFlag: HashMap<string, boolean>; // 脏标记
-
-    constructor(instructionIndex: number,
-                parentClosureHandle: Handle) {
-        this.instructionIndex = instructionIndex;
-        this.parentClosureHandle = parentClosureHandle;
-        this.bound = new HashMap<string, any>();
-        this.upvalue = new HashMap<string, any>();
-        this.dirtyFlag = new HashMap<string, boolean>();
-    }
-}
-
-// 续延
-class Continuation {
-    public partialEnvironmentJson: string;
-    public contReturnTargetLable: string;
-
-    constructor(partialEnvironment: Object, contReturnTargetLable: string) {
-        this.partialEnvironmentJson = JSON.stringify(partialEnvironment);
-        this.contReturnTargetLable = contReturnTargetLable;
-    }
+// 进程状态枚举
+enum ProcessState {
+    READY, RUNNING, SLEEPING, SUSPENDED, STOPPED
 }
 
 class Process {
@@ -53,7 +29,10 @@ class Process {
 
     // 进程状态
     public priority: number;                   // 进程优先级
-    public state: number;                      // 进程状态
+    public state: ProcessState;                // 进程状态
+
+    // 代码AST
+    public ast: AST;                           // 源码的AST
 
     // 进程程序区
     public instructions: Array<string>;        // 指令序列
@@ -61,12 +40,6 @@ class Process {
 
     // 堆 TODO 闭包区和Continuation区也统一存储在堆区
     public heap: Memory;                       // 堆存储区（静态资源+运行时动态分配）
-    // public CLOSURES: HashMap<string, any>;       // 闭包区
-    // public CONTINUATIONS: HashMap<string, any>;  // Continuation区
-
-    // 把柄分配计数器
-    //   注：每分配一个新把柄，计数器就加一，以保证每个新把柄都与已有的不同
-    public handleCounter: number = 0;       // 把柄计数器
 
     // 执行机核心：栈、闭包和续延
     public PC: number = 0;                  // 程序计数器（即当前执行的指令索引）
@@ -74,6 +47,40 @@ class Process {
 
     public OPSTACK: Array<any>;             // 操作数栈
     public FSTACK: Array<StackFrame>;       // 调用栈（活动记录栈）
+
+    /* 构造器 */
+    // TODO 待实现，目前仅供测试
+    constructor(instructions) {
+        this.processID = 0;
+        this.parentProcessID = 0;
+        this.childrenProcessID = new Array();
+        this.user = "";
+        this.moduleQualifiedName = "";
+        this.modulePath = "";
+
+        this.priority = 0;
+        this.state = ProcessState.READY;
+
+        this.ast = new AST("", "");
+
+        this.instructions = instructions;
+        this.labelMapping = new HashMap();
+
+        this.heap = new Memory();
+
+        this.PC = 0;
+        this.currentClosureHandle = TOP_NODE_HANDLE;
+
+        this.OPSTACK = new Array();
+        this.FSTACK = new Array();
+
+        // 进程初始化
+        // 标签分析
+        this.LabelAnalysis();
+        // 顶级闭包
+        this.heap.NewHandle(TOP_NODE_HANDLE);
+        this.heap.Set(TOP_NODE_HANDLE, new Closure(-1, TOP_NODE_HANDLE));
+    }
 
     /* 栈和闭包操作 */
 
@@ -99,11 +106,11 @@ class Process {
     }
 
     // 新建闭包并返回把柄
-    public NewClosure(instructionIndex: number, parentClosureHandle: Handle): Handle {
+    public NewClosure(instructionAddress: number, parent: Handle): Handle {
         // 首先申请一个新的闭包把柄
-        let newClosureHandle = this.heap.NewHandle("CLOSURE");
+        let newClosureHandle = this.heap.AllocateHandle("CLOSURE");
         // 新建一个空的闭包对象
-        let closure = new Closure(instructionIndex, parentClosureHandle);
+        let closure = new Closure(instructionAddress, parent);
         // 存到堆区
         this.heap.Set(newClosureHandle, closure);
 
@@ -129,35 +136,35 @@ class Process {
     public Dereference(variableName: string): any {
         let currentClosure: Closure = this.GetCurrentClosure();
         // 首先查找约束变量
-        if(variableName in currentClosure.bound) {
-            return currentClosure.bound.get(variableName);
+        if(currentClosure.HasBoundVariable(variableName)) {
+            return currentClosure.GetBoundVariable(variableName);
         }
         // 然后查找自由变量
-        let upvalueVal: any = null;
-        if(variableName in currentClosure.upvalue) {
-            upvalueVal = currentClosure.upvalue.get(variableName);
+        let freeVarValue: any = null;
+        if(currentClosure.HasFreeVariable(variableName)) {
+            freeVarValue = currentClosure.GetFreeVariable(variableName);
         }
         // 上溯闭包
         let closureHandle = this.currentClosureHandle;
-        while(closureHandle !== null) {
-            if(variableName in currentClosure.bound) {
-                // 比对这个值与upvalue的值，如果一致则直接返回，如果不一致，以上溯的结果为准
-                let boundVal: any = currentClosure.bound.get(variableName);
-                if(upvalueVal !== boundVal) {
+        while(closureHandle !== TOP_NODE_HANDLE) {
+            currentClosure = this.GetClosure(closureHandle);
+            if(currentClosure.HasBoundVariable(variableName)) {
+                // 比对这个值与freeVar的值，如果一致则直接返回，如果不一致，以上溯的结果为准
+                let boundVal: any = currentClosure.GetBoundVariable(variableName);
+                if(freeVarValue !== boundVal) {
                     // 检查脏标记：
-                    if(currentClosure.dirtyFlag.get(variableName)) {
+                    if(currentClosure.IsDirtyVariable(variableName)) {
                         return boundVal;
                     }
                     else {
-                        return upvalueVal;
+                        return freeVarValue;
                     }
                 }
                 return boundVal;
             }
-            currentClosure = this.GetClosure(currentClosure.parentClosureHandle);
-            closureHandle = currentClosure.parentClosureHandle;
+            closureHandle = currentClosure.parent;
         }
-        throw `[Dereference] 变量'${variableName}' at Closure${this.currentClosureHandle}未定义`;
+        throw `[Error] 变量'${variableName}' at Closure${this.currentClosureHandle}未定义`;
     }
 
     /* 程序流程控制 */
@@ -165,29 +172,11 @@ class Process {
     // 获取并解析当前指令
     public CurrentInstruction(): Instruction {
         let instString: string = (this.instructions)[this.PC];
-        if(instString[0] === '@') {
-            return {
-                isLabel: true,
-                instruction: instString,
-                mnemonic: undefined,
-                argument: undefined
-            };
-        }
-        else {
-            let fields = instString.split(/\s+/i);
-            let mnemonic = fields[0].toLowerCase();
-            let argument = fields[1];
-            return {
-                isLabel: false,
-                instruction: instString,
-                mnemonic: mnemonic,
-                argument: argument
-            };
-        }
+        return new Instruction(instString);
     }
 
     // 解析标签为指令索引（地址）
-    public ParseLabel(label: string): number {
+    public GetLabelAddress(label: string): number {
         return this.labelMapping.get(label);
     }
 
@@ -197,12 +186,12 @@ class Process {
     }
 
     // 前进一步跳转到（PC置数）
-    public Goto(instructionIndex: number): void {
-        this.PC = instructionIndex;
+    public Goto(instructionAddress: number): void {
+        this.PC = instructionAddress;
     }
 
     // 捕获当前续延并返回其把柄
-    public CaptureContinuation(contReturnTargetLable): Handle {
+    public CaptureContinuation(contReturnTargetLable: string): Handle {
         // 首先保存当前的（部分）进程环境
         let partialEnvironment: Object = {
             currentClosureHandle: this.currentClosureHandle,
@@ -212,7 +201,7 @@ class Process {
         // 新建续延对象
         let cont = new Continuation(partialEnvironment, contReturnTargetLable);
         // 分配一个续延把柄
-        let contHandle = this.heap.NewHandle("CONTINUATION");
+        let contHandle = this.heap.AllocateHandle("CONTINUATION");
         // 将续延存到堆区
         this.heap.Set(contHandle, cont);
 
@@ -220,7 +209,7 @@ class Process {
     }
 
     // 恢复指定的续延，并返回其返回目标位置的标签
-    public LoadContinuation(continuationHandle): string {
+    public LoadContinuation(continuationHandle: Handle): string {
         // 获取续延，并反序列化之
         let cont: Continuation = this.heap.Get(continuationHandle);
         let newConfiguration: any = JSON.parse(cont.partialEnvironmentJson);
@@ -232,10 +221,27 @@ class Process {
         return cont.contReturnTargetLable;
     }
 
+    /* 反射相关 */
+
+    // 中间语言指令序列的标签分析
+    private LabelAnalysis(): void {
+        for(let i = 0; i < this.instructions.length; i++) {
+            if((this.instructions[i].trim())[0] === "@") {
+                this.labelMapping.set(this.instructions[i].trim(), i);
+            }
+        }
+    }
+
+    // 判断某变量是否使用了某Native模块（通过读取this.ast.natives得知）
+    public IsUseNative(variable: string): boolean {
+        let varPrefix = variable.split(".")[0];
+        return this.ast.natives.has(varPrefix);
+    }
+
     /* 进程状态控制 */
 
     // 设置进程状态
-    public SetProcessState(pstate: number): void {
+    public SetState(pstate: ProcessState): void {
         this.state = pstate;
     }
 }

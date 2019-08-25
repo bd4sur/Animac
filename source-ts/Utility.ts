@@ -5,6 +5,23 @@
 // 状态常量
 const SUCCEED = 0;
 
+// 顶级词法节点、顶级作用域和顶级闭包的parent字段
+//   用于判断上溯结束
+const TOP_NODE_HANDLE: Handle = "&TOP_NODE";
+
+// 关键字集合
+const KEYWORDS = [
+    "car",    "cdr",    "cons",    "cond",    "if",    "else",    "begin",
+    "+",      "-",      "*",       "/",       "=",     "and",     "or",
+    "not",    ">",      "<",       ">=",      "<=",    "eq?",
+    "define", "set!",   "null?",
+    "display","newline",
+    "call/cc",
+    "import", "native",
+    "fork",
+    "quote",  "quasiquote",  "unquote",
+];
+
 // 取数组/栈的栈顶
 function Top(arr: Array<any>): any {
     return arr[arr.length - 1];
@@ -18,4 +35,43 @@ function TrimQuotes(str: string): string {
     else {
         return str;
     }
+}
+
+// 根据字面的格式，判断token类型
+function TypeOfToken(token: any): string {
+    if(token === undefined || token === null) {
+        return token;
+    }
+    else if(typeof token === "number") {
+        return "NUMBER";
+    }
+    else if(KEYWORDS.indexOf(token) >= 0){
+        return "KEYWORD";
+    }
+    else if(token === '#t' || token === '#f') {
+        return "BOOLEAN";
+    }
+    else if(token[0] === '&') {
+        return "HANDLE";
+    }
+    else if(token[0] === '\'') {
+        return "SYMBOL";
+    }
+    else if(token[0] === '@') {
+        return "LABEL";
+    }
+    else if(isNaN(parseFloat(token)) === false) {
+        return "NUMBER";
+    }
+    else if(token[0] === '"' && token[token.length-1] === '"') {
+        return "STRING";
+    }
+    else {
+        return "VARIABLE";
+    }
+}
+ 
+// 判断token是不是变量
+function isVariable(token: string): boolean {
+    return (TypeOfToken(token) === "VARIABLE");
 }

@@ -39,8 +39,24 @@ class Memory {
         this.handleCounter = 0;
     }
 
+    // 把柄存在性判断
+    public HasHandle(handle: Handle): boolean {
+        return this.data.has(handle);
+    }
+
+    // 新建任意把柄
+    public NewHandle(handle: Handle): void {
+        this.data.set(handle, null);
+        this.metadata.set(handle, {
+            static: false,
+            readOnly: false,
+            status: 'allocated',
+            referrer: []
+        });
+    }
+
     // 动态分配堆对象把柄
-    public NewHandle(typeTag: string, referrer: Handle|void): Handle {
+    public AllocateHandle(typeTag: string, referrer: Handle|void): Handle {
         typeTag = typeTag || "OBJECT";
         let handle = `&${typeTag}_${this.handleCounter}`;
         this.data.set(handle, null);
@@ -118,7 +134,9 @@ enum SchemeObjectType {
       APPLICATION = "APPLICATION",
       QUOTE       = "QUOTE",
       QUASIQUOTE  = "QUASIQUOTE",
-      UNQUOTE     = "UNQUOTE"
+      UNQUOTE     = "UNQUOTE",
+    CLOSURE       = "CLOSURE",
+    CONTINUATION  = "CONTINUATION"
 }
 
 // 各种具体对象
@@ -219,5 +237,76 @@ class StringObject extends SchemeObject {
         super();
         this.type = SchemeObjectType.STRING;
         this.content = str;
+    }
+}
+
+// 闭包（运行时堆对象）
+class Closure extends SchemeObject {
+    public instructionAddress: number;               // 指令地址
+    public parent: Handle;            // 亲代闭包把柄
+    public boundVariables: HashMap<string, any>;   // 约束变量
+    public freeVariables: HashMap<string, any>;    // 自由变量
+    public dirtyFlag: HashMap<string, boolean>;    // 脏标记
+
+    constructor(instructionAddress: number,
+                parent: Handle) {
+        super();
+        this.type = SchemeObjectType.CLOSURE;
+        this.instructionAddress = instructionAddress;
+        this.parent = parent;
+        this.boundVariables = new HashMap<string, any>();
+        this.freeVariables = new HashMap<string, any>();
+        this.dirtyFlag = new HashMap<string, boolean>();
+    }
+
+    // 不加脏标记
+    public InitBoundVariable(variable: string, value: any): void {
+        this.boundVariables[variable] = value;
+        this.dirtyFlag[variable] = false;
+    }
+    // 加脏标记（仅用于set指令）
+    public SetBoundVariable(variable: string, value: any): void {
+        this.boundVariables[variable] = value;
+        this.dirtyFlag[variable] = true;
+    }
+    public GetBoundVariable(variable: string): void {
+        return this.boundVariables[variable];
+    }
+    // 不加脏标记
+    public InitFreeVariable(variable: string, value: any): void {
+        this.freeVariables[variable] = value;
+        this.dirtyFlag[variable] = false;
+    }
+    // 加脏标记（仅用于set指令）
+    public SetFreeVariable(variable: string, value: any): void {
+        this.freeVariables[variable] = value;
+        this.dirtyFlag[variable] = true;
+    }
+    public GetFreeVariable(variable: string): void {
+        return this.freeVariables[variable];
+    }
+
+    public IsDirtyVariable(variable: string): boolean {
+        return this.dirtyFlag[variable];
+    }
+
+    public HasBoundVariable(variable: string): boolean {
+        return this.boundVariables.has(variable);
+    }
+    public HasFreeVariable(variable: string): boolean {
+        return this.freeVariables.has(variable);
+    }
+}
+
+// 续延（运行时堆对象）
+class Continuation extends SchemeObject{
+    public partialEnvironmentJson: string;
+    public contReturnTargetLable: string;
+
+    constructor(partialEnvironment: Object, contReturnTargetLable: string) {
+        super();
+        this.type = SchemeObjectType.CONTINUATION;
+        this.partialEnvironmentJson = JSON.stringify(partialEnvironment);
+        this.contReturnTargetLable = contReturnTargetLable;
     }
 }

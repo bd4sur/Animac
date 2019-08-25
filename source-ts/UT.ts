@@ -53,6 +53,92 @@ const TESTCASE = `
 ))
 `;
 
-let ast = Parse(TESTCASE, "me.aurora.TestModule");
+// Parser测试
+// let ast = Parse(TESTCASE, "me.aurora.TestModule");
+// console.log(JSON.stringify(ast));
 
-console.log(JSON.stringify(ast));
+///////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+((lambda ()
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(define Count 100)
+(define Add
+  (lambda (x y)
+    (set! Count (+ 1 Count))
+    (if (= y 0)
+        x
+        (+ 1 (Add x (- y 1))))))
+
+(display (Add 10 5))
+(newline)
+(display Count)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+))
+*/
+
+const instructions = [
+    `   call    @&LAMBDA_0`,
+    `   halt`,
+
+    `;; 函数&LAMBDA_n(Add)开始`,
+    `   @&LAMBDA_n`,
+    `;; Parameters:(x y)`,
+    `   store   me.aurora.test.&LAMBDA_n.y`,
+    `   store   me.aurora.test.&LAMBDA_n.x`,
+    `;; (set! Count (+ 1 Count))`,
+    `   push    1`,
+    `   load    me.aurora.test.&LAMBDA_0.Count`,
+    `   add`,
+    `   set     me.aurora.test.&LAMBDA_0.Count`,
+    `;; (if COND_0 TRUE_ROUTE_0 FALSE_ROUTE_0)`,
+    `   @COND_0`,
+    `   load    me.aurora.test.&LAMBDA_n.y`,
+    `   push    0`,
+    `   eqn`,
+    `   iffalse @FALSE_ROUTE_0`,
+    `   @TRUE_ROUTE_0`,
+    `   load    me.aurora.test.&LAMBDA_n.x`,
+    `   goto    @END_IF_0`,
+    `   @FALSE_ROUTE_0`,
+    `   push    1`,
+    `   load    me.aurora.test.&LAMBDA_n.x`,
+    `   load    me.aurora.test.&LAMBDA_n.y`,
+    `   push    1`,
+    `   sub`,
+    `   call    me.aurora.test.&LAMBDA_0.Add`,
+    `   add`,
+    `   @END_IF_0`,
+    `   return`,
+    `;; 函数&LAMBDA_n(顶级作用域)开始`,
+    `   @&LAMBDA_0`,
+    `;; (define Count 100)`,
+    `   push    100`,
+    `   store   me.aurora.test.&LAMBDA_0.Count`,
+    `;; (define Add &LAMBDA_n)`,
+    `   push    @&LAMBDA_n`,
+    `   store   me.aurora.test.&LAMBDA_0.Add`,
+    `;; (Add 10 5)`,
+    `   push    10`,
+    `   push    5`,
+    `   call    me.aurora.test.&LAMBDA_0.Add`,
+    `   display`,
+    `   newline`,
+    `   load    me.aurora.test.&LAMBDA_0.Count`,
+    `   display`,
+    `   return`,
+];
+
+
+
+// IL指令集和VM测试
+// 期望结果：15 106
+let process = new Process(instructions);
+while(process.state !== ProcessState.STOPPED) {
+    // console.log(process.CurrentInstruction().instruction);
+    Execute(process);
+}
+
+

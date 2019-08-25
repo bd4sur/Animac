@@ -33,43 +33,6 @@ enum NodeType {
     BOOLEAN = "BOOLEAN"
 }
 
-// 关键字集合
-const KEYWORDS = {
-    "car": true,
-    "cdr": true,
-    "cons": true,
-    "cond": true,
-    "if": true,
-    "else": true,
-    "begin": true,
-    "+": true,
-    "-": true,
-    "*": true,
-    "/": true,
-    "=": true,
-    "and": true,
-    "or": true,
-    "not": true,
-    ">": true,
-    "<": true,
-    ">=": true,
-    "<=": true,
-    "eq?": true,
-    "define": true,
-    "set!": true,
-    "null?": true,
-    "display": true,
-    "newline": true,
-    "call/cc": true,
-    "import": true,
-    "native": true,
-    "fork": true,
-    "quote": true,
-    "quasiquote": true,
-    "unquote": true,
-    // TODO 待完善
-};
-
 class AST {
     // 模块全限定名
     public moduleQualifiedName: string;
@@ -121,7 +84,7 @@ class AST {
 
     // 创建一个Lambda节点，保存，并返回其把柄
     public MakeLambdaNode(parentHandle: Handle) {
-        let handle = this.nodes.NewHandle("LAMBDA");
+        let handle = this.nodes.AllocateHandle("LAMBDA");
         let lambdaObject = new LambdaObject(parentHandle);
         this.nodes.Set(handle, lambdaObject);
         this.lambdaHandles.push(handle);
@@ -134,19 +97,19 @@ class AST {
         let node: any;
         switch(quoteType) {
             case "QUOTE":
-                handle = this.nodes.NewHandle("QUOTE");
+                handle = this.nodes.AllocateHandle("QUOTE");
                 node = new QuoteObject(parentHandle);
                 break;
             case "QUASIQUOTE":
-                handle = this.nodes.NewHandle("QUASIQUOTE");
+                handle = this.nodes.AllocateHandle("QUASIQUOTE");
                 node = new QuasiquoteObject(parentHandle);
                 break;
             case "UNQUOTE":
-                handle = this.nodes.NewHandle("UNQUOTE");
+                handle = this.nodes.AllocateHandle("UNQUOTE");
                 node = new QuoteObject(parentHandle);
                 break;
             default:
-                handle = this.nodes.NewHandle("APPLICATION");
+                handle = this.nodes.AllocateHandle("APPLICATION");
                 node = new ApplicationObject(parentHandle);
                 break;
         }
@@ -156,15 +119,12 @@ class AST {
 
     // 创建一个字符串对象节点，保存，并返回其把柄
     public MakeStringNode(str: string) {
-        let handle = this.nodes.NewHandle("STRING");
+        let handle = this.nodes.AllocateHandle("STRING");
         let node = new StringObject(str);
         this.nodes.Set(handle, node);
         return handle;
     }
 }
-
-const TOP_NODE_HANDLE: Handle = "&TOP_NODE";
-
 
 //////////////////////////////////////////////////
 //
@@ -194,40 +154,6 @@ function Parse(code: string, moduleQualifiedName: string): AST {
         if(/^[\'\`\,]/gi.test(token)) { return false; } // 不允许开头的字符
         return true; // 其余的都是词法意义上的Symbol
     }
-
-    // 根据字面的格式，判断token类型
-    function TypeOfToken(token: string) {
-        if(token in KEYWORDS){
-            return "KEYWORD";
-        }
-        else if(token === '#t' || token === '#f') {
-            return "BOOLEAN";
-        }
-        else if(token[0] === '&') {
-            return "HANDLE";
-        }
-        else if(token[0] === '\'') {
-            return "SYMBOL";
-        }
-        else if(token[0] === '@') {
-            return "LABEL";
-        }
-        else if(/^\-?\d+(\.\d+)?$/gi.test(token)) {
-            return "NUMBER";
-        }
-        else if(token[0] === '"' && token[token.length-1] === '"') {
-            return "STRING";
-        }
-        else {
-            return "VARIABLE";
-        }
-    }
-
-    // 判断token是不是变量
-    function isVariable(token: string): boolean {
-        return (TypeOfToken(token) === "VARIABLE");
-    }
-
 
     ///////////////////////////////
     //  递归下降分析
