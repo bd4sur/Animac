@@ -1,12 +1,14 @@
 {
     "compilerOptions": {
-        "target": "ES6"
+        "target": "ES6",
+        "module": "amd"
     },
     "files": [
         "Utility.ts",
         "SchemeObject.ts",
         "Lexer.ts",
         "Parser.ts",
+        "Compiler.ts",
         "Process.ts",
         "Instruction.ts",
         "UT.ts"

@@ -58,6 +58,9 @@ class AST {
     // 全局唯一变量名与原始变量名之间的映射
     public variableMapping: HashMap<string, string>;
 
+    // 顶级变量（即顶层作用域define的变量），作为模块对外提供的接口，用于模块分析
+    public topVariables: Array<string>;
+
     // 外部依赖模块
     public dependencies: HashMap<string, string>; // 模块别名→模块路径
 
@@ -73,6 +76,7 @@ class AST {
         this.tailcall = new Array();
         this.scopes = new HashMap();
         this.variableMapping = new HashMap();
+        this.topVariables = new Array();
         this.dependencies = new HashMap();
         this.natives = new HashMap();
     }
@@ -84,7 +88,8 @@ class AST {
 
     // 创建一个Lambda节点，保存，并返回其把柄
     public MakeLambdaNode(parentHandle: Handle) {
-        let handle = this.nodes.AllocateHandle("LAMBDA");
+        // NOTE 每个节点把柄都带有模块全限定名，这样做的目的是：不必在AST融合过程中调整每个AST的把柄。下同。
+        let handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.LAMBDA`);
         let lambdaObject = new LambdaObject(parentHandle);
         this.nodes.Set(handle, lambdaObject);
         this.lambdaHandles.push(handle);
@@ -97,19 +102,19 @@ class AST {
         let node: any;
         switch(quoteType) {
             case "QUOTE":
-                handle = this.nodes.AllocateHandle("QUOTE");
+                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.QUOTE`);
                 node = new QuoteObject(parentHandle);
                 break;
             case "QUASIQUOTE":
-                handle = this.nodes.AllocateHandle("QUASIQUOTE");
+                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.QUASIQUOTE`);
                 node = new QuasiquoteObject(parentHandle);
                 break;
             case "UNQUOTE":
-                handle = this.nodes.AllocateHandle("UNQUOTE");
+                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.UNQUOTE`);
                 node = new QuoteObject(parentHandle);
                 break;
             default:
-                handle = this.nodes.AllocateHandle("APPLICATION");
+                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.APPLICATION`);
                 node = new ApplicationObject(parentHandle);
                 break;
         }
@@ -119,7 +124,7 @@ class AST {
 
     // 创建一个字符串对象节点，保存，并返回其把柄
     public MakeStringNode(str: string) {
-        let handle = this.nodes.AllocateHandle("STRING");
+        let handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.STRING`);
         let node = new StringObject(str);
         this.nodes.Set(handle, node);
         return handle;
@@ -501,11 +506,14 @@ function Parse(code: string, moduleQualifiedName: string): AST {
 
     // 生成模块内唯一的变量名
     function MakeUniqueVariable(lambdaHandle: Handle, variable: string): string {
-        return `${ast.moduleQualifiedName}.${lambdaHandle}.${variable}`;
+        return `${lambdaHandle.substring(1)}.${variable}`;
     }
 
     // 以下是作用域解析：需要对所有node扫描两遍
     function ScopeAnalysis(): void {
+        // 顶级Lambda的把柄
+        let topLambdaHandle: Handle = ast.lambdaHandles[0];
+
         // 首先初始化所有scope
         for(let nodeHandle of ast.lambdaHandles) {
             let scope: Scope = new Scope(null);
@@ -610,6 +618,10 @@ function Parse(code: string, moduleQualifiedName: string): AST {
                             (ast.GetNode(nodeHandle).children)[i] = newVar;
                         }
                     }
+                }
+                // 后处理：记录顶级变量
+                if(first === "define" && node.parent === topLambdaHandle) {
+                    ast.topVariables.push(node.children[1]);
                 }
             }
         }); // 所有节点扫描完毕

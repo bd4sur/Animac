@@ -489,6 +489,7 @@ class AST {
         this.tailcall = new Array();
         this.scopes = new HashMap();
         this.variableMapping = new HashMap();
+        this.topVariables = new Array();
         this.dependencies = new HashMap();
         this.natives = new HashMap();
     }
@@ -498,7 +499,8 @@ class AST {
     }
     // 创建一个Lambda节点，保存，并返回其把柄
     MakeLambdaNode(parentHandle) {
-        let handle = this.nodes.AllocateHandle("LAMBDA");
+        // NOTE 每个节点把柄都带有模块全限定名，这样做的目的是：不必在AST融合过程中调整每个AST的把柄。下同。
+        let handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.LAMBDA`);
         let lambdaObject = new LambdaObject(parentHandle);
         this.nodes.Set(handle, lambdaObject);
         this.lambdaHandles.push(handle);
@@ -510,19 +512,19 @@ class AST {
         let node;
         switch (quoteType) {
             case "QUOTE":
-                handle = this.nodes.AllocateHandle("QUOTE");
+                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.QUOTE`);
                 node = new QuoteObject(parentHandle);
                 break;
             case "QUASIQUOTE":
-                handle = this.nodes.AllocateHandle("QUASIQUOTE");
+                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.QUASIQUOTE`);
                 node = new QuasiquoteObject(parentHandle);
                 break;
             case "UNQUOTE":
-                handle = this.nodes.AllocateHandle("UNQUOTE");
+                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.UNQUOTE`);
                 node = new QuoteObject(parentHandle);
                 break;
             default:
-                handle = this.nodes.AllocateHandle("APPLICATION");
+                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.APPLICATION`);
                 node = new ApplicationObject(parentHandle);
                 break;
         }
@@ -531,7 +533,7 @@ class AST {
     }
     // 创建一个字符串对象节点，保存，并返回其把柄
     MakeStringNode(str) {
-        let handle = this.nodes.AllocateHandle("STRING");
+        let handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.STRING`);
         let node = new StringObject(str);
         this.nodes.Set(handle, node);
         return handle;
@@ -881,10 +883,12 @@ function Parse(code, moduleQualifiedName) {
     }
     // 生成模块内唯一的变量名
     function MakeUniqueVariable(lambdaHandle, variable) {
-        return `${ast.moduleQualifiedName}.${lambdaHandle}.${variable}`;
+        return `${lambdaHandle.substring(1)}.${variable}`;
     }
     // 以下是作用域解析：需要对所有node扫描两遍
     function ScopeAnalysis() {
+        // 顶级Lambda的把柄
+        let topLambdaHandle = ast.lambdaHandles[0];
         // 首先初始化所有scope
         for (let nodeHandle of ast.lambdaHandles) {
             let scope = new Scope(null);
@@ -987,6 +991,10 @@ function Parse(code, moduleQualifiedName) {
                         }
                     }
                 }
+                // 后处理：记录顶级变量
+                if (first === "define" && node.parent === topLambdaHandle) {
+                    ast.topVariables.push(node.children[1]);
+                }
             }
         }); // 所有节点扫描完毕
     }
@@ -997,6 +1005,10 @@ function Parse(code, moduleQualifiedName) {
     // 作用域解析
     ScopeAnalysis();
     return ast;
+}
+// Compiler.ts
+// 编译器：AST→Module
+class Module {
 }
 // Process.ts
 // 进程数据结构
@@ -1885,61 +1897,61 @@ function Execute(PROCESS, RUNTIME) {
 ///////////////////////////////////////////////
 // UT.ts
 // 单元测试
-// Test
-const TESTCASE = `
-((lambda ()
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;; AppLib测试
-(native HTTPS)
-(native String)
-(native Math)
-(native File)
-(import "../../../source/applib/list.scm" List)
-(define multiply
-  (lambda (x y) (Math.mul x y)))
-(display (List.reduce '(1 2 3 4 5 6 7 8 9 10) multiply 1))
-
-(define filter
-  (lambda (f lst)
-    (if (null? lst)
-        '()
-        (if (f (car lst))
-            (cons (car lst) (filter f (cdr lst)))
-            (filter f (cdr lst))))))
-
-(define concat
-  (lambda (a b)
-    (if (null? a)
-        b
-        (cons (car a) (concat (cdr a) b)))))
-
-(define quicksort
-  (lambda (array)
-    (if (or (null? array) (null? (cdr array)))
-        array
-        (concat (quicksort (filter (lambda (x)
-                                     (if (< x (car array)) #t #f))
-                                   array))
-                           (cons (car array)
-                                 (quicksort (filter (lambda (x)
-                                                      (if (> x (car array)) #t #f))
-                                                    array)))))))
-
-(display "【SSC编译】快速排序：")
-(display (quicksort '(5 9 1 7 (5 3 0) 4 6 8 2)))
-(newline)
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-))
-`;
+// import * as fs from "fs";
+const fs = require("fs");
 // Parser测试
-// let ast = Parse(TESTCASE, "me.aurora.TestModule");
-// console.log(JSON.stringify(ast));
-///////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////////
+function UT_Parser() {
+    const TESTCASE = `
+    ((lambda ()
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    
+    ;; AppLib测试
+    (native HTTPS)
+    (native String)
+    (native Math)
+    (native File)
+    (import "../../../source/applib/list.scm" List)
+    (define multiply
+      (lambda (x y) (Math.mul x y)))
+    (display (List.reduce '(1 2 3 4 5 6 7 8 9 10) multiply 1))
+    
+    (define filter
+      (lambda (f lst)
+        (if (null? lst)
+            '()
+            (if (f (car lst))
+                (cons (car lst) (filter f (cdr lst)))
+                (filter f (cdr lst))))))
+    
+    (define concat
+      (lambda (a b)
+        (if (null? a)
+            b
+            (cons (car a) (concat (cdr a) b)))))
+    
+    (define quicksort
+      (lambda (array)
+        (if (or (null? array) (null? (cdr array)))
+            array
+            (concat (quicksort (filter (lambda (x)
+                                         (if (< x (car array)) #t #f))
+                                       array))
+                               (cons (car array)
+                                     (quicksort (filter (lambda (x)
+                                                          (if (> x (car array)) #t #f))
+                                                        array)))))))
+    
+    (display "【SSC编译】快速排序：")
+    (display (quicksort '(5 9 1 7 (5 3 0) 4 6 8 2)))
+    (newline)
+    
+    
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ))
+    `;
+    let ast = Parse(TESTCASE, "me.aurora.TestModule");
+    fs.writeFileSync("./AST.json", JSON.stringify(ast, null, 2), "utf-8");
+}
 /*
 ((lambda ()
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1957,60 +1969,64 @@ const TESTCASE = `
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ))
 */
-const instructions = [
-    `   call    @&LAMBDA_0`,
-    `   halt`,
-    `;; 函数&LAMBDA_n(Add)开始`,
-    `   @&LAMBDA_n`,
-    `;; Parameters:(x y)`,
-    `   store   me.aurora.test.&LAMBDA_n.y`,
-    `   store   me.aurora.test.&LAMBDA_n.x`,
-    `;; (set! Count (+ 1 Count))`,
-    `   push    1`,
-    `   load    me.aurora.test.&LAMBDA_0.Count`,
-    `   add`,
-    `   set     me.aurora.test.&LAMBDA_0.Count`,
-    `;; (if COND_0 TRUE_ROUTE_0 FALSE_ROUTE_0)`,
-    `   @COND_0`,
-    `   load    me.aurora.test.&LAMBDA_n.y`,
-    `   push    0`,
-    `   eqn`,
-    `   iffalse @FALSE_ROUTE_0`,
-    `   @TRUE_ROUTE_0`,
-    `   load    me.aurora.test.&LAMBDA_n.x`,
-    `   goto    @END_IF_0`,
-    `   @FALSE_ROUTE_0`,
-    `   push    1`,
-    `   load    me.aurora.test.&LAMBDA_n.x`,
-    `   load    me.aurora.test.&LAMBDA_n.y`,
-    `   push    1`,
-    `   sub`,
-    `   call    me.aurora.test.&LAMBDA_0.Add`,
-    `   add`,
-    `   @END_IF_0`,
-    `   return`,
-    `;; 函数&LAMBDA_n(顶级作用域)开始`,
-    `   @&LAMBDA_0`,
-    `;; (define Count 100)`,
-    `   push    100`,
-    `   store   me.aurora.test.&LAMBDA_0.Count`,
-    `;; (define Add &LAMBDA_n)`,
-    `   push    @&LAMBDA_n`,
-    `   store   me.aurora.test.&LAMBDA_0.Add`,
-    `;; (Add 10 5)`,
-    `   push    10`,
-    `   push    5`,
-    `   call    me.aurora.test.&LAMBDA_0.Add`,
-    `   display`,
-    `   newline`,
-    `   load    me.aurora.test.&LAMBDA_0.Count`,
-    `   display`,
-    `   return`,
-];
-// IL指令集和VM测试
-// 期望结果：15 106
-let process = new Process(instructions);
-while (process.state !== ProcessState.STOPPED) {
-    // console.log(process.CurrentInstruction().instruction);
-    Execute(process);
+function UT_Instruction() {
+    const instructions = [
+        `   call    @&LAMBDA_0`,
+        `   halt`,
+        `;; 函数&LAMBDA_n(Add)开始`,
+        `   @&LAMBDA_n`,
+        `;; Parameters:(x y)`,
+        `   store   me.aurora.test.&LAMBDA_n.y`,
+        `   store   me.aurora.test.&LAMBDA_n.x`,
+        `;; (set! Count (+ 1 Count))`,
+        `   push    1`,
+        `   load    me.aurora.test.&LAMBDA_0.Count`,
+        `   add`,
+        `   set     me.aurora.test.&LAMBDA_0.Count`,
+        `;; (if COND_0 TRUE_ROUTE_0 FALSE_ROUTE_0)`,
+        `   @COND_0`,
+        `   load    me.aurora.test.&LAMBDA_n.y`,
+        `   push    0`,
+        `   eqn`,
+        `   iffalse @FALSE_ROUTE_0`,
+        `   @TRUE_ROUTE_0`,
+        `   load    me.aurora.test.&LAMBDA_n.x`,
+        `   goto    @END_IF_0`,
+        `   @FALSE_ROUTE_0`,
+        `   push    1`,
+        `   load    me.aurora.test.&LAMBDA_n.x`,
+        `   load    me.aurora.test.&LAMBDA_n.y`,
+        `   push    1`,
+        `   sub`,
+        `   call    me.aurora.test.&LAMBDA_0.Add`,
+        `   add`,
+        `   @END_IF_0`,
+        `   return`,
+        `;; 函数&LAMBDA_n(顶级作用域)开始`,
+        `   @&LAMBDA_0`,
+        `;; (define Count 100)`,
+        `   push    100`,
+        `   store   me.aurora.test.&LAMBDA_0.Count`,
+        `;; (define Add &LAMBDA_n)`,
+        `   push    @&LAMBDA_n`,
+        `   store   me.aurora.test.&LAMBDA_0.Add`,
+        `;; (Add 10 5)`,
+        `   push    10`,
+        `   push    5`,
+        `   call    me.aurora.test.&LAMBDA_0.Add`,
+        `   display`,
+        `   newline`,
+        `   load    me.aurora.test.&LAMBDA_0.Count`,
+        `   display`,
+        `   return`,
+    ];
+    // IL指令集和VM测试
+    // 期望结果：15 106
+    let process = new Process(instructions);
+    while (process.state !== ProcessState.STOPPED) {
+        // console.log(process.CurrentInstruction().instruction);
+        Execute(process);
+    }
 }
+UT_Parser();
+// UT_Instruction();
