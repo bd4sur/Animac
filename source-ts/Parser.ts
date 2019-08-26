@@ -376,7 +376,7 @@ function Parse(code: string, moduleQualifiedName: string): AST {
                     NODE_STACK.push(parseFloat(currentToken)); // 压入number
                 }
                 else if(type === "STRING") {
-                    let stringHandle = ast.MakeStringNode(TrimQuotes(currentToken));
+                    let stringHandle = ast.MakeStringNode(currentToken);
                     NODE_STACK.push(stringHandle);
                     ast.nodeIndexes.set(stringHandle, tokens[index].index);
                 }
@@ -403,7 +403,7 @@ function Parse(code: string, moduleQualifiedName: string): AST {
                     NODE_STACK.push(parseFloat(currentToken));
                 }
                 else if(type === "STRING") {
-                    let stringHandle = ast.MakeStringNode(TrimQuotes(currentToken));
+                    let stringHandle = ast.MakeStringNode(currentToken);
                     NODE_STACK.push(stringHandle);
                     ast.nodeIndexes.set(stringHandle, tokens[index].index);
                 }
@@ -420,7 +420,7 @@ function Parse(code: string, moduleQualifiedName: string): AST {
                     NODE_STACK.push(parseFloat(currentToken));
                 }
                 else if(type === "STRING") {
-                    let stringHandle = ast.MakeStringNode(TrimQuotes(currentToken));
+                    let stringHandle = ast.MakeStringNode(currentToken);
                     NODE_STACK.push(stringHandle);
                     ast.nodeIndexes.set(stringHandle, tokens[index].index);
                 }
