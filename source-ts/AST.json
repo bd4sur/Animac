@@ -1,610 +1,185 @@
 {
-  "source": "\n    ((lambda ()\n    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n    \n    ;; AppLib测试\n    (native HTTPS)\n    (native String)\n    (native Math)\n    (native File)\n    (import \"../../../source/applib/list.scm\" List)\n    (define multiply\n      (lambda (x y) (Math.mul x y)))\n    (display (List.reduce '(1 2 3 4 5 6 7 8 9 10) multiply 1))\n    \n    (define filter\n      (lambda (f lst)\n        (if (null? lst)\n            '()\n            (if (f (car lst))\n                (cons (car lst) (filter f (cdr lst)))\n                (filter f (cdr lst))))))\n    \n    (define concat\n      (lambda (a b)\n        (if (null? a)\n            b\n            (cons (car a) (concat (cdr a) b)))))\n    \n    (define quicksort\n      (lambda (array)\n        (if (or (null? array) (null? (cdr array)))\n            array\n            (concat (quicksort (filter (lambda (x)\n                                         (if (< x (car array)) #t #f))\n                                       array))\n                               (cons (car array)\n                                     (quicksort (filter (lambda (x)\n                                                          (if (> x (car array)) #t #f))\n                                                        array)))))))\n    \n    (display \"【SSC编译】快速排序：\")\n    (display (quicksort '(5 9 1 7 (5 3 0) 4 6 8 2)))\n    (newline)\n    \n    \n    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n    ))\n    ",
-  "moduleQualifiedName": "me.aurora.TestModule",
+  "source": "\n((lambda ()\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n(define Count 100)\n(define Add\n  (lambda (x)\n    (lambda (y)\n      (set! Count (+ 1 Count))\n      (if (= y 0)\n          x\n          (+ 1 ((Add x) (- y 1)))))))\n\n(display ((Add 20) 500))\n(newline)\n(display Count)\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n))\n",
+  "moduleQualifiedName": "me.aurora.test",
   "nodes": {
     "data": {
-      "&me.aurora.TestModule.APPLICATION_0": {
+      "&me.aurora.test.APPLICATION_0": {
         "type": "APPLICATION",
         "parent": "&TOP_NODE",
         "children": [
-          "&me.aurora.TestModule.LAMBDA_1"
+          "&me.aurora.test.LAMBDA_1"
         ]
       },
-      "&me.aurora.TestModule.LAMBDA_1": {
+      "&me.aurora.test.LAMBDA_1": {
         "type": "LAMBDA",
-        "parent": "&me.aurora.TestModule.APPLICATION_0",
+        "parent": "&me.aurora.test.APPLICATION_0",
         "children": [
           "lambda",
           [
-            "me.aurora.TestModule.LAMBDA_1.multiply",
-            "me.aurora.TestModule.LAMBDA_1.filter",
-            "me.aurora.TestModule.LAMBDA_1.concat",
-            "me.aurora.TestModule.LAMBDA_1.quicksort"
+            "me.aurora.test.LAMBDA_1.Count",
+            "me.aurora.test.LAMBDA_1.Add"
           ],
-          "&me.aurora.TestModule.APPLICATION_2",
-          "&me.aurora.TestModule.APPLICATION_3",
-          "&me.aurora.TestModule.APPLICATION_4",
-          "&me.aurora.TestModule.APPLICATION_5",
-          "&me.aurora.TestModule.APPLICATION_6",
-          "&me.aurora.TestModule.APPLICATION_8",
-          "&me.aurora.TestModule.APPLICATION_11",
-          "&me.aurora.TestModule.APPLICATION_14",
-          "&me.aurora.TestModule.APPLICATION_28",
-          "&me.aurora.TestModule.APPLICATION_36",
-          "&me.aurora.TestModule.APPLICATION_58",
-          "&me.aurora.TestModule.APPLICATION_60",
-          "&me.aurora.TestModule.APPLICATION_64"
+          "&me.aurora.test.APPLICATION_2",
+          "&me.aurora.test.APPLICATION_3",
+          "&me.aurora.test.APPLICATION_14",
+          "&me.aurora.test.APPLICATION_17",
+          "&me.aurora.test.APPLICATION_18"
         ]
       },
-      "&me.aurora.TestModule.APPLICATION_2": {
+      "&me.aurora.test.APPLICATION_2": {
         "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.LAMBDA_1",
-        "children": [
-          "native",
-          "HTTPS"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_3": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.LAMBDA_1",
-        "children": [
-          "native",
-          "String"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_4": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.LAMBDA_1",
-        "children": [
-          "native",
-          "Math"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_5": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.LAMBDA_1",
-        "children": [
-          "native",
-          "File"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_6": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.LAMBDA_1",
-        "children": [
-          "import",
-          "&me.aurora.TestModule.STRING_7",
-          "List"
-        ]
-      },
-      "&me.aurora.TestModule.STRING_7": {
-        "type": "STRING",
-        "content": "../../../source/applib/list.scm"
-      },
-      "&me.aurora.TestModule.APPLICATION_8": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.LAMBDA_1",
+        "parent": "&me.aurora.test.LAMBDA_1",
         "children": [
           "define",
-          "me.aurora.TestModule.LAMBDA_1.multiply",
-          "&me.aurora.TestModule.LAMBDA_9"
+          "me.aurora.test.LAMBDA_1.Count",
+          100
         ]
       },
-      "&me.aurora.TestModule.LAMBDA_9": {
+      "&me.aurora.test.APPLICATION_3": {
+        "type": "APPLICATION",
+        "parent": "&me.aurora.test.LAMBDA_1",
+        "children": [
+          "define",
+          "me.aurora.test.LAMBDA_1.Add",
+          "&me.aurora.test.LAMBDA_4"
+        ]
+      },
+      "&me.aurora.test.LAMBDA_4": {
         "type": "LAMBDA",
-        "parent": "&me.aurora.TestModule.APPLICATION_8",
+        "parent": "&me.aurora.test.APPLICATION_3",
         "children": [
           "lambda",
           [
-            "me.aurora.TestModule.LAMBDA_9.x",
-            "me.aurora.TestModule.LAMBDA_9.y"
+            "me.aurora.test.LAMBDA_4.x"
           ],
-          "&me.aurora.TestModule.APPLICATION_10"
+          "&me.aurora.test.LAMBDA_5"
         ]
       },
-      "&me.aurora.TestModule.APPLICATION_10": {
+      "&me.aurora.test.LAMBDA_5": {
+        "type": "LAMBDA",
+        "parent": "&me.aurora.test.LAMBDA_4",
+        "children": [
+          "lambda",
+          [
+            "me.aurora.test.LAMBDA_5.y"
+          ],
+          "&me.aurora.test.APPLICATION_6",
+          "&me.aurora.test.APPLICATION_8"
+        ]
+      },
+      "&me.aurora.test.APPLICATION_6": {
         "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.LAMBDA_9",
+        "parent": "&me.aurora.test.LAMBDA_5",
         "children": [
-          "Math.mul",
-          "me.aurora.TestModule.LAMBDA_9.x",
-          "me.aurora.TestModule.LAMBDA_9.y"
+          "set!",
+          "me.aurora.test.LAMBDA_1.Count",
+          "&me.aurora.test.APPLICATION_7"
         ]
       },
-      "&me.aurora.TestModule.APPLICATION_11": {
+      "&me.aurora.test.APPLICATION_7": {
         "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.LAMBDA_1",
+        "parent": "&me.aurora.test.APPLICATION_6",
         "children": [
-          "display",
-          "&me.aurora.TestModule.APPLICATION_12"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_12": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_11",
-        "children": [
-          "List.reduce",
-          "&me.aurora.TestModule.QUOTE_13",
-          "me.aurora.TestModule.LAMBDA_1.multiply",
-          1
-        ]
-      },
-      "&me.aurora.TestModule.QUOTE_13": {
-        "type": "QUOTE",
-        "parent": "&me.aurora.TestModule.APPLICATION_12",
-        "children": [
-          "quote",
+          "+",
           1,
-          2,
-          3,
-          4,
-          5,
-          6,
-          7,
-          8,
-          9,
-          10
+          "me.aurora.test.LAMBDA_1.Count"
         ]
       },
-      "&me.aurora.TestModule.APPLICATION_14": {
+      "&me.aurora.test.APPLICATION_8": {
         "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.LAMBDA_1",
-        "children": [
-          "define",
-          "me.aurora.TestModule.LAMBDA_1.filter",
-          "&me.aurora.TestModule.LAMBDA_15"
-        ]
-      },
-      "&me.aurora.TestModule.LAMBDA_15": {
-        "type": "LAMBDA",
-        "parent": "&me.aurora.TestModule.APPLICATION_14",
-        "children": [
-          "lambda",
-          [
-            "me.aurora.TestModule.LAMBDA_15.f",
-            "me.aurora.TestModule.LAMBDA_15.lst"
-          ],
-          "&me.aurora.TestModule.APPLICATION_16"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_16": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.LAMBDA_15",
+        "parent": "&me.aurora.test.LAMBDA_5",
         "children": [
           "if",
-          "&me.aurora.TestModule.APPLICATION_17",
-          "&me.aurora.TestModule.QUOTE_18",
-          "&me.aurora.TestModule.APPLICATION_19"
+          "&me.aurora.test.APPLICATION_9",
+          "me.aurora.test.LAMBDA_4.x",
+          "&me.aurora.test.APPLICATION_10"
         ]
       },
-      "&me.aurora.TestModule.APPLICATION_17": {
+      "&me.aurora.test.APPLICATION_9": {
         "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_16",
+        "parent": "&me.aurora.test.APPLICATION_8",
         "children": [
-          "null?",
-          "me.aurora.TestModule.LAMBDA_15.lst"
-        ]
-      },
-      "&me.aurora.TestModule.QUOTE_18": {
-        "type": "QUOTE",
-        "parent": "&me.aurora.TestModule.APPLICATION_16",
-        "children": [
-          "quote"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_19": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_16",
-        "children": [
-          "if",
-          "&me.aurora.TestModule.APPLICATION_20",
-          "&me.aurora.TestModule.APPLICATION_22",
-          "&me.aurora.TestModule.APPLICATION_26"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_20": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_19",
-        "children": [
-          "me.aurora.TestModule.LAMBDA_15.f",
-          "&me.aurora.TestModule.APPLICATION_21"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_21": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_20",
-        "children": [
-          "car",
-          "me.aurora.TestModule.LAMBDA_15.lst"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_22": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_19",
-        "children": [
-          "cons",
-          "&me.aurora.TestModule.APPLICATION_23",
-          "&me.aurora.TestModule.APPLICATION_24"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_23": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_22",
-        "children": [
-          "car",
-          "me.aurora.TestModule.LAMBDA_15.lst"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_24": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_22",
-        "children": [
-          "me.aurora.TestModule.LAMBDA_1.filter",
-          "me.aurora.TestModule.LAMBDA_15.f",
-          "&me.aurora.TestModule.APPLICATION_25"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_25": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_24",
-        "children": [
-          "cdr",
-          "me.aurora.TestModule.LAMBDA_15.lst"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_26": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_19",
-        "children": [
-          "me.aurora.TestModule.LAMBDA_1.filter",
-          "me.aurora.TestModule.LAMBDA_15.f",
-          "&me.aurora.TestModule.APPLICATION_27"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_27": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_26",
-        "children": [
-          "cdr",
-          "me.aurora.TestModule.LAMBDA_15.lst"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_28": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.LAMBDA_1",
-        "children": [
-          "define",
-          "me.aurora.TestModule.LAMBDA_1.concat",
-          "&me.aurora.TestModule.LAMBDA_29"
-        ]
-      },
-      "&me.aurora.TestModule.LAMBDA_29": {
-        "type": "LAMBDA",
-        "parent": "&me.aurora.TestModule.APPLICATION_28",
-        "children": [
-          "lambda",
-          [
-            "me.aurora.TestModule.LAMBDA_29.a",
-            "me.aurora.TestModule.LAMBDA_29.b"
-          ],
-          "&me.aurora.TestModule.APPLICATION_30"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_30": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.LAMBDA_29",
-        "children": [
-          "if",
-          "&me.aurora.TestModule.APPLICATION_31",
-          "me.aurora.TestModule.LAMBDA_29.b",
-          "&me.aurora.TestModule.APPLICATION_32"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_31": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_30",
-        "children": [
-          "null?",
-          "me.aurora.TestModule.LAMBDA_29.a"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_32": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_30",
-        "children": [
-          "cons",
-          "&me.aurora.TestModule.APPLICATION_33",
-          "&me.aurora.TestModule.APPLICATION_34"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_33": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_32",
-        "children": [
-          "car",
-          "me.aurora.TestModule.LAMBDA_29.a"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_34": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_32",
-        "children": [
-          "me.aurora.TestModule.LAMBDA_1.concat",
-          "&me.aurora.TestModule.APPLICATION_35",
-          "me.aurora.TestModule.LAMBDA_29.b"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_35": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_34",
-        "children": [
-          "cdr",
-          "me.aurora.TestModule.LAMBDA_29.a"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_36": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.LAMBDA_1",
-        "children": [
-          "define",
-          "me.aurora.TestModule.LAMBDA_1.quicksort",
-          "&me.aurora.TestModule.LAMBDA_37"
-        ]
-      },
-      "&me.aurora.TestModule.LAMBDA_37": {
-        "type": "LAMBDA",
-        "parent": "&me.aurora.TestModule.APPLICATION_36",
-        "children": [
-          "lambda",
-          [
-            "me.aurora.TestModule.LAMBDA_37.array"
-          ],
-          "&me.aurora.TestModule.APPLICATION_38"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_38": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.LAMBDA_37",
-        "children": [
-          "if",
-          "&me.aurora.TestModule.APPLICATION_39",
-          "me.aurora.TestModule.LAMBDA_37.array",
-          "&me.aurora.TestModule.APPLICATION_43"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_39": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_38",
-        "children": [
-          "or",
-          "&me.aurora.TestModule.APPLICATION_40",
-          "&me.aurora.TestModule.APPLICATION_41"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_40": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_39",
-        "children": [
-          "null?",
-          "me.aurora.TestModule.LAMBDA_37.array"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_41": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_39",
-        "children": [
-          "null?",
-          "&me.aurora.TestModule.APPLICATION_42"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_42": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_41",
-        "children": [
-          "cdr",
-          "me.aurora.TestModule.LAMBDA_37.array"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_43": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_38",
-        "children": [
-          "me.aurora.TestModule.LAMBDA_1.concat",
-          "&me.aurora.TestModule.APPLICATION_44",
-          "&me.aurora.TestModule.APPLICATION_50"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_44": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_43",
-        "children": [
-          "me.aurora.TestModule.LAMBDA_1.quicksort",
-          "&me.aurora.TestModule.APPLICATION_45"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_45": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_44",
-        "children": [
-          "me.aurora.TestModule.LAMBDA_1.filter",
-          "&me.aurora.TestModule.LAMBDA_46",
-          "me.aurora.TestModule.LAMBDA_37.array"
-        ]
-      },
-      "&me.aurora.TestModule.LAMBDA_46": {
-        "type": "LAMBDA",
-        "parent": "&me.aurora.TestModule.APPLICATION_45",
-        "children": [
-          "lambda",
-          [
-            "me.aurora.TestModule.LAMBDA_46.x"
-          ],
-          "&me.aurora.TestModule.APPLICATION_47"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_47": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.LAMBDA_46",
-        "children": [
-          "if",
-          "&me.aurora.TestModule.APPLICATION_48",
-          "#t",
-          "#f"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_48": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_47",
-        "children": [
-          "<",
-          "me.aurora.TestModule.LAMBDA_46.x",
-          "&me.aurora.TestModule.APPLICATION_49"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_49": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_48",
-        "children": [
-          "car",
-          "me.aurora.TestModule.LAMBDA_37.array"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_50": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_43",
-        "children": [
-          "cons",
-          "&me.aurora.TestModule.APPLICATION_51",
-          "&me.aurora.TestModule.APPLICATION_52"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_51": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_50",
-        "children": [
-          "car",
-          "me.aurora.TestModule.LAMBDA_37.array"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_52": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_50",
-        "children": [
-          "me.aurora.TestModule.LAMBDA_1.quicksort",
-          "&me.aurora.TestModule.APPLICATION_53"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_53": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_52",
-        "children": [
-          "me.aurora.TestModule.LAMBDA_1.filter",
-          "&me.aurora.TestModule.LAMBDA_54",
-          "me.aurora.TestModule.LAMBDA_37.array"
-        ]
-      },
-      "&me.aurora.TestModule.LAMBDA_54": {
-        "type": "LAMBDA",
-        "parent": "&me.aurora.TestModule.APPLICATION_53",
-        "children": [
-          "lambda",
-          [
-            "me.aurora.TestModule.LAMBDA_54.x"
-          ],
-          "&me.aurora.TestModule.APPLICATION_55"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_55": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.LAMBDA_54",
-        "children": [
-          "if",
-          "&me.aurora.TestModule.APPLICATION_56",
-          "#t",
-          "#f"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_56": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_55",
-        "children": [
-          ">",
-          "me.aurora.TestModule.LAMBDA_54.x",
-          "&me.aurora.TestModule.APPLICATION_57"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_57": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_56",
-        "children": [
-          "car",
-          "me.aurora.TestModule.LAMBDA_37.array"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_58": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.LAMBDA_1",
-        "children": [
-          "display",
-          "&me.aurora.TestModule.STRING_59"
-        ]
-      },
-      "&me.aurora.TestModule.STRING_59": {
-        "type": "STRING",
-        "content": "【SSC编译】快速排序："
-      },
-      "&me.aurora.TestModule.APPLICATION_60": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.LAMBDA_1",
-        "children": [
-          "display",
-          "&me.aurora.TestModule.APPLICATION_61"
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_61": {
-        "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.APPLICATION_60",
-        "children": [
-          "me.aurora.TestModule.LAMBDA_1.quicksort",
-          "&me.aurora.TestModule.QUOTE_62"
-        ]
-      },
-      "&me.aurora.TestModule.QUOTE_62": {
-        "type": "QUOTE",
-        "parent": "&me.aurora.TestModule.APPLICATION_61",
-        "children": [
-          "quote",
-          5,
-          9,
-          1,
-          7,
-          "&me.aurora.TestModule.QUOTE_63",
-          4,
-          6,
-          8,
-          2
-        ]
-      },
-      "&me.aurora.TestModule.QUOTE_63": {
-        "type": "QUOTE",
-        "parent": "&me.aurora.TestModule.QUOTE_62",
-        "children": [
-          "quote",
-          5,
-          3,
+          "=",
+          "me.aurora.test.LAMBDA_5.y",
           0
         ]
       },
-      "&me.aurora.TestModule.APPLICATION_64": {
+      "&me.aurora.test.APPLICATION_10": {
         "type": "APPLICATION",
-        "parent": "&me.aurora.TestModule.LAMBDA_1",
+        "parent": "&me.aurora.test.APPLICATION_8",
+        "children": [
+          "+",
+          1,
+          "&me.aurora.test.APPLICATION_11"
+        ]
+      },
+      "&me.aurora.test.APPLICATION_11": {
+        "type": "APPLICATION",
+        "parent": "&me.aurora.test.APPLICATION_10",
+        "children": [
+          "&me.aurora.test.APPLICATION_12",
+          "&me.aurora.test.APPLICATION_13"
+        ]
+      },
+      "&me.aurora.test.APPLICATION_12": {
+        "type": "APPLICATION",
+        "parent": "&me.aurora.test.APPLICATION_11",
+        "children": [
+          "me.aurora.test.LAMBDA_1.Add",
+          "me.aurora.test.LAMBDA_4.x"
+        ]
+      },
+      "&me.aurora.test.APPLICATION_13": {
+        "type": "APPLICATION",
+        "parent": "&me.aurora.test.APPLICATION_11",
+        "children": [
+          "-",
+          "me.aurora.test.LAMBDA_5.y",
+          1
+        ]
+      },
+      "&me.aurora.test.APPLICATION_14": {
+        "type": "APPLICATION",
+        "parent": "&me.aurora.test.LAMBDA_1",
+        "children": [
+          "display",
+          "&me.aurora.test.APPLICATION_15"
+        ]
+      },
+      "&me.aurora.test.APPLICATION_15": {
+        "type": "APPLICATION",
+        "parent": "&me.aurora.test.APPLICATION_14",
+        "children": [
+          "&me.aurora.test.APPLICATION_16",
+          500
+        ]
+      },
+      "&me.aurora.test.APPLICATION_16": {
+        "type": "APPLICATION",
+        "parent": "&me.aurora.test.APPLICATION_15",
+        "children": [
+          "me.aurora.test.LAMBDA_1.Add",
+          20
+        ]
+      },
+      "&me.aurora.test.APPLICATION_17": {
+        "type": "APPLICATION",
+        "parent": "&me.aurora.test.LAMBDA_1",
         "children": [
           "newline"
+        ]
+      },
+      "&me.aurora.test.APPLICATION_18": {
+        "type": "APPLICATION",
+        "parent": "&me.aurora.test.LAMBDA_1",
+        "children": [
+          "display",
+          "me.aurora.test.LAMBDA_1.Count"
         ]
       }
     },
     "metadata": {
-      "&me.aurora.TestModule.APPLICATION_0": {
+      "&me.aurora.test.APPLICATION_0": {
         "static": false,
         "readOnly": false,
         "status": "modified",
@@ -612,7 +187,7 @@
           null
         ]
       },
-      "&me.aurora.TestModule.LAMBDA_1": {
+      "&me.aurora.test.LAMBDA_1": {
         "static": false,
         "readOnly": false,
         "status": "modified",
@@ -620,7 +195,7 @@
           null
         ]
       },
-      "&me.aurora.TestModule.APPLICATION_2": {
+      "&me.aurora.test.APPLICATION_2": {
         "static": false,
         "readOnly": false,
         "status": "modified",
@@ -628,7 +203,7 @@
           null
         ]
       },
-      "&me.aurora.TestModule.APPLICATION_3": {
+      "&me.aurora.test.APPLICATION_3": {
         "static": false,
         "readOnly": false,
         "status": "modified",
@@ -636,7 +211,7 @@
           null
         ]
       },
-      "&me.aurora.TestModule.APPLICATION_4": {
+      "&me.aurora.test.LAMBDA_4": {
         "static": false,
         "readOnly": false,
         "status": "modified",
@@ -644,7 +219,7 @@
           null
         ]
       },
-      "&me.aurora.TestModule.APPLICATION_5": {
+      "&me.aurora.test.LAMBDA_5": {
         "static": false,
         "readOnly": false,
         "status": "modified",
@@ -652,7 +227,7 @@
           null
         ]
       },
-      "&me.aurora.TestModule.APPLICATION_6": {
+      "&me.aurora.test.APPLICATION_6": {
         "static": false,
         "readOnly": false,
         "status": "modified",
@@ -660,7 +235,7 @@
           null
         ]
       },
-      "&me.aurora.TestModule.STRING_7": {
+      "&me.aurora.test.APPLICATION_7": {
         "static": false,
         "readOnly": false,
         "status": "modified",
@@ -668,7 +243,7 @@
           null
         ]
       },
-      "&me.aurora.TestModule.APPLICATION_8": {
+      "&me.aurora.test.APPLICATION_8": {
         "static": false,
         "readOnly": false,
         "status": "modified",
@@ -676,7 +251,7 @@
           null
         ]
       },
-      "&me.aurora.TestModule.LAMBDA_9": {
+      "&me.aurora.test.APPLICATION_9": {
         "static": false,
         "readOnly": false,
         "status": "modified",
@@ -684,7 +259,7 @@
           null
         ]
       },
-      "&me.aurora.TestModule.APPLICATION_10": {
+      "&me.aurora.test.APPLICATION_10": {
         "static": false,
         "readOnly": false,
         "status": "modified",
@@ -692,7 +267,7 @@
           null
         ]
       },
-      "&me.aurora.TestModule.APPLICATION_11": {
+      "&me.aurora.test.APPLICATION_11": {
         "static": false,
         "readOnly": false,
         "status": "modified",
@@ -700,7 +275,7 @@
           null
         ]
       },
-      "&me.aurora.TestModule.APPLICATION_12": {
+      "&me.aurora.test.APPLICATION_12": {
         "static": false,
         "readOnly": false,
         "status": "modified",
@@ -708,7 +283,7 @@
           null
         ]
       },
-      "&me.aurora.TestModule.QUOTE_13": {
+      "&me.aurora.test.APPLICATION_13": {
         "static": false,
         "readOnly": false,
         "status": "modified",
@@ -716,7 +291,7 @@
           null
         ]
       },
-      "&me.aurora.TestModule.APPLICATION_14": {
+      "&me.aurora.test.APPLICATION_14": {
         "static": false,
         "readOnly": false,
         "status": "modified",
@@ -724,7 +299,7 @@
           null
         ]
       },
-      "&me.aurora.TestModule.LAMBDA_15": {
+      "&me.aurora.test.APPLICATION_15": {
         "static": false,
         "readOnly": false,
         "status": "modified",
@@ -732,7 +307,7 @@
           null
         ]
       },
-      "&me.aurora.TestModule.APPLICATION_16": {
+      "&me.aurora.test.APPLICATION_16": {
         "static": false,
         "readOnly": false,
         "status": "modified",
@@ -740,7 +315,7 @@
           null
         ]
       },
-      "&me.aurora.TestModule.APPLICATION_17": {
+      "&me.aurora.test.APPLICATION_17": {
         "static": false,
         "readOnly": false,
         "status": "modified",
@@ -748,375 +323,7 @@
           null
         ]
       },
-      "&me.aurora.TestModule.QUOTE_18": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_19": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_20": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_21": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_22": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_23": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_24": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_25": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_26": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_27": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_28": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.LAMBDA_29": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_30": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_31": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_32": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_33": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_34": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_35": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_36": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.LAMBDA_37": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_38": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_39": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_40": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_41": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_42": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_43": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_44": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_45": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.LAMBDA_46": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_47": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_48": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_49": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_50": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_51": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_52": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_53": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.LAMBDA_54": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_55": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_56": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_57": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_58": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.STRING_59": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_60": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_61": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.QUOTE_62": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.QUOTE_63": {
-        "static": false,
-        "readOnly": false,
-        "status": "modified",
-        "referrer": [
-          null
-        ]
-      },
-      "&me.aurora.TestModule.APPLICATION_64": {
+      "&me.aurora.test.APPLICATION_18": {
         "static": false,
         "readOnly": false,
         "status": "modified",
@@ -1125,1268 +332,387 @@
         ]
       }
     },
-    "handleCounter": 65
+    "handleCounter": 19
   },
   "nodeIndexes": {
-    "&me.aurora.TestModule.APPLICATION_0": 5,
-    "&me.aurora.TestModule.LAMBDA_1": 6,
-    "&me.aurora.TestModule.APPLICATION_2": 102,
-    "&me.aurora.TestModule.APPLICATION_3": 121,
-    "&me.aurora.TestModule.APPLICATION_4": 141,
-    "&me.aurora.TestModule.APPLICATION_5": 159,
-    "&me.aurora.TestModule.APPLICATION_6": 177,
-    "&me.aurora.TestModule.STRING_7": 185,
-    "&me.aurora.TestModule.APPLICATION_8": 229,
-    "&me.aurora.TestModule.LAMBDA_9": 252,
-    "&me.aurora.TestModule.APPLICATION_10": 266,
-    "&me.aurora.TestModule.APPLICATION_11": 287,
-    "&me.aurora.TestModule.APPLICATION_12": 296,
-    "&me.aurora.TestModule.QUOTE_13": 310,
-    "&me.aurora.TestModule.APPLICATION_14": 355,
-    "&me.aurora.TestModule.LAMBDA_15": 376,
-    "&me.aurora.TestModule.APPLICATION_16": 400,
-    "&me.aurora.TestModule.APPLICATION_17": 404,
-    "&me.aurora.TestModule.QUOTE_18": 429,
-    "&me.aurora.TestModule.APPLICATION_19": 444,
-    "&me.aurora.TestModule.APPLICATION_20": 448,
-    "&me.aurora.TestModule.APPLICATION_21": 451,
-    "&me.aurora.TestModule.APPLICATION_22": 478,
-    "&me.aurora.TestModule.APPLICATION_23": 484,
-    "&me.aurora.TestModule.APPLICATION_24": 494,
-    "&me.aurora.TestModule.APPLICATION_25": 504,
-    "&me.aurora.TestModule.APPLICATION_26": 532,
-    "&me.aurora.TestModule.APPLICATION_27": 542,
-    "&me.aurora.TestModule.APPLICATION_28": 566,
-    "&me.aurora.TestModule.LAMBDA_29": 587,
-    "&me.aurora.TestModule.APPLICATION_30": 609,
-    "&me.aurora.TestModule.APPLICATION_31": 613,
-    "&me.aurora.TestModule.APPLICATION_32": 649,
-    "&me.aurora.TestModule.APPLICATION_33": 655,
-    "&me.aurora.TestModule.APPLICATION_34": 663,
-    "&me.aurora.TestModule.APPLICATION_35": 671,
-    "&me.aurora.TestModule.APPLICATION_36": 695,
-    "&me.aurora.TestModule.LAMBDA_37": 719,
-    "&me.aurora.TestModule.APPLICATION_38": 743,
-    "&me.aurora.TestModule.APPLICATION_39": 747,
-    "&me.aurora.TestModule.APPLICATION_40": 751,
-    "&me.aurora.TestModule.APPLICATION_41": 765,
-    "&me.aurora.TestModule.APPLICATION_42": 772,
-    "&me.aurora.TestModule.APPLICATION_43": 816,
-    "&me.aurora.TestModule.APPLICATION_44": 824,
-    "&me.aurora.TestModule.APPLICATION_45": 835,
-    "&me.aurora.TestModule.LAMBDA_46": 843,
-    "&me.aurora.TestModule.APPLICATION_47": 896,
-    "&me.aurora.TestModule.APPLICATION_48": 900,
-    "&me.aurora.TestModule.APPLICATION_49": 905,
-    "&me.aurora.TestModule.APPLICATION_50": 1004,
-    "&me.aurora.TestModule.APPLICATION_51": 1010,
-    "&me.aurora.TestModule.APPLICATION_52": 1059,
-    "&me.aurora.TestModule.APPLICATION_53": 1070,
-    "&me.aurora.TestModule.LAMBDA_54": 1078,
-    "&me.aurora.TestModule.APPLICATION_55": 1148,
-    "&me.aurora.TestModule.APPLICATION_56": 1152,
-    "&me.aurora.TestModule.APPLICATION_57": 1157,
-    "&me.aurora.TestModule.APPLICATION_58": 1256,
-    "&me.aurora.TestModule.STRING_59": 1265,
-    "&me.aurora.TestModule.APPLICATION_60": 1285,
-    "&me.aurora.TestModule.APPLICATION_61": 1294,
-    "&me.aurora.TestModule.QUOTE_62": 1306,
-    "&me.aurora.TestModule.QUOTE_63": 1315,
-    "&me.aurora.TestModule.APPLICATION_64": 1338
+    "&me.aurora.test.APPLICATION_0": 1,
+    "&me.aurora.test.LAMBDA_1": 2,
+    "&me.aurora.test.APPLICATION_2": 47,
+    "&me.aurora.test.APPLICATION_3": 66,
+    "&me.aurora.test.LAMBDA_4": 80,
+    "&me.aurora.test.LAMBDA_5": 96,
+    "&me.aurora.test.APPLICATION_6": 114,
+    "&me.aurora.test.APPLICATION_7": 126,
+    "&me.aurora.test.APPLICATION_8": 145,
+    "&me.aurora.test.APPLICATION_9": 149,
+    "&me.aurora.test.APPLICATION_10": 179,
+    "&me.aurora.test.APPLICATION_11": 184,
+    "&me.aurora.test.APPLICATION_12": 185,
+    "&me.aurora.test.APPLICATION_13": 193,
+    "&me.aurora.test.APPLICATION_14": 208,
+    "&me.aurora.test.APPLICATION_15": 217,
+    "&me.aurora.test.APPLICATION_16": 218,
+    "&me.aurora.test.APPLICATION_17": 233,
+    "&me.aurora.test.APPLICATION_18": 243
   },
   "lambdaHandles": [
-    "&me.aurora.TestModule.LAMBDA_1",
-    "&me.aurora.TestModule.LAMBDA_9",
-    "&me.aurora.TestModule.LAMBDA_15",
-    "&me.aurora.TestModule.LAMBDA_29",
-    "&me.aurora.TestModule.LAMBDA_37",
-    "&me.aurora.TestModule.LAMBDA_46",
-    "&me.aurora.TestModule.LAMBDA_54"
+    "&me.aurora.test.LAMBDA_1",
+    "&me.aurora.test.LAMBDA_4",
+    "&me.aurora.test.LAMBDA_5"
   ],
   "tailcall": [],
   "scopes": {
-    "&me.aurora.TestModule.LAMBDA_1": {
+    "&me.aurora.test.LAMBDA_1": {
       "parent": "&TOP_NODE",
       "children": [
-        "&me.aurora.TestModule.LAMBDA_9",
-        "&me.aurora.TestModule.LAMBDA_15",
-        "&me.aurora.TestModule.LAMBDA_29",
-        "&me.aurora.TestModule.LAMBDA_37"
+        "&me.aurora.test.LAMBDA_4"
       ],
       "boundVariables": [
-        "multiply",
-        "filter",
-        "concat",
-        "quicksort"
+        "Count",
+        "Add"
       ]
     },
-    "&me.aurora.TestModule.LAMBDA_9": {
-      "parent": "&me.aurora.TestModule.LAMBDA_1",
-      "children": [],
-      "boundVariables": [
-        "x",
-        "y"
-      ]
-    },
-    "&me.aurora.TestModule.LAMBDA_15": {
-      "parent": "&me.aurora.TestModule.LAMBDA_1",
-      "children": [],
-      "boundVariables": [
-        "f",
-        "lst"
-      ]
-    },
-    "&me.aurora.TestModule.LAMBDA_29": {
-      "parent": "&me.aurora.TestModule.LAMBDA_1",
-      "children": [],
-      "boundVariables": [
-        "a",
-        "b"
-      ]
-    },
-    "&me.aurora.TestModule.LAMBDA_37": {
-      "parent": "&me.aurora.TestModule.LAMBDA_1",
+    "&me.aurora.test.LAMBDA_4": {
+      "parent": "&me.aurora.test.LAMBDA_1",
       "children": [
-        "&me.aurora.TestModule.LAMBDA_46",
-        "&me.aurora.TestModule.LAMBDA_54"
+        "&me.aurora.test.LAMBDA_5"
       ],
       "boundVariables": [
-        "array"
-      ]
-    },
-    "&me.aurora.TestModule.LAMBDA_46": {
-      "parent": "&me.aurora.TestModule.LAMBDA_37",
-      "children": [],
-      "boundVariables": [
         "x"
       ]
     },
-    "&me.aurora.TestModule.LAMBDA_54": {
-      "parent": "&me.aurora.TestModule.LAMBDA_37",
+    "&me.aurora.test.LAMBDA_5": {
+      "parent": "&me.aurora.test.LAMBDA_4",
       "children": [],
       "boundVariables": [
-        "x"
+        "y"
       ]
     }
   },
   "variableMapping": {
-    "me.aurora.TestModule.LAMBDA_1.multiply": "multiply",
-    "me.aurora.TestModule.LAMBDA_1.filter": "filter",
-    "me.aurora.TestModule.LAMBDA_1.concat": "concat",
-    "me.aurora.TestModule.LAMBDA_1.quicksort": "quicksort",
-    "me.aurora.TestModule.LAMBDA_9.x": "x",
-    "me.aurora.TestModule.LAMBDA_9.y": "y",
-    "me.aurora.TestModule.LAMBDA_15.f": "f",
-    "me.aurora.TestModule.LAMBDA_15.lst": "lst",
-    "me.aurora.TestModule.LAMBDA_29.a": "a",
-    "me.aurora.TestModule.LAMBDA_29.b": "b",
-    "me.aurora.TestModule.LAMBDA_37.array": "array",
-    "me.aurora.TestModule.LAMBDA_46.x": "x",
-    "me.aurora.TestModule.LAMBDA_54.x": "x"
+    "me.aurora.test.LAMBDA_1.Count": "Count",
+    "me.aurora.test.LAMBDA_1.Add": "Add",
+    "me.aurora.test.LAMBDA_4.x": "x",
+    "me.aurora.test.LAMBDA_5.y": "y"
   },
   "topVariables": [
-    "me.aurora.TestModule.LAMBDA_1.multiply",
-    "me.aurora.TestModule.LAMBDA_1.filter",
-    "me.aurora.TestModule.LAMBDA_1.concat",
-    "me.aurora.TestModule.LAMBDA_1.quicksort"
+    "me.aurora.test.LAMBDA_1.Count",
+    "me.aurora.test.LAMBDA_1.Add"
   ],
-  "dependencies": {
-    "List": "../../../source/applib/list.scm"
-  },
-  "natives": {
-    "HTTPS": "enabled",
-    "String": "enabled",
-    "Math": "enabled",
-    "File": "enabled"
-  },
+  "dependencies": {},
+  "natives": {},
   "tokens": [
     {
       "string": "(",
-      "index": 5
+      "index": 1
     },
     {
       "string": "(",
-      "index": 6
+      "index": 2
     },
     {
       "string": "lambda",
-      "index": 7
+      "index": 3
     },
     {
       "string": "(",
-      "index": 14
+      "index": 10
     },
     {
       "string": ")",
-      "index": 15
+      "index": 11
     },
     {
       "string": "(",
-      "index": 102
+      "index": 47
     },
     {
-      "string": "native",
-      "index": 103
+      "string": "define",
+      "index": 48
     },
     {
-      "string": "HTTPS",
-      "index": 110
+      "string": "Count",
+      "index": 55
+    },
+    {
+      "string": "100",
+      "index": 61
     },
     {
       "string": ")",
+      "index": 64
+    },
+    {
+      "string": "(",
+      "index": 66
+    },
+    {
+      "string": "define",
+      "index": 67
+    },
+    {
+      "string": "Add",
+      "index": 74
+    },
+    {
+      "string": "(",
+      "index": 80
+    },
+    {
+      "string": "lambda",
+      "index": 81
+    },
+    {
+      "string": "(",
+      "index": 88
+    },
+    {
+      "string": "x",
+      "index": 89
+    },
+    {
+      "string": ")",
+      "index": 90
+    },
+    {
+      "string": "(",
+      "index": 96
+    },
+    {
+      "string": "lambda",
+      "index": 97
+    },
+    {
+      "string": "(",
+      "index": 104
+    },
+    {
+      "string": "y",
+      "index": 105
+    },
+    {
+      "string": ")",
+      "index": 106
+    },
+    {
+      "string": "(",
+      "index": 114
+    },
+    {
+      "string": "set!",
       "index": 115
     },
     {
+      "string": "Count",
+      "index": 120
+    },
+    {
       "string": "(",
-      "index": 121
+      "index": 126
     },
     {
-      "string": "native",
-      "index": 122
+      "string": "+",
+      "index": 127
     },
     {
-      "string": "String",
+      "string": "1",
       "index": 129
     },
     {
+      "string": "Count",
+      "index": 131
+    },
+    {
       "string": ")",
-      "index": 135
+      "index": 136
+    },
+    {
+      "string": ")",
+      "index": 137
     },
     {
       "string": "(",
-      "index": 141
+      "index": 145
     },
     {
-      "string": "native",
-      "index": 142
+      "string": "if",
+      "index": 146
     },
     {
-      "string": "Math",
+      "string": "(",
       "index": 149
     },
     {
-      "string": ")",
-      "index": 153
-    },
-    {
-      "string": "(",
-      "index": 159
-    },
-    {
-      "string": "native",
-      "index": 160
-    },
-    {
-      "string": "File",
-      "index": 167
-    },
-    {
-      "string": ")",
-      "index": 171
-    },
-    {
-      "string": "(",
-      "index": 177
-    },
-    {
-      "string": "import",
-      "index": 178
-    },
-    {
-      "string": "\"../../../source/applib/list.scm\"",
-      "index": 185
-    },
-    {
-      "string": "List",
-      "index": 219
-    },
-    {
-      "string": ")",
-      "index": 223
-    },
-    {
-      "string": "(",
-      "index": 229
-    },
-    {
-      "string": "define",
-      "index": 230
-    },
-    {
-      "string": "multiply",
-      "index": 237
-    },
-    {
-      "string": "(",
-      "index": 252
-    },
-    {
-      "string": "lambda",
-      "index": 253
-    },
-    {
-      "string": "(",
-      "index": 260
-    },
-    {
-      "string": "x",
-      "index": 261
+      "string": "=",
+      "index": 150
     },
     {
       "string": "y",
-      "index": 263
-    },
-    {
-      "string": ")",
-      "index": 264
-    },
-    {
-      "string": "(",
-      "index": 266
-    },
-    {
-      "string": "Math.mul",
-      "index": 267
-    },
-    {
-      "string": "x",
-      "index": 276
-    },
-    {
-      "string": "y",
-      "index": 278
-    },
-    {
-      "string": ")",
-      "index": 279
-    },
-    {
-      "string": ")",
-      "index": 280
-    },
-    {
-      "string": ")",
-      "index": 281
-    },
-    {
-      "string": "(",
-      "index": 287
-    },
-    {
-      "string": "display",
-      "index": 288
-    },
-    {
-      "string": "(",
-      "index": 296
-    },
-    {
-      "string": "List.reduce",
-      "index": 297
-    },
-    {
-      "string": "'",
-      "index": 309
-    },
-    {
-      "string": "(",
-      "index": 310
-    },
-    {
-      "string": "1",
-      "index": 311
-    },
-    {
-      "string": "2",
-      "index": 313
-    },
-    {
-      "string": "3",
-      "index": 315
-    },
-    {
-      "string": "4",
-      "index": 317
-    },
-    {
-      "string": "5",
-      "index": 319
-    },
-    {
-      "string": "6",
-      "index": 321
-    },
-    {
-      "string": "7",
-      "index": 323
-    },
-    {
-      "string": "8",
-      "index": 325
-    },
-    {
-      "string": "9",
-      "index": 327
-    },
-    {
-      "string": "10",
-      "index": 329
-    },
-    {
-      "string": ")",
-      "index": 331
-    },
-    {
-      "string": "multiply",
-      "index": 333
-    },
-    {
-      "string": "1",
-      "index": 342
-    },
-    {
-      "string": ")",
-      "index": 343
-    },
-    {
-      "string": ")",
-      "index": 344
-    },
-    {
-      "string": "(",
-      "index": 355
-    },
-    {
-      "string": "define",
-      "index": 356
-    },
-    {
-      "string": "filter",
-      "index": 363
-    },
-    {
-      "string": "(",
-      "index": 376
-    },
-    {
-      "string": "lambda",
-      "index": 377
-    },
-    {
-      "string": "(",
-      "index": 384
-    },
-    {
-      "string": "f",
-      "index": 385
-    },
-    {
-      "string": "lst",
-      "index": 387
-    },
-    {
-      "string": ")",
-      "index": 390
-    },
-    {
-      "string": "(",
-      "index": 400
-    },
-    {
-      "string": "if",
-      "index": 401
-    },
-    {
-      "string": "(",
-      "index": 404
-    },
-    {
-      "string": "null?",
-      "index": 405
-    },
-    {
-      "string": "lst",
-      "index": 411
-    },
-    {
-      "string": ")",
-      "index": 414
-    },
-    {
-      "string": "'",
-      "index": 428
-    },
-    {
-      "string": "(",
-      "index": 429
-    },
-    {
-      "string": ")",
-      "index": 430
-    },
-    {
-      "string": "(",
-      "index": 444
-    },
-    {
-      "string": "if",
-      "index": 445
-    },
-    {
-      "string": "(",
-      "index": 448
-    },
-    {
-      "string": "f",
-      "index": 449
-    },
-    {
-      "string": "(",
-      "index": 451
-    },
-    {
-      "string": "car",
-      "index": 452
-    },
-    {
-      "string": "lst",
-      "index": 456
-    },
-    {
-      "string": ")",
-      "index": 459
-    },
-    {
-      "string": ")",
-      "index": 460
-    },
-    {
-      "string": "(",
-      "index": 478
-    },
-    {
-      "string": "cons",
-      "index": 479
-    },
-    {
-      "string": "(",
-      "index": 484
-    },
-    {
-      "string": "car",
-      "index": 485
-    },
-    {
-      "string": "lst",
-      "index": 489
-    },
-    {
-      "string": ")",
-      "index": 492
-    },
-    {
-      "string": "(",
-      "index": 494
-    },
-    {
-      "string": "filter",
-      "index": 495
-    },
-    {
-      "string": "f",
-      "index": 502
-    },
-    {
-      "string": "(",
-      "index": 504
-    },
-    {
-      "string": "cdr",
-      "index": 505
-    },
-    {
-      "string": "lst",
-      "index": 509
-    },
-    {
-      "string": ")",
-      "index": 512
-    },
-    {
-      "string": ")",
-      "index": 513
-    },
-    {
-      "string": ")",
-      "index": 514
-    },
-    {
-      "string": "(",
-      "index": 532
-    },
-    {
-      "string": "filter",
-      "index": 533
-    },
-    {
-      "string": "f",
-      "index": 540
-    },
-    {
-      "string": "(",
-      "index": 542
-    },
-    {
-      "string": "cdr",
-      "index": 543
-    },
-    {
-      "string": "lst",
-      "index": 547
-    },
-    {
-      "string": ")",
-      "index": 550
-    },
-    {
-      "string": ")",
-      "index": 551
-    },
-    {
-      "string": ")",
-      "index": 552
-    },
-    {
-      "string": ")",
-      "index": 553
-    },
-    {
-      "string": ")",
-      "index": 554
-    },
-    {
-      "string": ")",
-      "index": 555
-    },
-    {
-      "string": "(",
-      "index": 566
-    },
-    {
-      "string": "define",
-      "index": 567
-    },
-    {
-      "string": "concat",
-      "index": 574
-    },
-    {
-      "string": "(",
-      "index": 587
-    },
-    {
-      "string": "lambda",
-      "index": 588
-    },
-    {
-      "string": "(",
-      "index": 595
-    },
-    {
-      "string": "a",
-      "index": 596
-    },
-    {
-      "string": "b",
-      "index": 598
-    },
-    {
-      "string": ")",
-      "index": 599
-    },
-    {
-      "string": "(",
-      "index": 609
-    },
-    {
-      "string": "if",
-      "index": 610
-    },
-    {
-      "string": "(",
-      "index": 613
-    },
-    {
-      "string": "null?",
-      "index": 614
-    },
-    {
-      "string": "a",
-      "index": 620
-    },
-    {
-      "string": ")",
-      "index": 621
-    },
-    {
-      "string": "b",
-      "index": 635
-    },
-    {
-      "string": "(",
-      "index": 649
-    },
-    {
-      "string": "cons",
-      "index": 650
-    },
-    {
-      "string": "(",
-      "index": 655
-    },
-    {
-      "string": "car",
-      "index": 656
-    },
-    {
-      "string": "a",
-      "index": 660
-    },
-    {
-      "string": ")",
-      "index": 661
-    },
-    {
-      "string": "(",
-      "index": 663
-    },
-    {
-      "string": "concat",
-      "index": 664
-    },
-    {
-      "string": "(",
-      "index": 671
-    },
-    {
-      "string": "cdr",
-      "index": 672
-    },
-    {
-      "string": "a",
-      "index": 676
-    },
-    {
-      "string": ")",
-      "index": 677
-    },
-    {
-      "string": "b",
-      "index": 679
-    },
-    {
-      "string": ")",
-      "index": 680
-    },
-    {
-      "string": ")",
-      "index": 681
-    },
-    {
-      "string": ")",
-      "index": 682
-    },
-    {
-      "string": ")",
-      "index": 683
-    },
-    {
-      "string": ")",
-      "index": 684
-    },
-    {
-      "string": "(",
-      "index": 695
-    },
-    {
-      "string": "define",
-      "index": 696
-    },
-    {
-      "string": "quicksort",
-      "index": 703
-    },
-    {
-      "string": "(",
-      "index": 719
-    },
-    {
-      "string": "lambda",
-      "index": 720
-    },
-    {
-      "string": "(",
-      "index": 727
-    },
-    {
-      "string": "array",
-      "index": 728
-    },
-    {
-      "string": ")",
-      "index": 733
-    },
-    {
-      "string": "(",
-      "index": 743
-    },
-    {
-      "string": "if",
-      "index": 744
-    },
-    {
-      "string": "(",
-      "index": 747
-    },
-    {
-      "string": "or",
-      "index": 748
-    },
-    {
-      "string": "(",
-      "index": 751
-    },
-    {
-      "string": "null?",
-      "index": 752
-    },
-    {
-      "string": "array",
-      "index": 758
-    },
-    {
-      "string": ")",
-      "index": 763
-    },
-    {
-      "string": "(",
-      "index": 765
-    },
-    {
-      "string": "null?",
-      "index": 766
-    },
-    {
-      "string": "(",
-      "index": 772
-    },
-    {
-      "string": "cdr",
-      "index": 773
-    },
-    {
-      "string": "array",
-      "index": 777
-    },
-    {
-      "string": ")",
-      "index": 782
-    },
-    {
-      "string": ")",
-      "index": 783
-    },
-    {
-      "string": ")",
-      "index": 784
-    },
-    {
-      "string": "array",
-      "index": 798
-    },
-    {
-      "string": "(",
-      "index": 816
-    },
-    {
-      "string": "concat",
-      "index": 817
-    },
-    {
-      "string": "(",
-      "index": 824
-    },
-    {
-      "string": "quicksort",
-      "index": 825
-    },
-    {
-      "string": "(",
-      "index": 835
-    },
-    {
-      "string": "filter",
-      "index": 836
-    },
-    {
-      "string": "(",
-      "index": 843
-    },
-    {
-      "string": "lambda",
-      "index": 844
-    },
-    {
-      "string": "(",
-      "index": 851
-    },
-    {
-      "string": "x",
-      "index": 852
-    },
-    {
-      "string": ")",
-      "index": 853
-    },
-    {
-      "string": "(",
-      "index": 896
-    },
-    {
-      "string": "if",
-      "index": 897
-    },
-    {
-      "string": "(",
-      "index": 900
-    },
-    {
-      "string": "<",
-      "index": 901
-    },
-    {
-      "string": "x",
-      "index": 903
-    },
-    {
-      "string": "(",
-      "index": 905
-    },
-    {
-      "string": "car",
-      "index": 906
-    },
-    {
-      "string": "array",
-      "index": 910
-    },
-    {
-      "string": ")",
-      "index": 915
-    },
-    {
-      "string": ")",
-      "index": 916
-    },
-    {
-      "string": "#t",
-      "index": 918
-    },
-    {
-      "string": "#f",
-      "index": 921
-    },
-    {
-      "string": ")",
-      "index": 923
-    },
-    {
-      "string": ")",
-      "index": 924
-    },
-    {
-      "string": "array",
-      "index": 965
-    },
-    {
-      "string": ")",
-      "index": 970
-    },
-    {
-      "string": ")",
-      "index": 971
-    },
-    {
-      "string": "(",
-      "index": 1004
-    },
-    {
-      "string": "cons",
-      "index": 1005
-    },
-    {
-      "string": "(",
-      "index": 1010
-    },
-    {
-      "string": "car",
-      "index": 1011
-    },
-    {
-      "string": "array",
-      "index": 1015
-    },
-    {
-      "string": ")",
-      "index": 1020
-    },
-    {
-      "string": "(",
-      "index": 1059
-    },
-    {
-      "string": "quicksort",
-      "index": 1060
-    },
-    {
-      "string": "(",
-      "index": 1070
-    },
-    {
-      "string": "filter",
-      "index": 1071
-    },
-    {
-      "string": "(",
-      "index": 1078
-    },
-    {
-      "string": "lambda",
-      "index": 1079
-    },
-    {
-      "string": "(",
-      "index": 1086
-    },
-    {
-      "string": "x",
-      "index": 1087
-    },
-    {
-      "string": ")",
-      "index": 1088
-    },
-    {
-      "string": "(",
-      "index": 1148
-    },
-    {
-      "string": "if",
-      "index": 1149
-    },
-    {
-      "string": "(",
-      "index": 1152
-    },
-    {
-      "string": ">",
-      "index": 1153
-    },
-    {
-      "string": "x",
-      "index": 1155
-    },
-    {
-      "string": "(",
-      "index": 1157
-    },
-    {
-      "string": "car",
-      "index": 1158
-    },
-    {
-      "string": "array",
-      "index": 1162
-    },
-    {
-      "string": ")",
-      "index": 1167
-    },
-    {
-      "string": ")",
-      "index": 1168
-    },
-    {
-      "string": "#t",
-      "index": 1170
-    },
-    {
-      "string": "#f",
-      "index": 1173
-    },
-    {
-      "string": ")",
-      "index": 1175
-    },
-    {
-      "string": ")",
-      "index": 1176
-    },
-    {
-      "string": "array",
-      "index": 1234
-    },
-    {
-      "string": ")",
-      "index": 1239
-    },
-    {
-      "string": ")",
-      "index": 1240
-    },
-    {
-      "string": ")",
-      "index": 1241
-    },
-    {
-      "string": ")",
-      "index": 1242
-    },
-    {
-      "string": ")",
-      "index": 1243
-    },
-    {
-      "string": ")",
-      "index": 1244
-    },
-    {
-      "string": ")",
-      "index": 1245
-    },
-    {
-      "string": "(",
-      "index": 1256
-    },
-    {
-      "string": "display",
-      "index": 1257
-    },
-    {
-      "string": "\"【SSC编译】快速排序：\"",
-      "index": 1265
-    },
-    {
-      "string": ")",
-      "index": 1279
-    },
-    {
-      "string": "(",
-      "index": 1285
-    },
-    {
-      "string": "display",
-      "index": 1286
-    },
-    {
-      "string": "(",
-      "index": 1294
-    },
-    {
-      "string": "quicksort",
-      "index": 1295
-    },
-    {
-      "string": "'",
-      "index": 1305
-    },
-    {
-      "string": "(",
-      "index": 1306
-    },
-    {
-      "string": "5",
-      "index": 1307
-    },
-    {
-      "string": "9",
-      "index": 1309
-    },
-    {
-      "string": "1",
-      "index": 1311
-    },
-    {
-      "string": "7",
-      "index": 1313
-    },
-    {
-      "string": "(",
-      "index": 1315
-    },
-    {
-      "string": "5",
-      "index": 1316
-    },
-    {
-      "string": "3",
-      "index": 1318
+      "index": 152
     },
     {
       "string": "0",
-      "index": 1320
+      "index": 154
     },
     {
       "string": ")",
-      "index": 1321
+      "index": 155
     },
     {
-      "string": "4",
-      "index": 1323
-    },
-    {
-      "string": "6",
-      "index": 1325
-    },
-    {
-      "string": "8",
-      "index": 1327
-    },
-    {
-      "string": "2",
-      "index": 1329
-    },
-    {
-      "string": ")",
-      "index": 1330
-    },
-    {
-      "string": ")",
-      "index": 1331
-    },
-    {
-      "string": ")",
-      "index": 1332
+      "string": "x",
+      "index": 167
     },
     {
       "string": "(",
-      "index": 1338
+      "index": 179
+    },
+    {
+      "string": "+",
+      "index": 180
+    },
+    {
+      "string": "1",
+      "index": 182
+    },
+    {
+      "string": "(",
+      "index": 184
+    },
+    {
+      "string": "(",
+      "index": 185
+    },
+    {
+      "string": "Add",
+      "index": 186
+    },
+    {
+      "string": "x",
+      "index": 190
+    },
+    {
+      "string": ")",
+      "index": 191
+    },
+    {
+      "string": "(",
+      "index": 193
+    },
+    {
+      "string": "-",
+      "index": 194
+    },
+    {
+      "string": "y",
+      "index": 196
+    },
+    {
+      "string": "1",
+      "index": 198
+    },
+    {
+      "string": ")",
+      "index": 199
+    },
+    {
+      "string": ")",
+      "index": 200
+    },
+    {
+      "string": ")",
+      "index": 201
+    },
+    {
+      "string": ")",
+      "index": 202
+    },
+    {
+      "string": ")",
+      "index": 203
+    },
+    {
+      "string": ")",
+      "index": 204
+    },
+    {
+      "string": ")",
+      "index": 205
+    },
+    {
+      "string": "(",
+      "index": 208
+    },
+    {
+      "string": "display",
+      "index": 209
+    },
+    {
+      "string": "(",
+      "index": 217
+    },
+    {
+      "string": "(",
+      "index": 218
+    },
+    {
+      "string": "Add",
+      "index": 219
+    },
+    {
+      "string": "20",
+      "index": 223
+    },
+    {
+      "string": ")",
+      "index": 225
+    },
+    {
+      "string": "500",
+      "index": 227
+    },
+    {
+      "string": ")",
+      "index": 230
+    },
+    {
+      "string": ")",
+      "index": 231
+    },
+    {
+      "string": "(",
+      "index": 233
     },
     {
       "string": "newline",
-      "index": 1339
+      "index": 234
     },
     {
       "string": ")",
-      "index": 1346
+      "index": 241
+    },
+    {
+      "string": "(",
+      "index": 243
+    },
+    {
+      "string": "display",
+      "index": 244
+    },
+    {
+      "string": "Count",
+      "index": 252
     },
     {
       "string": ")",
-      "index": 1424
+      "index": 257
     },
     {
       "string": ")",
-      "index": 1425
+      "index": 293
+    },
+    {
+      "string": ")",
+      "index": 294
     }
   ]
 }

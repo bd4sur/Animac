@@ -42,6 +42,9 @@ function TypeOfToken(token: any): string {
     if(token === undefined || token === null) {
         return token;
     }
+    else if(typeof token === "boolean") {
+        return "BOOLEAN";
+    }
     else if(typeof token === "number") {
         return "NUMBER";
     }
@@ -51,6 +54,9 @@ function TypeOfToken(token: any): string {
     else if(token === '#t' || token === '#f') {
         return "BOOLEAN";
     }
+    else if(isNaN(parseFloat(token)) === false) {
+        return "NUMBER";
+    }
     else if(token[0] === '&') {
         return "HANDLE";
     }
@@ -59,9 +65,6 @@ function TypeOfToken(token: any): string {
     }
     else if(token[0] === '@') {
         return "LABEL";
-    }
-    else if(isNaN(parseFloat(token)) === false) {
-        return "NUMBER";
     }
     else if(token[0] === '"' && token[token.length-1] === '"') {
         return "STRING";

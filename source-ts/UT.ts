@@ -7,7 +7,6 @@
 const fs = require("fs");
 
 // Parser测试
-
 function UT_Parser() {
     const TESTCASE = `
     ((lambda ()
@@ -141,6 +140,42 @@ const instructions = [
     }
 }
 
-UT_Parser();
+
+// Compiler测试
+function UT_Compiler() {
+    const code = `
+((lambda ()
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(define Count 100)
+(define Add
+  (lambda (x)
+    (lambda (y)
+      (set! Count (+ 1 Count))
+      (if (= y 0)
+          x
+          (+ 1 ((Add x) (- y 1)))))))
+
+(display ((Add 20) 500))
+(newline)
+(display Count)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+))
+`;
+    let AST = Parse(code, "me.aurora.test");
+    fs.writeFileSync("./AST.json", JSON.stringify(AST, null, 2), "utf-8");
+    let module = Compile(AST);
+    let ILCodeStr = module.ILCode.join('\n');
+    fs.writeFileSync("./ILCode.txt", ILCodeStr, "utf-8");
+
+    // 捎带着测试一下AVM
+    let process = new Process(module.ILCode);
+    while(process.state !== ProcessState.STOPPED) {
+        // console.log(process.CurrentInstruction().instruction);
+        Execute(process);
+    }
+}
+
+// UT_Parser();
 // UT_Instruction();
+UT_Compiler();
 

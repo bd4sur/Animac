@@ -2,6 +2,21 @@
 // Instruction.ts
 // 指令集定义
 
+// Primitive对应的AIL指令
+
+const PrimitiveInstruction = {
+    "+": "add",
+    "-": "sub",
+    "*": "mul",
+    "/": "div",
+    "%": "mod",
+    "=": "eqn",
+    "<": "lt",
+    ">": "gt",
+    "<=": "le",
+    ">=": "gt"
+};
+
 /**
 # 指令集实现
 
