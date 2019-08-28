@@ -143,14 +143,14 @@ const instructions = [
 
 // Compiler测试
 function UT_Compiler() {
-    let sourcePath = "./testcase/aurora.test.scm";
+    let sourcePath = "../testcase/aurora.test.scm";
     let schemeCode = fs.readFileSync(sourcePath);
     schemeCode = `((lambda () ${schemeCode}))`;
     let AST = Parse(schemeCode, PathUtils.GetModuleQualifiedName(sourcePath));
-    fs.writeFileSync("./testcase/AST.json", JSON.stringify(AST, null, 2), "utf-8");
+    fs.writeFileSync("../testcase/AST.json", JSON.stringify(AST, null, 2), "utf-8");
     let module = Compile(AST);
     let ILCodeStr = module.ILCode.join('\n');
-    fs.writeFileSync("./testcase/ILCode.txt", ILCodeStr, "utf-8");
+    fs.writeFileSync("../testcase/ILCode.txt", ILCodeStr, "utf-8");
 
     // 捎带着测试一下AVM
     let process = new Process(module);

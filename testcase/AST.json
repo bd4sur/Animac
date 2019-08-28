@@ -474,16 +474,26 @@
     "&aurora.test.LAMBDA_22",
     "&aurora.test.LAMBDA_23"
   ],
-  "tailcall": [],
+  "tailcall": [
+    "&aurora.test.APPLICATION_8",
+    "&aurora.test.APPLICATION_11",
+    "&aurora.test.APPLICATION_14",
+    "&aurora.test.APPLICATION_24",
+    "&aurora.test.APPLICATION_0"
+  ],
   "variableMapping": {
+    "aurora.test.LAMBDA_1.A": "A",
     "aurora.test.LAMBDA_3.k": "k",
     "aurora.test.LAMBDA_3.x1": "x1",
     "aurora.test.LAMBDA_3.x2": "x2",
     "aurora.test.LAMBDA_3.x3": "x3",
     "aurora.test.LAMBDA_3.x4": "x4",
-    "aurora.test.LAMBDA_3.x5": "x5"
+    "aurora.test.LAMBDA_3.x5": "x5",
+    "aurora.test.LAMBDA_3.B": "B"
   },
-  "topVariables": {},
+  "topVariables": {
+    "aurora.test.LAMBDA_1.A": "A"
+  },
   "dependencies": {},
   "natives": {}
 }

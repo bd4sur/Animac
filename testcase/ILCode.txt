@@ -44,12 +44,12 @@
 ;;
 ;; ✅ FUNCTION “&aurora.test.LAMBDA_3” BEGIN
    @&aurora.test.LAMBDA_3
-   store  aurora.test.LAMBDA_3.x5
-   store  aurora.test.LAMBDA_3.x4
-   store  aurora.test.LAMBDA_3.x3
-   store  aurora.test.LAMBDA_3.x2
-   store  aurora.test.LAMBDA_3.x1
-   store  aurora.test.LAMBDA_3.k
+   store aurora.test.LAMBDA_3.x5
+   store aurora.test.LAMBDA_3.x4
+   store aurora.test.LAMBDA_3.x3
+   store aurora.test.LAMBDA_3.x2
+   store aurora.test.LAMBDA_3.x1
+   store aurora.test.LAMBDA_3.k
 ;; ✅ APPLICATION “&aurora.test.APPLICATION_4” BEGIN
 ;; ✅ DEFINE “&aurora.test.APPLICATION_4” BEGIN
    push @&aurora.test.LAMBDA_5
@@ -66,7 +66,7 @@
 ;;
    iftrue @IF_TRUE_aurora.test.ID0
 ;; ✅ APPLICATION “&aurora.test.APPLICATION_14” BEGIN
-   call aurora.test.LAMBDA_3.B
+   tailcall aurora.test.LAMBDA_3.B
 ;; 🛑 APPLICATION “&aurora.test.APPLICATION_14” END   
 ;;
    goto @IF_END_aurora.test.ID0
@@ -109,7 +109,7 @@
    load aurora.test.LAMBDA_3.x2
    load aurora.test.LAMBDA_3.x3
    load aurora.test.LAMBDA_3.x4
-   call aurora.test.LAMBDA_1.A
+   tailcall aurora.test.LAMBDA_1.A
 ;; 🛑 APPLICATION “&aurora.test.APPLICATION_8” END   
 ;;
    return

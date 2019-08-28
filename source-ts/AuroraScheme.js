@@ -986,6 +986,7 @@ function Parse(code, moduleQualifiedName) {
                         else {
                             let newVar = MakeUniqueVariable(lambdaHandle, child);
                             (ast.GetNode(nodeHandle).children)[i] = newVar;
+                            ast.variableMapping.set(newVar, child);
                         }
                     }
                 }
@@ -1013,6 +1014,7 @@ function Parse(code, moduleQualifiedName) {
                         else {
                             let newVar = MakeUniqueVariable(lambdaHandle, child);
                             (ast.GetNode(nodeHandle).children)[i] = newVar;
+                            ast.variableMapping.set(newVar, child);
                         }
                     }
                 }
@@ -1025,12 +1027,72 @@ function Parse(code, moduleQualifiedName) {
             }
         }); // 所有节点扫描完毕
     }
+    // 尾位置分析（参照R5RS的归纳定义）
+    function TailCallAnalysis(item, isTail) {
+        if (TypeOfToken(item) === "HANDLE") {
+            let node = ast.GetNode(item);
+            if (node.type === "APPLICATION") {
+                let first = node.children[0];
+                // if 特殊构造
+                if (first === "if") {
+                    TailCallAnalysis(node.children[1], false);
+                    TailCallAnalysis(node.children[2], true);
+                    TailCallAnalysis(node.children[3], true);
+                }
+                // cond 特殊构造
+                else if (first === "cond") {
+                    for (let i = 1; i < node.children.length; i++) {
+                        let clauseNode = ast.GetNode(node.children[i]);
+                        TailCallAnalysis(clauseNode.children[0], false);
+                        TailCallAnalysis(clauseNode.children[1], true);
+                    }
+                }
+                // 其他构造，含and、or，这些形式的尾位置是一样的
+                else {
+                    for (let i = 0; i < node.children.length; i++) {
+                        let istail = false;
+                        if ((i === node.children.length - 1) && (node.children[0] === 'and' || node.children[0] === 'or')) {
+                            istail = true;
+                        }
+                        TailCallAnalysis(node.children[i], istail);
+                    }
+                    if (isTail) {
+                        ast.tailcall.push(item); // 标记为尾（调用）位置
+                    }
+                }
+            }
+            else if (node.type === "LAMBDA") {
+                let bodies = node.getBodies();
+                for (let i = 0; i < bodies.length; i++) {
+                    if (i === bodies.length - 1) {
+                        TailCallAnalysis(bodies[i], true);
+                    }
+                    else {
+                        TailCallAnalysis(bodies[i], false);
+                    }
+                }
+            }
+        }
+        else {
+            return;
+        }
+    }
     // 递归下降语法分析
     ParseTerm(tokens, 0);
     // 预处理指令解析
     PreprocessAnalysis();
     // 作用域解析
     ScopeAnalysis();
+    // 查找顶级Application的把柄（也可以用取巧的方法，但最好不用）
+    let TopApplicationNodeHandle = null;
+    ast.nodes.ForEach((nodeHandle) => {
+        if (ast.nodes.Get(nodeHandle).parent === TOP_NODE_HANDLE) {
+            TopApplicationNodeHandle = nodeHandle;
+            return "break";
+        }
+    });
+    // 尾调用分析
+    TailCallAnalysis(TopApplicationNodeHandle, true);
     return ast;
 }
 // Compiler.ts
@@ -1085,7 +1147,7 @@ function Compile(ast) {
         // 【已解决】TODO 参数列表里通过define获得的参数，不需要在这里出现
         let parameters = node.getParameters();
         for (let i = parameters.length - 1; i >= 0; i--) {
-            AddInstruction(`store  ${parameters[i]}`);
+            AddInstruction(`store ${parameters[i]}`);
         }
         // 逐个编译函数体，等价于begin块
         let bodies = node.getBodies();
@@ -2170,8 +2232,8 @@ function AIL_TAILCALL(argument, PROCESS, RUNTIME) {
         // TODO 增加对primitive的一等支持
     }
     else if (argType === 'LABEL') {
-        // TODO 可复用代码
         let label = argument;
+        // TODO 可复用代码
         let instructionAddress = PROCESS.GetLabelAddress(label);
         let newClosureHandle = PROCESS.NewClosure(instructionAddress, PROCESS.currentClosureHandle);
         let currentClosure = PROCESS.GetCurrentClosure();
@@ -2187,53 +2249,62 @@ function AIL_TAILCALL(argument, PROCESS, RUNTIME) {
         PROCESS.Goto(instructionAddress);
     }
     else if (argType === 'VARIABLE') {
-        let value = PROCESS.Dereference(argument);
-        let valueType = TypeOfToken(value);
-        // TODO 可复用代码：与以上LABEL分支的处理方法相同，这里复制过来
-        if (valueType === 'LABEL') {
-            let label = argument;
-            let instructionAddress = PROCESS.GetLabelAddress(label);
-            let newClosureHandle = PROCESS.NewClosure(instructionAddress, PROCESS.currentClosureHandle);
-            let currentClosure = PROCESS.GetCurrentClosure();
-            for (let v in currentClosure.freeVariables) {
-                let value = currentClosure.GetFreeVariable(v);
-                PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
-            }
-            for (let v in currentClosure.boundVariables) {
-                let value = currentClosure.GetBoundVariable(v);
-                PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
-            }
-            PROCESS.SetCurrentClosure(newClosureHandle);
-            PROCESS.Goto(instructionAddress);
+        // 首先判断是否为Native调用
+        let variable = argument;
+        if (PROCESS.IsUseNative(variable)) {
+            //
+            // TODO 这里重新实现原有的callnative指令
+            //
         }
-        // 值为把柄：可能是闭包、continuation或其他
-        else if (valueType === "HANDLE") {
-            let handle = value;
-            let obj = PROCESS.heap.Get(handle);
-            let objType = obj.type;
-            // 闭包：已定义的函数实例
-            if (objType === SchemeObjectType.CLOSURE) {
-                let targetClosure = obj;
-                PROCESS.SetCurrentClosure(handle);
-                PROCESS.Goto(targetClosure.instructionAddress);
+        else {
+            let value = PROCESS.Dereference(variable);
+            let valueType = TypeOfToken(value);
+            if (valueType === 'LABEL') {
+                let label = value;
+                // TODO 可复用代码：与以上LABEL分支的处理方法相同，这里复制过来
+                let instructionAddress = PROCESS.GetLabelAddress(label);
+                let newClosureHandle = PROCESS.NewClosure(instructionAddress, PROCESS.currentClosureHandle);
+                let currentClosure = PROCESS.GetCurrentClosure();
+                for (let v in currentClosure.freeVariables) {
+                    let value = currentClosure.GetFreeVariable(v);
+                    PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
+                }
+                for (let v in currentClosure.boundVariables) {
+                    let value = currentClosure.GetBoundVariable(v);
+                    PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
+                }
+                PROCESS.SetCurrentClosure(newClosureHandle);
+                PROCESS.Goto(instructionAddress);
             }
-            // 续延：调用continuation必须带一个参数，在栈顶。TODO 这个检查在编译时完成
-            else if (objType === SchemeObjectType.CONTINUATION) {
-                let top = PROCESS.PopOperand();
-                let returnTargetLabel = PROCESS.LoadContinuation(handle);
-                PROCESS.PushOperand(top);
-                console.info(`[Info] Continuation已恢复，返回标签：${returnTargetLabel}`);
-                let targetAddress = PROCESS.GetLabelAddress(returnTargetLabel);
-                PROCESS.Goto(targetAddress);
+            // 值为把柄：可能是闭包、continuation或其他
+            else if (valueType === "HANDLE") {
+                let handle = value;
+                let obj = PROCESS.heap.Get(handle);
+                let objType = obj.type;
+                // 闭包：已定义的函数实例
+                if (objType === SchemeObjectType.CLOSURE) {
+                    let targetClosure = obj;
+                    PROCESS.SetCurrentClosure(handle);
+                    PROCESS.Goto(targetClosure.instructionAddress);
+                }
+                // 续延：调用continuation必须带一个参数，在栈顶。TODO 这个检查在编译时完成
+                else if (objType === SchemeObjectType.CONTINUATION) {
+                    let top = PROCESS.PopOperand();
+                    let returnTargetLabel = PROCESS.LoadContinuation(handle);
+                    PROCESS.PushOperand(top);
+                    console.info(`[Info] Continuation已恢复，返回标签：${returnTargetLabel}`);
+                    let targetAddress = PROCESS.GetLabelAddress(returnTargetLabel);
+                    PROCESS.Goto(targetAddress);
+                }
+                else {
+                    throw `[Error] call指令的参数必须是标签、闭包或续延`;
+                }
             }
             else {
                 throw `[Error] call指令的参数必须是标签、闭包或续延`;
             }
-        }
-        else {
-            throw `[Error] call指令的参数必须是标签、闭包或续延`;
-        }
-    }
+        } // Native判断结束
+    } // Variable分支结束
 }
 //return 函数返回
 function AIL_RETURN(argument, PROCESS, RUNTIME) {
@@ -2827,14 +2898,14 @@ function UT_Instruction() {
 }
 // Compiler测试
 function UT_Compiler() {
-    let sourcePath = "./testcase/aurora.test.scm";
+    let sourcePath = "../testcase/aurora.test.scm";
     let schemeCode = fs.readFileSync(sourcePath);
     schemeCode = `((lambda () ${schemeCode}))`;
     let AST = Parse(schemeCode, PathUtils.GetModuleQualifiedName(sourcePath));
-    fs.writeFileSync("./testcase/AST.json", JSON.stringify(AST, null, 2), "utf-8");
+    fs.writeFileSync("../testcase/AST.json", JSON.stringify(AST, null, 2), "utf-8");
     let module = Compile(AST);
     let ILCodeStr = module.ILCode.join('\n');
-    fs.writeFileSync("./testcase/ILCode.txt", ILCodeStr, "utf-8");
+    fs.writeFileSync("../testcase/ILCode.txt", ILCodeStr, "utf-8");
     // 捎带着测试一下AVM
     let process = new Process(module);
     while (process.state !== ProcessState.STOPPED) {

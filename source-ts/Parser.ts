@@ -571,6 +571,7 @@ function Parse(code: string, moduleQualifiedName: string): AST {
                         else {
                             let newVar = MakeUniqueVariable(lambdaHandle, child);
                             (ast.GetNode(nodeHandle).children)[i] = newVar;
+                            ast.variableMapping.set(newVar, child);
                         }
                     }
                 }
@@ -598,6 +599,7 @@ function Parse(code: string, moduleQualifiedName: string): AST {
                         else {
                             let newVar = MakeUniqueVariable(lambdaHandle, child);
                             (ast.GetNode(nodeHandle).children)[i] = newVar;
+                            ast.variableMapping.set(newVar, child);
                         }
                     }
                 }
@@ -611,11 +613,75 @@ function Parse(code: string, moduleQualifiedName: string): AST {
         }); // 所有节点扫描完毕
     }
 
+
+    // 尾位置分析（参照R5RS的归纳定义）
+    function TailCallAnalysis(item: any, isTail: boolean) {
+        if(TypeOfToken(item) === "HANDLE") {
+            let node = ast.GetNode(item);
+            if(node.type === "APPLICATION") {
+                let first = node.children[0];
+                // if 特殊构造
+                if(first === "if") {
+                    TailCallAnalysis(node.children[1], false);
+                    TailCallAnalysis(node.children[2], true);
+                    TailCallAnalysis(node.children[3], true);
+                }
+                // cond 特殊构造
+                else if(first === "cond") {
+                    for(let i = 1; i < node.children.length; i++) {
+                        let clauseNode = ast.GetNode(node.children[i]);
+                        TailCallAnalysis(clauseNode.children[0], false);
+                        TailCallAnalysis(clauseNode.children[1], true);
+                    }
+                }
+                // 其他构造，含and、or，这些形式的尾位置是一样的
+                else {
+                    for(let i = 0; i < node.children.length; i++) {
+                        let istail = false;
+                        if((i === node.children.length - 1) && (node.children[0] === 'and' || node.children[0] === 'or')) {
+                            istail = true;
+                        }
+                        TailCallAnalysis(node.children[i], istail);
+                    }
+                    if(isTail) {
+                        ast.tailcall.push(item); // 标记为尾（调用）位置
+                    }
+                }
+            }
+            else if(node.type === "LAMBDA") {
+                let bodies = node.getBodies();
+                for(let i = 0; i < bodies.length; i++) {
+                    if(i === bodies.length - 1) {
+                        TailCallAnalysis(bodies[i], true);
+                    }
+                    else {
+                        TailCallAnalysis(bodies[i], false);
+                    }
+                }
+            }
+        }
+        else {
+            return;
+        }
+    }
+
     // 递归下降语法分析
     ParseTerm(tokens, 0);
     // 预处理指令解析
     PreprocessAnalysis();
     // 作用域解析
     ScopeAnalysis();
+
+    // 查找顶级Application的把柄（也可以用取巧的方法，但最好不用）
+    let TopApplicationNodeHandle: Handle = null;
+    ast.nodes.ForEach((nodeHandle)=> {
+        if(ast.nodes.Get(nodeHandle).parent === TOP_NODE_HANDLE) {
+            TopApplicationNodeHandle = nodeHandle;
+            return "break";
+        }
+    });
+    // 尾调用分析
+    TailCallAnalysis(TopApplicationNodeHandle, true);
+
     return ast;
 }

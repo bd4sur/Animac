@@ -258,7 +258,7 @@ function AIL_CALL(argument: string, PROCESS: Process, RUNTIME: Runtime): void {
         else {
             let value = PROCESS.Dereference(variable);
             let valueType = TypeOfToken(value);
-            
+
             if(valueType === 'LABEL') {
                 let label = value;
                 // TODO 可复用代码：与以上LABEL分支的处理方法相同，这里复制过来
@@ -319,8 +319,8 @@ function AIL_TAILCALL(argument: string, PROCESS: Process, RUNTIME: Runtime): voi
         // TODO 增加对primitive的一等支持
     }
     else if(argType === 'LABEL') {
-        // TODO 可复用代码
         let label = argument;
+        // TODO 可复用代码
         let instructionAddress = PROCESS.GetLabelAddress(label);
         let newClosureHandle = PROCESS.NewClosure(instructionAddress, PROCESS.currentClosureHandle);
 
@@ -338,55 +338,65 @@ function AIL_TAILCALL(argument: string, PROCESS: Process, RUNTIME: Runtime): voi
         PROCESS.Goto(instructionAddress);
     }
     else if(argType === 'VARIABLE') {
-        let value = PROCESS.Dereference(argument);
-        let valueType = TypeOfToken(value);
-        // TODO 可复用代码：与以上LABEL分支的处理方法相同，这里复制过来
-        if(valueType === 'LABEL') {
-            let label = argument;
-            let instructionAddress = PROCESS.GetLabelAddress(label);
-            let newClosureHandle = PROCESS.NewClosure(instructionAddress, PROCESS.currentClosureHandle);
-
-            let currentClosure = PROCESS.GetCurrentClosure();
-            for(let v in currentClosure.freeVariables) {
-                let value = currentClosure.GetFreeVariable(v);
-                PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
-            }
-            for(let v in currentClosure.boundVariables) {
-                let value = currentClosure.GetBoundVariable(v);
-                PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
-            }
-
-            PROCESS.SetCurrentClosure(newClosureHandle);
-            PROCESS.Goto(instructionAddress);
+        // 首先判断是否为Native调用
+        let variable: string = argument;
+        if(PROCESS.IsUseNative(variable)) {
+            //
+            // TODO 这里重新实现原有的callnative指令
+            //
         }
-        // 值为把柄：可能是闭包、continuation或其他
-        else if(valueType === "HANDLE") {
-            let handle: Handle = value;
-            let obj: any = PROCESS.heap.Get(handle);
-            let objType: SchemeObjectType = obj.type;
-            // 闭包：已定义的函数实例
-            if(objType === SchemeObjectType.CLOSURE) {
-                let targetClosure: Closure = obj;
-                PROCESS.SetCurrentClosure(handle);
-                PROCESS.Goto(targetClosure.instructionAddress);
+        else {
+            let value = PROCESS.Dereference(variable);
+            let valueType = TypeOfToken(value);
+
+            if(valueType === 'LABEL') {
+                let label = value;
+                // TODO 可复用代码：与以上LABEL分支的处理方法相同，这里复制过来
+                let instructionAddress = PROCESS.GetLabelAddress(label);
+                let newClosureHandle = PROCESS.NewClosure(instructionAddress, PROCESS.currentClosureHandle);
+    
+                let currentClosure = PROCESS.GetCurrentClosure();
+                for(let v in currentClosure.freeVariables) {
+                    let value = currentClosure.GetFreeVariable(v);
+                    PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
+                }
+                for(let v in currentClosure.boundVariables) {
+                    let value = currentClosure.GetBoundVariable(v);
+                    PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
+                }
+    
+                PROCESS.SetCurrentClosure(newClosureHandle);
+                PROCESS.Goto(instructionAddress);
             }
-            // 续延：调用continuation必须带一个参数，在栈顶。TODO 这个检查在编译时完成
-            else if(objType === SchemeObjectType.CONTINUATION) {
-                let top = PROCESS.PopOperand();
-                let returnTargetLabel = PROCESS.LoadContinuation(handle);
-                PROCESS.PushOperand(top);
-                console.info(`[Info] Continuation已恢复，返回标签：${returnTargetLabel}`);
-                let targetAddress = PROCESS.GetLabelAddress(returnTargetLabel);
-                PROCESS.Goto(targetAddress);
+            // 值为把柄：可能是闭包、continuation或其他
+            else if(valueType === "HANDLE") {
+                let handle: Handle = value;
+                let obj: any = PROCESS.heap.Get(handle);
+                let objType: SchemeObjectType = obj.type;
+                // 闭包：已定义的函数实例
+                if(objType === SchemeObjectType.CLOSURE) {
+                    let targetClosure: Closure = obj;
+                    PROCESS.SetCurrentClosure(handle);
+                    PROCESS.Goto(targetClosure.instructionAddress);
+                }
+                // 续延：调用continuation必须带一个参数，在栈顶。TODO 这个检查在编译时完成
+                else if(objType === SchemeObjectType.CONTINUATION) {
+                    let top = PROCESS.PopOperand();
+                    let returnTargetLabel = PROCESS.LoadContinuation(handle);
+                    PROCESS.PushOperand(top);
+                    console.info(`[Info] Continuation已恢复，返回标签：${returnTargetLabel}`);
+                    let targetAddress = PROCESS.GetLabelAddress(returnTargetLabel);
+                    PROCESS.Goto(targetAddress);
+                }
+                else {
+                    throw `[Error] call指令的参数必须是标签、闭包或续延`;
+                }
             }
             else {
                 throw `[Error] call指令的参数必须是标签、闭包或续延`;
             }
-        }
-        else {
-            throw `[Error] call指令的参数必须是标签、闭包或续延`;
-        }
-    }
+        } // Native判断结束
+    } // Variable分支结束
 }
 
 //return 函数返回

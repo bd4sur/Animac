@@ -65,7 +65,7 @@ function Compile(ast: AST): Module {
         // 【已解决】TODO 参数列表里通过define获得的参数，不需要在这里出现
         let parameters = node.getParameters();
         for(let i = parameters.length - 1; i >= 0; i--) {
-            AddInstruction(`store  ${parameters[i]}`);
+            AddInstruction(`store ${parameters[i]}`);
         }
 
         // 逐个编译函数体，等价于begin块
