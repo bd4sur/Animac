@@ -22,6 +22,23 @@ const KEYWORDS = [
     "quote",  "quasiquote",  "unquote",
 ];
 
+
+// Primitive对应的AIL指令
+
+const PrimitiveInstruction = {
+    "+": "add",
+    "-": "sub",
+    "*": "mul",
+    "/": "div",
+    "%": "mod",
+    "=": "eqn",
+    "<": "lt",
+    ">": "gt",
+    "<=": "le",
+    ">=": "ge"
+};
+
+
 // 取数组/栈的栈顶
 function Top(arr: Array<any>): any {
     return arr[arr.length - 1];
@@ -77,4 +94,13 @@ function TypeOfToken(token: any): string {
 // 判断token是不是变量
 function isVariable(token: string): boolean {
     return (TypeOfToken(token) === "VARIABLE");
+}
+
+// 路径处理
+class PathUtils {
+    static GetModuleQualifiedName(path: string): string {
+        let fields = path.split(/[\/\\]/gi);
+        let moduleFileName = Top(fields);
+        return moduleFileName.replace(/\.[^.]*$/gi, "");
+    }
 }

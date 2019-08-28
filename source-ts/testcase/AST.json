@@ -1,0 +1,489 @@
+{
+  "source": "((lambda () (define A\n  (lambda (k x1 x2 x3 x4 x5)\n      (define B\n        (lambda ()\n            (set! k (- k 1))\n            (A k B x1 x2 x3 x4)))\n      (if (<= k 0)\n          (+ (x4) (x5))\n          (B))))\n(display \"Man or Boy Test = \")\n(display (A 14 (lambda () 1) (lambda () -1) (lambda () -1) (lambda () 1) (lambda () 0)))\n(newline)\n))",
+  "moduleQualifiedName": "aurora.test",
+  "nodes": {
+    "data": {
+      "&aurora.test.APPLICATION_0": {
+        "type": "APPLICATION",
+        "parent": "&TOP_NODE",
+        "children": [
+          "&aurora.test.LAMBDA_1"
+        ]
+      },
+      "&aurora.test.LAMBDA_1": {
+        "type": "LAMBDA",
+        "parent": "&aurora.test.APPLICATION_0",
+        "children": [
+          "lambda",
+          [],
+          "&aurora.test.APPLICATION_2",
+          "&aurora.test.APPLICATION_15",
+          "&aurora.test.APPLICATION_17",
+          "&aurora.test.APPLICATION_24"
+        ]
+      },
+      "&aurora.test.APPLICATION_2": {
+        "type": "APPLICATION",
+        "parent": "&aurora.test.LAMBDA_1",
+        "children": [
+          "define",
+          "aurora.test.LAMBDA_1.A",
+          "&aurora.test.LAMBDA_3"
+        ]
+      },
+      "&aurora.test.LAMBDA_3": {
+        "type": "LAMBDA",
+        "parent": "&aurora.test.APPLICATION_2",
+        "children": [
+          "lambda",
+          [
+            "aurora.test.LAMBDA_3.k",
+            "aurora.test.LAMBDA_3.x1",
+            "aurora.test.LAMBDA_3.x2",
+            "aurora.test.LAMBDA_3.x3",
+            "aurora.test.LAMBDA_3.x4",
+            "aurora.test.LAMBDA_3.x5"
+          ],
+          "&aurora.test.APPLICATION_4",
+          "&aurora.test.APPLICATION_9"
+        ]
+      },
+      "&aurora.test.APPLICATION_4": {
+        "type": "APPLICATION",
+        "parent": "&aurora.test.LAMBDA_3",
+        "children": [
+          "define",
+          "aurora.test.LAMBDA_3.B",
+          "&aurora.test.LAMBDA_5"
+        ]
+      },
+      "&aurora.test.LAMBDA_5": {
+        "type": "LAMBDA",
+        "parent": "&aurora.test.APPLICATION_4",
+        "children": [
+          "lambda",
+          [],
+          "&aurora.test.APPLICATION_6",
+          "&aurora.test.APPLICATION_8"
+        ]
+      },
+      "&aurora.test.APPLICATION_6": {
+        "type": "APPLICATION",
+        "parent": "&aurora.test.LAMBDA_5",
+        "children": [
+          "set!",
+          "aurora.test.LAMBDA_3.k",
+          "&aurora.test.APPLICATION_7"
+        ]
+      },
+      "&aurora.test.APPLICATION_7": {
+        "type": "APPLICATION",
+        "parent": "&aurora.test.APPLICATION_6",
+        "children": [
+          "-",
+          "aurora.test.LAMBDA_3.k",
+          1
+        ]
+      },
+      "&aurora.test.APPLICATION_8": {
+        "type": "APPLICATION",
+        "parent": "&aurora.test.LAMBDA_5",
+        "children": [
+          "aurora.test.LAMBDA_1.A",
+          "aurora.test.LAMBDA_3.k",
+          "aurora.test.LAMBDA_3.B",
+          "aurora.test.LAMBDA_3.x1",
+          "aurora.test.LAMBDA_3.x2",
+          "aurora.test.LAMBDA_3.x3",
+          "aurora.test.LAMBDA_3.x4"
+        ]
+      },
+      "&aurora.test.APPLICATION_9": {
+        "type": "APPLICATION",
+        "parent": "&aurora.test.LAMBDA_3",
+        "children": [
+          "if",
+          "&aurora.test.APPLICATION_10",
+          "&aurora.test.APPLICATION_11",
+          "&aurora.test.APPLICATION_14"
+        ]
+      },
+      "&aurora.test.APPLICATION_10": {
+        "type": "APPLICATION",
+        "parent": "&aurora.test.APPLICATION_9",
+        "children": [
+          "<=",
+          "aurora.test.LAMBDA_3.k",
+          0
+        ]
+      },
+      "&aurora.test.APPLICATION_11": {
+        "type": "APPLICATION",
+        "parent": "&aurora.test.APPLICATION_9",
+        "children": [
+          "+",
+          "&aurora.test.APPLICATION_12",
+          "&aurora.test.APPLICATION_13"
+        ]
+      },
+      "&aurora.test.APPLICATION_12": {
+        "type": "APPLICATION",
+        "parent": "&aurora.test.APPLICATION_11",
+        "children": [
+          "aurora.test.LAMBDA_3.x4"
+        ]
+      },
+      "&aurora.test.APPLICATION_13": {
+        "type": "APPLICATION",
+        "parent": "&aurora.test.APPLICATION_11",
+        "children": [
+          "aurora.test.LAMBDA_3.x5"
+        ]
+      },
+      "&aurora.test.APPLICATION_14": {
+        "type": "APPLICATION",
+        "parent": "&aurora.test.APPLICATION_9",
+        "children": [
+          "aurora.test.LAMBDA_3.B"
+        ]
+      },
+      "&aurora.test.APPLICATION_15": {
+        "type": "APPLICATION",
+        "parent": "&aurora.test.LAMBDA_1",
+        "children": [
+          "display",
+          "&aurora.test.STRING_16"
+        ]
+      },
+      "&aurora.test.STRING_16": {
+        "type": "STRING",
+        "content": "\"Man or Boy Test = \""
+      },
+      "&aurora.test.APPLICATION_17": {
+        "type": "APPLICATION",
+        "parent": "&aurora.test.LAMBDA_1",
+        "children": [
+          "display",
+          "&aurora.test.APPLICATION_18"
+        ]
+      },
+      "&aurora.test.APPLICATION_18": {
+        "type": "APPLICATION",
+        "parent": "&aurora.test.APPLICATION_17",
+        "children": [
+          "aurora.test.LAMBDA_1.A",
+          14,
+          "&aurora.test.LAMBDA_19",
+          "&aurora.test.LAMBDA_20",
+          "&aurora.test.LAMBDA_21",
+          "&aurora.test.LAMBDA_22",
+          "&aurora.test.LAMBDA_23"
+        ]
+      },
+      "&aurora.test.LAMBDA_19": {
+        "type": "LAMBDA",
+        "parent": "&aurora.test.APPLICATION_18",
+        "children": [
+          "lambda",
+          [],
+          1
+        ]
+      },
+      "&aurora.test.LAMBDA_20": {
+        "type": "LAMBDA",
+        "parent": "&aurora.test.APPLICATION_18",
+        "children": [
+          "lambda",
+          [],
+          -1
+        ]
+      },
+      "&aurora.test.LAMBDA_21": {
+        "type": "LAMBDA",
+        "parent": "&aurora.test.APPLICATION_18",
+        "children": [
+          "lambda",
+          [],
+          -1
+        ]
+      },
+      "&aurora.test.LAMBDA_22": {
+        "type": "LAMBDA",
+        "parent": "&aurora.test.APPLICATION_18",
+        "children": [
+          "lambda",
+          [],
+          1
+        ]
+      },
+      "&aurora.test.LAMBDA_23": {
+        "type": "LAMBDA",
+        "parent": "&aurora.test.APPLICATION_18",
+        "children": [
+          "lambda",
+          [],
+          0
+        ]
+      },
+      "&aurora.test.APPLICATION_24": {
+        "type": "APPLICATION",
+        "parent": "&aurora.test.LAMBDA_1",
+        "children": [
+          "newline"
+        ]
+      }
+    },
+    "metadata": {
+      "&aurora.test.APPLICATION_0": {
+        "static": false,
+        "readOnly": false,
+        "status": "modified",
+        "referrer": [
+          null
+        ]
+      },
+      "&aurora.test.LAMBDA_1": {
+        "static": false,
+        "readOnly": false,
+        "status": "modified",
+        "referrer": [
+          null
+        ]
+      },
+      "&aurora.test.APPLICATION_2": {
+        "static": false,
+        "readOnly": false,
+        "status": "modified",
+        "referrer": [
+          null
+        ]
+      },
+      "&aurora.test.LAMBDA_3": {
+        "static": false,
+        "readOnly": false,
+        "status": "modified",
+        "referrer": [
+          null
+        ]
+      },
+      "&aurora.test.APPLICATION_4": {
+        "static": false,
+        "readOnly": false,
+        "status": "modified",
+        "referrer": [
+          null
+        ]
+      },
+      "&aurora.test.LAMBDA_5": {
+        "static": false,
+        "readOnly": false,
+        "status": "modified",
+        "referrer": [
+          null
+        ]
+      },
+      "&aurora.test.APPLICATION_6": {
+        "static": false,
+        "readOnly": false,
+        "status": "modified",
+        "referrer": [
+          null
+        ]
+      },
+      "&aurora.test.APPLICATION_7": {
+        "static": false,
+        "readOnly": false,
+        "status": "modified",
+        "referrer": [
+          null
+        ]
+      },
+      "&aurora.test.APPLICATION_8": {
+        "static": false,
+        "readOnly": false,
+        "status": "modified",
+        "referrer": [
+          null
+        ]
+      },
+      "&aurora.test.APPLICATION_9": {
+        "static": false,
+        "readOnly": false,
+        "status": "modified",
+        "referrer": [
+          null
+        ]
+      },
+      "&aurora.test.APPLICATION_10": {
+        "static": false,
+        "readOnly": false,
+        "status": "modified",
+        "referrer": [
+          null
+        ]
+      },
+      "&aurora.test.APPLICATION_11": {
+        "static": false,
+        "readOnly": false,
+        "status": "modified",
+        "referrer": [
+          null
+        ]
+      },
+      "&aurora.test.APPLICATION_12": {
+        "static": false,
+        "readOnly": false,
+        "status": "modified",
+        "referrer": [
+          null
+        ]
+      },
+      "&aurora.test.APPLICATION_13": {
+        "static": false,
+        "readOnly": false,
+        "status": "modified",
+        "referrer": [
+          null
+        ]
+      },
+      "&aurora.test.APPLICATION_14": {
+        "static": false,
+        "readOnly": false,
+        "status": "modified",
+        "referrer": [
+          null
+        ]
+      },
+      "&aurora.test.APPLICATION_15": {
+        "static": false,
+        "readOnly": false,
+        "status": "modified",
+        "referrer": [
+          null
+        ]
+      },
+      "&aurora.test.STRING_16": {
+        "static": false,
+        "readOnly": false,
+        "status": "modified",
+        "referrer": [
+          null
+        ]
+      },
+      "&aurora.test.APPLICATION_17": {
+        "static": false,
+        "readOnly": false,
+        "status": "modified",
+        "referrer": [
+          null
+        ]
+      },
+      "&aurora.test.APPLICATION_18": {
+        "static": false,
+        "readOnly": false,
+        "status": "modified",
+        "referrer": [
+          null
+        ]
+      },
+      "&aurora.test.LAMBDA_19": {
+        "static": false,
+        "readOnly": false,
+        "status": "modified",
+        "referrer": [
+          null
+        ]
+      },
+      "&aurora.test.LAMBDA_20": {
+        "static": false,
+        "readOnly": false,
+        "status": "modified",
+        "referrer": [
+          null
+        ]
+      },
+      "&aurora.test.LAMBDA_21": {
+        "static": false,
+        "readOnly": false,
+        "status": "modified",
+        "referrer": [
+          null
+        ]
+      },
+      "&aurora.test.LAMBDA_22": {
+        "static": false,
+        "readOnly": false,
+        "status": "modified",
+        "referrer": [
+          null
+        ]
+      },
+      "&aurora.test.LAMBDA_23": {
+        "static": false,
+        "readOnly": false,
+        "status": "modified",
+        "referrer": [
+          null
+        ]
+      },
+      "&aurora.test.APPLICATION_24": {
+        "static": false,
+        "readOnly": false,
+        "status": "modified",
+        "referrer": [
+          null
+        ]
+      }
+    },
+    "handleCounter": 25
+  },
+  "nodeIndexes": {
+    "&aurora.test.APPLICATION_0": 0,
+    "&aurora.test.LAMBDA_1": 1,
+    "&aurora.test.APPLICATION_2": 12,
+    "&aurora.test.LAMBDA_3": 24,
+    "&aurora.test.APPLICATION_4": 57,
+    "&aurora.test.LAMBDA_5": 75,
+    "&aurora.test.APPLICATION_6": 98,
+    "&aurora.test.APPLICATION_7": 106,
+    "&aurora.test.APPLICATION_8": 127,
+    "&aurora.test.APPLICATION_9": 155,
+    "&aurora.test.APPLICATION_10": 159,
+    "&aurora.test.APPLICATION_11": 178,
+    "&aurora.test.APPLICATION_12": 181,
+    "&aurora.test.APPLICATION_13": 186,
+    "&aurora.test.APPLICATION_14": 202,
+    "&aurora.test.APPLICATION_15": 209,
+    "&aurora.test.STRING_16": 218,
+    "&aurora.test.APPLICATION_17": 240,
+    "&aurora.test.APPLICATION_18": 249,
+    "&aurora.test.LAMBDA_19": 255,
+    "&aurora.test.LAMBDA_20": 269,
+    "&aurora.test.LAMBDA_21": 284,
+    "&aurora.test.LAMBDA_22": 299,
+    "&aurora.test.LAMBDA_23": 313,
+    "&aurora.test.APPLICATION_24": 329
+  },
+  "lambdaHandles": [
+    "&aurora.test.LAMBDA_1",
+    "&aurora.test.LAMBDA_3",
+    "&aurora.test.LAMBDA_5",
+    "&aurora.test.LAMBDA_19",
+    "&aurora.test.LAMBDA_20",
+    "&aurora.test.LAMBDA_21",
+    "&aurora.test.LAMBDA_22",
+    "&aurora.test.LAMBDA_23"
+  ],
+  "tailcall": [],
+  "variableMapping": {
+    "aurora.test.LAMBDA_3.k": "k",
+    "aurora.test.LAMBDA_3.x1": "x1",
+    "aurora.test.LAMBDA_3.x2": "x2",
+    "aurora.test.LAMBDA_3.x3": "x3",
+    "aurora.test.LAMBDA_3.x4": "x4",
+    "aurora.test.LAMBDA_3.x5": "x5"
+  },
+  "topVariables": {},
+  "dependencies": {},
+  "natives": {}
+}

@@ -10,6 +10,7 @@
         "Parser.ts",
         "Compiler.ts",
         "Process.ts",
+        "Runtime.ts",
         "Instruction.ts",
         "UT.ts"
     ]

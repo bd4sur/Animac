@@ -6,6 +6,8 @@
 //   模块如同Java的字节码文件，包含代码、静态资源和元数据等
 class Module {
     // TODO 模块结构设计，需要注意 ①元数据 ②可序列化性 ③与Runtime和Process结构对接
+    static AVM_Version: string = "V0";
+    public AST: AST;
     public ILCode: Array<string>;
 
     constructor() {
@@ -60,7 +62,7 @@ function Compile(ast: AST): Module {
         AddInstruction(`@${nodeHandle}`);
 
         // 按参数列表逆序，插入store指令
-        // TODO 参数列表里通过define获得的参数，不需要在这里出现
+        // 【已解决】TODO 参数列表里通过define获得的参数，不需要在这里出现
         let parameters = node.getParameters();
         for(let i = parameters.length - 1; i >= 0; i--) {
             AddInstruction(`store  ${parameters[i]}`);
@@ -724,6 +726,7 @@ function Compile(ast: AST): Module {
     CompileAll();
     // TODO 组装模块，必要的元数据也要有
 
+    module.AST = ast;
     module.ILCode = ILCode;
 
     return module;

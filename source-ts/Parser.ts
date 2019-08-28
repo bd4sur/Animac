@@ -2,26 +2,6 @@
 // Parser.ts
 // 词法分析
 
-class Scope {
-    parent: Handle;
-    children: Array<any>;
-    boundVariables: Array<string>;
-
-    constructor(parent: Handle) {
-        this.parent = parent;
-        this.children = new Array();
-        this.boundVariables = new Array();
-    }
-    public addChild(child: any): void {
-        this.children.push(child);
-    }
-    public addParameter(param: string): void {
-        if(this.boundVariables.indexOf(param) < 0) { // 如果有同名的变量则不添加
-            this.boundVariables.push(param);
-        }
-    }
-}
-
 enum NodeType {
     LAMBDA = "LAMBDA",
     APPLICATION = "APPLICATION",
@@ -34,38 +14,16 @@ enum NodeType {
 }
 
 class AST {
-    // 模块全限定名
-    public moduleQualifiedName: string;
-
-    // Scheme源码
-    public source: string;
-    // 词法单元
-    public tokens: Array<Token>;
-    // 词法节点
-    public nodes: Memory;
-
-    // 词法节点到源码位置的映射
-    public nodeIndexes: HashMap<Handle, number>;
-
-    // 所有Lambda节点的把柄
-    public lambdaHandles: Array<Handle>;
-
-    // 尾调用Application节点的把柄
-    public tailcall: Array<Handle>;
-
-    // 作用域
-    public scopes: HashMap<Handle, Scope>;
-    // 全局唯一变量名与原始变量名之间的映射
-    public variableMapping: HashMap<string, string>;
-
-    // 顶级变量（即顶层作用域define的变量），作为模块对外提供的接口，用于模块分析
-    public topVariables: Array<string>;
-
-    // 外部依赖模块
-    public dependencies: HashMap<string, string>; // 模块别名→模块路径
-
-    // 使用到的Native模块
-    public natives: HashMap<string, string> // Native模块名→（TODO 可能是模块的路径）
+    public moduleQualifiedName: string;              // 模块全限定名
+    public source: string;                           // Scheme源码
+    public nodes: Memory;                            // 词法节点
+    public nodeIndexes: HashMap<Handle, number>;     // 词法节点到源码位置的映射
+    public lambdaHandles: Array<Handle>;             // 所有Lambda节点的把柄
+    public tailcall: Array<Handle>;                  // 尾调用Application节点的把柄
+    public variableMapping: HashMap<string, string>; // 全局唯一变量名→原变量名
+    public topVariables: HashMap<string, string>;    // 顶级变量（即顶层作用域define的变量）→原变量名
+    public dependencies: HashMap<string, string>;    // 外部依赖模块：模块别名→模块路径
+    public natives: HashMap<string, string>;         // Native模块名→（TODO 可能是模块的路径）
 
     constructor(source: string, moduleQualifiedName: string) {
         this.source = source;
@@ -74,9 +32,8 @@ class AST {
         this.nodeIndexes = new HashMap();
         this.lambdaHandles = new Array();
         this.tailcall = new Array();
-        this.scopes = new HashMap();
         this.variableMapping = new HashMap();
-        this.topVariables = new Array();
+        this.topVariables = new HashMap();
         this.dependencies = new HashMap();
         this.natives = new HashMap();
     }
@@ -131,6 +88,27 @@ class AST {
     }
 }
 
+class Scope {
+    parent: Handle;
+    children: Array<any>;
+    boundVariables: Array<string>;
+
+    constructor(parent: Handle) {
+        this.parent = parent;
+        this.children = new Array();
+        this.boundVariables = new Array();
+    }
+    public addChild(child: any): void {
+        this.children.push(child);
+    }
+    public addParameter(param: string): void {
+        if(this.boundVariables.indexOf(param) < 0) { // 如果有同名的变量则不添加
+            this.boundVariables.push(param);
+        }
+    }
+}
+
+
 //////////////////////////////////////////////////
 //
 //  语法分析器：完成语法分析、作用域分析，生成AST
@@ -142,7 +120,9 @@ class AST {
 function Parse(code: string, moduleQualifiedName: string): AST {
     let ast = new AST(code, moduleQualifiedName);
     let tokens = Lexer(code);
-    ast.tokens = tokens;
+
+    let scopes: HashMap<Handle, Scope> = new HashMap();
+
     // 节点把柄栈
     let NODE_STACK: Array<any> = new Array();
     NODE_STACK.push(TOP_NODE_HANDLE);
@@ -481,7 +461,7 @@ function Parse(code: string, moduleQualifiedName: string): AST {
             let node = ast.GetNode(currentNodeHandle);
             if(node.type === "LAMBDA") {
                 // 注意：从scopes中获取换名前的作用域信息
-                let bounds: Array<string> = ast.scopes.get(currentNodeHandle).boundVariables;
+                let bounds: Array<string> = scopes.get(currentNodeHandle).boundVariables;
                 if(bounds.indexOf(variable) >= 0) {
                     return currentNodeHandle;
                 }
@@ -517,10 +497,10 @@ function Parse(code: string, moduleQualifiedName: string): AST {
         // 首先初始化所有scope
         for(let nodeHandle of ast.lambdaHandles) {
             let scope: Scope = new Scope(null);
-            ast.scopes.set(nodeHandle, scope);
+            scopes.set(nodeHandle, scope);
         }
 
-        // 第1趟扫描：在ast.scopes中注册作用域的树状嵌套关系；处理define行为
+        // 第1趟扫描：在scopes中注册作用域的树状嵌套关系；处理define行为
         ast.nodes.ForEach((nodeHandle) => {
             let node = ast.GetNode(nodeHandle);
             let nodeType = node.type;
@@ -531,16 +511,16 @@ function Parse(code: string, moduleQualifiedName: string): AST {
                 // 非顶级lambda
                 if(parentLambdaHandle !== null) {
                     // 记录上级lambda节点
-                    ast.scopes.get(nodeHandle).parent = parentLambdaHandle;
+                    scopes.get(nodeHandle).parent = parentLambdaHandle;
                     // 为上级lambda节点增加下级成员（也就是当前lambda）
-                    ast.scopes.get(parentLambdaHandle).addChild(nodeHandle);
+                    scopes.get(parentLambdaHandle).addChild(nodeHandle);
                 }
                 else {
                     // 记录上级lambda节点
-                    ast.scopes.get(nodeHandle).parent = TOP_NODE_HANDLE;
+                    scopes.get(nodeHandle).parent = TOP_NODE_HANDLE;
                 }
                 // 记录当前lambda的约束变量
-                ast.scopes.get(nodeHandle).boundVariables = Array.from(node.getParameters()); // ES6+
+                scopes.get(nodeHandle).boundVariables = Array.from(node.getParameters()); // ES6+
             }
             // define结构：变量被defined，会覆盖掉上级同名变量（类似JS的var）
             else if(nodeType === "APPLICATION" && node.children[0] === "define") {
@@ -548,9 +528,11 @@ function Parse(code: string, moduleQualifiedName: string): AST {
                 let parentLambdaHandle: Handle = nearestLambdaHandle(nodeHandle);
                 if(parentLambdaHandle !== null) {
                     let definedVariable: string = node.children[1];
-                    // 将defined变量*同时*记录到所在lambda节点和所在作用域中（如果不存在的话）
-                    ast.GetNode(parentLambdaHandle).addParameter(definedVariable);
-                    ast.scopes.get(parentLambdaHandle).addParameter(definedVariable);
+                    // 【×】将defined变量*同时*记录到所在lambda节点和所在作用域中（如果不存在的话）
+                    // 【√】将defined变量记录到所在作用域中
+                    // NOTE: 全局变量不能加入形参列表！(通过Man-or-boy-test用例发现此问题)
+                    // ast.GetNode(parentLambdaHandle).addParameter(definedVariable);
+                    scopes.get(parentLambdaHandle).addParameter(definedVariable);
                 }
                 else {
                     throw `[作用域分析] 不可在顶级作用域之外define。`;
@@ -621,7 +603,9 @@ function Parse(code: string, moduleQualifiedName: string): AST {
                 }
                 // 后处理：记录顶级变量
                 if(first === "define" && node.parent === topLambdaHandle) {
-                    ast.topVariables.push(node.children[1]);
+                    let newVarName = node.children[1];
+                    let originVarName = ast.variableMapping.get(newVarName);
+                    ast.topVariables.set(newVarName, originVarName);
                 }
             }
         }); // 所有节点扫描完毕

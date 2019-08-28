@@ -22,17 +22,12 @@ class Process {
     // 进程基本信息
     public processID: number;                  // 进程ID
     public parentProcessID: number;            // 父进程PID
-    public childrenProcessID: Array<number>;   // 子进程PID列表
-    public user: string;                       // 进程所属用户
-    public moduleQualifiedName: string;        // 主模块全限定名
-    public modulePath: string;                 // 主模块源文件路径
 
     // 进程状态
-    public priority: number;                   // 进程优先级
     public state: ProcessState;                // 进程状态
 
     // 代码AST
-    public ast: AST;                           // 源码的AST
+    public AST: AST;                           // 源码的AST
 
     // 进程程序区
     public instructions: Array<string>;        // 指令序列
@@ -50,20 +45,15 @@ class Process {
 
     /* 构造器 */
     // TODO 待实现，目前仅供测试
-    constructor(instructions) {
+    constructor(module: Module) {
         this.processID = 0;
         this.parentProcessID = 0;
-        this.childrenProcessID = new Array();
-        this.user = "";
-        this.moduleQualifiedName = "";
-        this.modulePath = "";
 
-        this.priority = 0;
         this.state = ProcessState.READY;
 
-        this.ast = new AST("", "");
+        this.AST = module.AST;
 
-        this.instructions = instructions;
+        this.instructions = module.ILCode;
         this.labelMapping = new HashMap();
 
         this.heap = new Memory();
@@ -74,9 +64,17 @@ class Process {
         this.OPSTACK = new Array();
         this.FSTACK = new Array();
 
-        // 进程初始化
+        //////////////////////////////
+        //  TODO 进程初始化
+        //////////////////////////////
+
+        // AST中的静态对象移动到heap中
+        // TODO：建议深拷贝
+        this.heap = this.AST.nodes;
+
         // 标签分析
         this.LabelAnalysis();
+
         // 顶级闭包
         this.heap.NewHandle(TOP_NODE_HANDLE);
         this.heap.Set(TOP_NODE_HANDLE, new Closure(-1, TOP_NODE_HANDLE));
@@ -235,7 +233,7 @@ class Process {
     // 判断某变量是否使用了某Native模块（通过读取this.ast.natives得知）
     public IsUseNative(variable: string): boolean {
         let varPrefix = variable.split(".")[0];
-        return this.ast.natives.has(varPrefix);
+        return this.AST.natives.has(varPrefix);
     }
 
     /* 进程状态控制 */

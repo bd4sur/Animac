@@ -133,45 +133,30 @@ const instructions = [
 
     // IL指令集和VM测试
     // 期望结果：15 106
-    let process = new Process(instructions);
-    while(process.state !== ProcessState.STOPPED) {
-        // console.log(process.CurrentInstruction().instruction);
-        Execute(process);
-    }
+    // let process = new Process(instructions);
+    // while(process.state !== ProcessState.STOPPED) {
+    //     // console.log(process.CurrentInstruction().instruction);
+    //     Execute(process, null);
+    // }
 }
 
 
 // Compiler测试
 function UT_Compiler() {
-    const code = `
-((lambda ()
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(define Count 100)
-(define Add
-  (lambda (x)
-    (lambda (y)
-      (set! Count (+ 1 Count))
-      (if (= y 0)
-          x
-          (+ 1 ((Add x) (- y 1)))))))
-
-(display ((Add 20) 500))
-(newline)
-(display Count)
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-))
-`;
-    let AST = Parse(code, "me.aurora.test");
-    fs.writeFileSync("./AST.json", JSON.stringify(AST, null, 2), "utf-8");
+    let sourcePath = "./testcase/aurora.test.scm";
+    let schemeCode = fs.readFileSync(sourcePath);
+    schemeCode = `((lambda () ${schemeCode}))`;
+    let AST = Parse(schemeCode, PathUtils.GetModuleQualifiedName(sourcePath));
+    fs.writeFileSync("./testcase/AST.json", JSON.stringify(AST, null, 2), "utf-8");
     let module = Compile(AST);
     let ILCodeStr = module.ILCode.join('\n');
-    fs.writeFileSync("./ILCode.txt", ILCodeStr, "utf-8");
+    fs.writeFileSync("./testcase/ILCode.txt", ILCodeStr, "utf-8");
 
     // 捎带着测试一下AVM
-    let process = new Process(module.ILCode);
+    let process = new Process(module);
     while(process.state !== ProcessState.STOPPED) {
         // console.log(process.CurrentInstruction().instruction);
-        Execute(process);
+        Execute(process, null);
     }
 }
 
