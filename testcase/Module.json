@@ -1,0 +1,896 @@
+{
+  "AST": {
+    "source": "((lambda () ;; 演示了Man-or-Boy测试，以及模块机制测试\n;; 依赖关系：utils←MoB←main\n\n(import Utils    \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.utils.scm\")\n(import ManOrBoy \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.MoB.scm\")\n\n(Utils.show \"Man or Boy Test = \")\n(Utils.show (ManOrBoy.A 10 (lambda () 1) (lambda () -1) (lambda () -1) (lambda () 1) (lambda () 0)))\n(newline)\n))\n((lambda () (define decrease\n  (lambda (x)\n    (- x 1)))\n\n(define show\n  (lambda (x)\n    (display x)))\n))\n((lambda () (import Utils \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.utils.scm\")\n\n(define A\n  (lambda (k x1 x2 x3 x4 x5)\n      (define B\n        (lambda ()\n            (set! k (Utils.decrease k))\n            (A k B x1 x2 x3 x4)))\n      (if (<= k 0)\n          (+ (x4) (x5))\n          (B))))\n))",
+    "moduleQualifiedName": "aurora.test.main",
+    "nodes": {
+      "data": {
+        "&aurora.test.main.APPLICATION_0": {
+          "type": "APPLICATION",
+          "parent": "&TOP_NODE",
+          "children": [
+            "&aurora.test.main.LAMBDA_1"
+          ]
+        },
+        "&aurora.test.main.LAMBDA_1": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.main.APPLICATION_0",
+          "children": [
+            "lambda",
+            [],
+            "&aurora.test.MoB.APPLICATION_2",
+            "&aurora.test.MoB.APPLICATION_4",
+            "&aurora.test.utils.APPLICATION_2",
+            "&aurora.test.utils.APPLICATION_5",
+            "&aurora.test.main.APPLICATION_2",
+            "&aurora.test.main.APPLICATION_4",
+            "&aurora.test.main.APPLICATION_6",
+            "&aurora.test.main.APPLICATION_8",
+            "&aurora.test.main.APPLICATION_15"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_2": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "import",
+            "Utils",
+            "&aurora.test.main.STRING_3"
+          ]
+        },
+        "&aurora.test.main.STRING_3": {
+          "type": "STRING",
+          "content": "\"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.utils.scm\""
+        },
+        "&aurora.test.main.APPLICATION_4": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "import",
+            "ManOrBoy",
+            "&aurora.test.main.STRING_5"
+          ]
+        },
+        "&aurora.test.main.STRING_5": {
+          "type": "STRING",
+          "content": "\"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.MoB.scm\""
+        },
+        "&aurora.test.main.APPLICATION_6": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.STRING_7"
+          ]
+        },
+        "&aurora.test.main.STRING_7": {
+          "type": "STRING",
+          "content": "\"Man or Boy Test = \""
+        },
+        "&aurora.test.main.APPLICATION_8": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.APPLICATION_9"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_9": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_8",
+          "children": [
+            "aurora.test.MoB.LAMBDA_1.A",
+            10,
+            "&aurora.test.main.LAMBDA_10",
+            "&aurora.test.main.LAMBDA_11",
+            "&aurora.test.main.LAMBDA_12",
+            "&aurora.test.main.LAMBDA_13",
+            "&aurora.test.main.LAMBDA_14"
+          ]
+        },
+        "&aurora.test.main.LAMBDA_10": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.main.APPLICATION_9",
+          "children": [
+            "lambda",
+            [],
+            1
+          ]
+        },
+        "&aurora.test.main.LAMBDA_11": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.main.APPLICATION_9",
+          "children": [
+            "lambda",
+            [],
+            -1
+          ]
+        },
+        "&aurora.test.main.LAMBDA_12": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.main.APPLICATION_9",
+          "children": [
+            "lambda",
+            [],
+            -1
+          ]
+        },
+        "&aurora.test.main.LAMBDA_13": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.main.APPLICATION_9",
+          "children": [
+            "lambda",
+            [],
+            1
+          ]
+        },
+        "&aurora.test.main.LAMBDA_14": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.main.APPLICATION_9",
+          "children": [
+            "lambda",
+            [],
+            0
+          ]
+        },
+        "&aurora.test.main.APPLICATION_15": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "newline"
+          ]
+        },
+        "&aurora.test.utils.APPLICATION_2": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "define",
+            "aurora.test.utils.LAMBDA_1.decrease",
+            "&aurora.test.utils.LAMBDA_3"
+          ]
+        },
+        "&aurora.test.utils.LAMBDA_3": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.utils.APPLICATION_2",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.utils.LAMBDA_3.x"
+            ],
+            "&aurora.test.utils.APPLICATION_4"
+          ]
+        },
+        "&aurora.test.utils.APPLICATION_4": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.utils.LAMBDA_3",
+          "children": [
+            "-",
+            "aurora.test.utils.LAMBDA_3.x",
+            1
+          ]
+        },
+        "&aurora.test.utils.APPLICATION_5": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "define",
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.utils.LAMBDA_6"
+          ]
+        },
+        "&aurora.test.utils.LAMBDA_6": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.utils.APPLICATION_5",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.utils.LAMBDA_6.x"
+            ],
+            "&aurora.test.utils.APPLICATION_7"
+          ]
+        },
+        "&aurora.test.utils.APPLICATION_7": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.utils.LAMBDA_6",
+          "children": [
+            "display",
+            "aurora.test.utils.LAMBDA_6.x"
+          ]
+        },
+        "&aurora.test.MoB.APPLICATION_2": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "import",
+            "Utils",
+            "&aurora.test.MoB.STRING_3"
+          ]
+        },
+        "&aurora.test.MoB.STRING_3": {
+          "type": "STRING",
+          "content": "\"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.utils.scm\""
+        },
+        "&aurora.test.MoB.APPLICATION_4": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "define",
+            "aurora.test.MoB.LAMBDA_1.A",
+            "&aurora.test.MoB.LAMBDA_5"
+          ]
+        },
+        "&aurora.test.MoB.LAMBDA_5": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.MoB.APPLICATION_4",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.MoB.LAMBDA_5.k",
+              "aurora.test.MoB.LAMBDA_5.x1",
+              "aurora.test.MoB.LAMBDA_5.x2",
+              "aurora.test.MoB.LAMBDA_5.x3",
+              "aurora.test.MoB.LAMBDA_5.x4",
+              "aurora.test.MoB.LAMBDA_5.x5"
+            ],
+            "&aurora.test.MoB.APPLICATION_6",
+            "&aurora.test.MoB.APPLICATION_11"
+          ]
+        },
+        "&aurora.test.MoB.APPLICATION_6": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.MoB.LAMBDA_5",
+          "children": [
+            "define",
+            "aurora.test.MoB.LAMBDA_5.B",
+            "&aurora.test.MoB.LAMBDA_7"
+          ]
+        },
+        "&aurora.test.MoB.LAMBDA_7": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.MoB.APPLICATION_6",
+          "children": [
+            "lambda",
+            [],
+            "&aurora.test.MoB.APPLICATION_8",
+            "&aurora.test.MoB.APPLICATION_10"
+          ]
+        },
+        "&aurora.test.MoB.APPLICATION_8": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.MoB.LAMBDA_7",
+          "children": [
+            "set!",
+            "aurora.test.MoB.LAMBDA_5.k",
+            "&aurora.test.MoB.APPLICATION_9"
+          ]
+        },
+        "&aurora.test.MoB.APPLICATION_9": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.MoB.APPLICATION_8",
+          "children": [
+            "aurora.test.utils.LAMBDA_1.decrease",
+            "aurora.test.MoB.LAMBDA_5.k"
+          ]
+        },
+        "&aurora.test.MoB.APPLICATION_10": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.MoB.LAMBDA_7",
+          "children": [
+            "aurora.test.MoB.LAMBDA_1.A",
+            "aurora.test.MoB.LAMBDA_5.k",
+            "aurora.test.MoB.LAMBDA_5.B",
+            "aurora.test.MoB.LAMBDA_5.x1",
+            "aurora.test.MoB.LAMBDA_5.x2",
+            "aurora.test.MoB.LAMBDA_5.x3",
+            "aurora.test.MoB.LAMBDA_5.x4"
+          ]
+        },
+        "&aurora.test.MoB.APPLICATION_11": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.MoB.LAMBDA_5",
+          "children": [
+            "if",
+            "&aurora.test.MoB.APPLICATION_12",
+            "&aurora.test.MoB.APPLICATION_13",
+            "&aurora.test.MoB.APPLICATION_16"
+          ]
+        },
+        "&aurora.test.MoB.APPLICATION_12": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.MoB.APPLICATION_11",
+          "children": [
+            "<=",
+            "aurora.test.MoB.LAMBDA_5.k",
+            0
+          ]
+        },
+        "&aurora.test.MoB.APPLICATION_13": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.MoB.APPLICATION_11",
+          "children": [
+            "+",
+            "&aurora.test.MoB.APPLICATION_14",
+            "&aurora.test.MoB.APPLICATION_15"
+          ]
+        },
+        "&aurora.test.MoB.APPLICATION_14": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.MoB.APPLICATION_13",
+          "children": [
+            "aurora.test.MoB.LAMBDA_5.x4"
+          ]
+        },
+        "&aurora.test.MoB.APPLICATION_15": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.MoB.APPLICATION_13",
+          "children": [
+            "aurora.test.MoB.LAMBDA_5.x5"
+          ]
+        },
+        "&aurora.test.MoB.APPLICATION_16": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.MoB.APPLICATION_11",
+          "children": [
+            "aurora.test.MoB.LAMBDA_5.B"
+          ]
+        }
+      },
+      "metadata": {
+        "&aurora.test.main.APPLICATION_0": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": [
+            null
+          ]
+        },
+        "&aurora.test.main.LAMBDA_1": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": [
+            null
+          ]
+        },
+        "&aurora.test.main.APPLICATION_2": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": [
+            null
+          ]
+        },
+        "&aurora.test.main.STRING_3": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": [
+            null
+          ]
+        },
+        "&aurora.test.main.APPLICATION_4": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": [
+            null
+          ]
+        },
+        "&aurora.test.main.STRING_5": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": [
+            null
+          ]
+        },
+        "&aurora.test.main.APPLICATION_6": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": [
+            null
+          ]
+        },
+        "&aurora.test.main.STRING_7": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": [
+            null
+          ]
+        },
+        "&aurora.test.main.APPLICATION_8": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": [
+            null
+          ]
+        },
+        "&aurora.test.main.APPLICATION_9": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": [
+            null
+          ]
+        },
+        "&aurora.test.main.LAMBDA_10": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": [
+            null
+          ]
+        },
+        "&aurora.test.main.LAMBDA_11": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": [
+            null
+          ]
+        },
+        "&aurora.test.main.LAMBDA_12": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": [
+            null
+          ]
+        },
+        "&aurora.test.main.LAMBDA_13": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": [
+            null
+          ]
+        },
+        "&aurora.test.main.LAMBDA_14": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": [
+            null
+          ]
+        },
+        "&aurora.test.main.APPLICATION_15": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": [
+            null
+          ]
+        },
+        "&aurora.test.utils.APPLICATION_0": {
+          "static": false,
+          "readOnly": false,
+          "status": "free",
+          "referrer": null
+        },
+        "&aurora.test.utils.LAMBDA_1": {
+          "static": false,
+          "readOnly": false,
+          "status": "free",
+          "referrer": null
+        },
+        "&aurora.test.utils.APPLICATION_2": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": []
+        },
+        "&aurora.test.utils.LAMBDA_3": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": []
+        },
+        "&aurora.test.utils.APPLICATION_4": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": []
+        },
+        "&aurora.test.utils.APPLICATION_5": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": []
+        },
+        "&aurora.test.utils.LAMBDA_6": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": []
+        },
+        "&aurora.test.utils.APPLICATION_7": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": []
+        },
+        "&aurora.test.MoB.APPLICATION_0": {
+          "static": false,
+          "readOnly": false,
+          "status": "free",
+          "referrer": null
+        },
+        "&aurora.test.MoB.LAMBDA_1": {
+          "static": false,
+          "readOnly": false,
+          "status": "free",
+          "referrer": null
+        },
+        "&aurora.test.MoB.APPLICATION_2": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": []
+        },
+        "&aurora.test.MoB.STRING_3": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": []
+        },
+        "&aurora.test.MoB.APPLICATION_4": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": []
+        },
+        "&aurora.test.MoB.LAMBDA_5": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": []
+        },
+        "&aurora.test.MoB.APPLICATION_6": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": []
+        },
+        "&aurora.test.MoB.LAMBDA_7": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": []
+        },
+        "&aurora.test.MoB.APPLICATION_8": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": []
+        },
+        "&aurora.test.MoB.APPLICATION_9": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": []
+        },
+        "&aurora.test.MoB.APPLICATION_10": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": []
+        },
+        "&aurora.test.MoB.APPLICATION_11": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": []
+        },
+        "&aurora.test.MoB.APPLICATION_12": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": []
+        },
+        "&aurora.test.MoB.APPLICATION_13": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": []
+        },
+        "&aurora.test.MoB.APPLICATION_14": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": []
+        },
+        "&aurora.test.MoB.APPLICATION_15": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": []
+        },
+        "&aurora.test.MoB.APPLICATION_16": {
+          "static": false,
+          "readOnly": false,
+          "status": "modified",
+          "referrer": []
+        }
+      },
+      "handleCounter": 16
+    },
+    "nodeIndexes": {
+      "&aurora.test.main.APPLICATION_0": 0,
+      "&aurora.test.main.LAMBDA_1": 1,
+      "&aurora.test.main.APPLICATION_2": 64,
+      "&aurora.test.main.STRING_3": 81,
+      "&aurora.test.main.APPLICATION_4": 148,
+      "&aurora.test.main.STRING_5": 165,
+      "&aurora.test.main.APPLICATION_6": 231,
+      "&aurora.test.main.STRING_7": 243,
+      "&aurora.test.main.APPLICATION_8": 265,
+      "&aurora.test.main.APPLICATION_9": 277,
+      "&aurora.test.main.LAMBDA_10": 292,
+      "&aurora.test.main.LAMBDA_11": 306,
+      "&aurora.test.main.LAMBDA_12": 321,
+      "&aurora.test.main.LAMBDA_13": 336,
+      "&aurora.test.main.LAMBDA_14": 350,
+      "&aurora.test.main.APPLICATION_15": 366,
+      "&aurora.test.utils.APPLICATION_0": 484,
+      "&aurora.test.utils.LAMBDA_1": 485,
+      "&aurora.test.utils.APPLICATION_2": 496,
+      "&aurora.test.utils.LAMBDA_3": 515,
+      "&aurora.test.utils.APPLICATION_4": 531,
+      "&aurora.test.utils.APPLICATION_5": 542,
+      "&aurora.test.utils.LAMBDA_6": 557,
+      "&aurora.test.utils.APPLICATION_7": 573,
+      "&aurora.test.MoB.APPLICATION_0": 789,
+      "&aurora.test.MoB.LAMBDA_1": 790,
+      "&aurora.test.MoB.APPLICATION_2": 801,
+      "&aurora.test.MoB.STRING_3": 815,
+      "&aurora.test.MoB.APPLICATION_4": 883,
+      "&aurora.test.MoB.LAMBDA_5": 895,
+      "&aurora.test.MoB.APPLICATION_6": 928,
+      "&aurora.test.MoB.LAMBDA_7": 946,
+      "&aurora.test.MoB.APPLICATION_8": 969,
+      "&aurora.test.MoB.APPLICATION_9": 977,
+      "&aurora.test.MoB.APPLICATION_10": 1009,
+      "&aurora.test.MoB.APPLICATION_11": 1037,
+      "&aurora.test.MoB.APPLICATION_12": 1041,
+      "&aurora.test.MoB.APPLICATION_13": 1060,
+      "&aurora.test.MoB.APPLICATION_14": 1063,
+      "&aurora.test.MoB.APPLICATION_15": 1068,
+      "&aurora.test.MoB.APPLICATION_16": 1084
+    },
+    "lambdaHandles": [
+      "&aurora.test.main.LAMBDA_1",
+      "&aurora.test.main.LAMBDA_10",
+      "&aurora.test.main.LAMBDA_11",
+      "&aurora.test.main.LAMBDA_12",
+      "&aurora.test.main.LAMBDA_13",
+      "&aurora.test.main.LAMBDA_14",
+      "&aurora.test.utils.LAMBDA_3",
+      "&aurora.test.utils.LAMBDA_6",
+      "&aurora.test.MoB.LAMBDA_5",
+      "&aurora.test.MoB.LAMBDA_7"
+    ],
+    "tailcall": [
+      "&aurora.test.main.APPLICATION_15",
+      "&aurora.test.main.APPLICATION_0",
+      "&aurora.test.utils.APPLICATION_4",
+      "&aurora.test.utils.APPLICATION_7",
+      "&aurora.test.utils.APPLICATION_5",
+      "&aurora.test.MoB.APPLICATION_10",
+      "&aurora.test.MoB.APPLICATION_13",
+      "&aurora.test.MoB.APPLICATION_16",
+      "&aurora.test.MoB.APPLICATION_4"
+    ],
+    "variableMapping": {
+      "aurora.test.utils.LAMBDA_1.decrease": "decrease",
+      "aurora.test.utils.LAMBDA_3.x": "x",
+      "aurora.test.utils.LAMBDA_1.show": "show",
+      "aurora.test.utils.LAMBDA_6.x": "x",
+      "aurora.test.MoB.LAMBDA_1.A": "A",
+      "aurora.test.MoB.LAMBDA_5.k": "k",
+      "aurora.test.MoB.LAMBDA_5.x1": "x1",
+      "aurora.test.MoB.LAMBDA_5.x2": "x2",
+      "aurora.test.MoB.LAMBDA_5.x3": "x3",
+      "aurora.test.MoB.LAMBDA_5.x4": "x4",
+      "aurora.test.MoB.LAMBDA_5.x5": "x5",
+      "aurora.test.MoB.LAMBDA_5.B": "B"
+    },
+    "topVariables": {
+      "decrease": "aurora.test.utils.LAMBDA_1.decrease",
+      "show": "aurora.test.utils.LAMBDA_1.show",
+      "A": "aurora.test.MoB.LAMBDA_1.A"
+    },
+    "dependencies": {
+      "Utils": "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.utils.scm",
+      "ManOrBoy": "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.MoB.scm"
+    },
+    "natives": {}
+  },
+  "ILCode": [
+    ";;",
+    ";; Aurora Intermediate Language (AIL) Code",
+    ";;   Module: aurora.test.main",
+    ";;   Generated by ASCompiler V0",
+    ";;",
+    ";; 🐟🐟🐟🐟🐟 Program Entry 🐟🐟🐟🐟🐟",
+    "   call @&aurora.test.main.LAMBDA_1",
+    "   halt",
+    ";; 🐟🐟🐟🐟🐟  Program End  🐟🐟🐟🐟🐟",
+    ";;",
+    ";; ✅ FUNCTION “&aurora.test.main.LAMBDA_1” BEGIN",
+    "   @&aurora.test.main.LAMBDA_1",
+    ";; ✅ APPLICATION “&aurora.test.MoB.APPLICATION_2” BEGIN",
+    ";; ✅ APPLICATION “&aurora.test.MoB.APPLICATION_4” BEGIN",
+    ";; ✅ DEFINE “&aurora.test.MoB.APPLICATION_4” BEGIN",
+    "   push @&aurora.test.MoB.LAMBDA_5",
+    "   store aurora.test.MoB.LAMBDA_1.A",
+    ";; 🛑 DEFINE “&aurora.test.MoB.APPLICATION_4” END   ",
+    ";;",
+    ";; ✅ APPLICATION “&aurora.test.utils.APPLICATION_2” BEGIN",
+    ";; ✅ DEFINE “&aurora.test.utils.APPLICATION_2” BEGIN",
+    "   push @&aurora.test.utils.LAMBDA_3",
+    "   store aurora.test.utils.LAMBDA_1.decrease",
+    ";; 🛑 DEFINE “&aurora.test.utils.APPLICATION_2” END   ",
+    ";;",
+    ";; ✅ APPLICATION “&aurora.test.utils.APPLICATION_5” BEGIN",
+    ";; ✅ DEFINE “&aurora.test.utils.APPLICATION_5” BEGIN",
+    "   push @&aurora.test.utils.LAMBDA_6",
+    "   store aurora.test.utils.LAMBDA_1.show",
+    ";; 🛑 DEFINE “&aurora.test.utils.APPLICATION_5” END   ",
+    ";;",
+    ";; ✅ APPLICATION “&aurora.test.main.APPLICATION_2” BEGIN",
+    ";; ✅ APPLICATION “&aurora.test.main.APPLICATION_4” BEGIN",
+    ";; ✅ APPLICATION “&aurora.test.main.APPLICATION_6” BEGIN",
+    "   push &aurora.test.main.STRING_7",
+    "   call aurora.test.utils.LAMBDA_1.show",
+    ";; 🛑 APPLICATION “&aurora.test.main.APPLICATION_6” END   ",
+    ";;",
+    ";; ✅ APPLICATION “&aurora.test.main.APPLICATION_8” BEGIN",
+    ";; ✅ APPLICATION “&aurora.test.main.APPLICATION_9” BEGIN",
+    "   push 10",
+    "   loadclosure @&aurora.test.main.LAMBDA_10",
+    "   loadclosure @&aurora.test.main.LAMBDA_11",
+    "   loadclosure @&aurora.test.main.LAMBDA_12",
+    "   loadclosure @&aurora.test.main.LAMBDA_13",
+    "   loadclosure @&aurora.test.main.LAMBDA_14",
+    "   call aurora.test.MoB.LAMBDA_1.A",
+    ";; 🛑 APPLICATION “&aurora.test.main.APPLICATION_9” END   ",
+    ";;",
+    "   call aurora.test.utils.LAMBDA_1.show",
+    ";; 🛑 APPLICATION “&aurora.test.main.APPLICATION_8” END   ",
+    ";;",
+    ";; ✅ APPLICATION “&aurora.test.main.APPLICATION_15” BEGIN",
+    "   newline",
+    ";; 🛑 APPLICATION “&aurora.test.main.APPLICATION_15” END   ",
+    ";;",
+    "   return",
+    ";; 🛑 FUNCTION “&aurora.test.main.LAMBDA_1” END   ",
+    ";;",
+    ";; ✅ FUNCTION “&aurora.test.main.LAMBDA_10” BEGIN",
+    "   @&aurora.test.main.LAMBDA_10",
+    "   push 1",
+    "   return",
+    ";; 🛑 FUNCTION “&aurora.test.main.LAMBDA_10” END   ",
+    ";;",
+    ";; ✅ FUNCTION “&aurora.test.main.LAMBDA_11” BEGIN",
+    "   @&aurora.test.main.LAMBDA_11",
+    "   push -1",
+    "   return",
+    ";; 🛑 FUNCTION “&aurora.test.main.LAMBDA_11” END   ",
+    ";;",
+    ";; ✅ FUNCTION “&aurora.test.main.LAMBDA_12” BEGIN",
+    "   @&aurora.test.main.LAMBDA_12",
+    "   push -1",
+    "   return",
+    ";; 🛑 FUNCTION “&aurora.test.main.LAMBDA_12” END   ",
+    ";;",
+    ";; ✅ FUNCTION “&aurora.test.main.LAMBDA_13” BEGIN",
+    "   @&aurora.test.main.LAMBDA_13",
+    "   push 1",
+    "   return",
+    ";; 🛑 FUNCTION “&aurora.test.main.LAMBDA_13” END   ",
+    ";;",
+    ";; ✅ FUNCTION “&aurora.test.main.LAMBDA_14” BEGIN",
+    "   @&aurora.test.main.LAMBDA_14",
+    "   push 0",
+    "   return",
+    ";; 🛑 FUNCTION “&aurora.test.main.LAMBDA_14” END   ",
+    ";;",
+    ";; ✅ FUNCTION “&aurora.test.utils.LAMBDA_3” BEGIN",
+    "   @&aurora.test.utils.LAMBDA_3",
+    "   store aurora.test.utils.LAMBDA_3.x",
+    ";; ✅ APPLICATION “&aurora.test.utils.APPLICATION_4” BEGIN",
+    "   load aurora.test.utils.LAMBDA_3.x",
+    "   push 1",
+    "   sub",
+    ";; 🛑 APPLICATION “&aurora.test.utils.APPLICATION_4” END   ",
+    ";;",
+    "   return",
+    ";; 🛑 FUNCTION “&aurora.test.utils.LAMBDA_3” END   ",
+    ";;",
+    ";; ✅ FUNCTION “&aurora.test.utils.LAMBDA_6” BEGIN",
+    "   @&aurora.test.utils.LAMBDA_6",
+    "   store aurora.test.utils.LAMBDA_6.x",
+    ";; ✅ APPLICATION “&aurora.test.utils.APPLICATION_7” BEGIN",
+    "   load aurora.test.utils.LAMBDA_6.x",
+    "   display",
+    ";; 🛑 APPLICATION “&aurora.test.utils.APPLICATION_7” END   ",
+    ";;",
+    "   return",
+    ";; 🛑 FUNCTION “&aurora.test.utils.LAMBDA_6” END   ",
+    ";;",
+    ";; ✅ FUNCTION “&aurora.test.MoB.LAMBDA_5” BEGIN",
+    "   @&aurora.test.MoB.LAMBDA_5",
+    "   store aurora.test.MoB.LAMBDA_5.x5",
+    "   store aurora.test.MoB.LAMBDA_5.x4",
+    "   store aurora.test.MoB.LAMBDA_5.x3",
+    "   store aurora.test.MoB.LAMBDA_5.x2",
+    "   store aurora.test.MoB.LAMBDA_5.x1",
+    "   store aurora.test.MoB.LAMBDA_5.k",
+    ";; ✅ APPLICATION “&aurora.test.MoB.APPLICATION_6” BEGIN",
+    ";; ✅ DEFINE “&aurora.test.MoB.APPLICATION_6” BEGIN",
+    "   push @&aurora.test.MoB.LAMBDA_7",
+    "   store aurora.test.MoB.LAMBDA_5.B",
+    ";; 🛑 DEFINE “&aurora.test.MoB.APPLICATION_6” END   ",
+    ";;",
+    ";; ✅ APPLICATION “&aurora.test.MoB.APPLICATION_11” BEGIN",
+    ";; ✅ IF “&aurora.test.MoB.APPLICATION_11” BEGIN",
+    ";; ✅ APPLICATION “&aurora.test.MoB.APPLICATION_12” BEGIN",
+    "   load aurora.test.MoB.LAMBDA_5.k",
+    "   push 0",
+    "   le",
+    ";; 🛑 APPLICATION “&aurora.test.MoB.APPLICATION_12” END   ",
+    ";;",
+    "   iftrue @IF_TRUE_aurora.test.main.ID0",
+    ";; ✅ APPLICATION “&aurora.test.MoB.APPLICATION_16” BEGIN",
+    "   tailcall aurora.test.MoB.LAMBDA_5.B",
+    ";; 🛑 APPLICATION “&aurora.test.MoB.APPLICATION_16” END   ",
+    ";;",
+    "   goto @IF_END_aurora.test.main.ID0",
+    "   @IF_TRUE_aurora.test.main.ID0",
+    ";; ✅ APPLICATION “&aurora.test.MoB.APPLICATION_13” BEGIN",
+    ";; ✅ APPLICATION “&aurora.test.MoB.APPLICATION_14” BEGIN",
+    "   call aurora.test.MoB.LAMBDA_5.x4",
+    ";; 🛑 APPLICATION “&aurora.test.MoB.APPLICATION_14” END   ",
+    ";;",
+    ";; ✅ APPLICATION “&aurora.test.MoB.APPLICATION_15” BEGIN",
+    "   call aurora.test.MoB.LAMBDA_5.x5",
+    ";; 🛑 APPLICATION “&aurora.test.MoB.APPLICATION_15” END   ",
+    ";;",
+    "   add",
+    ";; 🛑 APPLICATION “&aurora.test.MoB.APPLICATION_13” END   ",
+    ";;",
+    "   @IF_END_aurora.test.main.ID0",
+    ";; 🛑 IF “&aurora.test.MoB.APPLICATION_11” END   ",
+    ";;",
+    "   return",
+    ";; 🛑 FUNCTION “&aurora.test.MoB.LAMBDA_5” END   ",
+    ";;",
+    ";; ✅ FUNCTION “&aurora.test.MoB.LAMBDA_7” BEGIN",
+    "   @&aurora.test.MoB.LAMBDA_7",
+    ";; ✅ APPLICATION “&aurora.test.MoB.APPLICATION_8” BEGIN",
+    ";; ✅ SET! “&aurora.test.MoB.APPLICATION_8” BEGIN",
+    ";; ✅ APPLICATION “&aurora.test.MoB.APPLICATION_9” BEGIN",
+    "   load aurora.test.MoB.LAMBDA_5.k",
+    "   call aurora.test.utils.LAMBDA_1.decrease",
+    ";; 🛑 APPLICATION “&aurora.test.MoB.APPLICATION_9” END   ",
+    ";;",
+    "   set aurora.test.MoB.LAMBDA_5.k",
+    ";; 🛑 SET! “&aurora.test.MoB.APPLICATION_8” END   ",
+    ";;",
+    ";; ✅ APPLICATION “&aurora.test.MoB.APPLICATION_10” BEGIN",
+    "   load aurora.test.MoB.LAMBDA_5.k",
+    "   load aurora.test.MoB.LAMBDA_5.B",
+    "   load aurora.test.MoB.LAMBDA_5.x1",
+    "   load aurora.test.MoB.LAMBDA_5.x2",
+    "   load aurora.test.MoB.LAMBDA_5.x3",
+    "   load aurora.test.MoB.LAMBDA_5.x4",
+    "   tailcall aurora.test.MoB.LAMBDA_1.A",
+    ";; 🛑 APPLICATION “&aurora.test.MoB.APPLICATION_10” END   ",
+    ";;",
+    "   return",
+    ";; 🛑 FUNCTION “&aurora.test.MoB.LAMBDA_7” END   ",
+    ";;"
+  ]
+}

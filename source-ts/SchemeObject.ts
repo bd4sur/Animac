@@ -228,6 +228,11 @@ class LambdaObject extends SchemeObject {
     public getBodies(): Array<any> {
         return this.children.slice(2);
     }
+
+    // 用于AST融合
+    public setBodies(bodies: Array<any>): void {
+        this.children = this.children.slice(0, 2).concat(bodies);
+    }
 }
 
 // 字符串对象

@@ -86,6 +86,87 @@ class AST {
         this.nodes.Set(handle, node);
         return handle;
     }
+
+    // 查找最顶级Application的把柄（用于尾调用起始位置、AST融合等场合）
+    public TopApplicationNodeHandle() {
+        let TopHandle: Handle = null;
+        this.nodes.ForEach((nodeHandle)=> {
+            if(this.nodes.Get(nodeHandle).parent === TOP_NODE_HANDLE) {
+                TopHandle = nodeHandle;
+                return "break";
+            }
+        });
+        return TopHandle;
+    }
+
+    // 融合另一个AST（注意，把柄需完全不同，否则会冲突报错）
+    // TODO 这里细节比较复杂，需要写一份文档描述
+    public MergeAST(anotherAST: AST) {
+        this.source += "\n";
+        this.source += anotherAST.source;
+
+        // 注意：为了维持词法作用域关系，不可以简单地将两个nodes并列起来，而应该将源AST的顶级Lambda节点追加到目标AST的顶级Lambda节点的bodie中
+        // 1 融合
+        anotherAST.nodes.ForEach((hd)=> {
+            let node = anotherAST.nodes.Get(hd);
+            this.nodes.NewHandle(hd); // 任何把柄在使用前都需要先注册，以初始化元数据
+            this.nodes.Set(hd, node); // TODO：建议深拷贝
+        });
+        // 2 重组
+
+        let sourceTopApplicationNodeHandle = anotherAST.TopApplicationNodeHandle();
+        let sourceTopLambdaNodeHandle = anotherAST.nodes.Get(sourceTopApplicationNodeHandle).children[0];
+        let sourceGlobalNodeHandles = anotherAST.nodes.Get(sourceTopLambdaNodeHandle).getBodies();
+
+        let targetTopLambdaNodeHandle = this.nodes.Get(this.TopApplicationNodeHandle()).children[0];
+        let targetGlobalNodeHandles = this.nodes.Get(targetTopLambdaNodeHandle).getBodies();
+
+        // 依赖（源）节点应挂载到前面
+        this.nodes.Get(targetTopLambdaNodeHandle).setBodies(sourceGlobalNodeHandles.concat(targetGlobalNodeHandles));
+
+        // 修改被挂载节点的parent字段
+        for(let i = 0; i < sourceGlobalNodeHandles.length; i++) {
+            this.nodes.Get(sourceGlobalNodeHandles[i]).parent = targetTopLambdaNodeHandle;
+        }
+        // 3、删除原来的顶级App节点和顶级Lambda节点
+        this.nodes.DeleteHandle(sourceTopLambdaNodeHandle);
+        this.nodes.DeleteHandle(sourceTopApplicationNodeHandle);
+
+        for(let hd in anotherAST.nodeIndexes) {
+            let oldValue = anotherAST.nodeIndexes.get(hd);
+            this.nodeIndexes.set(hd, oldValue + this.source.length);
+        }
+
+        for(let hd of anotherAST.lambdaHandles) {
+            if(hd === sourceTopLambdaNodeHandle) continue; // 注意去掉已删除的顶级Lambda节点
+            this.lambdaHandles.push(hd);
+        }
+
+        for(let hd of anotherAST.tailcall) {
+            if(hd === sourceTopApplicationNodeHandle) continue; // 注意去掉已删除的顶级Application节点
+            this.tailcall.push(hd);
+        }
+
+        for(let hd in anotherAST.variableMapping) {
+            let oldValue = anotherAST.variableMapping.get(hd);
+            this.variableMapping.set(hd, oldValue);
+        }
+
+        for(let hd in anotherAST.topVariables) {
+            let oldValue = anotherAST.topVariables.get(hd);
+            this.topVariables.set(hd, oldValue);
+        }
+
+        for(let hd in anotherAST.dependencies) {
+            let oldValue = anotherAST.dependencies.get(hd);
+            this.dependencies.set(hd, oldValue);
+        }
+
+        for(let hd in anotherAST.natives) {
+            let oldValue = anotherAST.natives.get(hd);
+            this.natives.set(hd, oldValue);
+        }
+    }
 }
 
 class Scope {
@@ -676,17 +757,8 @@ function Parse(code: string, moduleQualifiedName: string): AST {
     PreprocessAnalysis();
     // 作用域解析
     ScopeAnalysis();
-
-    // 查找顶级Application的把柄（也可以用取巧的方法，但最好不用）
-    let TopApplicationNodeHandle: Handle = null;
-    ast.nodes.ForEach((nodeHandle)=> {
-        if(ast.nodes.Get(nodeHandle).parent === TOP_NODE_HANDLE) {
-            TopApplicationNodeHandle = nodeHandle;
-            return "break";
-        }
-    });
     // 尾调用分析
-    TailCallAnalysis(TopApplicationNodeHandle, true);
+    TailCallAnalysis(ast.TopApplicationNodeHandle(), true);
 
     return ast;
 }

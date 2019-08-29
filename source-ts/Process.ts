@@ -45,15 +45,16 @@ class Process {
 
     /* 构造器 */
     // TODO 待实现，目前仅供测试
-    constructor(module: Module) {
+    constructor(modul: Module) {
         this.processID = 0;
         this.parentProcessID = 0;
 
         this.state = ProcessState.READY;
 
-        this.AST = module.AST;
+        this.AST = modul.AST;
 
-        this.instructions = module.ILCode;
+        this.instructions = modul.ILCode;
+
         this.labelMapping = new HashMap();
 
         this.heap = new Memory();

@@ -9,6 +9,7 @@
         "Lexer.ts",
         "Parser.ts",
         "Compiler.ts",
+        "ModuleLoader.ts",
         "Process.ts",
         "Runtime.ts",
         "Instruction.ts",

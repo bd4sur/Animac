@@ -271,6 +271,10 @@ class LambdaObject extends SchemeObject {
     getBodies() {
         return this.children.slice(2);
     }
+    // 用于AST融合
+    setBodies(bodies) {
+        this.children = this.children.slice(0, 2).concat(bodies);
+    }
 }
 // 字符串对象
 class StringObject extends SchemeObject {
@@ -548,6 +552,75 @@ class AST {
         let node = new StringObject(str);
         this.nodes.Set(handle, node);
         return handle;
+    }
+    // 查找最顶级Application的把柄（用于尾调用起始位置、AST融合等场合）
+    TopApplicationNodeHandle() {
+        let TopHandle = null;
+        this.nodes.ForEach((nodeHandle) => {
+            if (this.nodes.Get(nodeHandle).parent === TOP_NODE_HANDLE) {
+                TopHandle = nodeHandle;
+                return "break";
+            }
+        });
+        return TopHandle;
+    }
+    // 融合另一个AST（注意，把柄需完全不同，否则会冲突报错）
+    // TODO 这里细节比较复杂，需要写一份文档描述
+    MergeAST(anotherAST) {
+        this.source += "\n";
+        this.source += anotherAST.source;
+        // 注意：为了维持词法作用域关系，不可以简单地将两个nodes并列起来，而应该将源AST的顶级Lambda节点追加到目标AST的顶级Lambda节点的bodie中
+        // 1 融合
+        anotherAST.nodes.ForEach((hd) => {
+            let node = anotherAST.nodes.Get(hd);
+            this.nodes.NewHandle(hd); // 任何把柄在使用前都需要先注册，以初始化元数据
+            this.nodes.Set(hd, node); // TODO：建议深拷贝
+        });
+        // 2 重组
+        let sourceTopApplicationNodeHandle = anotherAST.TopApplicationNodeHandle();
+        let sourceTopLambdaNodeHandle = anotherAST.nodes.Get(sourceTopApplicationNodeHandle).children[0];
+        let sourceGlobalNodeHandles = anotherAST.nodes.Get(sourceTopLambdaNodeHandle).getBodies();
+        let targetTopLambdaNodeHandle = this.nodes.Get(this.TopApplicationNodeHandle()).children[0];
+        let targetGlobalNodeHandles = this.nodes.Get(targetTopLambdaNodeHandle).getBodies();
+        // 依赖（源）节点应挂载到前面
+        this.nodes.Get(targetTopLambdaNodeHandle).setBodies(sourceGlobalNodeHandles.concat(targetGlobalNodeHandles));
+        // 修改被挂载节点的parent字段
+        for (let i = 0; i < sourceGlobalNodeHandles.length; i++) {
+            this.nodes.Get(sourceGlobalNodeHandles[i]).parent = targetTopLambdaNodeHandle;
+        }
+        // 3、删除原来的顶级App节点和顶级Lambda节点
+        this.nodes.DeleteHandle(sourceTopLambdaNodeHandle);
+        this.nodes.DeleteHandle(sourceTopApplicationNodeHandle);
+        for (let hd in anotherAST.nodeIndexes) {
+            let oldValue = anotherAST.nodeIndexes.get(hd);
+            this.nodeIndexes.set(hd, oldValue + this.source.length);
+        }
+        for (let hd of anotherAST.lambdaHandles) {
+            if (hd === sourceTopLambdaNodeHandle)
+                continue; // 注意去掉已删除的顶级Lambda节点
+            this.lambdaHandles.push(hd);
+        }
+        for (let hd of anotherAST.tailcall) {
+            if (hd === sourceTopApplicationNodeHandle)
+                continue; // 注意去掉已删除的顶级Application节点
+            this.tailcall.push(hd);
+        }
+        for (let hd in anotherAST.variableMapping) {
+            let oldValue = anotherAST.variableMapping.get(hd);
+            this.variableMapping.set(hd, oldValue);
+        }
+        for (let hd in anotherAST.topVariables) {
+            let oldValue = anotherAST.topVariables.get(hd);
+            this.topVariables.set(hd, oldValue);
+        }
+        for (let hd in anotherAST.dependencies) {
+            let oldValue = anotherAST.dependencies.get(hd);
+            this.dependencies.set(hd, oldValue);
+        }
+        for (let hd in anotherAST.natives) {
+            let oldValue = anotherAST.natives.get(hd);
+            this.natives.set(hd, oldValue);
+        }
     }
 }
 class Scope {
@@ -1091,36 +1164,18 @@ function Parse(code, moduleQualifiedName) {
     PreprocessAnalysis();
     // 作用域解析
     ScopeAnalysis();
-    // 查找顶级Application的把柄（也可以用取巧的方法，但最好不用）
-    let TopApplicationNodeHandle = null;
-    ast.nodes.ForEach((nodeHandle) => {
-        if (ast.nodes.Get(nodeHandle).parent === TOP_NODE_HANDLE) {
-            TopApplicationNodeHandle = nodeHandle;
-            return "break";
-        }
-    });
     // 尾调用分析
-    TailCallAnalysis(TopApplicationNodeHandle, true);
+    TailCallAnalysis(ast.TopApplicationNodeHandle(), true);
     return ast;
 }
 // Compiler.ts
-// 编译器：AST→Module
-// 模块
-//   模块如同Java的字节码文件，包含代码、静态资源和元数据等
-class Module {
-    constructor() {
-        this.ILCode = new Array();
-    }
-}
-// TODO 模块结构设计，需要注意 ①元数据 ②可序列化性 ③与Runtime和Process结构对接
-Module.AVM_Version = "V0";
+// 编译器：AST→ILCode
 //////////////////////////////////////////////////
 //
-//  编译器：将AST编译成运行时环境可执行的模块
+//  编译器：将AST编译成中间语言代码
 //
 //////////////////////////////////////////////////
 function Compile(ast) {
-    let module = new Module();
     let ILCode = new Array();
     ///////////////////////////////
     //  工具函数
@@ -1756,10 +1811,154 @@ function Compile(ast) {
     }
     // 开始编译，并组装成模块
     CompileAll();
-    // TODO 组装模块，必要的元数据也要有
-    module.AST = ast;
-    module.ILCode = ILCode;
-    return module;
+    return ILCode;
+}
+// ModuleLoader.ts
+// 模块加载器
+// 模块
+//   模块如同Java的字节码文件，包含代码、静态资源和元数据等
+class Module {
+}
+// TODO 模块结构设计，需要注意 ①元数据 ②可序列化性 ③与Runtime和Process结构对接
+Module.AVM_Version = "V0";
+// 载入模块：本质上是静态链接
+function LoadModule(path) {
+    // 所有互相依赖的AST
+    let allASTs = new HashMap();
+    // 依赖关系图：[[模块名, 依赖模块名], ...]
+    let dependencyGraph = new Array();
+    const fs = require("fs");
+    // 递归地引入所有依赖文件，并检测循环依赖
+    (function importModule(path) {
+        let code;
+        try {
+            code = fs.readFileSync(path, "utf-8");
+        }
+        catch (_a) {
+            throw `[Error] 模块“${path}”未找到。`;
+        }
+        code = `((lambda () ${code}))`;
+        let moduleQualifiedName = PathUtils.GetModuleQualifiedName(path);
+        let currentAST = Parse(code, moduleQualifiedName);
+        allASTs.set(moduleQualifiedName, currentAST);
+        for (let alias in currentAST.dependencies) {
+            let dependencyPath = currentAST.dependencies.get(alias);
+            dependencyGraph.push([
+                moduleQualifiedName,
+                PathUtils.GetModuleQualifiedName(dependencyPath)
+            ]);
+            // 立即检测是否有循环依赖
+            let hasLoop = DetectRecursiveDependency(dependencyGraph);
+            if (hasLoop) {
+                throw `[Error] 模块之间存在循环依赖，无法载入模块。`;
+            }
+            importModule(dependencyPath);
+        }
+    })(path);
+    // 对每个AST中使用的 外部模块引用 作换名处理
+    for (let moduleName in allASTs) {
+        let currentAST = allASTs.get(moduleName);
+        currentAST.nodes.ForEach((nodeHandle) => {
+            let node = currentAST.nodes.Get(nodeHandle);
+            if (node.type === "LAMBDA" || node.type === "APPLICATION") {
+                for (let i = 0; i < node.children.length; i++) {
+                    let token = node.children[i];
+                    if (isVariable(token) && node.children[0] !== "import") {
+                        let prefix = token.split(".")[0];
+                        let suffix = token.split(".").slice(1).join("");
+                        if (prefix in currentAST.dependencies) {
+                            // 在相应的依赖模块中查找原名，并替换
+                            let targetModuleName = PathUtils.GetModuleQualifiedName(currentAST.dependencies.get(prefix));
+                            let targetVarName = (allASTs.get(targetModuleName).topVariables).get(suffix);
+                            node.children[i] = targetVarName;
+                        }
+                    }
+                }
+            }
+        });
+    }
+    // 将AST融合起来，编译为单一模块
+    let mergedModule = new Module();
+    let mainModuleQualifiedName = PathUtils.GetModuleQualifiedName(path);
+    mergedModule.AST = allASTs.get(mainModuleQualifiedName);
+    // TODO 按照依赖关系图的拓扑排序进行融合
+    for (let moduleName in allASTs) {
+        if (moduleName === mainModuleQualifiedName)
+            continue;
+        mergedModule.AST.MergeAST(allASTs.get(moduleName));
+    }
+    // 编译
+    mergedModule.ILCode = Compile(mergedModule.AST);
+    return mergedModule;
+}
+// 对依赖关系图作拓扑排序，进而检测是否存在环路
+function DetectRecursiveDependency(dependencyGraph) {
+    // 建立邻接表
+    let moduleNames = new HashMap();
+    for (let i = 0; i < dependencyGraph.length; i++) {
+        moduleNames[dependencyGraph[i][0]] = 0;
+        moduleNames[dependencyGraph[i][1]] = 0;
+    }
+    let counter = 0;
+    for (let n in moduleNames) {
+        moduleNames[n] = counter;
+        counter++;
+    }
+    let adjMatrix = new Array();
+    for (let i = 0; i < counter; i++) {
+        let init = new Array();
+        for (let j = 0; j < counter; j++) {
+            init[j] = false;
+        }
+        adjMatrix[i] = init;
+    }
+    for (let i = 0; i < dependencyGraph.length; i++) {
+        let left = moduleNames[dependencyGraph[i][0]];
+        let right = moduleNames[dependencyGraph[i][1]];
+        adjMatrix[left][right] = true;
+    }
+    // 拓扑排序
+    let hasLoop = false;
+    let sortedModuleIndex = new Array();
+    (function sort(adjMatrix) {
+        // 计算某节点入度
+        function getInDegree(vertex, adjMatrix) {
+            let count = 0;
+            if (!(adjMatrix[vertex])) {
+                return -1;
+            }
+            for (let i = 0; i < adjMatrix[vertex].length; i++) {
+                if (adjMatrix[vertex][i] === true)
+                    count++;
+            }
+            return count;
+        }
+        while (sortedModuleIndex.length < adjMatrix.length) {
+            // 计算入度为0的点
+            let zeroInDegVertex = null;
+            for (let i = 0; i < adjMatrix.length; i++) {
+                let indeg = getInDegree(i, adjMatrix);
+                if (indeg === 0) {
+                    zeroInDegVertex = i;
+                    break;
+                }
+            }
+            if (zeroInDegVertex === null) {
+                hasLoop = true;
+                return;
+            }
+            sortedModuleIndex.push(zeroInDegVertex);
+            // 删除这个点
+            for (let i = 0; i < adjMatrix.length; i++) {
+                if (!(adjMatrix[i])) {
+                    continue;
+                }
+                adjMatrix[i][zeroInDegVertex] = false;
+            }
+            adjMatrix[zeroInDegVertex] = undefined;
+        }
+    })(adjMatrix);
+    return hasLoop;
 }
 // Process.ts
 // 进程数据结构
@@ -1782,14 +1981,14 @@ var ProcessState;
 class Process {
     /* 构造器 */
     // TODO 待实现，目前仅供测试
-    constructor(module) {
+    constructor(modul) {
         // 执行机核心：栈、闭包和续延
         this.PC = 0; // 程序计数器（即当前执行的指令索引）
         this.processID = 0;
         this.parentProcessID = 0;
         this.state = ProcessState.READY;
-        this.AST = module.AST;
-        this.instructions = module.ILCode;
+        this.AST = modul.AST;
+        this.instructions = modul.ILCode;
         this.labelMapping = new HashMap();
         this.heap = new Memory();
         this.PC = 0;
@@ -2773,154 +2972,17 @@ function Execute(PROCESS, RUNTIME) {
 ///////////////////////////////////////////////
 // UT.ts
 // 单元测试
-// import * as fs from "fs";
 const fs = require("fs");
-// Parser测试
-function UT_Parser() {
-    const TESTCASE = `
-    ((lambda ()
-    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    
-    ;; AppLib测试
-    (native HTTPS)
-    (native String)
-    (native Math)
-    (native File)
-    (import "../../../source/applib/list.scm" List)
-    (define multiply
-      (lambda (x y) (Math.mul x y)))
-    (display (List.reduce '(1 2 3 4 5 6 7 8 9 10) multiply 1))
-    
-    (define filter
-      (lambda (f lst)
-        (if (null? lst)
-            '()
-            (if (f (car lst))
-                (cons (car lst) (filter f (cdr lst)))
-                (filter f (cdr lst))))))
-    
-    (define concat
-      (lambda (a b)
-        (if (null? a)
-            b
-            (cons (car a) (concat (cdr a) b)))))
-    
-    (define quicksort
-      (lambda (array)
-        (if (or (null? array) (null? (cdr array)))
-            array
-            (concat (quicksort (filter (lambda (x)
-                                         (if (< x (car array)) #t #f))
-                                       array))
-                               (cons (car array)
-                                     (quicksort (filter (lambda (x)
-                                                          (if (> x (car array)) #t #f))
-                                                        array)))))))
-    
-    (display "【SSC编译】快速排序：")
-    (display (quicksort '(5 9 1 7 (5 3 0) 4 6 8 2)))
-    (newline)
-    
-    
-    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    ))
-    `;
-    let ast = Parse(TESTCASE, "me.aurora.TestModule");
-    fs.writeFileSync("./AST.json", JSON.stringify(ast, null, 2), "utf-8");
-}
-/*
-((lambda ()
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(define Count 100)
-(define Add
-  (lambda (x y)
-    (set! Count (+ 1 Count))
-    (if (= y 0)
-        x
-        (+ 1 (Add x (- y 1))))))
-
-(display (Add 10 5))
-(newline)
-(display Count)
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-))
-*/
-function UT_Instruction() {
-    const instructions = [
-        `   call    @&LAMBDA_0`,
-        `   halt`,
-        `;; 函数&LAMBDA_n(Add)开始`,
-        `   @&LAMBDA_n`,
-        `;; Parameters:(x y)`,
-        `   store   me.aurora.test.&LAMBDA_n.y`,
-        `   store   me.aurora.test.&LAMBDA_n.x`,
-        `;; (set! Count (+ 1 Count))`,
-        `   push    1`,
-        `   load    me.aurora.test.&LAMBDA_0.Count`,
-        `   add`,
-        `   set     me.aurora.test.&LAMBDA_0.Count`,
-        `;; (if COND_0 TRUE_ROUTE_0 FALSE_ROUTE_0)`,
-        `   @COND_0`,
-        `   load    me.aurora.test.&LAMBDA_n.y`,
-        `   push    0`,
-        `   eqn`,
-        `   iffalse @FALSE_ROUTE_0`,
-        `   @TRUE_ROUTE_0`,
-        `   load    me.aurora.test.&LAMBDA_n.x`,
-        `   goto    @END_IF_0`,
-        `   @FALSE_ROUTE_0`,
-        `   push    1`,
-        `   load    me.aurora.test.&LAMBDA_n.x`,
-        `   load    me.aurora.test.&LAMBDA_n.y`,
-        `   push    1`,
-        `   sub`,
-        `   call    me.aurora.test.&LAMBDA_0.Add`,
-        `   add`,
-        `   @END_IF_0`,
-        `   return`,
-        `;; 函数&LAMBDA_n(顶级作用域)开始`,
-        `   @&LAMBDA_0`,
-        `;; (define Count 100)`,
-        `   push    100`,
-        `   store   me.aurora.test.&LAMBDA_0.Count`,
-        `;; (define Add &LAMBDA_n)`,
-        `   push    @&LAMBDA_n`,
-        `   store   me.aurora.test.&LAMBDA_0.Add`,
-        `;; (Add 10 5)`,
-        `   push    10`,
-        `   push    5`,
-        `   call    me.aurora.test.&LAMBDA_0.Add`,
-        `   display`,
-        `   newline`,
-        `   load    me.aurora.test.&LAMBDA_0.Count`,
-        `   display`,
-        `   return`,
-    ];
-    // IL指令集和VM测试
-    // 期望结果：15 106
-    // let process = new Process(instructions);
-    // while(process.state !== ProcessState.STOPPED) {
-    //     // console.log(process.CurrentInstruction().instruction);
-    //     Execute(process, null);
-    // }
-}
-// Compiler测试
-function UT_Compiler() {
-    let sourcePath = "../testcase/aurora.test.scm";
-    let schemeCode = fs.readFileSync(sourcePath);
-    schemeCode = `((lambda () ${schemeCode}))`;
-    let AST = Parse(schemeCode, PathUtils.GetModuleQualifiedName(sourcePath));
-    fs.writeFileSync("../testcase/AST.json", JSON.stringify(AST, null, 2), "utf-8");
-    let module = Compile(AST);
-    let ILCodeStr = module.ILCode.join('\n');
-    fs.writeFileSync("../testcase/ILCode.txt", ILCodeStr, "utf-8");
+function UT() {
+    // TODO 相对路径处理
+    let sourcePath = "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.main.scm";
+    let targetModule = LoadModule(sourcePath);
+    fs.writeFileSync("E:/Desktop/GitRepos/AuroraScheme/testcase/Module.json", JSON.stringify(targetModule, null, 2), "utf-8");
     // 捎带着测试一下AVM
-    let process = new Process(module);
+    let process = new Process(targetModule);
     while (process.state !== ProcessState.STOPPED) {
         // console.log(process.CurrentInstruction().instruction);
         Execute(process, null);
     }
 }
-// UT_Parser();
-// UT_Instruction();
-UT_Compiler();
+UT();

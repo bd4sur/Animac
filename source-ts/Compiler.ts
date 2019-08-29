@@ -1,28 +1,14 @@
 
 // Compiler.ts
-// 编译器：AST→Module
-
-// 模块
-//   模块如同Java的字节码文件，包含代码、静态资源和元数据等
-class Module {
-    // TODO 模块结构设计，需要注意 ①元数据 ②可序列化性 ③与Runtime和Process结构对接
-    static AVM_Version: string = "V0";
-    public AST: AST;
-    public ILCode: Array<string>;
-
-    constructor() {
-        this.ILCode = new Array();
-    }
-}
+// 编译器：AST→ILCode
 
 //////////////////////////////////////////////////
 //
-//  编译器：将AST编译成运行时环境可执行的模块
+//  编译器：将AST编译成中间语言代码
 //
 //////////////////////////////////////////////////
 
-function Compile(ast: AST): Module {
-    let module = new Module();
+function Compile(ast: AST): Array<string> {
 
     let ILCode: Array<string> = new Array();
 
@@ -724,10 +710,6 @@ function Compile(ast: AST): Module {
 
     // 开始编译，并组装成模块
     CompileAll();
-    // TODO 组装模块，必要的元数据也要有
 
-    module.AST = ast;
-    module.ILCode = ILCode;
-
-    return module;
+    return ILCode;
 }
