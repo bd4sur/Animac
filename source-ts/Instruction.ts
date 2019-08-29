@@ -225,10 +225,7 @@ function AIL_CALL(argument: string, PROCESS: Process, RUNTIME: Runtime): void {
     PROCESS.PushStackFrame(PROCESS.currentClosureHandle, PROCESS.PC + 1);
 
     // 判断参数类型
-    if(argType === 'KEYWORD') {
-        // TODO 增加对primitive的一等支持
-    }
-    else if(argType === 'LABEL') {
+    if(argType === 'LABEL') {
         let label = argument;
         // TODO 可复用代码
         let instructionAddress = PROCESS.GetLabelAddress(label);
@@ -259,7 +256,10 @@ function AIL_CALL(argument: string, PROCESS: Process, RUNTIME: Runtime): void {
             let value = PROCESS.Dereference(variable);
             let valueType = TypeOfToken(value);
 
-            if(valueType === 'LABEL') {
+            if(valueType === 'KEYWORD') {
+                // TODO 增加对primitive的一等支持
+            }
+            else if(valueType === 'LABEL') {
                 let label = value;
                 // TODO 可复用代码：与以上LABEL分支的处理方法相同，这里复制过来
                 let instructionAddress = PROCESS.GetLabelAddress(label);
@@ -315,10 +315,7 @@ function AIL_TAILCALL(argument: string, PROCESS: Process, RUNTIME: Runtime): voi
     // TODO 可复用代码 与call唯一的不同就是调用前不压栈帧，所以下面这坨代码是可以整体复用的
 
     // 判断参数类型
-    if(argType === 'KEYWORD') {
-        // TODO 增加对primitive的一等支持
-    }
-    else if(argType === 'LABEL') {
+    if(argType === 'LABEL') {
         let label = argument;
         // TODO 可复用代码
         let instructionAddress = PROCESS.GetLabelAddress(label);
@@ -349,7 +346,10 @@ function AIL_TAILCALL(argument: string, PROCESS: Process, RUNTIME: Runtime): voi
             let value = PROCESS.Dereference(variable);
             let valueType = TypeOfToken(value);
 
-            if(valueType === 'LABEL') {
+            if(valueType === 'KEYWORD') {
+                // TODO 增加对primitive的一等支持
+            }
+            else if(valueType === 'LABEL') {
                 let label = value;
                 // TODO 可复用代码：与以上LABEL分支的处理方法相同，这里复制过来
                 let instructionAddress = PROCESS.GetLabelAddress(label);

@@ -492,7 +492,7 @@
     "aurora.test.LAMBDA_3.B": "B"
   },
   "topVariables": {
-    "aurora.test.LAMBDA_1.A": "A"
+    "A": "aurora.test.LAMBDA_1.A"
   },
   "dependencies": {},
   "natives": {}

@@ -431,10 +431,10 @@ function Parse(code: string, moduleQualifiedName: string): AST {
             let node = ast.GetNode(nodeHandle);
             let nodeType = node.type;
 
-            // import指令
+            // (import <Alias> <Path>)
             if(nodeType === "APPLICATION" && node.children[0] === "import") {
-                let pathStringHandle: Handle = node.children[1]; // 模块路径字符串（的把柄）
-                let moduleAlias: string = node.children[2];      // 模块的别名
+                let moduleAlias: string = node.children[1];      // 模块的别名
+                let pathStringHandle: Handle = node.children[2]; // 模块路径字符串（的把柄）
                 let pathStringObject = ast.GetNode(pathStringHandle);  // 若不存在，会抛出异常
                 if(pathStringObject.type !== "STRING") {
                     throw `[预处理] import的来源路径必须写成字符串`;
@@ -442,7 +442,7 @@ function Parse(code: string, moduleQualifiedName: string): AST {
                 let path = TrimQuotes(pathStringObject.content);
                 ast.dependencies.set(moduleAlias, path);
             }
-            // native指令
+            // (native <NativeLibName>)
             else if(nodeType === "APPLICATION" && node.children[0] === "native") {
                 let native:string = node.children[1];
                 ast.natives.set(native, "enabled"); // TODO: 这里可以写native库的路径。更多断言，例如重复判断、native库存在性判断等
@@ -607,7 +607,12 @@ function Parse(code: string, moduleQualifiedName: string): AST {
                 if(first === "define" && node.parent === topLambdaHandle) {
                     let newVarName = node.children[1];
                     let originVarName = ast.variableMapping.get(newVarName);
-                    ast.topVariables.set(newVarName, originVarName);
+                    if(ast.topVariables.has(originVarName)) {
+                        throw `[Error] 顶级变量“${originVarName}”@Position ${ast.nodeIndexes.get(nodeHandle)} 重复。`
+                    }
+                    else {
+                        ast.topVariables.set(originVarName, newVarName);
+                    }
                 }
             }
         }); // 所有节点扫描完毕

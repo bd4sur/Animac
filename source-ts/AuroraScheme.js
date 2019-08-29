@@ -54,6 +54,9 @@ function TypeOfToken(token) {
     else if (typeof token === "number") {
         return "NUMBER";
     }
+    else if (typeof token !== "string" || token === "lambda") {
+        return undefined;
+    }
     else if (KEYWORDS.indexOf(token) >= 0) {
         return "KEYWORD";
     }
@@ -855,10 +858,10 @@ function Parse(code, moduleQualifiedName) {
         ast.nodes.ForEach((nodeHandle) => {
             let node = ast.GetNode(nodeHandle);
             let nodeType = node.type;
-            // import指令
+            // (import <Alias> <Path>)
             if (nodeType === "APPLICATION" && node.children[0] === "import") {
-                let pathStringHandle = node.children[1]; // 模块路径字符串（的把柄）
-                let moduleAlias = node.children[2]; // 模块的别名
+                let moduleAlias = node.children[1]; // 模块的别名
+                let pathStringHandle = node.children[2]; // 模块路径字符串（的把柄）
                 let pathStringObject = ast.GetNode(pathStringHandle); // 若不存在，会抛出异常
                 if (pathStringObject.type !== "STRING") {
                     throw `[预处理] import的来源路径必须写成字符串`;
@@ -866,7 +869,7 @@ function Parse(code, moduleQualifiedName) {
                 let path = TrimQuotes(pathStringObject.content);
                 ast.dependencies.set(moduleAlias, path);
             }
-            // native指令
+            // (native <NativeLibName>)
             else if (nodeType === "APPLICATION" && node.children[0] === "native") {
                 let native = node.children[1];
                 ast.natives.set(native, "enabled"); // TODO: 这里可以写native库的路径。更多断言，例如重复判断、native库存在性判断等
@@ -1022,7 +1025,12 @@ function Parse(code, moduleQualifiedName) {
                 if (first === "define" && node.parent === topLambdaHandle) {
                     let newVarName = node.children[1];
                     let originVarName = ast.variableMapping.get(newVarName);
-                    ast.topVariables.set(newVarName, originVarName);
+                    if (ast.topVariables.has(originVarName)) {
+                        throw `[Error] 顶级变量“${originVarName}”@Position ${ast.nodeIndexes.get(nodeHandle)} 重复。`;
+                    }
+                    else {
+                        ast.topVariables.set(originVarName, newVarName);
+                    }
                 }
             }
         }); // 所有节点扫描完毕
@@ -2145,10 +2153,7 @@ function AIL_CALL(argument, PROCESS, RUNTIME) {
     // 新的栈帧入栈
     PROCESS.PushStackFrame(PROCESS.currentClosureHandle, PROCESS.PC + 1);
     // 判断参数类型
-    if (argType === 'KEYWORD') {
-        // TODO 增加对primitive的一等支持
-    }
-    else if (argType === 'LABEL') {
+    if (argType === 'LABEL') {
         let label = argument;
         // TODO 可复用代码
         let instructionAddress = PROCESS.GetLabelAddress(label);
@@ -2176,7 +2181,10 @@ function AIL_CALL(argument, PROCESS, RUNTIME) {
         else {
             let value = PROCESS.Dereference(variable);
             let valueType = TypeOfToken(value);
-            if (valueType === 'LABEL') {
+            if (valueType === 'KEYWORD') {
+                // TODO 增加对primitive的一等支持
+            }
+            else if (valueType === 'LABEL') {
                 let label = value;
                 // TODO 可复用代码：与以上LABEL分支的处理方法相同，这里复制过来
                 let instructionAddress = PROCESS.GetLabelAddress(label);
@@ -2228,10 +2236,7 @@ function AIL_TAILCALL(argument, PROCESS, RUNTIME) {
     let argType = TypeOfToken(argument);
     // TODO 可复用代码 与call唯一的不同就是调用前不压栈帧，所以下面这坨代码是可以整体复用的
     // 判断参数类型
-    if (argType === 'KEYWORD') {
-        // TODO 增加对primitive的一等支持
-    }
-    else if (argType === 'LABEL') {
+    if (argType === 'LABEL') {
         let label = argument;
         // TODO 可复用代码
         let instructionAddress = PROCESS.GetLabelAddress(label);
@@ -2259,7 +2264,10 @@ function AIL_TAILCALL(argument, PROCESS, RUNTIME) {
         else {
             let value = PROCESS.Dereference(variable);
             let valueType = TypeOfToken(value);
-            if (valueType === 'LABEL') {
+            if (valueType === 'KEYWORD') {
+                // TODO 增加对primitive的一等支持
+            }
+            else if (valueType === 'LABEL') {
                 let label = value;
                 // TODO 可复用代码：与以上LABEL分支的处理方法相同，这里复制过来
                 let instructionAddress = PROCESS.GetLabelAddress(label);

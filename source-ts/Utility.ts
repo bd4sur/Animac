@@ -65,6 +65,9 @@ function TypeOfToken(token: any): string {
     else if(typeof token === "number") {
         return "NUMBER";
     }
+    else if(typeof token !== "string" || token === "lambda") {
+        return undefined;
+    }
     else if(KEYWORDS.indexOf(token) >= 0){
         return "KEYWORD";
     }
