@@ -4,12 +4,11 @@
 
 
 // 模块
-//   模块如同Java的字节码文件，包含代码、静态资源和元数据等
 class Module {
-    // TODO 模块结构设计，需要注意 ①元数据 ②可序列化性 ③与Runtime和Process结构对接
-    static AVM_Version: string = "V0";
-    public AST: AST;
-    public ILCode: Array<string>;
+    static AVM_Version: string = "V0";   // 指示可用的AVM版本
+    public Components: Array<string>;    // 组成该模块的各个依赖模块名称的拓扑排序序列
+    public AST: AST;                     // 合并后的AST
+    public ILCode: Array<string>;        // 由AST编译得到的IL代码
 }
 
 // 载入模块：本质上是静态链接
@@ -20,6 +19,9 @@ function LoadModule(path: string): Module {
 
     // 依赖关系图：[[模块名, 依赖模块名], ...]
     let dependencyGraph: Array<Array<string>> = new Array();
+
+    // 经拓扑排序后的依赖模块序列
+    let sortedModuleNames: Array<string>;
 
     const fs = require("fs");
 
@@ -46,9 +48,9 @@ function LoadModule(path: string): Module {
                 moduleQualifiedName,
                 PathUtils.GetModuleQualifiedName(dependencyPath)
             ]);
-            // 立即检测是否有循环依赖
-            let hasLoop = DetectRecursiveDependency(dependencyGraph);
-            if(hasLoop) {
+            // 检测是否有循环依赖
+            sortedModuleNames = TopologicSort(dependencyGraph);
+            if(sortedModuleNames === undefined) {
                 throw `[Error] 模块之间存在循环依赖，无法载入模块。`;
             }
             importModule(dependencyPath);
@@ -83,28 +85,33 @@ function LoadModule(path: string): Module {
     let mergedModule: Module = new Module();
     let mainModuleQualifiedName = PathUtils.GetModuleQualifiedName(path);
     mergedModule.AST = allASTs.get(mainModuleQualifiedName);
-    // TODO 按照依赖关系图的拓扑排序进行融合
-    for(let moduleName in allASTs) {
+    // 按照依赖关系图的拓扑排序进行融合
+    for(let i = 0; i < sortedModuleNames.length; i++) {
+        let moduleName = sortedModuleNames[i];
         if(moduleName === mainModuleQualifiedName) continue;
         mergedModule.AST.MergeAST(allASTs.get(moduleName));
     }
     // 编译
     mergedModule.ILCode = Compile(mergedModule.AST);
 
+    mergedModule.Components = sortedModuleNames;
+
     return mergedModule;
 }
 
 // 对依赖关系图作拓扑排序，进而检测是否存在环路
-function DetectRecursiveDependency(dependencyGraph: Array<Array<string>>): boolean {
-    // 建立邻接表
-    let moduleNames: HashMap<string, number> = new HashMap();
+function TopologicSort(dependencyGraph: Array<Array<string>>): Array<string> {
+    // 建立邻接表和模块名称表
+    let moduleNameDict: HashMap<string, number> = new HashMap();
     for(let i = 0; i < dependencyGraph.length; i++) {
-        moduleNames[dependencyGraph[i][0]] = 0;
-        moduleNames[dependencyGraph[i][1]] = 0;
+        moduleNameDict[dependencyGraph[i][0]] = 0;
+        moduleNameDict[dependencyGraph[i][1]] = 0;
     }
     let counter = 0;
-    for(let n in moduleNames) {
-        moduleNames[n] = counter;
+    let moduleName: Array<string> = new Array();
+    for(let n in moduleNameDict) {
+        moduleNameDict[n] = counter;
+        moduleName[counter] = n;
         counter++;
     }
     let adjMatrix: Array<Array<boolean>> = new Array();
@@ -116,14 +123,14 @@ function DetectRecursiveDependency(dependencyGraph: Array<Array<string>>): boole
         adjMatrix[i] = init;
     }
     for(let i = 0; i < dependencyGraph.length; i++) {
-        let left: number = moduleNames[dependencyGraph[i][0]];
-        let right:number = moduleNames[dependencyGraph[i][1]];
+        let left: number = moduleNameDict[dependencyGraph[i][0]];
+        let right:number = moduleNameDict[dependencyGraph[i][1]];
         adjMatrix[left][right] = true;
     }
 
     // 拓扑排序
     let hasLoop = false;
-    let sortedModuleIndex = new Array();
+    let sortedModuleIndex: Array<number> = new Array();
     (function sort(adjMatrix) {
         // 计算某节点入度
         function getInDegree(vertex, adjMatrix) {
@@ -158,5 +165,14 @@ function DetectRecursiveDependency(dependencyGraph: Array<Array<string>>): boole
         }
     })(adjMatrix);
 
-    return hasLoop;
+    if(hasLoop) {
+        return undefined;
+    }
+    else {
+        let sortedModuleName: Array<string> = new Array();
+        for(let i = 0; i < sortedModuleIndex.length; i++) {
+            sortedModuleName[i] = moduleName[sortedModuleIndex[i]];
+        }
+        return sortedModuleName;
+    }
 }

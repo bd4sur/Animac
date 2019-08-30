@@ -46,7 +46,7 @@ class AST {
     // 创建一个Lambda节点，保存，并返回其把柄
     public MakeLambdaNode(parentHandle: Handle) {
         // NOTE 每个节点把柄都带有模块全限定名，这样做的目的是：不必在AST融合过程中调整每个AST的把柄。下同。
-        let handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.LAMBDA`);
+        let handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.LAMBDA`, true);
         let lambdaObject = new LambdaObject(parentHandle);
         this.nodes.Set(handle, lambdaObject);
         this.lambdaHandles.push(handle);
@@ -59,19 +59,19 @@ class AST {
         let node: any;
         switch(quoteType) {
             case "QUOTE":
-                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.QUOTE`);
+                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.QUOTE`, true);
                 node = new QuoteObject(parentHandle);
                 break;
             case "QUASIQUOTE":
-                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.QUASIQUOTE`);
+                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.QUASIQUOTE`, true);
                 node = new QuasiquoteObject(parentHandle);
                 break;
             case "UNQUOTE":
-                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.UNQUOTE`);
+                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.UNQUOTE`, true);
                 node = new QuoteObject(parentHandle);
                 break;
             default:
-                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.APPLICATION`);
+                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.APPLICATION`, true);
                 node = new ApplicationObject(parentHandle);
                 break;
         }
@@ -81,7 +81,7 @@ class AST {
 
     // 创建一个字符串对象节点，保存，并返回其把柄
     public MakeStringNode(str: string) {
-        let handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.STRING`);
+        let handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.STRING`, true);
         let node = new StringObject(str);
         this.nodes.Set(handle, node);
         return handle;
@@ -109,7 +109,7 @@ class AST {
         // 1 融合
         anotherAST.nodes.ForEach((hd)=> {
             let node = anotherAST.nodes.Get(hd);
-            this.nodes.NewHandle(hd); // 任何把柄在使用前都需要先注册，以初始化元数据
+            this.nodes.NewHandle(hd, true); // 任何把柄在使用前都需要先注册，以初始化元数据
             this.nodes.Set(hd, node); // TODO：建议深拷贝
         });
         // 2 重组

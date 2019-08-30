@@ -294,7 +294,7 @@ function AIL_CALL(argument: string, PROCESS: Process, RUNTIME: Runtime): void {
                     let top = PROCESS.PopOperand();
                     let returnTargetLabel = PROCESS.LoadContinuation(handle);
                     PROCESS.PushOperand(top);
-                    console.info(`[Info] Continuation已恢复，返回标签：${returnTargetLabel}`);
+                    // console.info(`[Info] Continuation已恢复，返回标签：${returnTargetLabel}`);
                     let targetAddress = PROCESS.GetLabelAddress(returnTargetLabel);
                     PROCESS.Goto(targetAddress);
                 }
@@ -384,7 +384,7 @@ function AIL_TAILCALL(argument: string, PROCESS: Process, RUNTIME: Runtime): voi
                     let top = PROCESS.PopOperand();
                     let returnTargetLabel = PROCESS.LoadContinuation(handle);
                     PROCESS.PushOperand(top);
-                    console.info(`[Info] Continuation已恢复，返回标签：${returnTargetLabel}`);
+                    // console.info(`[Info] Continuation已恢复，返回标签：${returnTargetLabel}`);
                     let targetAddress = PROCESS.GetLabelAddress(returnTargetLabel);
                     PROCESS.Goto(targetAddress);
                 }
@@ -415,7 +415,7 @@ function AIL_CAPTURECC(argument: string, PROCESS: Process, RUNTIME: Runtime): vo
     let variable = argument;
     let retTargetLable = `@${variable}`; // NOTE【约定】cont返回点的标签名称 = @ + cont被保存的变量名称
     let contHandle = PROCESS.CaptureContinuation(retTargetLable)
-    console.info(`[Info] Continuation ${variable} 已捕获，对应的返回标签 ${retTargetLable}`);
+    // console.info(`[Info] Continuation ${variable} 已捕获，对应的返回标签 ${retTargetLable}`);
     PROCESS.GetCurrentClosure().InitBoundVariable(variable, contHandle);
     PROCESS.Step();
 }

@@ -26,10 +26,10 @@ function Compile(ast: AST): Array<string> {
     // 增加一条新指令
     function AddInstruction(instStr: string): void {
         if(instStr.trim()[0] === ";") {
-            ILCode.push(instStr);
+            // ILCode.push(instStr);
         }
         else {
-            ILCode.push("   " + instStr.trim()); // 与注释对齐
+            ILCode.push(instStr.trim());
         }
     }
 

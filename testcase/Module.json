@@ -1,6 +1,6 @@
 {
   "AST": {
-    "source": "((lambda () ;; 演示了Man-or-Boy测试，以及模块机制测试\n;; 依赖关系：utils←MoB←main\n\n(import Utils    \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.utils.scm\")\n(import ManOrBoy \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.MoB.scm\")\n\n(Utils.show \"Man or Boy Test = \")\n(Utils.show (ManOrBoy.A 10 (lambda () 1) (lambda () -1) (lambda () -1) (lambda () 1) (lambda () 0)))\n(newline)\n))\n((lambda () (define decrease\n  (lambda (x)\n    (- x 1)))\n\n(define show\n  (lambda (x)\n    (display x)))\n))\n((lambda () (import Utils \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.utils.scm\")\n\n(define A\n  (lambda (k x1 x2 x3 x4 x5)\n      (define B\n        (lambda ()\n            (set! k (Utils.decrease k))\n            (A k B x1 x2 x3 x4)))\n      (if (<= k 0)\n          (+ (x4) (x5))\n          (B))))\n))",
+    "source": "((lambda () ;; 演示了Man-or-Boy测试，以及模块机制测试\n;; 依赖关系：utils←MoB←main\n\n(import Utils    \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.utils.scm\")\n(import ManOrBoy \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.MoB.scm\")\n(import PureCPS \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.purecps.scm\")\n(import CallCC \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.callcc-test.scm\")\n\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n\n(Utils.show \"⚙️ 测试：Man or Boy Test：\")\n(Utils.show \"✅ 期望结果：-67\")\n(Utils.show (ManOrBoy.A 10 (lambda () 1) (lambda () -1) (lambda () -1) (lambda () 1) (lambda () 0)))\n\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n\n(Utils.show \"⚙️ 测试：真·CPS阶乘：10!=\")\n(Utils.show \"✅ 期望结果：3628800\")\n(((PureCPS.fac-cps (lambda (x) x)) 10) (lambda (x) (display x)))\n\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n\n(Utils.show \"⚙️ 测试：Yin-yang Puzzle：\")\n(Utils.show \"✅ 期望结果：@*@**@***@****...\")\n(CallCC.YinYang)\n))\n((lambda () (define decrease\n  (lambda (x)\n    (- x 1)))\n\n(define show\n  (lambda (x)\n    (display x)))\n))\n((lambda () (import Utils \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.utils.scm\")\n\n(define A\n  (lambda (k x1 x2 x3 x4 x5)\n      (define B\n        (lambda ()\n            (set! k (Utils.decrease k))\n            (A k B x1 x2 x3 x4)))\n      (if (<= k 0)\n          (+ (x4) (x5))\n          (B))))\n))\n((lambda () (define fac-cps\n(lambda (cont)\n  (cont (lambda (n)\n          (lambda (k)\n            ((lambda (cont)\n               ((lambda (cont)\n                  ((lambda (cont) (cont (lambda (x y) (lambda (k) (k (= x y)))))) ; 内置相等判断\n                   (lambda (node0)\n                     ((node0 0 n)\n                      (lambda (res) (cont res))))))\n                (lambda (p-res)\n                  (if p-res\n                      ((lambda (cont) (cont 1))\n                       cont)\n                      ((lambda (cont)\n                         ; 以下仅仅是对每个AST节点进行简单的遍历CPST/重命名,并未体现求值顺序，可以理解成并行的\n                         ((lambda (cont) (cont (lambda (x y) (lambda (k) (k (* x y)))))) (lambda (node0) ; 内置乘法\n                         ( fac-cps                                                       (lambda (node1) ; 递归调用(重命名后的)\n                         ((lambda (cont) (cont (lambda (x y) (lambda (k) (k (- x y)))))) (lambda (node2) ; 内置减法\n                         ; 从这里开始体现求值顺序,几乎等于是 A-Normal Form\n                         ((node2 n 1)    (lambda (res2)\n                         ((node1 res2)   (lambda (res1)\n                         ((node0 n res1) (lambda (res)\n                         ; 最后执行总的continuation\n                         ( cont res))))))))))))))\n                       cont)))))\n             (lambda (m) (k m))))))))\n))\n((lambda () (define YinYang\n(lambda ()\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n(((lambda (x) (begin (display \"@\") x)) (call/cc (lambda (k) k)))\n ((lambda (x) (begin (display \"*\") x)) (call/cc (lambda (k) k))))\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n)\n)))",
     "moduleQualifiedName": "aurora.test.main",
     "nodes": {
       "data": {
@@ -17,6 +17,8 @@
           "children": [
             "lambda",
             [],
+            "&aurora.test.callcc-test.APPLICATION_2",
+            "&aurora.test.purecps.APPLICATION_2",
             "&aurora.test.MoB.APPLICATION_2",
             "&aurora.test.MoB.APPLICATION_4",
             "&aurora.test.utils.APPLICATION_2",
@@ -25,7 +27,15 @@
             "&aurora.test.main.APPLICATION_4",
             "&aurora.test.main.APPLICATION_6",
             "&aurora.test.main.APPLICATION_8",
-            "&aurora.test.main.APPLICATION_15"
+            "&aurora.test.main.APPLICATION_10",
+            "&aurora.test.main.APPLICATION_12",
+            "&aurora.test.main.APPLICATION_14",
+            "&aurora.test.main.APPLICATION_21",
+            "&aurora.test.main.APPLICATION_23",
+            "&aurora.test.main.APPLICATION_25",
+            "&aurora.test.main.APPLICATION_31",
+            "&aurora.test.main.APPLICATION_33",
+            "&aurora.test.main.APPLICATION_35"
           ]
         },
         "&aurora.test.main.APPLICATION_2": {
@@ -58,85 +68,225 @@
           "type": "APPLICATION",
           "parent": "&aurora.test.main.LAMBDA_1",
           "children": [
-            "aurora.test.utils.LAMBDA_1.show",
+            "import",
+            "PureCPS",
             "&aurora.test.main.STRING_7"
           ]
         },
         "&aurora.test.main.STRING_7": {
           "type": "STRING",
-          "content": "\"Man or Boy Test = \""
+          "content": "\"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.purecps.scm\""
         },
         "&aurora.test.main.APPLICATION_8": {
           "type": "APPLICATION",
           "parent": "&aurora.test.main.LAMBDA_1",
           "children": [
-            "aurora.test.utils.LAMBDA_1.show",
-            "&aurora.test.main.APPLICATION_9"
+            "import",
+            "CallCC",
+            "&aurora.test.main.STRING_9"
           ]
         },
-        "&aurora.test.main.APPLICATION_9": {
+        "&aurora.test.main.STRING_9": {
+          "type": "STRING",
+          "content": "\"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.callcc-test.scm\""
+        },
+        "&aurora.test.main.APPLICATION_10": {
           "type": "APPLICATION",
-          "parent": "&aurora.test.main.APPLICATION_8",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.STRING_11"
+          ]
+        },
+        "&aurora.test.main.STRING_11": {
+          "type": "STRING",
+          "content": "\"⚙️ 测试：Man or Boy Test：\""
+        },
+        "&aurora.test.main.APPLICATION_12": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.STRING_13"
+          ]
+        },
+        "&aurora.test.main.STRING_13": {
+          "type": "STRING",
+          "content": "\"✅ 期望结果：-67\""
+        },
+        "&aurora.test.main.APPLICATION_14": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.APPLICATION_15"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_15": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_14",
           "children": [
             "aurora.test.MoB.LAMBDA_1.A",
             10,
-            "&aurora.test.main.LAMBDA_10",
-            "&aurora.test.main.LAMBDA_11",
-            "&aurora.test.main.LAMBDA_12",
-            "&aurora.test.main.LAMBDA_13",
-            "&aurora.test.main.LAMBDA_14"
+            "&aurora.test.main.LAMBDA_16",
+            "&aurora.test.main.LAMBDA_17",
+            "&aurora.test.main.LAMBDA_18",
+            "&aurora.test.main.LAMBDA_19",
+            "&aurora.test.main.LAMBDA_20"
           ]
         },
-        "&aurora.test.main.LAMBDA_10": {
+        "&aurora.test.main.LAMBDA_16": {
           "type": "LAMBDA",
-          "parent": "&aurora.test.main.APPLICATION_9",
+          "parent": "&aurora.test.main.APPLICATION_15",
           "children": [
             "lambda",
             [],
             1
           ]
         },
-        "&aurora.test.main.LAMBDA_11": {
+        "&aurora.test.main.LAMBDA_17": {
           "type": "LAMBDA",
-          "parent": "&aurora.test.main.APPLICATION_9",
+          "parent": "&aurora.test.main.APPLICATION_15",
           "children": [
             "lambda",
             [],
             -1
           ]
         },
-        "&aurora.test.main.LAMBDA_12": {
+        "&aurora.test.main.LAMBDA_18": {
           "type": "LAMBDA",
-          "parent": "&aurora.test.main.APPLICATION_9",
+          "parent": "&aurora.test.main.APPLICATION_15",
           "children": [
             "lambda",
             [],
             -1
           ]
         },
-        "&aurora.test.main.LAMBDA_13": {
+        "&aurora.test.main.LAMBDA_19": {
           "type": "LAMBDA",
-          "parent": "&aurora.test.main.APPLICATION_9",
+          "parent": "&aurora.test.main.APPLICATION_15",
           "children": [
             "lambda",
             [],
             1
           ]
         },
-        "&aurora.test.main.LAMBDA_14": {
+        "&aurora.test.main.LAMBDA_20": {
           "type": "LAMBDA",
-          "parent": "&aurora.test.main.APPLICATION_9",
+          "parent": "&aurora.test.main.APPLICATION_15",
           "children": [
             "lambda",
             [],
             0
           ]
         },
-        "&aurora.test.main.APPLICATION_15": {
+        "&aurora.test.main.APPLICATION_21": {
           "type": "APPLICATION",
           "parent": "&aurora.test.main.LAMBDA_1",
           "children": [
-            "newline"
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.STRING_22"
+          ]
+        },
+        "&aurora.test.main.STRING_22": {
+          "type": "STRING",
+          "content": "\"⚙️ 测试：真·CPS阶乘：10!=\""
+        },
+        "&aurora.test.main.APPLICATION_23": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.STRING_24"
+          ]
+        },
+        "&aurora.test.main.STRING_24": {
+          "type": "STRING",
+          "content": "\"✅ 期望结果：3628800\""
+        },
+        "&aurora.test.main.APPLICATION_25": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "&aurora.test.main.APPLICATION_26",
+            "&aurora.test.main.LAMBDA_29"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_26": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_25",
+          "children": [
+            "&aurora.test.main.APPLICATION_27",
+            10
+          ]
+        },
+        "&aurora.test.main.APPLICATION_27": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_26",
+          "children": [
+            "aurora.test.purecps.LAMBDA_1.fac-cps",
+            "&aurora.test.main.LAMBDA_28"
+          ]
+        },
+        "&aurora.test.main.LAMBDA_28": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.main.APPLICATION_27",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.main.LAMBDA_28.x"
+            ],
+            "aurora.test.main.LAMBDA_28.x"
+          ]
+        },
+        "&aurora.test.main.LAMBDA_29": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.main.APPLICATION_25",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.main.LAMBDA_29.x"
+            ],
+            "&aurora.test.main.APPLICATION_30"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_30": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_29",
+          "children": [
+            "display",
+            "aurora.test.main.LAMBDA_29.x"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_31": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.STRING_32"
+          ]
+        },
+        "&aurora.test.main.STRING_32": {
+          "type": "STRING",
+          "content": "\"⚙️ 测试：Yin-yang Puzzle：\""
+        },
+        "&aurora.test.main.APPLICATION_33": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.STRING_34"
+          ]
+        },
+        "&aurora.test.main.STRING_34": {
+          "type": "STRING",
+          "content": "\"✅ 期望结果：@*@**@***@****...\""
+        },
+        "&aurora.test.main.APPLICATION_35": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "aurora.test.callcc-test.LAMBDA_1.YinYang"
           ]
         },
         "&aurora.test.utils.APPLICATION_2": {
@@ -332,289 +482,849 @@
           "children": [
             "aurora.test.MoB.LAMBDA_5.B"
           ]
+        },
+        "&aurora.test.purecps.APPLICATION_2": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "define",
+            "aurora.test.purecps.LAMBDA_1.fac-cps",
+            "&aurora.test.purecps.LAMBDA_3"
+          ]
+        },
+        "&aurora.test.purecps.LAMBDA_3": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.purecps.APPLICATION_2",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.purecps.LAMBDA_3.cont"
+            ],
+            "&aurora.test.purecps.APPLICATION_4"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_4": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.LAMBDA_3",
+          "children": [
+            "aurora.test.purecps.LAMBDA_3.cont",
+            "&aurora.test.purecps.LAMBDA_5"
+          ]
+        },
+        "&aurora.test.purecps.LAMBDA_5": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.purecps.APPLICATION_4",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.purecps.LAMBDA_5.n"
+            ],
+            "&aurora.test.purecps.LAMBDA_6"
+          ]
+        },
+        "&aurora.test.purecps.LAMBDA_6": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.purecps.LAMBDA_5",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.purecps.LAMBDA_6.k"
+            ],
+            "&aurora.test.purecps.APPLICATION_7"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_7": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.LAMBDA_6",
+          "children": [
+            "&aurora.test.purecps.LAMBDA_8",
+            "&aurora.test.purecps.LAMBDA_58"
+          ]
+        },
+        "&aurora.test.purecps.LAMBDA_8": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.purecps.APPLICATION_7",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.purecps.LAMBDA_8.cont"
+            ],
+            "&aurora.test.purecps.APPLICATION_9"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_9": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.LAMBDA_8",
+          "children": [
+            "&aurora.test.purecps.LAMBDA_10",
+            "&aurora.test.purecps.LAMBDA_23"
+          ]
+        },
+        "&aurora.test.purecps.LAMBDA_10": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.purecps.APPLICATION_9",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.purecps.LAMBDA_10.cont"
+            ],
+            "&aurora.test.purecps.APPLICATION_11"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_11": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.LAMBDA_10",
+          "children": [
+            "&aurora.test.purecps.LAMBDA_12",
+            "&aurora.test.purecps.LAMBDA_18"
+          ]
+        },
+        "&aurora.test.purecps.LAMBDA_12": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.purecps.APPLICATION_11",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.purecps.LAMBDA_12.cont"
+            ],
+            "&aurora.test.purecps.APPLICATION_13"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_13": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.LAMBDA_12",
+          "children": [
+            "aurora.test.purecps.LAMBDA_12.cont",
+            "&aurora.test.purecps.LAMBDA_14"
+          ]
+        },
+        "&aurora.test.purecps.LAMBDA_14": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.purecps.APPLICATION_13",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.purecps.LAMBDA_14.x",
+              "aurora.test.purecps.LAMBDA_14.y"
+            ],
+            "&aurora.test.purecps.LAMBDA_15"
+          ]
+        },
+        "&aurora.test.purecps.LAMBDA_15": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.purecps.LAMBDA_14",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.purecps.LAMBDA_15.k"
+            ],
+            "&aurora.test.purecps.APPLICATION_16"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_16": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.LAMBDA_15",
+          "children": [
+            "aurora.test.purecps.LAMBDA_15.k",
+            "&aurora.test.purecps.APPLICATION_17"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_17": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.APPLICATION_16",
+          "children": [
+            "=",
+            "aurora.test.purecps.LAMBDA_14.x",
+            "aurora.test.purecps.LAMBDA_14.y"
+          ]
+        },
+        "&aurora.test.purecps.LAMBDA_18": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.purecps.APPLICATION_11",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.purecps.LAMBDA_18.node0"
+            ],
+            "&aurora.test.purecps.APPLICATION_19"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_19": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.LAMBDA_18",
+          "children": [
+            "&aurora.test.purecps.APPLICATION_20",
+            "&aurora.test.purecps.LAMBDA_21"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_20": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.APPLICATION_19",
+          "children": [
+            "aurora.test.purecps.LAMBDA_18.node0",
+            0,
+            "aurora.test.purecps.LAMBDA_5.n"
+          ]
+        },
+        "&aurora.test.purecps.LAMBDA_21": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.purecps.APPLICATION_19",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.purecps.LAMBDA_21.res"
+            ],
+            "&aurora.test.purecps.APPLICATION_22"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_22": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.LAMBDA_21",
+          "children": [
+            "aurora.test.purecps.LAMBDA_10.cont",
+            "aurora.test.purecps.LAMBDA_21.res"
+          ]
+        },
+        "&aurora.test.purecps.LAMBDA_23": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.purecps.APPLICATION_9",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.purecps.LAMBDA_23.p-res"
+            ],
+            "&aurora.test.purecps.APPLICATION_24"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_24": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.LAMBDA_23",
+          "children": [
+            "if",
+            "aurora.test.purecps.LAMBDA_23.p-res",
+            "&aurora.test.purecps.APPLICATION_25",
+            "&aurora.test.purecps.APPLICATION_28"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_25": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.APPLICATION_24",
+          "children": [
+            "&aurora.test.purecps.LAMBDA_26",
+            "aurora.test.purecps.LAMBDA_8.cont"
+          ]
+        },
+        "&aurora.test.purecps.LAMBDA_26": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.purecps.APPLICATION_25",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.purecps.LAMBDA_26.cont"
+            ],
+            "&aurora.test.purecps.APPLICATION_27"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_27": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.LAMBDA_26",
+          "children": [
+            "aurora.test.purecps.LAMBDA_26.cont",
+            1
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_28": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.APPLICATION_24",
+          "children": [
+            "&aurora.test.purecps.LAMBDA_29",
+            "aurora.test.purecps.LAMBDA_8.cont"
+          ]
+        },
+        "&aurora.test.purecps.LAMBDA_29": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.purecps.APPLICATION_28",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.purecps.LAMBDA_29.cont"
+            ],
+            "&aurora.test.purecps.APPLICATION_30"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_30": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.LAMBDA_29",
+          "children": [
+            "&aurora.test.purecps.LAMBDA_31",
+            "&aurora.test.purecps.LAMBDA_37"
+          ]
+        },
+        "&aurora.test.purecps.LAMBDA_31": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.purecps.APPLICATION_30",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.purecps.LAMBDA_31.cont"
+            ],
+            "&aurora.test.purecps.APPLICATION_32"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_32": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.LAMBDA_31",
+          "children": [
+            "aurora.test.purecps.LAMBDA_31.cont",
+            "&aurora.test.purecps.LAMBDA_33"
+          ]
+        },
+        "&aurora.test.purecps.LAMBDA_33": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.purecps.APPLICATION_32",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.purecps.LAMBDA_33.x",
+              "aurora.test.purecps.LAMBDA_33.y"
+            ],
+            "&aurora.test.purecps.LAMBDA_34"
+          ]
+        },
+        "&aurora.test.purecps.LAMBDA_34": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.purecps.LAMBDA_33",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.purecps.LAMBDA_34.k"
+            ],
+            "&aurora.test.purecps.APPLICATION_35"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_35": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.LAMBDA_34",
+          "children": [
+            "aurora.test.purecps.LAMBDA_34.k",
+            "&aurora.test.purecps.APPLICATION_36"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_36": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.APPLICATION_35",
+          "children": [
+            "*",
+            "aurora.test.purecps.LAMBDA_33.x",
+            "aurora.test.purecps.LAMBDA_33.y"
+          ]
+        },
+        "&aurora.test.purecps.LAMBDA_37": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.purecps.APPLICATION_30",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.purecps.LAMBDA_37.node0"
+            ],
+            "&aurora.test.purecps.APPLICATION_38"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_38": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.LAMBDA_37",
+          "children": [
+            "aurora.test.purecps.LAMBDA_1.fac-cps",
+            "&aurora.test.purecps.LAMBDA_39"
+          ]
+        },
+        "&aurora.test.purecps.LAMBDA_39": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.purecps.APPLICATION_38",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.purecps.LAMBDA_39.node1"
+            ],
+            "&aurora.test.purecps.APPLICATION_40"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_40": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.LAMBDA_39",
+          "children": [
+            "&aurora.test.purecps.LAMBDA_41",
+            "&aurora.test.purecps.LAMBDA_47"
+          ]
+        },
+        "&aurora.test.purecps.LAMBDA_41": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.purecps.APPLICATION_40",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.purecps.LAMBDA_41.cont"
+            ],
+            "&aurora.test.purecps.APPLICATION_42"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_42": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.LAMBDA_41",
+          "children": [
+            "aurora.test.purecps.LAMBDA_41.cont",
+            "&aurora.test.purecps.LAMBDA_43"
+          ]
+        },
+        "&aurora.test.purecps.LAMBDA_43": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.purecps.APPLICATION_42",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.purecps.LAMBDA_43.x",
+              "aurora.test.purecps.LAMBDA_43.y"
+            ],
+            "&aurora.test.purecps.LAMBDA_44"
+          ]
+        },
+        "&aurora.test.purecps.LAMBDA_44": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.purecps.LAMBDA_43",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.purecps.LAMBDA_44.k"
+            ],
+            "&aurora.test.purecps.APPLICATION_45"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_45": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.LAMBDA_44",
+          "children": [
+            "aurora.test.purecps.LAMBDA_44.k",
+            "&aurora.test.purecps.APPLICATION_46"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_46": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.APPLICATION_45",
+          "children": [
+            "-",
+            "aurora.test.purecps.LAMBDA_43.x",
+            "aurora.test.purecps.LAMBDA_43.y"
+          ]
+        },
+        "&aurora.test.purecps.LAMBDA_47": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.purecps.APPLICATION_40",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.purecps.LAMBDA_47.node2"
+            ],
+            "&aurora.test.purecps.APPLICATION_48"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_48": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.LAMBDA_47",
+          "children": [
+            "&aurora.test.purecps.APPLICATION_49",
+            "&aurora.test.purecps.LAMBDA_50"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_49": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.APPLICATION_48",
+          "children": [
+            "aurora.test.purecps.LAMBDA_47.node2",
+            "aurora.test.purecps.LAMBDA_5.n",
+            1
+          ]
+        },
+        "&aurora.test.purecps.LAMBDA_50": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.purecps.APPLICATION_48",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.purecps.LAMBDA_50.res2"
+            ],
+            "&aurora.test.purecps.APPLICATION_51"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_51": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.LAMBDA_50",
+          "children": [
+            "&aurora.test.purecps.APPLICATION_52",
+            "&aurora.test.purecps.LAMBDA_53"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_52": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.APPLICATION_51",
+          "children": [
+            "aurora.test.purecps.LAMBDA_39.node1",
+            "aurora.test.purecps.LAMBDA_50.res2"
+          ]
+        },
+        "&aurora.test.purecps.LAMBDA_53": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.purecps.APPLICATION_51",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.purecps.LAMBDA_53.res1"
+            ],
+            "&aurora.test.purecps.APPLICATION_54"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_54": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.LAMBDA_53",
+          "children": [
+            "&aurora.test.purecps.APPLICATION_55",
+            "&aurora.test.purecps.LAMBDA_56"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_55": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.APPLICATION_54",
+          "children": [
+            "aurora.test.purecps.LAMBDA_37.node0",
+            "aurora.test.purecps.LAMBDA_5.n",
+            "aurora.test.purecps.LAMBDA_53.res1"
+          ]
+        },
+        "&aurora.test.purecps.LAMBDA_56": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.purecps.APPLICATION_54",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.purecps.LAMBDA_56.res"
+            ],
+            "&aurora.test.purecps.APPLICATION_57"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_57": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.LAMBDA_56",
+          "children": [
+            "aurora.test.purecps.LAMBDA_29.cont",
+            "aurora.test.purecps.LAMBDA_56.res"
+          ]
+        },
+        "&aurora.test.purecps.LAMBDA_58": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.purecps.APPLICATION_7",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.purecps.LAMBDA_58.m"
+            ],
+            "&aurora.test.purecps.APPLICATION_59"
+          ]
+        },
+        "&aurora.test.purecps.APPLICATION_59": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.purecps.LAMBDA_58",
+          "children": [
+            "aurora.test.purecps.LAMBDA_6.k",
+            "aurora.test.purecps.LAMBDA_58.m"
+          ]
+        },
+        "&aurora.test.callcc-test.APPLICATION_2": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "define",
+            "aurora.test.callcc-test.LAMBDA_1.YinYang",
+            "&aurora.test.callcc-test.LAMBDA_3"
+          ]
+        },
+        "&aurora.test.callcc-test.LAMBDA_3": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.callcc-test.APPLICATION_2",
+          "children": [
+            "lambda",
+            [],
+            "&aurora.test.callcc-test.APPLICATION_4"
+          ]
+        },
+        "&aurora.test.callcc-test.APPLICATION_4": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.callcc-test.LAMBDA_3",
+          "children": [
+            "&aurora.test.callcc-test.APPLICATION_5",
+            "&aurora.test.callcc-test.APPLICATION_12"
+          ]
+        },
+        "&aurora.test.callcc-test.APPLICATION_5": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.callcc-test.APPLICATION_4",
+          "children": [
+            "&aurora.test.callcc-test.LAMBDA_6",
+            "&aurora.test.callcc-test.APPLICATION_10"
+          ]
+        },
+        "&aurora.test.callcc-test.LAMBDA_6": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.callcc-test.APPLICATION_5",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.callcc-test.LAMBDA_6.x"
+            ],
+            "&aurora.test.callcc-test.APPLICATION_7"
+          ]
+        },
+        "&aurora.test.callcc-test.APPLICATION_7": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.callcc-test.LAMBDA_6",
+          "children": [
+            "begin",
+            "&aurora.test.callcc-test.APPLICATION_8",
+            "aurora.test.callcc-test.LAMBDA_6.x"
+          ]
+        },
+        "&aurora.test.callcc-test.APPLICATION_8": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.callcc-test.APPLICATION_7",
+          "children": [
+            "display",
+            "&aurora.test.callcc-test.STRING_9"
+          ]
+        },
+        "&aurora.test.callcc-test.STRING_9": {
+          "type": "STRING",
+          "content": "\"@\""
+        },
+        "&aurora.test.callcc-test.APPLICATION_10": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.callcc-test.APPLICATION_5",
+          "children": [
+            "call/cc",
+            "&aurora.test.callcc-test.LAMBDA_11"
+          ]
+        },
+        "&aurora.test.callcc-test.LAMBDA_11": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.callcc-test.APPLICATION_10",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.callcc-test.LAMBDA_11.k"
+            ],
+            "aurora.test.callcc-test.LAMBDA_11.k"
+          ]
+        },
+        "&aurora.test.callcc-test.APPLICATION_12": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.callcc-test.APPLICATION_4",
+          "children": [
+            "&aurora.test.callcc-test.LAMBDA_13",
+            "&aurora.test.callcc-test.APPLICATION_17"
+          ]
+        },
+        "&aurora.test.callcc-test.LAMBDA_13": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.callcc-test.APPLICATION_12",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.callcc-test.LAMBDA_13.x"
+            ],
+            "&aurora.test.callcc-test.APPLICATION_14"
+          ]
+        },
+        "&aurora.test.callcc-test.APPLICATION_14": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.callcc-test.LAMBDA_13",
+          "children": [
+            "begin",
+            "&aurora.test.callcc-test.APPLICATION_15",
+            "aurora.test.callcc-test.LAMBDA_13.x"
+          ]
+        },
+        "&aurora.test.callcc-test.APPLICATION_15": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.callcc-test.APPLICATION_14",
+          "children": [
+            "display",
+            "&aurora.test.callcc-test.STRING_16"
+          ]
+        },
+        "&aurora.test.callcc-test.STRING_16": {
+          "type": "STRING",
+          "content": "\"*\""
+        },
+        "&aurora.test.callcc-test.APPLICATION_17": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.callcc-test.APPLICATION_12",
+          "children": [
+            "call/cc",
+            "&aurora.test.callcc-test.LAMBDA_18"
+          ]
+        },
+        "&aurora.test.callcc-test.LAMBDA_18": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.callcc-test.APPLICATION_17",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.callcc-test.LAMBDA_18.k"
+            ],
+            "aurora.test.callcc-test.LAMBDA_18.k"
+          ]
         }
       },
       "metadata": {
-        "&aurora.test.main.APPLICATION_0": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": [
-            null
-          ]
-        },
-        "&aurora.test.main.LAMBDA_1": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": [
-            null
-          ]
-        },
-        "&aurora.test.main.APPLICATION_2": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": [
-            null
-          ]
-        },
-        "&aurora.test.main.STRING_3": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": [
-            null
-          ]
-        },
-        "&aurora.test.main.APPLICATION_4": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": [
-            null
-          ]
-        },
-        "&aurora.test.main.STRING_5": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": [
-            null
-          ]
-        },
-        "&aurora.test.main.APPLICATION_6": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": [
-            null
-          ]
-        },
-        "&aurora.test.main.STRING_7": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": [
-            null
-          ]
-        },
-        "&aurora.test.main.APPLICATION_8": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": [
-            null
-          ]
-        },
-        "&aurora.test.main.APPLICATION_9": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": [
-            null
-          ]
-        },
-        "&aurora.test.main.LAMBDA_10": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": [
-            null
-          ]
-        },
-        "&aurora.test.main.LAMBDA_11": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": [
-            null
-          ]
-        },
-        "&aurora.test.main.LAMBDA_12": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": [
-            null
-          ]
-        },
-        "&aurora.test.main.LAMBDA_13": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": [
-            null
-          ]
-        },
-        "&aurora.test.main.LAMBDA_14": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": [
-            null
-          ]
-        },
-        "&aurora.test.main.APPLICATION_15": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": [
-            null
-          ]
-        },
-        "&aurora.test.utils.APPLICATION_0": {
-          "static": false,
-          "readOnly": false,
-          "status": "free",
-          "referrer": null
-        },
-        "&aurora.test.utils.LAMBDA_1": {
-          "static": false,
-          "readOnly": false,
-          "status": "free",
-          "referrer": null
-        },
-        "&aurora.test.utils.APPLICATION_2": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": []
-        },
-        "&aurora.test.utils.LAMBDA_3": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": []
-        },
-        "&aurora.test.utils.APPLICATION_4": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": []
-        },
-        "&aurora.test.utils.APPLICATION_5": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": []
-        },
-        "&aurora.test.utils.LAMBDA_6": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": []
-        },
-        "&aurora.test.utils.APPLICATION_7": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": []
-        },
-        "&aurora.test.MoB.APPLICATION_0": {
-          "static": false,
-          "readOnly": false,
-          "status": "free",
-          "referrer": null
-        },
-        "&aurora.test.MoB.LAMBDA_1": {
-          "static": false,
-          "readOnly": false,
-          "status": "free",
-          "referrer": null
-        },
-        "&aurora.test.MoB.APPLICATION_2": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": []
-        },
-        "&aurora.test.MoB.STRING_3": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": []
-        },
-        "&aurora.test.MoB.APPLICATION_4": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": []
-        },
-        "&aurora.test.MoB.LAMBDA_5": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": []
-        },
-        "&aurora.test.MoB.APPLICATION_6": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": []
-        },
-        "&aurora.test.MoB.LAMBDA_7": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": []
-        },
-        "&aurora.test.MoB.APPLICATION_8": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": []
-        },
-        "&aurora.test.MoB.APPLICATION_9": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": []
-        },
-        "&aurora.test.MoB.APPLICATION_10": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": []
-        },
-        "&aurora.test.MoB.APPLICATION_11": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": []
-        },
-        "&aurora.test.MoB.APPLICATION_12": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": []
-        },
-        "&aurora.test.MoB.APPLICATION_13": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": []
-        },
-        "&aurora.test.MoB.APPLICATION_14": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": []
-        },
-        "&aurora.test.MoB.APPLICATION_15": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": []
-        },
-        "&aurora.test.MoB.APPLICATION_16": {
-          "static": false,
-          "readOnly": false,
-          "status": "modified",
-          "referrer": []
-        }
+        "&aurora.test.main.APPLICATION_0": "S_M",
+        "&aurora.test.main.LAMBDA_1": "S_M",
+        "&aurora.test.main.APPLICATION_2": "S_M",
+        "&aurora.test.main.STRING_3": "S_M",
+        "&aurora.test.main.APPLICATION_4": "S_M",
+        "&aurora.test.main.STRING_5": "S_M",
+        "&aurora.test.main.APPLICATION_6": "S_M",
+        "&aurora.test.main.STRING_7": "S_M",
+        "&aurora.test.main.APPLICATION_8": "S_M",
+        "&aurora.test.main.STRING_9": "S_M",
+        "&aurora.test.main.APPLICATION_10": "S_M",
+        "&aurora.test.main.STRING_11": "S_M",
+        "&aurora.test.main.APPLICATION_12": "S_M",
+        "&aurora.test.main.STRING_13": "S_M",
+        "&aurora.test.main.APPLICATION_14": "S_M",
+        "&aurora.test.main.APPLICATION_15": "S_M",
+        "&aurora.test.main.LAMBDA_16": "S_M",
+        "&aurora.test.main.LAMBDA_17": "S_M",
+        "&aurora.test.main.LAMBDA_18": "S_M",
+        "&aurora.test.main.LAMBDA_19": "S_M",
+        "&aurora.test.main.LAMBDA_20": "S_M",
+        "&aurora.test.main.APPLICATION_21": "S_M",
+        "&aurora.test.main.STRING_22": "S_M",
+        "&aurora.test.main.APPLICATION_23": "S_M",
+        "&aurora.test.main.STRING_24": "S_M",
+        "&aurora.test.main.APPLICATION_25": "S_M",
+        "&aurora.test.main.APPLICATION_26": "S_M",
+        "&aurora.test.main.APPLICATION_27": "S_M",
+        "&aurora.test.main.LAMBDA_28": "S_M",
+        "&aurora.test.main.LAMBDA_29": "S_M",
+        "&aurora.test.main.APPLICATION_30": "S_M",
+        "&aurora.test.main.APPLICATION_31": "S_M",
+        "&aurora.test.main.STRING_32": "S_M",
+        "&aurora.test.main.APPLICATION_33": "S_M",
+        "&aurora.test.main.STRING_34": "S_M",
+        "&aurora.test.main.APPLICATION_35": "S_M",
+        "&aurora.test.utils.APPLICATION_0": "__F",
+        "&aurora.test.utils.LAMBDA_1": "__F",
+        "&aurora.test.utils.APPLICATION_2": "S_M",
+        "&aurora.test.utils.LAMBDA_3": "S_M",
+        "&aurora.test.utils.APPLICATION_4": "S_M",
+        "&aurora.test.utils.APPLICATION_5": "S_M",
+        "&aurora.test.utils.LAMBDA_6": "S_M",
+        "&aurora.test.utils.APPLICATION_7": "S_M",
+        "&aurora.test.MoB.APPLICATION_0": "__F",
+        "&aurora.test.MoB.LAMBDA_1": "__F",
+        "&aurora.test.MoB.APPLICATION_2": "S_M",
+        "&aurora.test.MoB.STRING_3": "S_M",
+        "&aurora.test.MoB.APPLICATION_4": "S_M",
+        "&aurora.test.MoB.LAMBDA_5": "S_M",
+        "&aurora.test.MoB.APPLICATION_6": "S_M",
+        "&aurora.test.MoB.LAMBDA_7": "S_M",
+        "&aurora.test.MoB.APPLICATION_8": "S_M",
+        "&aurora.test.MoB.APPLICATION_9": "S_M",
+        "&aurora.test.MoB.APPLICATION_10": "S_M",
+        "&aurora.test.MoB.APPLICATION_11": "S_M",
+        "&aurora.test.MoB.APPLICATION_12": "S_M",
+        "&aurora.test.MoB.APPLICATION_13": "S_M",
+        "&aurora.test.MoB.APPLICATION_14": "S_M",
+        "&aurora.test.MoB.APPLICATION_15": "S_M",
+        "&aurora.test.MoB.APPLICATION_16": "S_M",
+        "&aurora.test.purecps.APPLICATION_0": "__F",
+        "&aurora.test.purecps.LAMBDA_1": "__F",
+        "&aurora.test.purecps.APPLICATION_2": "S_M",
+        "&aurora.test.purecps.LAMBDA_3": "S_M",
+        "&aurora.test.purecps.APPLICATION_4": "S_M",
+        "&aurora.test.purecps.LAMBDA_5": "S_M",
+        "&aurora.test.purecps.LAMBDA_6": "S_M",
+        "&aurora.test.purecps.APPLICATION_7": "S_M",
+        "&aurora.test.purecps.LAMBDA_8": "S_M",
+        "&aurora.test.purecps.APPLICATION_9": "S_M",
+        "&aurora.test.purecps.LAMBDA_10": "S_M",
+        "&aurora.test.purecps.APPLICATION_11": "S_M",
+        "&aurora.test.purecps.LAMBDA_12": "S_M",
+        "&aurora.test.purecps.APPLICATION_13": "S_M",
+        "&aurora.test.purecps.LAMBDA_14": "S_M",
+        "&aurora.test.purecps.LAMBDA_15": "S_M",
+        "&aurora.test.purecps.APPLICATION_16": "S_M",
+        "&aurora.test.purecps.APPLICATION_17": "S_M",
+        "&aurora.test.purecps.LAMBDA_18": "S_M",
+        "&aurora.test.purecps.APPLICATION_19": "S_M",
+        "&aurora.test.purecps.APPLICATION_20": "S_M",
+        "&aurora.test.purecps.LAMBDA_21": "S_M",
+        "&aurora.test.purecps.APPLICATION_22": "S_M",
+        "&aurora.test.purecps.LAMBDA_23": "S_M",
+        "&aurora.test.purecps.APPLICATION_24": "S_M",
+        "&aurora.test.purecps.APPLICATION_25": "S_M",
+        "&aurora.test.purecps.LAMBDA_26": "S_M",
+        "&aurora.test.purecps.APPLICATION_27": "S_M",
+        "&aurora.test.purecps.APPLICATION_28": "S_M",
+        "&aurora.test.purecps.LAMBDA_29": "S_M",
+        "&aurora.test.purecps.APPLICATION_30": "S_M",
+        "&aurora.test.purecps.LAMBDA_31": "S_M",
+        "&aurora.test.purecps.APPLICATION_32": "S_M",
+        "&aurora.test.purecps.LAMBDA_33": "S_M",
+        "&aurora.test.purecps.LAMBDA_34": "S_M",
+        "&aurora.test.purecps.APPLICATION_35": "S_M",
+        "&aurora.test.purecps.APPLICATION_36": "S_M",
+        "&aurora.test.purecps.LAMBDA_37": "S_M",
+        "&aurora.test.purecps.APPLICATION_38": "S_M",
+        "&aurora.test.purecps.LAMBDA_39": "S_M",
+        "&aurora.test.purecps.APPLICATION_40": "S_M",
+        "&aurora.test.purecps.LAMBDA_41": "S_M",
+        "&aurora.test.purecps.APPLICATION_42": "S_M",
+        "&aurora.test.purecps.LAMBDA_43": "S_M",
+        "&aurora.test.purecps.LAMBDA_44": "S_M",
+        "&aurora.test.purecps.APPLICATION_45": "S_M",
+        "&aurora.test.purecps.APPLICATION_46": "S_M",
+        "&aurora.test.purecps.LAMBDA_47": "S_M",
+        "&aurora.test.purecps.APPLICATION_48": "S_M",
+        "&aurora.test.purecps.APPLICATION_49": "S_M",
+        "&aurora.test.purecps.LAMBDA_50": "S_M",
+        "&aurora.test.purecps.APPLICATION_51": "S_M",
+        "&aurora.test.purecps.APPLICATION_52": "S_M",
+        "&aurora.test.purecps.LAMBDA_53": "S_M",
+        "&aurora.test.purecps.APPLICATION_54": "S_M",
+        "&aurora.test.purecps.APPLICATION_55": "S_M",
+        "&aurora.test.purecps.LAMBDA_56": "S_M",
+        "&aurora.test.purecps.APPLICATION_57": "S_M",
+        "&aurora.test.purecps.LAMBDA_58": "S_M",
+        "&aurora.test.purecps.APPLICATION_59": "S_M",
+        "&aurora.test.callcc-test.APPLICATION_0": "__F",
+        "&aurora.test.callcc-test.LAMBDA_1": "__F",
+        "&aurora.test.callcc-test.APPLICATION_2": "S_M",
+        "&aurora.test.callcc-test.LAMBDA_3": "S_M",
+        "&aurora.test.callcc-test.APPLICATION_4": "S_M",
+        "&aurora.test.callcc-test.APPLICATION_5": "S_M",
+        "&aurora.test.callcc-test.LAMBDA_6": "S_M",
+        "&aurora.test.callcc-test.APPLICATION_7": "S_M",
+        "&aurora.test.callcc-test.APPLICATION_8": "S_M",
+        "&aurora.test.callcc-test.STRING_9": "S_M",
+        "&aurora.test.callcc-test.APPLICATION_10": "S_M",
+        "&aurora.test.callcc-test.LAMBDA_11": "S_M",
+        "&aurora.test.callcc-test.APPLICATION_12": "S_M",
+        "&aurora.test.callcc-test.LAMBDA_13": "S_M",
+        "&aurora.test.callcc-test.APPLICATION_14": "S_M",
+        "&aurora.test.callcc-test.APPLICATION_15": "S_M",
+        "&aurora.test.callcc-test.STRING_16": "S_M",
+        "&aurora.test.callcc-test.APPLICATION_17": "S_M",
+        "&aurora.test.callcc-test.LAMBDA_18": "S_M"
       },
-      "handleCounter": 16
+      "handleCounter": 36
     },
     "nodeIndexes": {
       "&aurora.test.main.APPLICATION_0": 0,
@@ -623,56 +1333,189 @@
       "&aurora.test.main.STRING_3": 81,
       "&aurora.test.main.APPLICATION_4": 148,
       "&aurora.test.main.STRING_5": 165,
-      "&aurora.test.main.APPLICATION_6": 231,
-      "&aurora.test.main.STRING_7": 243,
-      "&aurora.test.main.APPLICATION_8": 265,
-      "&aurora.test.main.APPLICATION_9": 277,
-      "&aurora.test.main.LAMBDA_10": 292,
-      "&aurora.test.main.LAMBDA_11": 306,
-      "&aurora.test.main.LAMBDA_12": 321,
-      "&aurora.test.main.LAMBDA_13": 336,
-      "&aurora.test.main.LAMBDA_14": 350,
-      "&aurora.test.main.APPLICATION_15": 366,
-      "&aurora.test.utils.APPLICATION_0": 484,
-      "&aurora.test.utils.LAMBDA_1": 485,
-      "&aurora.test.utils.APPLICATION_2": 496,
-      "&aurora.test.utils.LAMBDA_3": 515,
-      "&aurora.test.utils.APPLICATION_4": 531,
-      "&aurora.test.utils.APPLICATION_5": 542,
-      "&aurora.test.utils.LAMBDA_6": 557,
-      "&aurora.test.utils.APPLICATION_7": 573,
-      "&aurora.test.MoB.APPLICATION_0": 789,
-      "&aurora.test.MoB.LAMBDA_1": 790,
-      "&aurora.test.MoB.APPLICATION_2": 801,
-      "&aurora.test.MoB.STRING_3": 815,
-      "&aurora.test.MoB.APPLICATION_4": 883,
-      "&aurora.test.MoB.LAMBDA_5": 895,
-      "&aurora.test.MoB.APPLICATION_6": 928,
-      "&aurora.test.MoB.LAMBDA_7": 946,
-      "&aurora.test.MoB.APPLICATION_8": 969,
-      "&aurora.test.MoB.APPLICATION_9": 977,
-      "&aurora.test.MoB.APPLICATION_10": 1009,
-      "&aurora.test.MoB.APPLICATION_11": 1037,
-      "&aurora.test.MoB.APPLICATION_12": 1041,
-      "&aurora.test.MoB.APPLICATION_13": 1060,
-      "&aurora.test.MoB.APPLICATION_14": 1063,
-      "&aurora.test.MoB.APPLICATION_15": 1068,
-      "&aurora.test.MoB.APPLICATION_16": 1084
+      "&aurora.test.main.APPLICATION_6": 230,
+      "&aurora.test.main.STRING_7": 246,
+      "&aurora.test.main.APPLICATION_8": 315,
+      "&aurora.test.main.STRING_9": 330,
+      "&aurora.test.main.APPLICATION_10": 464,
+      "&aurora.test.main.STRING_11": 476,
+      "&aurora.test.main.APPLICATION_12": 502,
+      "&aurora.test.main.STRING_13": 514,
+      "&aurora.test.main.APPLICATION_14": 528,
+      "&aurora.test.main.APPLICATION_15": 540,
+      "&aurora.test.main.LAMBDA_16": 555,
+      "&aurora.test.main.LAMBDA_17": 569,
+      "&aurora.test.main.LAMBDA_18": 584,
+      "&aurora.test.main.LAMBDA_19": 599,
+      "&aurora.test.main.LAMBDA_20": 613,
+      "&aurora.test.main.APPLICATION_21": 690,
+      "&aurora.test.main.STRING_22": 702,
+      "&aurora.test.main.APPLICATION_23": 724,
+      "&aurora.test.main.STRING_24": 736,
+      "&aurora.test.main.APPLICATION_25": 754,
+      "&aurora.test.main.APPLICATION_26": 755,
+      "&aurora.test.main.APPLICATION_27": 756,
+      "&aurora.test.main.LAMBDA_28": 773,
+      "&aurora.test.main.LAMBDA_29": 793,
+      "&aurora.test.main.APPLICATION_30": 805,
+      "&aurora.test.main.APPLICATION_31": 880,
+      "&aurora.test.main.STRING_32": 892,
+      "&aurora.test.main.APPLICATION_33": 918,
+      "&aurora.test.main.STRING_34": 930,
+      "&aurora.test.main.APPLICATION_35": 958,
+      "&aurora.test.utils.APPLICATION_0": 1083,
+      "&aurora.test.utils.LAMBDA_1": 1084,
+      "&aurora.test.utils.APPLICATION_2": 1095,
+      "&aurora.test.utils.LAMBDA_3": 1114,
+      "&aurora.test.utils.APPLICATION_4": 1130,
+      "&aurora.test.utils.APPLICATION_5": 1141,
+      "&aurora.test.utils.LAMBDA_6": 1156,
+      "&aurora.test.utils.APPLICATION_7": 1172,
+      "&aurora.test.MoB.APPLICATION_0": 1388,
+      "&aurora.test.MoB.LAMBDA_1": 1389,
+      "&aurora.test.MoB.APPLICATION_2": 1400,
+      "&aurora.test.MoB.STRING_3": 1414,
+      "&aurora.test.MoB.APPLICATION_4": 1482,
+      "&aurora.test.MoB.LAMBDA_5": 1494,
+      "&aurora.test.MoB.APPLICATION_6": 1527,
+      "&aurora.test.MoB.LAMBDA_7": 1545,
+      "&aurora.test.MoB.APPLICATION_8": 1568,
+      "&aurora.test.MoB.APPLICATION_9": 1576,
+      "&aurora.test.MoB.APPLICATION_10": 1608,
+      "&aurora.test.MoB.APPLICATION_11": 1636,
+      "&aurora.test.MoB.APPLICATION_12": 1640,
+      "&aurora.test.MoB.APPLICATION_13": 1659,
+      "&aurora.test.MoB.APPLICATION_14": 1662,
+      "&aurora.test.MoB.APPLICATION_15": 1667,
+      "&aurora.test.MoB.APPLICATION_16": 1683,
+      "&aurora.test.purecps.APPLICATION_0": 2732,
+      "&aurora.test.purecps.LAMBDA_1": 2733,
+      "&aurora.test.purecps.APPLICATION_2": 2744,
+      "&aurora.test.purecps.LAMBDA_3": 2760,
+      "&aurora.test.purecps.APPLICATION_4": 2777,
+      "&aurora.test.purecps.LAMBDA_5": 2783,
+      "&aurora.test.purecps.LAMBDA_6": 2805,
+      "&aurora.test.purecps.APPLICATION_7": 2829,
+      "&aurora.test.purecps.LAMBDA_8": 2830,
+      "&aurora.test.purecps.APPLICATION_9": 2860,
+      "&aurora.test.purecps.LAMBDA_10": 2861,
+      "&aurora.test.purecps.APPLICATION_11": 2894,
+      "&aurora.test.purecps.LAMBDA_12": 2895,
+      "&aurora.test.purecps.APPLICATION_13": 2910,
+      "&aurora.test.purecps.LAMBDA_14": 2916,
+      "&aurora.test.purecps.LAMBDA_15": 2930,
+      "&aurora.test.purecps.APPLICATION_16": 2942,
+      "&aurora.test.purecps.APPLICATION_17": 2945,
+      "&aurora.test.purecps.LAMBDA_18": 2986,
+      "&aurora.test.purecps.APPLICATION_19": 3023,
+      "&aurora.test.purecps.APPLICATION_20": 3024,
+      "&aurora.test.purecps.LAMBDA_21": 3058,
+      "&aurora.test.purecps.APPLICATION_22": 3072,
+      "&aurora.test.purecps.LAMBDA_23": 3104,
+      "&aurora.test.purecps.APPLICATION_24": 3138,
+      "&aurora.test.purecps.APPLICATION_25": 3170,
+      "&aurora.test.purecps.LAMBDA_26": 3171,
+      "&aurora.test.purecps.APPLICATION_27": 3186,
+      "&aurora.test.purecps.APPLICATION_28": 3247,
+      "&aurora.test.purecps.LAMBDA_29": 3248,
+      "&aurora.test.purecps.APPLICATION_30": 3362,
+      "&aurora.test.purecps.LAMBDA_31": 3363,
+      "&aurora.test.purecps.APPLICATION_32": 3378,
+      "&aurora.test.purecps.LAMBDA_33": 3384,
+      "&aurora.test.purecps.LAMBDA_34": 3398,
+      "&aurora.test.purecps.APPLICATION_35": 3410,
+      "&aurora.test.purecps.APPLICATION_36": 3413,
+      "&aurora.test.purecps.LAMBDA_37": 3426,
+      "&aurora.test.purecps.APPLICATION_38": 3474,
+      "&aurora.test.purecps.LAMBDA_39": 3538,
+      "&aurora.test.purecps.APPLICATION_40": 3593,
+      "&aurora.test.purecps.LAMBDA_41": 3594,
+      "&aurora.test.purecps.APPLICATION_42": 3609,
+      "&aurora.test.purecps.LAMBDA_43": 3615,
+      "&aurora.test.purecps.LAMBDA_44": 3629,
+      "&aurora.test.purecps.APPLICATION_45": 3641,
+      "&aurora.test.purecps.APPLICATION_46": 3644,
+      "&aurora.test.purecps.LAMBDA_47": 3657,
+      "&aurora.test.purecps.APPLICATION_48": 3764,
+      "&aurora.test.purecps.APPLICATION_49": 3765,
+      "&aurora.test.purecps.LAMBDA_50": 3780,
+      "&aurora.test.purecps.APPLICATION_51": 3820,
+      "&aurora.test.purecps.APPLICATION_52": 3821,
+      "&aurora.test.purecps.LAMBDA_53": 3836,
+      "&aurora.test.purecps.APPLICATION_54": 3876,
+      "&aurora.test.purecps.APPLICATION_55": 3877,
+      "&aurora.test.purecps.LAMBDA_56": 3892,
+      "&aurora.test.purecps.APPLICATION_57": 3977,
+      "&aurora.test.purecps.LAMBDA_58": 4048,
+      "&aurora.test.purecps.APPLICATION_59": 4060,
+      "&aurora.test.callcc-test.APPLICATION_0": 3042,
+      "&aurora.test.callcc-test.LAMBDA_1": 3043,
+      "&aurora.test.callcc-test.APPLICATION_2": 3054,
+      "&aurora.test.callcc-test.LAMBDA_3": 3070,
+      "&aurora.test.callcc-test.APPLICATION_4": 3148,
+      "&aurora.test.callcc-test.APPLICATION_5": 3149,
+      "&aurora.test.callcc-test.LAMBDA_6": 3150,
+      "&aurora.test.callcc-test.APPLICATION_7": 3162,
+      "&aurora.test.callcc-test.APPLICATION_8": 3169,
+      "&aurora.test.callcc-test.STRING_9": 3178,
+      "&aurora.test.callcc-test.APPLICATION_10": 3187,
+      "&aurora.test.callcc-test.LAMBDA_11": 3196,
+      "&aurora.test.callcc-test.APPLICATION_12": 3214,
+      "&aurora.test.callcc-test.LAMBDA_13": 3215,
+      "&aurora.test.callcc-test.APPLICATION_14": 3227,
+      "&aurora.test.callcc-test.APPLICATION_15": 3234,
+      "&aurora.test.callcc-test.STRING_16": 3243,
+      "&aurora.test.callcc-test.APPLICATION_17": 3252,
+      "&aurora.test.callcc-test.LAMBDA_18": 3261
     },
     "lambdaHandles": [
       "&aurora.test.main.LAMBDA_1",
-      "&aurora.test.main.LAMBDA_10",
-      "&aurora.test.main.LAMBDA_11",
-      "&aurora.test.main.LAMBDA_12",
-      "&aurora.test.main.LAMBDA_13",
-      "&aurora.test.main.LAMBDA_14",
+      "&aurora.test.main.LAMBDA_16",
+      "&aurora.test.main.LAMBDA_17",
+      "&aurora.test.main.LAMBDA_18",
+      "&aurora.test.main.LAMBDA_19",
+      "&aurora.test.main.LAMBDA_20",
+      "&aurora.test.main.LAMBDA_28",
+      "&aurora.test.main.LAMBDA_29",
       "&aurora.test.utils.LAMBDA_3",
       "&aurora.test.utils.LAMBDA_6",
       "&aurora.test.MoB.LAMBDA_5",
-      "&aurora.test.MoB.LAMBDA_7"
+      "&aurora.test.MoB.LAMBDA_7",
+      "&aurora.test.purecps.LAMBDA_3",
+      "&aurora.test.purecps.LAMBDA_5",
+      "&aurora.test.purecps.LAMBDA_6",
+      "&aurora.test.purecps.LAMBDA_8",
+      "&aurora.test.purecps.LAMBDA_10",
+      "&aurora.test.purecps.LAMBDA_12",
+      "&aurora.test.purecps.LAMBDA_14",
+      "&aurora.test.purecps.LAMBDA_15",
+      "&aurora.test.purecps.LAMBDA_18",
+      "&aurora.test.purecps.LAMBDA_21",
+      "&aurora.test.purecps.LAMBDA_23",
+      "&aurora.test.purecps.LAMBDA_26",
+      "&aurora.test.purecps.LAMBDA_29",
+      "&aurora.test.purecps.LAMBDA_31",
+      "&aurora.test.purecps.LAMBDA_33",
+      "&aurora.test.purecps.LAMBDA_34",
+      "&aurora.test.purecps.LAMBDA_37",
+      "&aurora.test.purecps.LAMBDA_39",
+      "&aurora.test.purecps.LAMBDA_41",
+      "&aurora.test.purecps.LAMBDA_43",
+      "&aurora.test.purecps.LAMBDA_44",
+      "&aurora.test.purecps.LAMBDA_47",
+      "&aurora.test.purecps.LAMBDA_50",
+      "&aurora.test.purecps.LAMBDA_53",
+      "&aurora.test.purecps.LAMBDA_56",
+      "&aurora.test.purecps.LAMBDA_58",
+      "&aurora.test.callcc-test.LAMBDA_3",
+      "&aurora.test.callcc-test.LAMBDA_6",
+      "&aurora.test.callcc-test.LAMBDA_11",
+      "&aurora.test.callcc-test.LAMBDA_13",
+      "&aurora.test.callcc-test.LAMBDA_18"
     ],
     "tailcall": [
-      "&aurora.test.main.APPLICATION_15",
+      "&aurora.test.main.APPLICATION_30",
+      "&aurora.test.main.APPLICATION_35",
       "&aurora.test.main.APPLICATION_0",
       "&aurora.test.utils.APPLICATION_4",
       "&aurora.test.utils.APPLICATION_7",
@@ -680,9 +1523,39 @@
       "&aurora.test.MoB.APPLICATION_10",
       "&aurora.test.MoB.APPLICATION_13",
       "&aurora.test.MoB.APPLICATION_16",
-      "&aurora.test.MoB.APPLICATION_4"
+      "&aurora.test.MoB.APPLICATION_4",
+      "&aurora.test.purecps.APPLICATION_16",
+      "&aurora.test.purecps.APPLICATION_13",
+      "&aurora.test.purecps.APPLICATION_22",
+      "&aurora.test.purecps.APPLICATION_19",
+      "&aurora.test.purecps.APPLICATION_11",
+      "&aurora.test.purecps.APPLICATION_27",
+      "&aurora.test.purecps.APPLICATION_25",
+      "&aurora.test.purecps.APPLICATION_35",
+      "&aurora.test.purecps.APPLICATION_32",
+      "&aurora.test.purecps.APPLICATION_45",
+      "&aurora.test.purecps.APPLICATION_42",
+      "&aurora.test.purecps.APPLICATION_57",
+      "&aurora.test.purecps.APPLICATION_54",
+      "&aurora.test.purecps.APPLICATION_51",
+      "&aurora.test.purecps.APPLICATION_48",
+      "&aurora.test.purecps.APPLICATION_40",
+      "&aurora.test.purecps.APPLICATION_38",
+      "&aurora.test.purecps.APPLICATION_30",
+      "&aurora.test.purecps.APPLICATION_28",
+      "&aurora.test.purecps.APPLICATION_9",
+      "&aurora.test.purecps.APPLICATION_59",
+      "&aurora.test.purecps.APPLICATION_7",
+      "&aurora.test.purecps.APPLICATION_4",
+      "&aurora.test.purecps.APPLICATION_2",
+      "&aurora.test.callcc-test.APPLICATION_7",
+      "&aurora.test.callcc-test.APPLICATION_14",
+      "&aurora.test.callcc-test.APPLICATION_4",
+      "&aurora.test.callcc-test.APPLICATION_2"
     ],
     "variableMapping": {
+      "aurora.test.main.LAMBDA_28.x": "x",
+      "aurora.test.main.LAMBDA_29.x": "x",
       "aurora.test.utils.LAMBDA_1.decrease": "decrease",
       "aurora.test.utils.LAMBDA_3.x": "x",
       "aurora.test.utils.LAMBDA_1.show": "show",
@@ -694,203 +1567,423 @@
       "aurora.test.MoB.LAMBDA_5.x3": "x3",
       "aurora.test.MoB.LAMBDA_5.x4": "x4",
       "aurora.test.MoB.LAMBDA_5.x5": "x5",
-      "aurora.test.MoB.LAMBDA_5.B": "B"
+      "aurora.test.MoB.LAMBDA_5.B": "B",
+      "aurora.test.purecps.LAMBDA_1.fac-cps": "fac-cps",
+      "aurora.test.purecps.LAMBDA_3.cont": "cont",
+      "aurora.test.purecps.LAMBDA_5.n": "n",
+      "aurora.test.purecps.LAMBDA_6.k": "k",
+      "aurora.test.purecps.LAMBDA_8.cont": "cont",
+      "aurora.test.purecps.LAMBDA_10.cont": "cont",
+      "aurora.test.purecps.LAMBDA_12.cont": "cont",
+      "aurora.test.purecps.LAMBDA_14.x": "x",
+      "aurora.test.purecps.LAMBDA_14.y": "y",
+      "aurora.test.purecps.LAMBDA_15.k": "k",
+      "aurora.test.purecps.LAMBDA_18.node0": "node0",
+      "aurora.test.purecps.LAMBDA_21.res": "res",
+      "aurora.test.purecps.LAMBDA_23.p-res": "p-res",
+      "aurora.test.purecps.LAMBDA_26.cont": "cont",
+      "aurora.test.purecps.LAMBDA_29.cont": "cont",
+      "aurora.test.purecps.LAMBDA_31.cont": "cont",
+      "aurora.test.purecps.LAMBDA_33.x": "x",
+      "aurora.test.purecps.LAMBDA_33.y": "y",
+      "aurora.test.purecps.LAMBDA_34.k": "k",
+      "aurora.test.purecps.LAMBDA_37.node0": "node0",
+      "aurora.test.purecps.LAMBDA_39.node1": "node1",
+      "aurora.test.purecps.LAMBDA_41.cont": "cont",
+      "aurora.test.purecps.LAMBDA_43.x": "x",
+      "aurora.test.purecps.LAMBDA_43.y": "y",
+      "aurora.test.purecps.LAMBDA_44.k": "k",
+      "aurora.test.purecps.LAMBDA_47.node2": "node2",
+      "aurora.test.purecps.LAMBDA_50.res2": "res2",
+      "aurora.test.purecps.LAMBDA_53.res1": "res1",
+      "aurora.test.purecps.LAMBDA_56.res": "res",
+      "aurora.test.purecps.LAMBDA_58.m": "m",
+      "aurora.test.callcc-test.LAMBDA_1.YinYang": "YinYang",
+      "aurora.test.callcc-test.LAMBDA_6.x": "x",
+      "aurora.test.callcc-test.LAMBDA_11.k": "k",
+      "aurora.test.callcc-test.LAMBDA_13.x": "x",
+      "aurora.test.callcc-test.LAMBDA_18.k": "k"
     },
     "topVariables": {
       "decrease": "aurora.test.utils.LAMBDA_1.decrease",
       "show": "aurora.test.utils.LAMBDA_1.show",
-      "A": "aurora.test.MoB.LAMBDA_1.A"
+      "A": "aurora.test.MoB.LAMBDA_1.A",
+      "fac-cps": "aurora.test.purecps.LAMBDA_1.fac-cps",
+      "YinYang": "aurora.test.callcc-test.LAMBDA_1.YinYang"
     },
     "dependencies": {
       "Utils": "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.utils.scm",
-      "ManOrBoy": "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.MoB.scm"
+      "ManOrBoy": "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.MoB.scm",
+      "PureCPS": "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.purecps.scm",
+      "CallCC": "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.callcc-test.scm"
     },
     "natives": {}
   },
   "ILCode": [
-    ";;",
-    ";; Aurora Intermediate Language (AIL) Code",
-    ";;   Module: aurora.test.main",
-    ";;   Generated by ASCompiler V0",
-    ";;",
-    ";; 🐟🐟🐟🐟🐟 Program Entry 🐟🐟🐟🐟🐟",
-    "   call @&aurora.test.main.LAMBDA_1",
-    "   halt",
-    ";; 🐟🐟🐟🐟🐟  Program End  🐟🐟🐟🐟🐟",
-    ";;",
-    ";; ✅ FUNCTION “&aurora.test.main.LAMBDA_1” BEGIN",
-    "   @&aurora.test.main.LAMBDA_1",
-    ";; ✅ APPLICATION “&aurora.test.MoB.APPLICATION_2” BEGIN",
-    ";; ✅ APPLICATION “&aurora.test.MoB.APPLICATION_4” BEGIN",
-    ";; ✅ DEFINE “&aurora.test.MoB.APPLICATION_4” BEGIN",
-    "   push @&aurora.test.MoB.LAMBDA_5",
-    "   store aurora.test.MoB.LAMBDA_1.A",
-    ";; 🛑 DEFINE “&aurora.test.MoB.APPLICATION_4” END   ",
-    ";;",
-    ";; ✅ APPLICATION “&aurora.test.utils.APPLICATION_2” BEGIN",
-    ";; ✅ DEFINE “&aurora.test.utils.APPLICATION_2” BEGIN",
-    "   push @&aurora.test.utils.LAMBDA_3",
-    "   store aurora.test.utils.LAMBDA_1.decrease",
-    ";; 🛑 DEFINE “&aurora.test.utils.APPLICATION_2” END   ",
-    ";;",
-    ";; ✅ APPLICATION “&aurora.test.utils.APPLICATION_5” BEGIN",
-    ";; ✅ DEFINE “&aurora.test.utils.APPLICATION_5” BEGIN",
-    "   push @&aurora.test.utils.LAMBDA_6",
-    "   store aurora.test.utils.LAMBDA_1.show",
-    ";; 🛑 DEFINE “&aurora.test.utils.APPLICATION_5” END   ",
-    ";;",
-    ";; ✅ APPLICATION “&aurora.test.main.APPLICATION_2” BEGIN",
-    ";; ✅ APPLICATION “&aurora.test.main.APPLICATION_4” BEGIN",
-    ";; ✅ APPLICATION “&aurora.test.main.APPLICATION_6” BEGIN",
-    "   push &aurora.test.main.STRING_7",
-    "   call aurora.test.utils.LAMBDA_1.show",
-    ";; 🛑 APPLICATION “&aurora.test.main.APPLICATION_6” END   ",
-    ";;",
-    ";; ✅ APPLICATION “&aurora.test.main.APPLICATION_8” BEGIN",
-    ";; ✅ APPLICATION “&aurora.test.main.APPLICATION_9” BEGIN",
-    "   push 10",
-    "   loadclosure @&aurora.test.main.LAMBDA_10",
-    "   loadclosure @&aurora.test.main.LAMBDA_11",
-    "   loadclosure @&aurora.test.main.LAMBDA_12",
-    "   loadclosure @&aurora.test.main.LAMBDA_13",
-    "   loadclosure @&aurora.test.main.LAMBDA_14",
-    "   call aurora.test.MoB.LAMBDA_1.A",
-    ";; 🛑 APPLICATION “&aurora.test.main.APPLICATION_9” END   ",
-    ";;",
-    "   call aurora.test.utils.LAMBDA_1.show",
-    ";; 🛑 APPLICATION “&aurora.test.main.APPLICATION_8” END   ",
-    ";;",
-    ";; ✅ APPLICATION “&aurora.test.main.APPLICATION_15” BEGIN",
-    "   newline",
-    ";; 🛑 APPLICATION “&aurora.test.main.APPLICATION_15” END   ",
-    ";;",
-    "   return",
-    ";; 🛑 FUNCTION “&aurora.test.main.LAMBDA_1” END   ",
-    ";;",
-    ";; ✅ FUNCTION “&aurora.test.main.LAMBDA_10” BEGIN",
-    "   @&aurora.test.main.LAMBDA_10",
-    "   push 1",
-    "   return",
-    ";; 🛑 FUNCTION “&aurora.test.main.LAMBDA_10” END   ",
-    ";;",
-    ";; ✅ FUNCTION “&aurora.test.main.LAMBDA_11” BEGIN",
-    "   @&aurora.test.main.LAMBDA_11",
-    "   push -1",
-    "   return",
-    ";; 🛑 FUNCTION “&aurora.test.main.LAMBDA_11” END   ",
-    ";;",
-    ";; ✅ FUNCTION “&aurora.test.main.LAMBDA_12” BEGIN",
-    "   @&aurora.test.main.LAMBDA_12",
-    "   push -1",
-    "   return",
-    ";; 🛑 FUNCTION “&aurora.test.main.LAMBDA_12” END   ",
-    ";;",
-    ";; ✅ FUNCTION “&aurora.test.main.LAMBDA_13” BEGIN",
-    "   @&aurora.test.main.LAMBDA_13",
-    "   push 1",
-    "   return",
-    ";; 🛑 FUNCTION “&aurora.test.main.LAMBDA_13” END   ",
-    ";;",
-    ";; ✅ FUNCTION “&aurora.test.main.LAMBDA_14” BEGIN",
-    "   @&aurora.test.main.LAMBDA_14",
-    "   push 0",
-    "   return",
-    ";; 🛑 FUNCTION “&aurora.test.main.LAMBDA_14” END   ",
-    ";;",
-    ";; ✅ FUNCTION “&aurora.test.utils.LAMBDA_3” BEGIN",
-    "   @&aurora.test.utils.LAMBDA_3",
-    "   store aurora.test.utils.LAMBDA_3.x",
-    ";; ✅ APPLICATION “&aurora.test.utils.APPLICATION_4” BEGIN",
-    "   load aurora.test.utils.LAMBDA_3.x",
-    "   push 1",
-    "   sub",
-    ";; 🛑 APPLICATION “&aurora.test.utils.APPLICATION_4” END   ",
-    ";;",
-    "   return",
-    ";; 🛑 FUNCTION “&aurora.test.utils.LAMBDA_3” END   ",
-    ";;",
-    ";; ✅ FUNCTION “&aurora.test.utils.LAMBDA_6” BEGIN",
-    "   @&aurora.test.utils.LAMBDA_6",
-    "   store aurora.test.utils.LAMBDA_6.x",
-    ";; ✅ APPLICATION “&aurora.test.utils.APPLICATION_7” BEGIN",
-    "   load aurora.test.utils.LAMBDA_6.x",
-    "   display",
-    ";; 🛑 APPLICATION “&aurora.test.utils.APPLICATION_7” END   ",
-    ";;",
-    "   return",
-    ";; 🛑 FUNCTION “&aurora.test.utils.LAMBDA_6” END   ",
-    ";;",
-    ";; ✅ FUNCTION “&aurora.test.MoB.LAMBDA_5” BEGIN",
-    "   @&aurora.test.MoB.LAMBDA_5",
-    "   store aurora.test.MoB.LAMBDA_5.x5",
-    "   store aurora.test.MoB.LAMBDA_5.x4",
-    "   store aurora.test.MoB.LAMBDA_5.x3",
-    "   store aurora.test.MoB.LAMBDA_5.x2",
-    "   store aurora.test.MoB.LAMBDA_5.x1",
-    "   store aurora.test.MoB.LAMBDA_5.k",
-    ";; ✅ APPLICATION “&aurora.test.MoB.APPLICATION_6” BEGIN",
-    ";; ✅ DEFINE “&aurora.test.MoB.APPLICATION_6” BEGIN",
-    "   push @&aurora.test.MoB.LAMBDA_7",
-    "   store aurora.test.MoB.LAMBDA_5.B",
-    ";; 🛑 DEFINE “&aurora.test.MoB.APPLICATION_6” END   ",
-    ";;",
-    ";; ✅ APPLICATION “&aurora.test.MoB.APPLICATION_11” BEGIN",
-    ";; ✅ IF “&aurora.test.MoB.APPLICATION_11” BEGIN",
-    ";; ✅ APPLICATION “&aurora.test.MoB.APPLICATION_12” BEGIN",
-    "   load aurora.test.MoB.LAMBDA_5.k",
-    "   push 0",
-    "   le",
-    ";; 🛑 APPLICATION “&aurora.test.MoB.APPLICATION_12” END   ",
-    ";;",
-    "   iftrue @IF_TRUE_aurora.test.main.ID0",
-    ";; ✅ APPLICATION “&aurora.test.MoB.APPLICATION_16” BEGIN",
-    "   tailcall aurora.test.MoB.LAMBDA_5.B",
-    ";; 🛑 APPLICATION “&aurora.test.MoB.APPLICATION_16” END   ",
-    ";;",
-    "   goto @IF_END_aurora.test.main.ID0",
-    "   @IF_TRUE_aurora.test.main.ID0",
-    ";; ✅ APPLICATION “&aurora.test.MoB.APPLICATION_13” BEGIN",
-    ";; ✅ APPLICATION “&aurora.test.MoB.APPLICATION_14” BEGIN",
-    "   call aurora.test.MoB.LAMBDA_5.x4",
-    ";; 🛑 APPLICATION “&aurora.test.MoB.APPLICATION_14” END   ",
-    ";;",
-    ";; ✅ APPLICATION “&aurora.test.MoB.APPLICATION_15” BEGIN",
-    "   call aurora.test.MoB.LAMBDA_5.x5",
-    ";; 🛑 APPLICATION “&aurora.test.MoB.APPLICATION_15” END   ",
-    ";;",
-    "   add",
-    ";; 🛑 APPLICATION “&aurora.test.MoB.APPLICATION_13” END   ",
-    ";;",
-    "   @IF_END_aurora.test.main.ID0",
-    ";; 🛑 IF “&aurora.test.MoB.APPLICATION_11” END   ",
-    ";;",
-    "   return",
-    ";; 🛑 FUNCTION “&aurora.test.MoB.LAMBDA_5” END   ",
-    ";;",
-    ";; ✅ FUNCTION “&aurora.test.MoB.LAMBDA_7” BEGIN",
-    "   @&aurora.test.MoB.LAMBDA_7",
-    ";; ✅ APPLICATION “&aurora.test.MoB.APPLICATION_8” BEGIN",
-    ";; ✅ SET! “&aurora.test.MoB.APPLICATION_8” BEGIN",
-    ";; ✅ APPLICATION “&aurora.test.MoB.APPLICATION_9” BEGIN",
-    "   load aurora.test.MoB.LAMBDA_5.k",
-    "   call aurora.test.utils.LAMBDA_1.decrease",
-    ";; 🛑 APPLICATION “&aurora.test.MoB.APPLICATION_9” END   ",
-    ";;",
-    "   set aurora.test.MoB.LAMBDA_5.k",
-    ";; 🛑 SET! “&aurora.test.MoB.APPLICATION_8” END   ",
-    ";;",
-    ";; ✅ APPLICATION “&aurora.test.MoB.APPLICATION_10” BEGIN",
-    "   load aurora.test.MoB.LAMBDA_5.k",
-    "   load aurora.test.MoB.LAMBDA_5.B",
-    "   load aurora.test.MoB.LAMBDA_5.x1",
-    "   load aurora.test.MoB.LAMBDA_5.x2",
-    "   load aurora.test.MoB.LAMBDA_5.x3",
-    "   load aurora.test.MoB.LAMBDA_5.x4",
-    "   tailcall aurora.test.MoB.LAMBDA_1.A",
-    ";; 🛑 APPLICATION “&aurora.test.MoB.APPLICATION_10” END   ",
-    ";;",
-    "   return",
-    ";; 🛑 FUNCTION “&aurora.test.MoB.LAMBDA_7” END   ",
-    ";;"
+    "call @&aurora.test.main.LAMBDA_1",
+    "halt",
+    "@&aurora.test.main.LAMBDA_1",
+    "push @&aurora.test.callcc-test.LAMBDA_3",
+    "store aurora.test.callcc-test.LAMBDA_1.YinYang",
+    "push @&aurora.test.purecps.LAMBDA_3",
+    "store aurora.test.purecps.LAMBDA_1.fac-cps",
+    "push @&aurora.test.MoB.LAMBDA_5",
+    "store aurora.test.MoB.LAMBDA_1.A",
+    "push @&aurora.test.utils.LAMBDA_3",
+    "store aurora.test.utils.LAMBDA_1.decrease",
+    "push @&aurora.test.utils.LAMBDA_6",
+    "store aurora.test.utils.LAMBDA_1.show",
+    "push &aurora.test.main.STRING_11",
+    "call aurora.test.utils.LAMBDA_1.show",
+    "push &aurora.test.main.STRING_13",
+    "call aurora.test.utils.LAMBDA_1.show",
+    "push 10",
+    "loadclosure @&aurora.test.main.LAMBDA_16",
+    "loadclosure @&aurora.test.main.LAMBDA_17",
+    "loadclosure @&aurora.test.main.LAMBDA_18",
+    "loadclosure @&aurora.test.main.LAMBDA_19",
+    "loadclosure @&aurora.test.main.LAMBDA_20",
+    "call aurora.test.MoB.LAMBDA_1.A",
+    "call aurora.test.utils.LAMBDA_1.show",
+    "push &aurora.test.main.STRING_22",
+    "call aurora.test.utils.LAMBDA_1.show",
+    "push &aurora.test.main.STRING_24",
+    "call aurora.test.utils.LAMBDA_1.show",
+    "goto @APPLY_BEGIN_aurora.test.main.ID0",
+    "@TEMP_LAMBDA_aurora.test.main.ID0",
+    "store TEMP_LAMBDA_PARAM1_aurora.test.main.ID0",
+    "store TEMP_LAMBDA_PARAM0_aurora.test.main.ID0",
+    "load TEMP_LAMBDA_PARAM1_aurora.test.main.ID0",
+    "tailcall TEMP_LAMBDA_PARAM0_aurora.test.main.ID0",
+    "return",
+    "@APPLY_BEGIN_aurora.test.main.ID0",
+    "goto @APPLY_BEGIN_aurora.test.main.ID1",
+    "@TEMP_LAMBDA_aurora.test.main.ID1",
+    "store TEMP_LAMBDA_PARAM1_aurora.test.main.ID1",
+    "store TEMP_LAMBDA_PARAM0_aurora.test.main.ID1",
+    "load TEMP_LAMBDA_PARAM1_aurora.test.main.ID1",
+    "tailcall TEMP_LAMBDA_PARAM0_aurora.test.main.ID1",
+    "return",
+    "@APPLY_BEGIN_aurora.test.main.ID1",
+    "loadclosure @&aurora.test.main.LAMBDA_28",
+    "call aurora.test.purecps.LAMBDA_1.fac-cps",
+    "push 10",
+    "call @TEMP_LAMBDA_aurora.test.main.ID1",
+    "@TEMP_LAMBDA_RETURN_TARGET_aurora.test.main.ID1",
+    "loadclosure @&aurora.test.main.LAMBDA_29",
+    "call @TEMP_LAMBDA_aurora.test.main.ID0",
+    "@TEMP_LAMBDA_RETURN_TARGET_aurora.test.main.ID0",
+    "push &aurora.test.main.STRING_32",
+    "call aurora.test.utils.LAMBDA_1.show",
+    "push &aurora.test.main.STRING_34",
+    "call aurora.test.utils.LAMBDA_1.show",
+    "tailcall aurora.test.callcc-test.LAMBDA_1.YinYang",
+    "return",
+    "@&aurora.test.main.LAMBDA_16",
+    "push 1",
+    "return",
+    "@&aurora.test.main.LAMBDA_17",
+    "push -1",
+    "return",
+    "@&aurora.test.main.LAMBDA_18",
+    "push -1",
+    "return",
+    "@&aurora.test.main.LAMBDA_19",
+    "push 1",
+    "return",
+    "@&aurora.test.main.LAMBDA_20",
+    "push 0",
+    "return",
+    "@&aurora.test.main.LAMBDA_28",
+    "store aurora.test.main.LAMBDA_28.x",
+    "load aurora.test.main.LAMBDA_28.x",
+    "return",
+    "@&aurora.test.main.LAMBDA_29",
+    "store aurora.test.main.LAMBDA_29.x",
+    "load aurora.test.main.LAMBDA_29.x",
+    "display",
+    "return",
+    "@&aurora.test.utils.LAMBDA_3",
+    "store aurora.test.utils.LAMBDA_3.x",
+    "load aurora.test.utils.LAMBDA_3.x",
+    "push 1",
+    "sub",
+    "return",
+    "@&aurora.test.utils.LAMBDA_6",
+    "store aurora.test.utils.LAMBDA_6.x",
+    "load aurora.test.utils.LAMBDA_6.x",
+    "display",
+    "return",
+    "@&aurora.test.MoB.LAMBDA_5",
+    "store aurora.test.MoB.LAMBDA_5.x5",
+    "store aurora.test.MoB.LAMBDA_5.x4",
+    "store aurora.test.MoB.LAMBDA_5.x3",
+    "store aurora.test.MoB.LAMBDA_5.x2",
+    "store aurora.test.MoB.LAMBDA_5.x1",
+    "store aurora.test.MoB.LAMBDA_5.k",
+    "push @&aurora.test.MoB.LAMBDA_7",
+    "store aurora.test.MoB.LAMBDA_5.B",
+    "load aurora.test.MoB.LAMBDA_5.k",
+    "push 0",
+    "le",
+    "iftrue @IF_TRUE_aurora.test.main.ID2",
+    "tailcall aurora.test.MoB.LAMBDA_5.B",
+    "goto @IF_END_aurora.test.main.ID2",
+    "@IF_TRUE_aurora.test.main.ID2",
+    "call aurora.test.MoB.LAMBDA_5.x4",
+    "call aurora.test.MoB.LAMBDA_5.x5",
+    "add",
+    "@IF_END_aurora.test.main.ID2",
+    "return",
+    "@&aurora.test.MoB.LAMBDA_7",
+    "load aurora.test.MoB.LAMBDA_5.k",
+    "call aurora.test.utils.LAMBDA_1.decrease",
+    "set aurora.test.MoB.LAMBDA_5.k",
+    "load aurora.test.MoB.LAMBDA_5.k",
+    "load aurora.test.MoB.LAMBDA_5.B",
+    "load aurora.test.MoB.LAMBDA_5.x1",
+    "load aurora.test.MoB.LAMBDA_5.x2",
+    "load aurora.test.MoB.LAMBDA_5.x3",
+    "load aurora.test.MoB.LAMBDA_5.x4",
+    "tailcall aurora.test.MoB.LAMBDA_1.A",
+    "return",
+    "@&aurora.test.purecps.LAMBDA_3",
+    "store aurora.test.purecps.LAMBDA_3.cont",
+    "loadclosure @&aurora.test.purecps.LAMBDA_5",
+    "tailcall aurora.test.purecps.LAMBDA_3.cont",
+    "return",
+    "@&aurora.test.purecps.LAMBDA_5",
+    "store aurora.test.purecps.LAMBDA_5.n",
+    "loadclosure @&aurora.test.purecps.LAMBDA_6",
+    "return",
+    "@&aurora.test.purecps.LAMBDA_6",
+    "store aurora.test.purecps.LAMBDA_6.k",
+    "loadclosure @&aurora.test.purecps.LAMBDA_58",
+    "tailcall @&aurora.test.purecps.LAMBDA_8",
+    "return",
+    "@&aurora.test.purecps.LAMBDA_8",
+    "store aurora.test.purecps.LAMBDA_8.cont",
+    "loadclosure @&aurora.test.purecps.LAMBDA_23",
+    "tailcall @&aurora.test.purecps.LAMBDA_10",
+    "return",
+    "@&aurora.test.purecps.LAMBDA_10",
+    "store aurora.test.purecps.LAMBDA_10.cont",
+    "loadclosure @&aurora.test.purecps.LAMBDA_18",
+    "tailcall @&aurora.test.purecps.LAMBDA_12",
+    "return",
+    "@&aurora.test.purecps.LAMBDA_12",
+    "store aurora.test.purecps.LAMBDA_12.cont",
+    "loadclosure @&aurora.test.purecps.LAMBDA_14",
+    "tailcall aurora.test.purecps.LAMBDA_12.cont",
+    "return",
+    "@&aurora.test.purecps.LAMBDA_14",
+    "store aurora.test.purecps.LAMBDA_14.y",
+    "store aurora.test.purecps.LAMBDA_14.x",
+    "loadclosure @&aurora.test.purecps.LAMBDA_15",
+    "return",
+    "@&aurora.test.purecps.LAMBDA_15",
+    "store aurora.test.purecps.LAMBDA_15.k",
+    "load aurora.test.purecps.LAMBDA_14.x",
+    "load aurora.test.purecps.LAMBDA_14.y",
+    "eqn",
+    "tailcall aurora.test.purecps.LAMBDA_15.k",
+    "return",
+    "@&aurora.test.purecps.LAMBDA_18",
+    "store aurora.test.purecps.LAMBDA_18.node0",
+    "goto @APPLY_BEGIN_aurora.test.main.ID3",
+    "@TEMP_LAMBDA_aurora.test.main.ID3",
+    "store TEMP_LAMBDA_PARAM1_aurora.test.main.ID3",
+    "store TEMP_LAMBDA_PARAM0_aurora.test.main.ID3",
+    "load TEMP_LAMBDA_PARAM1_aurora.test.main.ID3",
+    "tailcall TEMP_LAMBDA_PARAM0_aurora.test.main.ID3",
+    "return",
+    "@APPLY_BEGIN_aurora.test.main.ID3",
+    "push 0",
+    "load aurora.test.purecps.LAMBDA_5.n",
+    "call aurora.test.purecps.LAMBDA_18.node0",
+    "loadclosure @&aurora.test.purecps.LAMBDA_21",
+    "call @TEMP_LAMBDA_aurora.test.main.ID3",
+    "@TEMP_LAMBDA_RETURN_TARGET_aurora.test.main.ID3",
+    "return",
+    "@&aurora.test.purecps.LAMBDA_21",
+    "store aurora.test.purecps.LAMBDA_21.res",
+    "load aurora.test.purecps.LAMBDA_21.res",
+    "tailcall aurora.test.purecps.LAMBDA_10.cont",
+    "return",
+    "@&aurora.test.purecps.LAMBDA_23",
+    "store aurora.test.purecps.LAMBDA_23.p-res",
+    "load aurora.test.purecps.LAMBDA_23.p-res",
+    "iftrue @IF_TRUE_aurora.test.main.ID4",
+    "load aurora.test.purecps.LAMBDA_8.cont",
+    "tailcall @&aurora.test.purecps.LAMBDA_29",
+    "goto @IF_END_aurora.test.main.ID4",
+    "@IF_TRUE_aurora.test.main.ID4",
+    "load aurora.test.purecps.LAMBDA_8.cont",
+    "tailcall @&aurora.test.purecps.LAMBDA_26",
+    "@IF_END_aurora.test.main.ID4",
+    "return",
+    "@&aurora.test.purecps.LAMBDA_26",
+    "store aurora.test.purecps.LAMBDA_26.cont",
+    "push 1",
+    "tailcall aurora.test.purecps.LAMBDA_26.cont",
+    "return",
+    "@&aurora.test.purecps.LAMBDA_29",
+    "store aurora.test.purecps.LAMBDA_29.cont",
+    "loadclosure @&aurora.test.purecps.LAMBDA_37",
+    "tailcall @&aurora.test.purecps.LAMBDA_31",
+    "return",
+    "@&aurora.test.purecps.LAMBDA_31",
+    "store aurora.test.purecps.LAMBDA_31.cont",
+    "loadclosure @&aurora.test.purecps.LAMBDA_33",
+    "tailcall aurora.test.purecps.LAMBDA_31.cont",
+    "return",
+    "@&aurora.test.purecps.LAMBDA_33",
+    "store aurora.test.purecps.LAMBDA_33.y",
+    "store aurora.test.purecps.LAMBDA_33.x",
+    "loadclosure @&aurora.test.purecps.LAMBDA_34",
+    "return",
+    "@&aurora.test.purecps.LAMBDA_34",
+    "store aurora.test.purecps.LAMBDA_34.k",
+    "load aurora.test.purecps.LAMBDA_33.x",
+    "load aurora.test.purecps.LAMBDA_33.y",
+    "mul",
+    "tailcall aurora.test.purecps.LAMBDA_34.k",
+    "return",
+    "@&aurora.test.purecps.LAMBDA_37",
+    "store aurora.test.purecps.LAMBDA_37.node0",
+    "loadclosure @&aurora.test.purecps.LAMBDA_39",
+    "tailcall aurora.test.purecps.LAMBDA_1.fac-cps",
+    "return",
+    "@&aurora.test.purecps.LAMBDA_39",
+    "store aurora.test.purecps.LAMBDA_39.node1",
+    "loadclosure @&aurora.test.purecps.LAMBDA_47",
+    "tailcall @&aurora.test.purecps.LAMBDA_41",
+    "return",
+    "@&aurora.test.purecps.LAMBDA_41",
+    "store aurora.test.purecps.LAMBDA_41.cont",
+    "loadclosure @&aurora.test.purecps.LAMBDA_43",
+    "tailcall aurora.test.purecps.LAMBDA_41.cont",
+    "return",
+    "@&aurora.test.purecps.LAMBDA_43",
+    "store aurora.test.purecps.LAMBDA_43.y",
+    "store aurora.test.purecps.LAMBDA_43.x",
+    "loadclosure @&aurora.test.purecps.LAMBDA_44",
+    "return",
+    "@&aurora.test.purecps.LAMBDA_44",
+    "store aurora.test.purecps.LAMBDA_44.k",
+    "load aurora.test.purecps.LAMBDA_43.x",
+    "load aurora.test.purecps.LAMBDA_43.y",
+    "sub",
+    "tailcall aurora.test.purecps.LAMBDA_44.k",
+    "return",
+    "@&aurora.test.purecps.LAMBDA_47",
+    "store aurora.test.purecps.LAMBDA_47.node2",
+    "goto @APPLY_BEGIN_aurora.test.main.ID5",
+    "@TEMP_LAMBDA_aurora.test.main.ID5",
+    "store TEMP_LAMBDA_PARAM1_aurora.test.main.ID5",
+    "store TEMP_LAMBDA_PARAM0_aurora.test.main.ID5",
+    "load TEMP_LAMBDA_PARAM1_aurora.test.main.ID5",
+    "tailcall TEMP_LAMBDA_PARAM0_aurora.test.main.ID5",
+    "return",
+    "@APPLY_BEGIN_aurora.test.main.ID5",
+    "load aurora.test.purecps.LAMBDA_5.n",
+    "push 1",
+    "call aurora.test.purecps.LAMBDA_47.node2",
+    "loadclosure @&aurora.test.purecps.LAMBDA_50",
+    "call @TEMP_LAMBDA_aurora.test.main.ID5",
+    "@TEMP_LAMBDA_RETURN_TARGET_aurora.test.main.ID5",
+    "return",
+    "@&aurora.test.purecps.LAMBDA_50",
+    "store aurora.test.purecps.LAMBDA_50.res2",
+    "goto @APPLY_BEGIN_aurora.test.main.ID6",
+    "@TEMP_LAMBDA_aurora.test.main.ID6",
+    "store TEMP_LAMBDA_PARAM1_aurora.test.main.ID6",
+    "store TEMP_LAMBDA_PARAM0_aurora.test.main.ID6",
+    "load TEMP_LAMBDA_PARAM1_aurora.test.main.ID6",
+    "tailcall TEMP_LAMBDA_PARAM0_aurora.test.main.ID6",
+    "return",
+    "@APPLY_BEGIN_aurora.test.main.ID6",
+    "load aurora.test.purecps.LAMBDA_50.res2",
+    "call aurora.test.purecps.LAMBDA_39.node1",
+    "loadclosure @&aurora.test.purecps.LAMBDA_53",
+    "call @TEMP_LAMBDA_aurora.test.main.ID6",
+    "@TEMP_LAMBDA_RETURN_TARGET_aurora.test.main.ID6",
+    "return",
+    "@&aurora.test.purecps.LAMBDA_53",
+    "store aurora.test.purecps.LAMBDA_53.res1",
+    "goto @APPLY_BEGIN_aurora.test.main.ID7",
+    "@TEMP_LAMBDA_aurora.test.main.ID7",
+    "store TEMP_LAMBDA_PARAM1_aurora.test.main.ID7",
+    "store TEMP_LAMBDA_PARAM0_aurora.test.main.ID7",
+    "load TEMP_LAMBDA_PARAM1_aurora.test.main.ID7",
+    "tailcall TEMP_LAMBDA_PARAM0_aurora.test.main.ID7",
+    "return",
+    "@APPLY_BEGIN_aurora.test.main.ID7",
+    "load aurora.test.purecps.LAMBDA_5.n",
+    "load aurora.test.purecps.LAMBDA_53.res1",
+    "call aurora.test.purecps.LAMBDA_37.node0",
+    "loadclosure @&aurora.test.purecps.LAMBDA_56",
+    "call @TEMP_LAMBDA_aurora.test.main.ID7",
+    "@TEMP_LAMBDA_RETURN_TARGET_aurora.test.main.ID7",
+    "return",
+    "@&aurora.test.purecps.LAMBDA_56",
+    "store aurora.test.purecps.LAMBDA_56.res",
+    "load aurora.test.purecps.LAMBDA_56.res",
+    "tailcall aurora.test.purecps.LAMBDA_29.cont",
+    "return",
+    "@&aurora.test.purecps.LAMBDA_58",
+    "store aurora.test.purecps.LAMBDA_58.m",
+    "load aurora.test.purecps.LAMBDA_58.m",
+    "tailcall aurora.test.purecps.LAMBDA_6.k",
+    "return",
+    "@&aurora.test.callcc-test.LAMBDA_3",
+    "goto @APPLY_BEGIN_aurora.test.main.ID8",
+    "@TEMP_LAMBDA_aurora.test.main.ID8",
+    "store TEMP_LAMBDA_PARAM1_aurora.test.main.ID8",
+    "store TEMP_LAMBDA_PARAM0_aurora.test.main.ID8",
+    "load TEMP_LAMBDA_PARAM1_aurora.test.main.ID8",
+    "tailcall TEMP_LAMBDA_PARAM0_aurora.test.main.ID8",
+    "return",
+    "@APPLY_BEGIN_aurora.test.main.ID8",
+    "capturecc CC_&aurora.test.callcc-test.LAMBDA_11_aurora.test.main.ID9",
+    "load CC_&aurora.test.callcc-test.LAMBDA_11_aurora.test.main.ID9",
+    "call @&aurora.test.callcc-test.LAMBDA_11",
+    "@CC_&aurora.test.callcc-test.LAMBDA_11_aurora.test.main.ID9",
+    "call @&aurora.test.callcc-test.LAMBDA_6",
+    "capturecc CC_&aurora.test.callcc-test.LAMBDA_18_aurora.test.main.ID10",
+    "load CC_&aurora.test.callcc-test.LAMBDA_18_aurora.test.main.ID10",
+    "call @&aurora.test.callcc-test.LAMBDA_18",
+    "@CC_&aurora.test.callcc-test.LAMBDA_18_aurora.test.main.ID10",
+    "call @&aurora.test.callcc-test.LAMBDA_13",
+    "call @TEMP_LAMBDA_aurora.test.main.ID8",
+    "@TEMP_LAMBDA_RETURN_TARGET_aurora.test.main.ID8",
+    "return",
+    "@&aurora.test.callcc-test.LAMBDA_6",
+    "store aurora.test.callcc-test.LAMBDA_6.x",
+    "push &aurora.test.callcc-test.STRING_9",
+    "display",
+    "load aurora.test.callcc-test.LAMBDA_6.x",
+    "return",
+    "@&aurora.test.callcc-test.LAMBDA_11",
+    "store aurora.test.callcc-test.LAMBDA_11.k",
+    "load aurora.test.callcc-test.LAMBDA_11.k",
+    "return",
+    "@&aurora.test.callcc-test.LAMBDA_13",
+    "store aurora.test.callcc-test.LAMBDA_13.x",
+    "push &aurora.test.callcc-test.STRING_16",
+    "display",
+    "load aurora.test.callcc-test.LAMBDA_13.x",
+    "return",
+    "@&aurora.test.callcc-test.LAMBDA_18",
+    "store aurora.test.callcc-test.LAMBDA_18.k",
+    "load aurora.test.callcc-test.LAMBDA_18.k",
+    "return"
+  ],
+  "Components": [
+    "aurora.test.utils",
+    "aurora.test.MoB",
+    "aurora.test.purecps",
+    "aurora.test.callcc-test",
+    "aurora.test.main"
   ]
 }

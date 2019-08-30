@@ -17,19 +17,21 @@ class HashMap<DummyHandle, V> extends Object{
 }
 
 // Memory的元数据数据结构
+/*
 interface Metadata {
     static: boolean,
     readOnly: boolean,
     status: string, // allocated modified free ...
     referrer: Array<Handle|void>
 }
+*/
 
 // 基于HashMap的对象存储区，用于实现pool、heap等
 class Memory {
     // 数据Map
     public data: HashMap<Handle, any>;
     // 元数据Map（[静态标记,只读标记,使用状态标记,[主引对象把柄]]）
-    public metadata: HashMap<Handle, Metadata>;
+    public metadata: HashMap<Handle, string>;
     // 自增的计数器，用于生成把柄
     public handleCounter: number;
 
@@ -39,33 +41,43 @@ class Memory {
         this.handleCounter = 0;
     }
 
+    // 生成元数据字符串
+    private MetaString(isStatic: boolean, isReadOnly: boolean, status: string): string {
+        let str = "";
+        str +=   (isStatic) ? "S" : "_";
+        str += (isReadOnly) ? "R" : "_";
+        switch(status) {
+            case "allocated":
+                str += "A"; break;
+            case "modified":
+                str += "M"; break;
+            case "free":
+                str += "F"; break;
+            default:
+                str += "_"; break;
+        }
+        return str;
+    }
+
     // 把柄存在性判断
     public HasHandle(handle: Handle): boolean {
         return this.data.has(handle);
     }
 
     // 新建任意把柄
-    public NewHandle(handle: Handle): void {
+    public NewHandle(handle: Handle, isStatic: boolean | void): void {
+        isStatic = isStatic || false;
         this.data.set(handle, null);
-        this.metadata.set(handle, {
-            static: false,
-            readOnly: false,
-            status: 'allocated',
-            referrer: []
-        });
+        this.metadata.set(handle, this.MetaString(isStatic, false, "allocated"));
     }
 
     // 动态分配堆对象把柄
-    public AllocateHandle(typeTag: string, referrer: Handle|void): Handle {
+    public AllocateHandle(typeTag: string, isStatic: boolean | void): Handle {
+        isStatic = isStatic || false;
         typeTag = typeTag || "OBJECT";
         let handle = `&${typeTag}_${this.handleCounter}`;
         this.data.set(handle, null);
-        this.metadata.set(handle, {
-            static: false,
-            readOnly: false,
-            status: 'allocated',
-            referrer: [referrer]
-        });
+        this.metadata.set(handle, this.MetaString(isStatic, false, "allocated"));
         this.handleCounter++;
         return handle;
     }
@@ -73,12 +85,7 @@ class Memory {
     // 动态回收堆对象把柄：删除堆中相应位置
     public DeleteHandle (handle: Handle): void {
         this.data.set(handle, undefined);
-        this.metadata.set(handle, {
-            static: false,
-            readOnly: false,
-            status: 'free',
-            referrer: null
-        });
+        this.metadata.set(handle, this.MetaString(false, false, "free"));
     }
 
     // 根据把柄获取对象
@@ -97,17 +104,14 @@ class Memory {
         if(this.data.has(handle) === false) {
             throw `[Memory.Set] 未分配的把柄:${handle}`;
         }
-        else if(metadata.readOnly) {
+        else if(metadata[1] === "R") {
             throw `[Memory.Set] 不允许修改只读对象:${handle}`;
         }
-        else if(metadata.static) {
+        else if(metadata[0] === "S") {
             console.warn(`[Memory.Set] 修改了静态对象:${handle}`);
         }
-        else {
-            metadata.status = 'modified';
-            this.metadata.set(handle, metadata);
-            this.data.set(handle, value);
-        }
+        this.metadata.set(handle, this.MetaString((metadata[0] === "S"), false, "modified"));
+        this.data.set(handle, value);
     }
 
     // 遍历

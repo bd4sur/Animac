@@ -107,6 +107,15 @@ class HashMap extends Object {
         return (handle in this);
     }
 }
+// Memory的元数据数据结构
+/*
+interface Metadata {
+    static: boolean,
+    readOnly: boolean,
+    status: string, // allocated modified free ...
+    referrer: Array<Handle|void>
+}
+*/
 // 基于HashMap的对象存储区，用于实现pool、heap等
 class Memory {
     constructor() {
@@ -114,43 +123,51 @@ class Memory {
         this.metadata = new HashMap();
         this.handleCounter = 0;
     }
+    // 生成元数据字符串
+    MetaString(isStatic, isReadOnly, status) {
+        let str = "";
+        str += (isStatic) ? "S" : "_";
+        str += (isReadOnly) ? "R" : "_";
+        switch (status) {
+            case "allocated":
+                str += "A";
+                break;
+            case "modified":
+                str += "M";
+                break;
+            case "free":
+                str += "F";
+                break;
+            default:
+                str += "_";
+                break;
+        }
+        return str;
+    }
     // 把柄存在性判断
     HasHandle(handle) {
         return this.data.has(handle);
     }
     // 新建任意把柄
-    NewHandle(handle) {
+    NewHandle(handle, isStatic) {
+        isStatic = isStatic || false;
         this.data.set(handle, null);
-        this.metadata.set(handle, {
-            static: false,
-            readOnly: false,
-            status: 'allocated',
-            referrer: []
-        });
+        this.metadata.set(handle, this.MetaString(isStatic, false, "allocated"));
     }
     // 动态分配堆对象把柄
-    AllocateHandle(typeTag, referrer) {
+    AllocateHandle(typeTag, isStatic) {
+        isStatic = isStatic || false;
         typeTag = typeTag || "OBJECT";
         let handle = `&${typeTag}_${this.handleCounter}`;
         this.data.set(handle, null);
-        this.metadata.set(handle, {
-            static: false,
-            readOnly: false,
-            status: 'allocated',
-            referrer: [referrer]
-        });
+        this.metadata.set(handle, this.MetaString(isStatic, false, "allocated"));
         this.handleCounter++;
         return handle;
     }
     // 动态回收堆对象把柄：删除堆中相应位置
     DeleteHandle(handle) {
         this.data.set(handle, undefined);
-        this.metadata.set(handle, {
-            static: false,
-            readOnly: false,
-            status: 'free',
-            referrer: null
-        });
+        this.metadata.set(handle, this.MetaString(false, false, "free"));
     }
     // 根据把柄获取对象
     Get(handle) {
@@ -167,17 +184,14 @@ class Memory {
         if (this.data.has(handle) === false) {
             throw `[Memory.Set] 未分配的把柄:${handle}`;
         }
-        else if (metadata.readOnly) {
+        else if (metadata[1] === "R") {
             throw `[Memory.Set] 不允许修改只读对象:${handle}`;
         }
-        else if (metadata.static) {
+        else if (metadata[0] === "S") {
             console.warn(`[Memory.Set] 修改了静态对象:${handle}`);
         }
-        else {
-            metadata.status = 'modified';
-            this.metadata.set(handle, metadata);
-            this.data.set(handle, value);
-        }
+        this.metadata.set(handle, this.MetaString((metadata[0] === "S"), false, "modified"));
+        this.data.set(handle, value);
     }
     // 遍历
     // 注意：输入函数通过返回"break"来结束循环，通过返回其他任意值来中止一轮循环（continue）。
@@ -515,7 +529,7 @@ class AST {
     // 创建一个Lambda节点，保存，并返回其把柄
     MakeLambdaNode(parentHandle) {
         // NOTE 每个节点把柄都带有模块全限定名，这样做的目的是：不必在AST融合过程中调整每个AST的把柄。下同。
-        let handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.LAMBDA`);
+        let handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.LAMBDA`, true);
         let lambdaObject = new LambdaObject(parentHandle);
         this.nodes.Set(handle, lambdaObject);
         this.lambdaHandles.push(handle);
@@ -527,19 +541,19 @@ class AST {
         let node;
         switch (quoteType) {
             case "QUOTE":
-                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.QUOTE`);
+                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.QUOTE`, true);
                 node = new QuoteObject(parentHandle);
                 break;
             case "QUASIQUOTE":
-                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.QUASIQUOTE`);
+                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.QUASIQUOTE`, true);
                 node = new QuasiquoteObject(parentHandle);
                 break;
             case "UNQUOTE":
-                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.UNQUOTE`);
+                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.UNQUOTE`, true);
                 node = new QuoteObject(parentHandle);
                 break;
             default:
-                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.APPLICATION`);
+                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.APPLICATION`, true);
                 node = new ApplicationObject(parentHandle);
                 break;
         }
@@ -548,7 +562,7 @@ class AST {
     }
     // 创建一个字符串对象节点，保存，并返回其把柄
     MakeStringNode(str) {
-        let handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.STRING`);
+        let handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.STRING`, true);
         let node = new StringObject(str);
         this.nodes.Set(handle, node);
         return handle;
@@ -573,7 +587,7 @@ class AST {
         // 1 融合
         anotherAST.nodes.ForEach((hd) => {
             let node = anotherAST.nodes.Get(hd);
-            this.nodes.NewHandle(hd); // 任何把柄在使用前都需要先注册，以初始化元数据
+            this.nodes.NewHandle(hd, true); // 任何把柄在使用前都需要先注册，以初始化元数据
             this.nodes.Set(hd, node); // TODO：建议深拷贝
         });
         // 2 重组
@@ -1190,10 +1204,10 @@ function Compile(ast) {
     // 增加一条新指令
     function AddInstruction(instStr) {
         if (instStr.trim()[0] === ";") {
-            ILCode.push(instStr);
+            // ILCode.push(instStr);
         }
         else {
-            ILCode.push("   " + instStr.trim()); // 与注释对齐
+            ILCode.push(instStr.trim());
         }
     }
     ////////////////////////////////////////////////
@@ -1816,17 +1830,17 @@ function Compile(ast) {
 // ModuleLoader.ts
 // 模块加载器
 // 模块
-//   模块如同Java的字节码文件，包含代码、静态资源和元数据等
 class Module {
 }
-// TODO 模块结构设计，需要注意 ①元数据 ②可序列化性 ③与Runtime和Process结构对接
-Module.AVM_Version = "V0";
+Module.AVM_Version = "V0"; // 指示可用的AVM版本
 // 载入模块：本质上是静态链接
 function LoadModule(path) {
     // 所有互相依赖的AST
     let allASTs = new HashMap();
     // 依赖关系图：[[模块名, 依赖模块名], ...]
     let dependencyGraph = new Array();
+    // 经拓扑排序后的依赖模块序列
+    let sortedModuleNames;
     const fs = require("fs");
     // 递归地引入所有依赖文件，并检测循环依赖
     (function importModule(path) {
@@ -1847,9 +1861,9 @@ function LoadModule(path) {
                 moduleQualifiedName,
                 PathUtils.GetModuleQualifiedName(dependencyPath)
             ]);
-            // 立即检测是否有循环依赖
-            let hasLoop = DetectRecursiveDependency(dependencyGraph);
-            if (hasLoop) {
+            // 检测是否有循环依赖
+            sortedModuleNames = TopologicSort(dependencyGraph);
+            if (sortedModuleNames === undefined) {
                 throw `[Error] 模块之间存在循环依赖，无法载入模块。`;
             }
             importModule(dependencyPath);
@@ -1881,27 +1895,31 @@ function LoadModule(path) {
     let mergedModule = new Module();
     let mainModuleQualifiedName = PathUtils.GetModuleQualifiedName(path);
     mergedModule.AST = allASTs.get(mainModuleQualifiedName);
-    // TODO 按照依赖关系图的拓扑排序进行融合
-    for (let moduleName in allASTs) {
+    // 按照依赖关系图的拓扑排序进行融合
+    for (let i = 0; i < sortedModuleNames.length; i++) {
+        let moduleName = sortedModuleNames[i];
         if (moduleName === mainModuleQualifiedName)
             continue;
         mergedModule.AST.MergeAST(allASTs.get(moduleName));
     }
     // 编译
     mergedModule.ILCode = Compile(mergedModule.AST);
+    mergedModule.Components = sortedModuleNames;
     return mergedModule;
 }
 // 对依赖关系图作拓扑排序，进而检测是否存在环路
-function DetectRecursiveDependency(dependencyGraph) {
-    // 建立邻接表
-    let moduleNames = new HashMap();
+function TopologicSort(dependencyGraph) {
+    // 建立邻接表和模块名称表
+    let moduleNameDict = new HashMap();
     for (let i = 0; i < dependencyGraph.length; i++) {
-        moduleNames[dependencyGraph[i][0]] = 0;
-        moduleNames[dependencyGraph[i][1]] = 0;
+        moduleNameDict[dependencyGraph[i][0]] = 0;
+        moduleNameDict[dependencyGraph[i][1]] = 0;
     }
     let counter = 0;
-    for (let n in moduleNames) {
-        moduleNames[n] = counter;
+    let moduleName = new Array();
+    for (let n in moduleNameDict) {
+        moduleNameDict[n] = counter;
+        moduleName[counter] = n;
         counter++;
     }
     let adjMatrix = new Array();
@@ -1913,8 +1931,8 @@ function DetectRecursiveDependency(dependencyGraph) {
         adjMatrix[i] = init;
     }
     for (let i = 0; i < dependencyGraph.length; i++) {
-        let left = moduleNames[dependencyGraph[i][0]];
-        let right = moduleNames[dependencyGraph[i][1]];
+        let left = moduleNameDict[dependencyGraph[i][0]];
+        let right = moduleNameDict[dependencyGraph[i][1]];
         adjMatrix[left][right] = true;
     }
     // 拓扑排序
@@ -1958,7 +1976,16 @@ function DetectRecursiveDependency(dependencyGraph) {
             adjMatrix[zeroInDegVertex] = undefined;
         }
     })(adjMatrix);
-    return hasLoop;
+    if (hasLoop) {
+        return undefined;
+    }
+    else {
+        let sortedModuleName = new Array();
+        for (let i = 0; i < sortedModuleIndex.length; i++) {
+            sortedModuleName[i] = moduleName[sortedModuleIndex[i]];
+        }
+        return sortedModuleName;
+    }
 }
 // Process.ts
 // 进程数据结构
@@ -2416,7 +2443,7 @@ function AIL_CALL(argument, PROCESS, RUNTIME) {
                     let top = PROCESS.PopOperand();
                     let returnTargetLabel = PROCESS.LoadContinuation(handle);
                     PROCESS.PushOperand(top);
-                    console.info(`[Info] Continuation已恢复，返回标签：${returnTargetLabel}`);
+                    // console.info(`[Info] Continuation已恢复，返回标签：${returnTargetLabel}`);
                     let targetAddress = PROCESS.GetLabelAddress(returnTargetLabel);
                     PROCESS.Goto(targetAddress);
                 }
@@ -2499,7 +2526,7 @@ function AIL_TAILCALL(argument, PROCESS, RUNTIME) {
                     let top = PROCESS.PopOperand();
                     let returnTargetLabel = PROCESS.LoadContinuation(handle);
                     PROCESS.PushOperand(top);
-                    console.info(`[Info] Continuation已恢复，返回标签：${returnTargetLabel}`);
+                    // console.info(`[Info] Continuation已恢复，返回标签：${returnTargetLabel}`);
                     let targetAddress = PROCESS.GetLabelAddress(returnTargetLabel);
                     PROCESS.Goto(targetAddress);
                 }
@@ -2529,7 +2556,7 @@ function AIL_CAPTURECC(argument, PROCESS, RUNTIME) {
     let variable = argument;
     let retTargetLable = `@${variable}`; // NOTE【约定】cont返回点的标签名称 = @ + cont被保存的变量名称
     let contHandle = PROCESS.CaptureContinuation(retTargetLable);
-    console.info(`[Info] Continuation ${variable} 已捕获，对应的返回标签 ${retTargetLable}`);
+    // console.info(`[Info] Continuation ${variable} 已捕获，对应的返回标签 ${retTargetLable}`);
     PROCESS.GetCurrentClosure().InitBoundVariable(variable, contHandle);
     PROCESS.Step();
 }
