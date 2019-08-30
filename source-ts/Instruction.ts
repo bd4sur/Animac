@@ -734,7 +734,7 @@ function AIL_DISPLAY(argument: string, PROCESS: Process, RUNTIME: Runtime): void
             console.log(`[Info] 输出：${TrimQuotes(obj.content)}`);
         }
         else {
-            // TODO 待实现LIST转字符串的函数
+            console.log(PROCESS.AST.NodeToString(content));
         }
     }
     else {

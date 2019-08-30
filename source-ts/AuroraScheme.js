@@ -182,13 +182,13 @@ class Memory {
     Set(handle, value) {
         let metadata = this.metadata.get(handle);
         if (this.data.has(handle) === false) {
-            throw `[Memory.Set] 未分配的把柄:${handle}`;
+            throw `[Error] 未分配的把柄:${handle}`;
         }
         else if (metadata[1] === "R") {
-            throw `[Memory.Set] 不允许修改只读对象:${handle}`;
+            throw `[Error] 不允许修改只读对象:${handle}`;
         }
         else if (metadata[0] === "S") {
-            console.warn(`[Memory.Set] 修改了静态对象:${handle}`);
+            // console.warn(`[Warn] 修改了静态对象:${handle}`);
         }
         this.metadata.set(handle, this.MetaString((metadata[0] === "S"), false, "modified"));
         this.data.set(handle, value);
@@ -237,7 +237,6 @@ class QuoteObject extends SchemeObject {
         this.type = SchemeObjectType.QUOTE;
         this.parent = parent;
         this.children = new Array();
-        this.children[0] = "quote";
     }
 }
 // Quasiquote列表对象
@@ -247,7 +246,6 @@ class QuasiquoteObject extends SchemeObject {
         this.type = SchemeObjectType.QUASIQUOTE;
         this.parent = parent;
         this.children = new Array();
-        this.children[0] = "quasiquote";
     }
 }
 // Unquote列表对象
@@ -257,7 +255,6 @@ class UnquoteObject extends SchemeObject {
         this.type = SchemeObjectType.UNQUOTE;
         this.parent = parent;
         this.children = new Array();
-        this.children[0] = "unquote";
     }
 }
 // Lambda列表对象
@@ -445,44 +442,38 @@ function Lexer(code) {
         }
     }
     // 处理quote、quasiquote和unquote
-    let newTokens2 = new Array();
+    /*let newTokens2: Array<Token> = new Array();
     let skipMark = "0(SKIP)0";
-    for (let i = 0; i < newTokens.length; i++) {
-        if (newTokens[i].string === skipMark) {
+    for(let i = 0; i < newTokens.length; i++) {
+        if(newTokens[i].string === skipMark) {
             continue;
         }
-        if (newTokens[i].string === '(' && (newTokens[i + 1].string === 'quote' ||
-            newTokens[i + 1].string === 'unquote' ||
-            newTokens[i + 1].string === 'quasiquote')) {
+        if(newTokens[i].string === '(' && (
+            newTokens[i+1].string === 'quote' ||
+            newTokens[i+1].string === 'unquote' ||
+            newTokens[i+1].string === 'quasiquote')) {
             // 去掉(*quote对应的括号
-            let bracketCount = 0;
-            for (let j = i + 1; j < newTokens.length; j++) {
-                if (newTokens[j].string === '(') {
-                    bracketCount++;
-                }
-                else if (newTokens[j].string === ')') {
-                    if (bracketCount === 0) {
-                        newTokens[j].string = skipMark;
-                        break;
-                    }
-                    else {
-                        bracketCount--;
-                    }
+            let bracketCount = 0
+            for(let j = i+1; j < newTokens.length; j++) {
+                if(newTokens[j].string === '(') { bracketCount++; }
+                else if(newTokens[j].string === ')') {
+                    if(bracketCount === 0) { newTokens[j].string = skipMark; break;}
+                    else {bracketCount--; }
                 }
             }
-            if (newTokens[i + 1].string === 'quote') {
+            if(newTokens[i+1].string === 'quote') {
                 newTokens2.push({
                     string: '\'',
                     index: newTokens[i].index
                 });
             }
-            else if (newTokens[i + 1].string === 'quasiquote') {
+            else if(newTokens[i+1].string === 'quasiquote') {
                 newTokens2.push({
                     string: '`',
                     index: newTokens[i].index
                 });
             }
-            else if (newTokens[i + 1].string === 'unquote') {
+            else if(newTokens[i+1].string === 'unquote') {
                 newTokens2.push({
                     string: ',',
                     index: newTokens[i].index
@@ -493,8 +484,8 @@ function Lexer(code) {
         else {
             newTokens2.push(newTokens[i]);
         }
-    }
-    return newTokens2;
+    }*/
+    return newTokens;
 }
 // Parser.ts
 // 词法分析
@@ -577,6 +568,70 @@ class AST {
             }
         });
         return TopHandle;
+    }
+    // 将某个节点转换回Scheme代码
+    NodeToString(nodeHandle) {
+        let str = '';
+        if (TypeOfToken(nodeHandle) === "VARIABLE") {
+            if (this.variableMapping.has(nodeHandle)) {
+                return this.variableMapping.get(nodeHandle);
+            }
+            else {
+                return String(nodeHandle);
+            }
+        }
+        else if (TypeOfToken(nodeHandle) !== "HANDLE") {
+            return String(nodeHandle);
+        }
+        else {
+            let node = this.GetNode(nodeHandle);
+            let type = node.type;
+            if (type === "STRING") {
+                return node.content;
+            }
+            else if (type === "APPLICATION" || type === "QUOTE" || type === "QUASIQUOTE" || type === "UNQUOTE") {
+                if (type === "QUOTE")
+                    str = "'(";
+                else if (type === "QUASIQUOTE")
+                    str = "`(";
+                else if (type === "UNQUOTE")
+                    str = ",(";
+                else
+                    str = "(";
+                if (node.children.length > 0) {
+                    for (let i = 0; i < node.children.length - 1; i++) {
+                        str += this.NodeToString(node.children[i]);
+                        str += " ";
+                    }
+                    str += this.NodeToString(node.children[node.children.length - 1]);
+                }
+                str += ')';
+            }
+            else if (type === "LAMBDA") {
+                str = "(lambda (";
+                // parameters
+                let parameters = node.getParameters();
+                if (parameters.length > 0) {
+                    for (let i = 0; i < parameters.length - 1; i++) {
+                        str += this.NodeToString(parameters[i]);
+                        str += " ";
+                    }
+                    str += this.NodeToString(parameters[parameters.length - 1]);
+                }
+                str += ') ';
+                // body
+                let bodies = node.getBodies();
+                if (bodies.length > 0) {
+                    for (let i = 0; i < bodies.length - 1; i++) {
+                        str += this.NodeToString(bodies[i]);
+                        str += " ";
+                    }
+                    str += this.NodeToString(bodies[bodies.length - 1]);
+                }
+                str += ')';
+            }
+            return str;
+        }
     }
     // 融合另一个AST（注意，把柄需完全不同，否则会冲突报错）
     // TODO 这里细节比较复杂，需要写一份文档描述
@@ -691,9 +746,35 @@ function Parse(code, moduleQualifiedName) {
             parseLog('<Term> → <Lambda>');
             return ParseLambda(tokens, index);
         }
-        else if (tokens[index].string === '(') {
-            parseLog('<Term> → <SList>');
-            return ParseSList(tokens, index);
+        else if (tokens[index].string === '(' && tokens[index + 1].string === 'quote') {
+            parseLog('<Term> → <Quote>');
+            let nextIndex = ParseQuote(tokens, index + 1);
+            if (tokens[nextIndex].string === ')') {
+                return nextIndex + 1;
+            }
+            else {
+                throw `[Error] quote 右侧括号未闭合。`;
+            }
+        }
+        else if (tokens[index].string === '(' && tokens[index + 1].string === 'unquote') {
+            parseLog('<Term> → <Unquote>');
+            let nextIndex = ParseUnquote(tokens, index + 1);
+            if (tokens[nextIndex].string === ')') {
+                return nextIndex + 1;
+            }
+            else {
+                throw `[Error] unquote 右侧括号未闭合。`;
+            }
+        }
+        else if (tokens[index].string === '(' && tokens[index + 1].string === 'quasiquote') {
+            parseLog('<Term> → <Quasiquote>');
+            let nextIndex = ParseQuasiquote(tokens, index + 1);
+            if (tokens[nextIndex].string === ')') {
+                return nextIndex + 1;
+            }
+            else {
+                throw `[Error] quasiquote 右侧括号未闭合。`;
+            }
         }
         else if (tokens[index].string === '\'') {
             parseLog('<Term> → <Quote>');
@@ -706,6 +787,10 @@ function Parse(code, moduleQualifiedName) {
         else if (tokens[index].string === '`') {
             parseLog('<Term> → <Quasiquote>');
             return ParseQuasiquote(tokens, index);
+        }
+        else if (tokens[index].string === '(') {
+            parseLog('<Term> → <SList>');
+            return ParseSList(tokens, index);
         }
         else if (isSymbol(tokens[index].string)) {
             parseLog('<Term> → <Symbol>');
@@ -732,6 +817,8 @@ function Parse(code, moduleQualifiedName) {
     }
     function ParseSListSeq(tokens, index) {
         parseLog('<SListSeq> → <Term> ※ <SListSeq> | ε');
+        if (index >= tokens.length)
+            throw `[Error] SList右侧括号未闭合。`; // TODO 完善错误提示
         let currentToken = tokens[index].string;
         if (currentToken === "(" || currentToken === "'" || currentToken === "," ||
             currentToken === "`" || isSymbol(currentToken)) {
@@ -1840,7 +1927,7 @@ function LoadModule(path) {
     // 依赖关系图：[[模块名, 依赖模块名], ...]
     let dependencyGraph = new Array();
     // 经拓扑排序后的依赖模块序列
-    let sortedModuleNames;
+    let sortedModuleNames = new Array();
     const fs = require("fs");
     // 递归地引入所有依赖文件，并检测循环依赖
     (function importModule(path) {
@@ -2847,7 +2934,7 @@ function AIL_DISPLAY(argument, PROCESS, RUNTIME) {
             console.log(`[Info] 输出：${TrimQuotes(obj.content)}`);
         }
         else {
-            // TODO 待实现LIST转字符串的函数
+            console.log(PROCESS.AST.NodeToString(content));
         }
     }
     else {

@@ -99,6 +99,67 @@ class AST {
         return TopHandle;
     }
 
+    // 将某个节点转换回Scheme代码
+    public NodeToString(nodeHandle: Handle): string {
+        let str = '';
+        if(TypeOfToken(nodeHandle) === "VARIABLE") {
+            if(this.variableMapping.has(nodeHandle)) {
+                return this.variableMapping.get(nodeHandle);
+            }
+            else {
+                return String(nodeHandle);
+            }
+        }
+        else if(TypeOfToken(nodeHandle) !== "HANDLE") {
+            return String(nodeHandle);
+        }
+        else {
+            let node = this.GetNode(nodeHandle);
+            let type = node.type;
+            if(type === "STRING") {
+                return node.content;
+            }
+            else if(type === "APPLICATION" || type === "QUOTE" || type === "QUASIQUOTE" || type === "UNQUOTE") {
+                if(type === "QUOTE") str = "'(";
+                else if(type === "QUASIQUOTE") str = "`(";
+                else if(type === "UNQUOTE") str = ",(";
+                else str = "(";
+                if(node.children.length > 0) {
+                    for(let i = 0; i < node.children.length-1; i++) {
+                        str += this.NodeToString(node.children[i]);
+                        str += " ";
+                    }
+                    str += this.NodeToString(node.children[node.children.length-1]);
+                }
+                str += ')';
+            }
+            else if(type === "LAMBDA") {
+                str = "(lambda (";
+                // parameters
+                let parameters = node.getParameters();
+                if(parameters.length > 0) {
+                    for(let i = 0; i < parameters.length-1; i++) {
+                        str += this.NodeToString(parameters[i]);
+                        str += " ";
+                    }
+                    str += this.NodeToString(parameters[parameters.length-1]);
+                }
+                str += ') ';
+                // body
+                let bodies = node.getBodies();
+                if(bodies.length > 0) {
+                    for(let i = 0; i < bodies.length-1; i++) {
+                        str += this.NodeToString(bodies[i]);
+                        str += " ";
+                    }
+                    str += this.NodeToString(bodies[bodies.length-1]);
+                }
+                str += ')';
+            }
+            return str;
+        }
+    }
+
     // 融合另一个AST（注意，把柄需完全不同，否则会冲突报错）
     // TODO 这里细节比较复杂，需要写一份文档描述
     public MergeAST(anotherAST: AST) {
@@ -231,9 +292,23 @@ function Parse(code: string, moduleQualifiedName: string): AST {
             parseLog('<Term> → <Lambda>');
             return ParseLambda(tokens, index);
         }
-        else if(tokens[index].string === '(') {
-            parseLog('<Term> → <SList>');
-            return ParseSList(tokens, index);
+        else if(tokens[index].string === '(' && tokens[index+1].string === 'quote') {
+            parseLog('<Term> → <Quote>');
+            let nextIndex = ParseQuote(tokens, index+1);
+            if(tokens[nextIndex].string === ')') { return nextIndex + 1; }
+            else { throw `[Error] quote 右侧括号未闭合。`; }
+        }
+        else if(tokens[index].string === '(' && tokens[index+1].string === 'unquote') {
+            parseLog('<Term> → <Unquote>');
+            let nextIndex = ParseUnquote(tokens, index+1);
+            if(tokens[nextIndex].string === ')') { return nextIndex + 1; }
+            else { throw `[Error] unquote 右侧括号未闭合。`; }
+        }
+        else if(tokens[index].string === '(' && tokens[index+1].string === 'quasiquote') {
+            parseLog('<Term> → <Quasiquote>');
+            let nextIndex = ParseQuasiquote(tokens, index+1);
+            if(tokens[nextIndex].string === ')') { return nextIndex + 1; }
+            else { throw `[Error] quasiquote 右侧括号未闭合。`; }
         }
         else if(tokens[index].string === '\'') {
             parseLog('<Term> → <Quote>');
@@ -246,6 +321,10 @@ function Parse(code: string, moduleQualifiedName: string): AST {
         else if(tokens[index].string === '`') {
             parseLog('<Term> → <Quasiquote>');
             return ParseQuasiquote(tokens, index);
+        }
+        else if(tokens[index].string === '(') {
+            parseLog('<Term> → <SList>');
+            return ParseSList(tokens, index);
         }
         else if(isSymbol(tokens[index].string)) {
             parseLog('<Term> → <Symbol>');
@@ -275,6 +354,7 @@ function Parse(code: string, moduleQualifiedName: string): AST {
 
     function ParseSListSeq(tokens: Array<Token>, index: number) {
         parseLog('<SListSeq> → <Term> ※ <SListSeq> | ε');
+        if(index >= tokens.length) throw `[Error] SList右侧括号未闭合。`; // TODO 完善错误提示
         let currentToken = tokens[index].string;
         if( currentToken === "(" || currentToken === "'" || currentToken === "," ||
             currentToken === "`" || isSymbol(currentToken))

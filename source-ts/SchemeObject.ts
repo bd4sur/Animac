@@ -102,13 +102,13 @@ class Memory {
     public Set(handle: Handle, value: any): void {
         let metadata = this.metadata.get(handle);
         if(this.data.has(handle) === false) {
-            throw `[Memory.Set] 未分配的把柄:${handle}`;
+            throw `[Error] 未分配的把柄:${handle}`;
         }
         else if(metadata[1] === "R") {
-            throw `[Memory.Set] 不允许修改只读对象:${handle}`;
+            throw `[Error] 不允许修改只读对象:${handle}`;
         }
         else if(metadata[0] === "S") {
-            console.warn(`[Memory.Set] 修改了静态对象:${handle}`);
+            // console.warn(`[Warn] 修改了静态对象:${handle}`);
         }
         this.metadata.set(handle, this.MetaString((metadata[0] === "S"), false, "modified"));
         this.data.set(handle, value);
@@ -168,7 +168,6 @@ class QuoteObject extends SchemeObject {
         this.type = SchemeObjectType.QUOTE;
         this.parent = parent;
         this.children = new Array<any>();
-        this.children[0] = "quote";
     }
 }
 
@@ -182,7 +181,6 @@ class QuasiquoteObject extends SchemeObject {
         this.type = SchemeObjectType.QUASIQUOTE;
         this.parent = parent;
         this.children = new Array<any>();
-        this.children[0] = "quasiquote";
     }
 }
 
@@ -196,7 +194,6 @@ class UnquoteObject extends SchemeObject {
         this.type = SchemeObjectType.UNQUOTE;
         this.parent = parent;
         this.children = new Array<any>();
-        this.children[0] = "unquote";
     }
 }
 

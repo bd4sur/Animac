@@ -21,7 +21,7 @@ function LoadModule(path: string): Module {
     let dependencyGraph: Array<Array<string>> = new Array();
 
     // 经拓扑排序后的依赖模块序列
-    let sortedModuleNames: Array<string>;
+    let sortedModuleNames: Array<string> = new Array();
 
     const fs = require("fs");
 

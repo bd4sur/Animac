@@ -20,6 +20,8 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(Utils.show "⚙️ 测试：Yin-yang Puzzle：")
-(Utils.show "✅ 期望结果：@*@**@***@****...")
-(CallCC.YinYang)
+;(Utils.show "⚙️ 测试：Yin-yang Puzzle：")
+;(Utils.show "✅ 期望结果：@*@**@***@****...")
+;(CallCC.YinYang)
+
+(display  '(1 2 "3" (quote (a))) )

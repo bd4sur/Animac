@@ -100,7 +100,7 @@ function Lexer(code: string): Array<Token> {
     }
 
     // 处理quote、quasiquote和unquote
-    let newTokens2: Array<Token> = new Array();
+    /*let newTokens2: Array<Token> = new Array();
     let skipMark = "0(SKIP)0";
     for(let i = 0; i < newTokens.length; i++) {
         if(newTokens[i].string === skipMark) {
@@ -142,7 +142,7 @@ function Lexer(code: string): Array<Token> {
         else {
             newTokens2.push(newTokens[i]);
         }
-    }
+    }*/
 
-    return newTokens2;
+    return newTokens;
 }
