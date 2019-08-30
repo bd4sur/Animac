@@ -69,8 +69,8 @@ AuroraScheme是一款Scheme语言实现，包括编译器、运行时环境和�
          <Body_> ::= <BodyTerm> <Body_> | ε
       <BodyTerm> ::= <Term>
          <Quote> ::= ' <QuoteTerm> | ( quote <QuoteTerm> )
-       <Unquote> ::= , <UnquoteTerm>
-    <Quasiquote> ::= ` <QuasiquoteTerm>
+       <Unquote> ::= , <UnquoteTerm> | ( unquote <QuoteTerm> )
+    <Quasiquote> ::= ` <QuasiquoteTerm> | ( quasiquote <QuoteTerm> )
      <QuoteTerm> ::= <Term>
    <UnquoteTerm> ::= <Term>
 <QuasiquoteTerm> ::= <Term>

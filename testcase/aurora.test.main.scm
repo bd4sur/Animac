@@ -24,4 +24,4 @@
 ;(Utils.show "✅ 期望结果：@*@**@***@****...")
 ;(CallCC.YinYang)
 
-(display  '(1 2 "3" (quote (a))) )
+(display (car '((quote (a)) 2 "3")))

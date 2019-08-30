@@ -2694,7 +2694,22 @@ function AIL_GOTO(argument, PROCESS, RUNTIME) {
 ///////////////////////////////////////
 // car 取 OP栈顶的把柄对应的列表 的第一个元素 的把柄
 function AIL_CAR(argument, PROCESS, RUNTIME) {
-    let argType = TypeOfToken(argument);
+    let listHandle = PROCESS.PopOperand();
+    // 类型检查
+    if (TypeOfToken(listHandle) === 'HANDLE') {
+        let listObj = PROCESS.heap.Get(listHandle);
+        if (listObj.type === "QUOTE" || listObj.type === "QUASIQUOTE") {
+            let firstElement = listObj.children[0];
+            PROCESS.PushOperand(firstElement);
+            PROCESS.Step();
+        }
+        else {
+            throw `[Error] car的参数必须是引用（quote）列表或准引用（quasiquote）列表。`;
+        }
+    }
+    else {
+        throw `[Error] car的参数必须是引用（quote）列表或准引用（quasiquote）列表。`;
+    }
 }
 // cdr 取 OP栈顶的把柄对应的列表 的尾表（临时对象） 的把柄
 function AIL_CDR(argument, PROCESS, RUNTIME) {
