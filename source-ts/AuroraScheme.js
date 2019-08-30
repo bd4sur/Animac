@@ -1984,7 +1984,8 @@ function LoadModule(path) {
     let mainModuleQualifiedName = PathUtils.GetModuleQualifiedName(path);
     mergedModule.AST = allASTs.get(mainModuleQualifiedName);
     // 按照依赖关系图的拓扑排序进行融合
-    for (let i = 0; i < sortedModuleNames.length; i++) {
+    // NOTE 由于AST融合是将被融合（依赖）的部分放在前面，所以这里需要逆序进行
+    for (let i = sortedModuleNames.length - 1; i >= 0; i--) {
         let moduleName = sortedModuleNames[i];
         if (moduleName === mainModuleQualifiedName)
             continue;
@@ -3038,7 +3039,6 @@ function AIL_ISLIST(argument, PROCESS, RUNTIME) {
     }
     PROCESS.Step();
 }
-// TODO 还有几个谓词待实现
 ///////////////////////////////////////
 // 第五类：其他指令
 ///////////////////////////////////////
@@ -3195,7 +3195,6 @@ function Execute(PROCESS, RUNTIME) {
     else if (mnemonic === 'list?') {
         AIL_ISLIST(argument, PROCESS, RUNTIME);
     }
-    // TODO 还有几个谓词待实现
     else if (mnemonic === 'fork') {
         AIL_FORK(argument, PROCESS, RUNTIME);
     }
