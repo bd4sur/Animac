@@ -1,6 +1,6 @@
 {
   "AST": {
-    "source": "((lambda () ;; 演示了Man-or-Boy测试，以及模块机制测试\n;; 依赖关系：utils←MoB←main\n\n(import Utils    \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.utils.scm\")\n(import ManOrBoy \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.MoB.scm\")\n(import PureCPS \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.purecps.scm\")\n(import CallCC \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.callcc-test.scm\")\n\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n\n(Utils.show \"⚙️ 测试：Man or Boy Test：\")\n(Utils.show \"✅ 期望结果：-67\")\n(Utils.show (ManOrBoy.A 10 (lambda () 1) (lambda () -1) (lambda () -1) (lambda () 1) (lambda () 0)))\n\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n\n(Utils.show \"⚙️ 测试：真·CPS阶乘：10!=\")\n(Utils.show \"✅ 期望结果：3628800\")\n(((PureCPS.fac-cps (lambda (x) x)) 10) (lambda (x) (display x)))\n\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n\n;(Utils.show \"⚙️ 测试：Yin-yang Puzzle：\")\n;(Utils.show \"✅ 期望结果：@*@**@***@****...\")\n;(CallCC.YinYang)\n\n(display (car '((quote (a)) 2 \"3\")))))\n((lambda () (define decrease\n  (lambda (x)\n    (- x 1)))\n\n(define show\n  (lambda (x)\n    (display x)))\n))\n((lambda () (import Utils \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.utils.scm\")\n\n(define A\n  (lambda (k x1 x2 x3 x4 x5)\n      (define B\n        (lambda ()\n            (set! k (Utils.decrease k))\n            (A k B x1 x2 x3 x4)))\n      (if (<= k 0)\n          (+ (x4) (x5))\n          (B))))\n))\n((lambda () (define fac-cps\n(lambda (cont)\n  (cont (lambda (n)\n          (lambda (k)\n            ((lambda (cont)\n               ((lambda (cont)\n                  ((lambda (cont) (cont (lambda (x y) (lambda (k) (k (= x y)))))) ; 内置相等判断\n                   (lambda (node0)\n                     ((node0 0 n)\n                      (lambda (res) (cont res))))))\n                (lambda (p-res)\n                  (if p-res\n                      ((lambda (cont) (cont 1))\n                       cont)\n                      ((lambda (cont)\n                         ; 以下仅仅是对每个AST节点进行简单的遍历CPST/重命名,并未体现求值顺序，可以理解成并行的\n                         ((lambda (cont) (cont (lambda (x y) (lambda (k) (k (* x y)))))) (lambda (node0) ; 内置乘法\n                         ( fac-cps                                                       (lambda (node1) ; 递归调用(重命名后的)\n                         ((lambda (cont) (cont (lambda (x y) (lambda (k) (k (- x y)))))) (lambda (node2) ; 内置减法\n                         ; 从这里开始体现求值顺序,几乎等于是 A-Normal Form\n                         ((node2 n 1)    (lambda (res2)\n                         ((node1 res2)   (lambda (res1)\n                         ((node0 n res1) (lambda (res)\n                         ; 最后执行总的continuation\n                         ( cont res))))))))))))))\n                       cont)))))\n             (lambda (m) (k m))))))))\n))\n((lambda () (define YinYang\n(lambda ()\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n(((lambda (x) (begin (display \"@\") x)) (call/cc (lambda (k) k)))\n ((lambda (x) (begin (display \"*\") x)) (call/cc (lambda (k) k))))\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n)\n)))",
+    "source": "((lambda () ;;;;;;;;;;;;;;;;;;;;;;;;;\n;; AuroraScheme测试用例 ;;\n;;;;;;;;;;;;;;;;;;;;;;;;;\n\n(import Utils    \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.utils.scm\")\n(import ManOrBoy \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.MoB.scm\")\n(import PureCPS  \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.purecps.scm\")\n(import CallCC   \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.callcc-test.scm\")\n(import Sort     \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.sort.scm\")\n\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n\n(Utils.show \"⚙️ 测试：Man or Boy Test：\")\n(Utils.show \"⚙️ 此用例用来测试系统能否正确处理词法作用域、一等函数、set!等基本特性。\")\n(Utils.show \"✅ 期望结果：-67\")\n(Utils.show (ManOrBoy.A 10 (lambda () 1) (lambda () -1) (lambda () -1) (lambda () 1) (lambda () 0)))\n\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n\n(Utils.show \"⚙️ 测试：真·CPS阶乘：10!=\")\n(Utils.show \"⚙️ 此用例用来测试系统能否正确处理复杂嵌套的匿名函数及其调用。\")\n(Utils.show \"✅ 期望结果：3628800\")\n(((PureCPS.fac-cps (lambda (x) x)) 10) (lambda (x) (display x)))\n\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n\n;(Utils.show \"⚙️ 测试：Yin-yang Puzzle：\")\n(Utils.show \"⚙️ 此用例用来测试call/cc功能。\")\n;(Utils.show \"✅ 期望结果：@*@**@***@****...\")\n;(CallCC.YinYang)\n\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n\n(Utils.show \"⚙️ 测试：快速排序\")\n(Utils.show \"⚙️ 此用例用来测试列表操作。\")\n(Utils.show \"✅ 期望结果：'(0 1 2 3 4 5 6 7 8 9)\")\n(display (Sort.quicksort '(5 9 1 7 5 3 0 4 6 8 2)))\n\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n\n(Utils.show \"⚙️ 测试：Quine\")\n(Utils.show \"⚙️ 此用例用来测试列表操作、display对于复杂列表的处理是否正确。\")\n(Utils.show \"✅ 期望结果：'(0 1 2 3 4 5 6 7 8 9)\")\n(display\n(\n       (lambda (x) (cons x (cons (cons 'quote (cons x '())) '())))\n(quote (lambda (x) (cons x (cons (cons 'quote (cons x '())) '()))))\n)\n)\n\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n\n))\n((lambda () (define decrease\n  (lambda (x)\n    (- x 1)))\n\n(define show\n  (lambda (x)\n    (display x)))\n))\n((lambda () (import Utils \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.utils.scm\")\n\n(define A\n  (lambda (k x1 x2 x3 x4 x5)\n      (define B\n        (lambda ()\n            (set! k (Utils.decrease k))\n            (A k B x1 x2 x3 x4)))\n      (if (<= k 0)\n          (+ (x4) (x5))\n          (B))))\n))\n((lambda () (define fac-cps\n(lambda (cont)\n  (cont (lambda (n)\n          (lambda (k)\n            ((lambda (cont)\n               ((lambda (cont)\n                  ((lambda (cont) (cont (lambda (x y) (lambda (k) (k (= x y)))))) ; 内置相等判断\n                   (lambda (node0)\n                     ((node0 0 n)\n                      (lambda (res) (cont res))))))\n                (lambda (p-res)\n                  (if p-res\n                      ((lambda (cont) (cont 1))\n                       cont)\n                      ((lambda (cont)\n                         ; 以下仅仅是对每个AST节点进行简单的遍历CPST/重命名,并未体现求值顺序，可以理解成并行的\n                         ((lambda (cont) (cont (lambda (x y) (lambda (k) (k (* x y)))))) (lambda (node0) ; 内置乘法\n                         ( fac-cps                                                       (lambda (node1) ; 递归调用(重命名后的)\n                         ((lambda (cont) (cont (lambda (x y) (lambda (k) (k (- x y)))))) (lambda (node2) ; 内置减法\n                         ; 从这里开始体现求值顺序,几乎等于是 A-Normal Form\n                         ((node2 n 1)    (lambda (res2)\n                         ((node1 res2)   (lambda (res1)\n                         ((node0 n res1) (lambda (res)\n                         ; 最后执行总的continuation\n                         ( cont res))))))))))))))\n                       cont)))))\n             (lambda (m) (k m))))))))\n))\n((lambda () (define YinYang\n(lambda ()\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n(((lambda (x) (begin (display \"@\") x)) (call/cc (lambda (k) k)))\n ((lambda (x) (begin (display \"*\") x)) (call/cc (lambda (k) k))))\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n)\n)))\n((lambda () ;; 最基本的快速排序，用于验证一等函数、列表操作、if、and/or等特殊结构\n;; 此排序算法无法处理重复元素\n\n(define filter\n  (lambda (f lst)\n    (if (null? lst)\n        '()\n        (if (f (car lst))\n            (cons (car lst) (filter f (cdr lst)))\n            (filter f (cdr lst))))))\n\n(define concat\n  (lambda (a b)\n    (if (null? a)\n        b\n        (cons (car a) (concat (cdr a) b)))))\n\n(define quicksort\n  (lambda (array)\n    (if (or (null? array) (null? (cdr array)))\n        array\n        (concat (quicksort (filter (lambda (x)\n                                     (if (< x (car array)) #t #f))\n                                   array))\n                           (cons (car array)\n                                 (quicksort (filter (lambda (x)\n                                                      (if (> x (car array)) #t #f))\n                                                    array)))))))\n))",
     "moduleQualifiedName": "aurora.test.main",
     "nodes": {
       "data": {
@@ -17,6 +17,9 @@
           "children": [
             "lambda",
             [],
+            "&aurora.test.sort.APPLICATION_2",
+            "&aurora.test.sort.APPLICATION_16",
+            "&aurora.test.sort.APPLICATION_24",
             "&aurora.test.callcc-test.APPLICATION_2",
             "&aurora.test.purecps.APPLICATION_2",
             "&aurora.test.MoB.APPLICATION_2",
@@ -30,10 +33,21 @@
             "&aurora.test.main.APPLICATION_10",
             "&aurora.test.main.APPLICATION_12",
             "&aurora.test.main.APPLICATION_14",
-            "&aurora.test.main.APPLICATION_21",
-            "&aurora.test.main.APPLICATION_23",
+            "&aurora.test.main.APPLICATION_16",
+            "&aurora.test.main.APPLICATION_18",
             "&aurora.test.main.APPLICATION_25",
-            "&aurora.test.main.APPLICATION_31"
+            "&aurora.test.main.APPLICATION_27",
+            "&aurora.test.main.APPLICATION_29",
+            "&aurora.test.main.APPLICATION_31",
+            "&aurora.test.main.APPLICATION_37",
+            "&aurora.test.main.APPLICATION_39",
+            "&aurora.test.main.APPLICATION_41",
+            "&aurora.test.main.APPLICATION_43",
+            "&aurora.test.main.APPLICATION_45",
+            "&aurora.test.main.APPLICATION_48",
+            "&aurora.test.main.APPLICATION_50",
+            "&aurora.test.main.APPLICATION_52",
+            "&aurora.test.main.APPLICATION_54"
           ]
         },
         "&aurora.test.main.APPLICATION_2": {
@@ -92,13 +106,14 @@
           "type": "APPLICATION",
           "parent": "&aurora.test.main.LAMBDA_1",
           "children": [
-            "aurora.test.utils.LAMBDA_1.show",
+            "import",
+            "Sort",
             "&aurora.test.main.STRING_11"
           ]
         },
         "&aurora.test.main.STRING_11": {
           "type": "STRING",
-          "content": "\"⚙️ 测试：Man or Boy Test：\""
+          "content": "\"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.sort.scm\""
         },
         "&aurora.test.main.APPLICATION_12": {
           "type": "APPLICATION",
@@ -110,187 +125,439 @@
         },
         "&aurora.test.main.STRING_13": {
           "type": "STRING",
-          "content": "\"✅ 期望结果：-67\""
+          "content": "\"⚙️ 测试：Man or Boy Test：\""
         },
         "&aurora.test.main.APPLICATION_14": {
           "type": "APPLICATION",
           "parent": "&aurora.test.main.LAMBDA_1",
           "children": [
             "aurora.test.utils.LAMBDA_1.show",
-            "&aurora.test.main.APPLICATION_15"
+            "&aurora.test.main.STRING_15"
           ]
         },
-        "&aurora.test.main.APPLICATION_15": {
+        "&aurora.test.main.STRING_15": {
+          "type": "STRING",
+          "content": "\"⚙️ 此用例用来测试系统能否正确处理词法作用域、一等函数、set!等基本特性。\""
+        },
+        "&aurora.test.main.APPLICATION_16": {
           "type": "APPLICATION",
-          "parent": "&aurora.test.main.APPLICATION_14",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.STRING_17"
+          ]
+        },
+        "&aurora.test.main.STRING_17": {
+          "type": "STRING",
+          "content": "\"✅ 期望结果：-67\""
+        },
+        "&aurora.test.main.APPLICATION_18": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.APPLICATION_19"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_19": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_18",
           "children": [
             "aurora.test.MoB.LAMBDA_1.A",
             10,
-            "&aurora.test.main.LAMBDA_16",
-            "&aurora.test.main.LAMBDA_17",
-            "&aurora.test.main.LAMBDA_18",
-            "&aurora.test.main.LAMBDA_19",
-            "&aurora.test.main.LAMBDA_20"
-          ]
-        },
-        "&aurora.test.main.LAMBDA_16": {
-          "type": "LAMBDA",
-          "parent": "&aurora.test.main.APPLICATION_15",
-          "children": [
-            "lambda",
-            [],
-            1
-          ]
-        },
-        "&aurora.test.main.LAMBDA_17": {
-          "type": "LAMBDA",
-          "parent": "&aurora.test.main.APPLICATION_15",
-          "children": [
-            "lambda",
-            [],
-            -1
-          ]
-        },
-        "&aurora.test.main.LAMBDA_18": {
-          "type": "LAMBDA",
-          "parent": "&aurora.test.main.APPLICATION_15",
-          "children": [
-            "lambda",
-            [],
-            -1
-          ]
-        },
-        "&aurora.test.main.LAMBDA_19": {
-          "type": "LAMBDA",
-          "parent": "&aurora.test.main.APPLICATION_15",
-          "children": [
-            "lambda",
-            [],
-            1
+            "&aurora.test.main.LAMBDA_20",
+            "&aurora.test.main.LAMBDA_21",
+            "&aurora.test.main.LAMBDA_22",
+            "&aurora.test.main.LAMBDA_23",
+            "&aurora.test.main.LAMBDA_24"
           ]
         },
         "&aurora.test.main.LAMBDA_20": {
           "type": "LAMBDA",
-          "parent": "&aurora.test.main.APPLICATION_15",
+          "parent": "&aurora.test.main.APPLICATION_19",
+          "children": [
+            "lambda",
+            [],
+            1
+          ]
+        },
+        "&aurora.test.main.LAMBDA_21": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.main.APPLICATION_19",
+          "children": [
+            "lambda",
+            [],
+            -1
+          ]
+        },
+        "&aurora.test.main.LAMBDA_22": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.main.APPLICATION_19",
+          "children": [
+            "lambda",
+            [],
+            -1
+          ]
+        },
+        "&aurora.test.main.LAMBDA_23": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.main.APPLICATION_19",
+          "children": [
+            "lambda",
+            [],
+            1
+          ]
+        },
+        "&aurora.test.main.LAMBDA_24": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.main.APPLICATION_19",
           "children": [
             "lambda",
             [],
             0
           ]
         },
-        "&aurora.test.main.APPLICATION_21": {
-          "type": "APPLICATION",
-          "parent": "&aurora.test.main.LAMBDA_1",
-          "children": [
-            "aurora.test.utils.LAMBDA_1.show",
-            "&aurora.test.main.STRING_22"
-          ]
-        },
-        "&aurora.test.main.STRING_22": {
-          "type": "STRING",
-          "content": "\"⚙️ 测试：真·CPS阶乘：10!=\""
-        },
-        "&aurora.test.main.APPLICATION_23": {
-          "type": "APPLICATION",
-          "parent": "&aurora.test.main.LAMBDA_1",
-          "children": [
-            "aurora.test.utils.LAMBDA_1.show",
-            "&aurora.test.main.STRING_24"
-          ]
-        },
-        "&aurora.test.main.STRING_24": {
-          "type": "STRING",
-          "content": "\"✅ 期望结果：3628800\""
-        },
         "&aurora.test.main.APPLICATION_25": {
           "type": "APPLICATION",
           "parent": "&aurora.test.main.LAMBDA_1",
           "children": [
-            "&aurora.test.main.APPLICATION_26",
-            "&aurora.test.main.LAMBDA_29"
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.STRING_26"
           ]
         },
-        "&aurora.test.main.APPLICATION_26": {
-          "type": "APPLICATION",
-          "parent": "&aurora.test.main.APPLICATION_25",
-          "children": [
-            "&aurora.test.main.APPLICATION_27",
-            10
-          ]
+        "&aurora.test.main.STRING_26": {
+          "type": "STRING",
+          "content": "\"⚙️ 测试：真·CPS阶乘：10!=\""
         },
         "&aurora.test.main.APPLICATION_27": {
           "type": "APPLICATION",
-          "parent": "&aurora.test.main.APPLICATION_26",
+          "parent": "&aurora.test.main.LAMBDA_1",
           "children": [
-            "aurora.test.purecps.LAMBDA_1.fac-cps",
-            "&aurora.test.main.LAMBDA_28"
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.STRING_28"
           ]
         },
-        "&aurora.test.main.LAMBDA_28": {
-          "type": "LAMBDA",
-          "parent": "&aurora.test.main.APPLICATION_27",
-          "children": [
-            "lambda",
-            [
-              "aurora.test.main.LAMBDA_28.x"
-            ],
-            "aurora.test.main.LAMBDA_28.x"
-          ]
+        "&aurora.test.main.STRING_28": {
+          "type": "STRING",
+          "content": "\"⚙️ 此用例用来测试系统能否正确处理复杂嵌套的匿名函数及其调用。\""
         },
-        "&aurora.test.main.LAMBDA_29": {
-          "type": "LAMBDA",
-          "parent": "&aurora.test.main.APPLICATION_25",
-          "children": [
-            "lambda",
-            [
-              "aurora.test.main.LAMBDA_29.x"
-            ],
-            "&aurora.test.main.APPLICATION_30"
-          ]
-        },
-        "&aurora.test.main.APPLICATION_30": {
+        "&aurora.test.main.APPLICATION_29": {
           "type": "APPLICATION",
-          "parent": "&aurora.test.main.LAMBDA_29",
+          "parent": "&aurora.test.main.LAMBDA_1",
           "children": [
-            "display",
-            "aurora.test.main.LAMBDA_29.x"
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.STRING_30"
           ]
+        },
+        "&aurora.test.main.STRING_30": {
+          "type": "STRING",
+          "content": "\"✅ 期望结果：3628800\""
         },
         "&aurora.test.main.APPLICATION_31": {
           "type": "APPLICATION",
           "parent": "&aurora.test.main.LAMBDA_1",
           "children": [
-            "display",
-            "&aurora.test.main.APPLICATION_32"
+            "&aurora.test.main.APPLICATION_32",
+            "&aurora.test.main.LAMBDA_35"
           ]
         },
         "&aurora.test.main.APPLICATION_32": {
           "type": "APPLICATION",
           "parent": "&aurora.test.main.APPLICATION_31",
           "children": [
-            "car",
-            "&aurora.test.main.QUOTE_33"
+            "&aurora.test.main.APPLICATION_33",
+            10
           ]
         },
-        "&aurora.test.main.QUOTE_33": {
-          "type": "QUOTE",
+        "&aurora.test.main.APPLICATION_33": {
+          "type": "APPLICATION",
           "parent": "&aurora.test.main.APPLICATION_32",
           "children": [
-            "&aurora.test.main.QUOTE_34",
-            2,
-            "&aurora.test.main.STRING_35"
+            "aurora.test.purecps.LAMBDA_1.fac-cps",
+            "&aurora.test.main.LAMBDA_34"
           ]
         },
-        "&aurora.test.main.QUOTE_34": {
-          "type": "QUOTE",
-          "parent": "&aurora.test.main.QUOTE_33",
+        "&aurora.test.main.LAMBDA_34": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.main.APPLICATION_33",
           "children": [
-            "'a"
+            "lambda",
+            [
+              "aurora.test.main.LAMBDA_34.x"
+            ],
+            "aurora.test.main.LAMBDA_34.x"
           ]
         },
-        "&aurora.test.main.STRING_35": {
+        "&aurora.test.main.LAMBDA_35": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.main.APPLICATION_31",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.main.LAMBDA_35.x"
+            ],
+            "&aurora.test.main.APPLICATION_36"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_36": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_35",
+          "children": [
+            "display",
+            "aurora.test.main.LAMBDA_35.x"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_37": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.STRING_38"
+          ]
+        },
+        "&aurora.test.main.STRING_38": {
           "type": "STRING",
-          "content": "\"3\""
+          "content": "\"⚙️ 此用例用来测试call/cc功能。\""
+        },
+        "&aurora.test.main.APPLICATION_39": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.STRING_40"
+          ]
+        },
+        "&aurora.test.main.STRING_40": {
+          "type": "STRING",
+          "content": "\"⚙️ 测试：快速排序\""
+        },
+        "&aurora.test.main.APPLICATION_41": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.STRING_42"
+          ]
+        },
+        "&aurora.test.main.STRING_42": {
+          "type": "STRING",
+          "content": "\"⚙️ 此用例用来测试列表操作。\""
+        },
+        "&aurora.test.main.APPLICATION_43": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.STRING_44"
+          ]
+        },
+        "&aurora.test.main.STRING_44": {
+          "type": "STRING",
+          "content": "\"✅ 期望结果：'(0 1 2 3 4 5 6 7 8 9)\""
+        },
+        "&aurora.test.main.APPLICATION_45": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "display",
+            "&aurora.test.main.APPLICATION_46"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_46": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_45",
+          "children": [
+            "aurora.test.sort.LAMBDA_1.quicksort",
+            "&aurora.test.main.QUOTE_47"
+          ]
+        },
+        "&aurora.test.main.QUOTE_47": {
+          "type": "QUOTE",
+          "parent": "&aurora.test.main.APPLICATION_46",
+          "children": [
+            5,
+            9,
+            1,
+            7,
+            5,
+            3,
+            0,
+            4,
+            6,
+            8,
+            2
+          ]
+        },
+        "&aurora.test.main.APPLICATION_48": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.STRING_49"
+          ]
+        },
+        "&aurora.test.main.STRING_49": {
+          "type": "STRING",
+          "content": "\"⚙️ 测试：Quine\""
+        },
+        "&aurora.test.main.APPLICATION_50": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.STRING_51"
+          ]
+        },
+        "&aurora.test.main.STRING_51": {
+          "type": "STRING",
+          "content": "\"⚙️ 此用例用来测试列表操作、display对于复杂列表的处理是否正确。\""
+        },
+        "&aurora.test.main.APPLICATION_52": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.STRING_53"
+          ]
+        },
+        "&aurora.test.main.STRING_53": {
+          "type": "STRING",
+          "content": "\"✅ 期望结果：'(0 1 2 3 4 5 6 7 8 9)\""
+        },
+        "&aurora.test.main.APPLICATION_54": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "display",
+            "&aurora.test.main.APPLICATION_55"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_55": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_54",
+          "children": [
+            "&aurora.test.main.LAMBDA_56",
+            "&aurora.test.main.QUOTE_63"
+          ]
+        },
+        "&aurora.test.main.LAMBDA_56": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.main.APPLICATION_55",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.main.LAMBDA_56.x"
+            ],
+            "&aurora.test.main.APPLICATION_57"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_57": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_56",
+          "children": [
+            "cons",
+            "aurora.test.main.LAMBDA_56.x",
+            "&aurora.test.main.APPLICATION_58"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_58": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_57",
+          "children": [
+            "cons",
+            "&aurora.test.main.APPLICATION_59",
+            "&aurora.test.main.QUOTE_62"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_59": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_58",
+          "children": [
+            "cons",
+            "'quote",
+            "&aurora.test.main.APPLICATION_60"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_60": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_59",
+          "children": [
+            "cons",
+            "aurora.test.main.LAMBDA_56.x",
+            "&aurora.test.main.QUOTE_61"
+          ]
+        },
+        "&aurora.test.main.QUOTE_61": {
+          "type": "QUOTE",
+          "parent": "&aurora.test.main.APPLICATION_60",
+          "children": []
+        },
+        "&aurora.test.main.QUOTE_62": {
+          "type": "QUOTE",
+          "parent": "&aurora.test.main.APPLICATION_58",
+          "children": []
+        },
+        "&aurora.test.main.QUOTE_63": {
+          "type": "QUOTE",
+          "parent": "&aurora.test.main.APPLICATION_55",
+          "children": [
+            "'lambda",
+            "&aurora.test.main.QUOTE_64",
+            "&aurora.test.main.QUOTE_65"
+          ]
+        },
+        "&aurora.test.main.QUOTE_64": {
+          "type": "QUOTE",
+          "parent": "&aurora.test.main.QUOTE_63",
+          "children": [
+            "'x"
+          ]
+        },
+        "&aurora.test.main.QUOTE_65": {
+          "type": "QUOTE",
+          "parent": "&aurora.test.main.QUOTE_63",
+          "children": [
+            "'cons",
+            "'x",
+            "&aurora.test.main.QUOTE_66"
+          ]
+        },
+        "&aurora.test.main.QUOTE_66": {
+          "type": "QUOTE",
+          "parent": "&aurora.test.main.QUOTE_65",
+          "children": [
+            "'cons",
+            "&aurora.test.main.QUOTE_67",
+            "&aurora.test.main.QUOTE_70"
+          ]
+        },
+        "&aurora.test.main.QUOTE_67": {
+          "type": "QUOTE",
+          "parent": "&aurora.test.main.QUOTE_66",
+          "children": [
+            "'cons",
+            "'quote",
+            "&aurora.test.main.QUOTE_68"
+          ]
+        },
+        "&aurora.test.main.QUOTE_68": {
+          "type": "QUOTE",
+          "parent": "&aurora.test.main.QUOTE_67",
+          "children": [
+            "'cons",
+            "'x",
+            "&aurora.test.main.QUOTE_69"
+          ]
+        },
+        "&aurora.test.main.QUOTE_69": {
+          "type": "QUOTE",
+          "parent": "&aurora.test.main.QUOTE_68",
+          "children": []
+        },
+        "&aurora.test.main.QUOTE_70": {
+          "type": "QUOTE",
+          "parent": "&aurora.test.main.QUOTE_66",
+          "children": []
         },
         "&aurora.test.utils.APPLICATION_2": {
           "type": "APPLICATION",
@@ -1183,6 +1450,399 @@
             ],
             "aurora.test.callcc-test.LAMBDA_18.k"
           ]
+        },
+        "&aurora.test.sort.APPLICATION_2": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "define",
+            "aurora.test.sort.LAMBDA_1.filter",
+            "&aurora.test.sort.LAMBDA_3"
+          ]
+        },
+        "&aurora.test.sort.LAMBDA_3": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.sort.APPLICATION_2",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.sort.LAMBDA_3.f",
+              "aurora.test.sort.LAMBDA_3.lst"
+            ],
+            "&aurora.test.sort.APPLICATION_4"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_4": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.LAMBDA_3",
+          "children": [
+            "if",
+            "&aurora.test.sort.APPLICATION_5",
+            "&aurora.test.sort.QUOTE_6",
+            "&aurora.test.sort.APPLICATION_7"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_5": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_4",
+          "children": [
+            "null?",
+            "aurora.test.sort.LAMBDA_3.lst"
+          ]
+        },
+        "&aurora.test.sort.QUOTE_6": {
+          "type": "QUOTE",
+          "parent": "&aurora.test.sort.APPLICATION_4",
+          "children": []
+        },
+        "&aurora.test.sort.APPLICATION_7": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_4",
+          "children": [
+            "if",
+            "&aurora.test.sort.APPLICATION_8",
+            "&aurora.test.sort.APPLICATION_10",
+            "&aurora.test.sort.APPLICATION_14"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_8": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_7",
+          "children": [
+            "aurora.test.sort.LAMBDA_3.f",
+            "&aurora.test.sort.APPLICATION_9"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_9": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_8",
+          "children": [
+            "car",
+            "aurora.test.sort.LAMBDA_3.lst"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_10": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_7",
+          "children": [
+            "cons",
+            "&aurora.test.sort.APPLICATION_11",
+            "&aurora.test.sort.APPLICATION_12"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_11": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_10",
+          "children": [
+            "car",
+            "aurora.test.sort.LAMBDA_3.lst"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_12": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_10",
+          "children": [
+            "aurora.test.sort.LAMBDA_1.filter",
+            "aurora.test.sort.LAMBDA_3.f",
+            "&aurora.test.sort.APPLICATION_13"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_13": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_12",
+          "children": [
+            "cdr",
+            "aurora.test.sort.LAMBDA_3.lst"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_14": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_7",
+          "children": [
+            "aurora.test.sort.LAMBDA_1.filter",
+            "aurora.test.sort.LAMBDA_3.f",
+            "&aurora.test.sort.APPLICATION_15"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_15": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_14",
+          "children": [
+            "cdr",
+            "aurora.test.sort.LAMBDA_3.lst"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_16": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "define",
+            "aurora.test.sort.LAMBDA_1.concat",
+            "&aurora.test.sort.LAMBDA_17"
+          ]
+        },
+        "&aurora.test.sort.LAMBDA_17": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.sort.APPLICATION_16",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.sort.LAMBDA_17.a",
+              "aurora.test.sort.LAMBDA_17.b"
+            ],
+            "&aurora.test.sort.APPLICATION_18"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_18": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.LAMBDA_17",
+          "children": [
+            "if",
+            "&aurora.test.sort.APPLICATION_19",
+            "aurora.test.sort.LAMBDA_17.b",
+            "&aurora.test.sort.APPLICATION_20"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_19": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_18",
+          "children": [
+            "null?",
+            "aurora.test.sort.LAMBDA_17.a"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_20": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_18",
+          "children": [
+            "cons",
+            "&aurora.test.sort.APPLICATION_21",
+            "&aurora.test.sort.APPLICATION_22"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_21": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_20",
+          "children": [
+            "car",
+            "aurora.test.sort.LAMBDA_17.a"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_22": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_20",
+          "children": [
+            "aurora.test.sort.LAMBDA_1.concat",
+            "&aurora.test.sort.APPLICATION_23",
+            "aurora.test.sort.LAMBDA_17.b"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_23": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_22",
+          "children": [
+            "cdr",
+            "aurora.test.sort.LAMBDA_17.a"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_24": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "define",
+            "aurora.test.sort.LAMBDA_1.quicksort",
+            "&aurora.test.sort.LAMBDA_25"
+          ]
+        },
+        "&aurora.test.sort.LAMBDA_25": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.sort.APPLICATION_24",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.sort.LAMBDA_25.array"
+            ],
+            "&aurora.test.sort.APPLICATION_26"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_26": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.LAMBDA_25",
+          "children": [
+            "if",
+            "&aurora.test.sort.APPLICATION_27",
+            "aurora.test.sort.LAMBDA_25.array",
+            "&aurora.test.sort.APPLICATION_31"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_27": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_26",
+          "children": [
+            "or",
+            "&aurora.test.sort.APPLICATION_28",
+            "&aurora.test.sort.APPLICATION_29"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_28": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_27",
+          "children": [
+            "null?",
+            "aurora.test.sort.LAMBDA_25.array"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_29": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_27",
+          "children": [
+            "null?",
+            "&aurora.test.sort.APPLICATION_30"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_30": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_29",
+          "children": [
+            "cdr",
+            "aurora.test.sort.LAMBDA_25.array"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_31": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_26",
+          "children": [
+            "aurora.test.sort.LAMBDA_1.concat",
+            "&aurora.test.sort.APPLICATION_32",
+            "&aurora.test.sort.APPLICATION_38"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_32": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_31",
+          "children": [
+            "aurora.test.sort.LAMBDA_1.quicksort",
+            "&aurora.test.sort.APPLICATION_33"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_33": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_32",
+          "children": [
+            "aurora.test.sort.LAMBDA_1.filter",
+            "&aurora.test.sort.LAMBDA_34",
+            "aurora.test.sort.LAMBDA_25.array"
+          ]
+        },
+        "&aurora.test.sort.LAMBDA_34": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.sort.APPLICATION_33",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.sort.LAMBDA_34.x"
+            ],
+            "&aurora.test.sort.APPLICATION_35"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_35": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.LAMBDA_34",
+          "children": [
+            "if",
+            "&aurora.test.sort.APPLICATION_36",
+            "#t",
+            "#f"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_36": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_35",
+          "children": [
+            "<",
+            "aurora.test.sort.LAMBDA_34.x",
+            "&aurora.test.sort.APPLICATION_37"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_37": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_36",
+          "children": [
+            "car",
+            "aurora.test.sort.LAMBDA_25.array"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_38": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_31",
+          "children": [
+            "cons",
+            "&aurora.test.sort.APPLICATION_39",
+            "&aurora.test.sort.APPLICATION_40"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_39": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_38",
+          "children": [
+            "car",
+            "aurora.test.sort.LAMBDA_25.array"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_40": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_38",
+          "children": [
+            "aurora.test.sort.LAMBDA_1.quicksort",
+            "&aurora.test.sort.APPLICATION_41"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_41": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_40",
+          "children": [
+            "aurora.test.sort.LAMBDA_1.filter",
+            "&aurora.test.sort.LAMBDA_42",
+            "aurora.test.sort.LAMBDA_25.array"
+          ]
+        },
+        "&aurora.test.sort.LAMBDA_42": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.sort.APPLICATION_41",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.sort.LAMBDA_42.x"
+            ],
+            "&aurora.test.sort.APPLICATION_43"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_43": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.LAMBDA_42",
+          "children": [
+            "if",
+            "&aurora.test.sort.APPLICATION_44",
+            "#t",
+            "#f"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_44": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_43",
+          "children": [
+            ">",
+            "aurora.test.sort.LAMBDA_42.x",
+            "&aurora.test.sort.APPLICATION_45"
+          ]
+        },
+        "&aurora.test.sort.APPLICATION_45": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.sort.APPLICATION_44",
+          "children": [
+            "car",
+            "aurora.test.sort.LAMBDA_25.array"
+          ]
         }
       },
       "metadata": {
@@ -1201,27 +1861,62 @@
         "&aurora.test.main.APPLICATION_12": "S_M",
         "&aurora.test.main.STRING_13": "S_M",
         "&aurora.test.main.APPLICATION_14": "S_M",
-        "&aurora.test.main.APPLICATION_15": "S_M",
-        "&aurora.test.main.LAMBDA_16": "S_M",
-        "&aurora.test.main.LAMBDA_17": "S_M",
-        "&aurora.test.main.LAMBDA_18": "S_M",
-        "&aurora.test.main.LAMBDA_19": "S_M",
+        "&aurora.test.main.STRING_15": "S_M",
+        "&aurora.test.main.APPLICATION_16": "S_M",
+        "&aurora.test.main.STRING_17": "S_M",
+        "&aurora.test.main.APPLICATION_18": "S_M",
+        "&aurora.test.main.APPLICATION_19": "S_M",
         "&aurora.test.main.LAMBDA_20": "S_M",
-        "&aurora.test.main.APPLICATION_21": "S_M",
-        "&aurora.test.main.STRING_22": "S_M",
-        "&aurora.test.main.APPLICATION_23": "S_M",
-        "&aurora.test.main.STRING_24": "S_M",
+        "&aurora.test.main.LAMBDA_21": "S_M",
+        "&aurora.test.main.LAMBDA_22": "S_M",
+        "&aurora.test.main.LAMBDA_23": "S_M",
+        "&aurora.test.main.LAMBDA_24": "S_M",
         "&aurora.test.main.APPLICATION_25": "S_M",
-        "&aurora.test.main.APPLICATION_26": "S_M",
+        "&aurora.test.main.STRING_26": "S_M",
         "&aurora.test.main.APPLICATION_27": "S_M",
-        "&aurora.test.main.LAMBDA_28": "S_M",
-        "&aurora.test.main.LAMBDA_29": "S_M",
-        "&aurora.test.main.APPLICATION_30": "S_M",
+        "&aurora.test.main.STRING_28": "S_M",
+        "&aurora.test.main.APPLICATION_29": "S_M",
+        "&aurora.test.main.STRING_30": "S_M",
         "&aurora.test.main.APPLICATION_31": "S_M",
         "&aurora.test.main.APPLICATION_32": "S_M",
-        "&aurora.test.main.QUOTE_33": "S_M",
-        "&aurora.test.main.QUOTE_34": "S_M",
-        "&aurora.test.main.STRING_35": "S_M",
+        "&aurora.test.main.APPLICATION_33": "S_M",
+        "&aurora.test.main.LAMBDA_34": "S_M",
+        "&aurora.test.main.LAMBDA_35": "S_M",
+        "&aurora.test.main.APPLICATION_36": "S_M",
+        "&aurora.test.main.APPLICATION_37": "S_M",
+        "&aurora.test.main.STRING_38": "S_M",
+        "&aurora.test.main.APPLICATION_39": "S_M",
+        "&aurora.test.main.STRING_40": "S_M",
+        "&aurora.test.main.APPLICATION_41": "S_M",
+        "&aurora.test.main.STRING_42": "S_M",
+        "&aurora.test.main.APPLICATION_43": "S_M",
+        "&aurora.test.main.STRING_44": "S_M",
+        "&aurora.test.main.APPLICATION_45": "S_M",
+        "&aurora.test.main.APPLICATION_46": "S_M",
+        "&aurora.test.main.QUOTE_47": "S_M",
+        "&aurora.test.main.APPLICATION_48": "S_M",
+        "&aurora.test.main.STRING_49": "S_M",
+        "&aurora.test.main.APPLICATION_50": "S_M",
+        "&aurora.test.main.STRING_51": "S_M",
+        "&aurora.test.main.APPLICATION_52": "S_M",
+        "&aurora.test.main.STRING_53": "S_M",
+        "&aurora.test.main.APPLICATION_54": "S_M",
+        "&aurora.test.main.APPLICATION_55": "S_M",
+        "&aurora.test.main.LAMBDA_56": "S_M",
+        "&aurora.test.main.APPLICATION_57": "S_M",
+        "&aurora.test.main.APPLICATION_58": "S_M",
+        "&aurora.test.main.APPLICATION_59": "S_M",
+        "&aurora.test.main.APPLICATION_60": "S_M",
+        "&aurora.test.main.QUOTE_61": "S_M",
+        "&aurora.test.main.QUOTE_62": "S_M",
+        "&aurora.test.main.QUOTE_63": "S_M",
+        "&aurora.test.main.QUOTE_64": "S_M",
+        "&aurora.test.main.QUOTE_65": "S_M",
+        "&aurora.test.main.QUOTE_66": "S_M",
+        "&aurora.test.main.QUOTE_67": "S_M",
+        "&aurora.test.main.QUOTE_68": "S_M",
+        "&aurora.test.main.QUOTE_69": "S_M",
+        "&aurora.test.main.QUOTE_70": "S_M",
         "&aurora.test.utils.APPLICATION_0": "__F",
         "&aurora.test.utils.LAMBDA_1": "__F",
         "&aurora.test.utils.APPLICATION_2": "S_M",
@@ -1325,161 +2020,289 @@
         "&aurora.test.callcc-test.APPLICATION_15": "S_M",
         "&aurora.test.callcc-test.STRING_16": "S_M",
         "&aurora.test.callcc-test.APPLICATION_17": "S_M",
-        "&aurora.test.callcc-test.LAMBDA_18": "S_M"
+        "&aurora.test.callcc-test.LAMBDA_18": "S_M",
+        "&aurora.test.sort.APPLICATION_0": "__F",
+        "&aurora.test.sort.LAMBDA_1": "__F",
+        "&aurora.test.sort.APPLICATION_2": "S_M",
+        "&aurora.test.sort.LAMBDA_3": "S_M",
+        "&aurora.test.sort.APPLICATION_4": "S_M",
+        "&aurora.test.sort.APPLICATION_5": "S_M",
+        "&aurora.test.sort.QUOTE_6": "S_M",
+        "&aurora.test.sort.APPLICATION_7": "S_M",
+        "&aurora.test.sort.APPLICATION_8": "S_M",
+        "&aurora.test.sort.APPLICATION_9": "S_M",
+        "&aurora.test.sort.APPLICATION_10": "S_M",
+        "&aurora.test.sort.APPLICATION_11": "S_M",
+        "&aurora.test.sort.APPLICATION_12": "S_M",
+        "&aurora.test.sort.APPLICATION_13": "S_M",
+        "&aurora.test.sort.APPLICATION_14": "S_M",
+        "&aurora.test.sort.APPLICATION_15": "S_M",
+        "&aurora.test.sort.APPLICATION_16": "S_M",
+        "&aurora.test.sort.LAMBDA_17": "S_M",
+        "&aurora.test.sort.APPLICATION_18": "S_M",
+        "&aurora.test.sort.APPLICATION_19": "S_M",
+        "&aurora.test.sort.APPLICATION_20": "S_M",
+        "&aurora.test.sort.APPLICATION_21": "S_M",
+        "&aurora.test.sort.APPLICATION_22": "S_M",
+        "&aurora.test.sort.APPLICATION_23": "S_M",
+        "&aurora.test.sort.APPLICATION_24": "S_M",
+        "&aurora.test.sort.LAMBDA_25": "S_M",
+        "&aurora.test.sort.APPLICATION_26": "S_M",
+        "&aurora.test.sort.APPLICATION_27": "S_M",
+        "&aurora.test.sort.APPLICATION_28": "S_M",
+        "&aurora.test.sort.APPLICATION_29": "S_M",
+        "&aurora.test.sort.APPLICATION_30": "S_M",
+        "&aurora.test.sort.APPLICATION_31": "S_M",
+        "&aurora.test.sort.APPLICATION_32": "S_M",
+        "&aurora.test.sort.APPLICATION_33": "S_M",
+        "&aurora.test.sort.LAMBDA_34": "S_M",
+        "&aurora.test.sort.APPLICATION_35": "S_M",
+        "&aurora.test.sort.APPLICATION_36": "S_M",
+        "&aurora.test.sort.APPLICATION_37": "S_M",
+        "&aurora.test.sort.APPLICATION_38": "S_M",
+        "&aurora.test.sort.APPLICATION_39": "S_M",
+        "&aurora.test.sort.APPLICATION_40": "S_M",
+        "&aurora.test.sort.APPLICATION_41": "S_M",
+        "&aurora.test.sort.LAMBDA_42": "S_M",
+        "&aurora.test.sort.APPLICATION_43": "S_M",
+        "&aurora.test.sort.APPLICATION_44": "S_M",
+        "&aurora.test.sort.APPLICATION_45": "S_M"
       },
-      "handleCounter": 36
+      "handleCounter": 71
     },
     "nodeIndexes": {
       "&aurora.test.main.APPLICATION_0": 0,
       "&aurora.test.main.LAMBDA_1": 1,
-      "&aurora.test.main.APPLICATION_2": 64,
-      "&aurora.test.main.STRING_3": 81,
-      "&aurora.test.main.APPLICATION_4": 148,
-      "&aurora.test.main.STRING_5": 165,
-      "&aurora.test.main.APPLICATION_6": 230,
-      "&aurora.test.main.STRING_7": 246,
-      "&aurora.test.main.APPLICATION_8": 315,
-      "&aurora.test.main.STRING_9": 330,
-      "&aurora.test.main.APPLICATION_10": 464,
-      "&aurora.test.main.STRING_11": 476,
-      "&aurora.test.main.APPLICATION_12": 502,
-      "&aurora.test.main.STRING_13": 514,
-      "&aurora.test.main.APPLICATION_14": 528,
-      "&aurora.test.main.APPLICATION_15": 540,
-      "&aurora.test.main.LAMBDA_16": 555,
-      "&aurora.test.main.LAMBDA_17": 569,
-      "&aurora.test.main.LAMBDA_18": 584,
-      "&aurora.test.main.LAMBDA_19": 599,
-      "&aurora.test.main.LAMBDA_20": 613,
-      "&aurora.test.main.APPLICATION_21": 690,
-      "&aurora.test.main.STRING_22": 702,
-      "&aurora.test.main.APPLICATION_23": 724,
-      "&aurora.test.main.STRING_24": 736,
-      "&aurora.test.main.APPLICATION_25": 754,
-      "&aurora.test.main.APPLICATION_26": 755,
-      "&aurora.test.main.APPLICATION_27": 756,
-      "&aurora.test.main.LAMBDA_28": 773,
-      "&aurora.test.main.LAMBDA_29": 793,
-      "&aurora.test.main.APPLICATION_30": 805,
-      "&aurora.test.main.APPLICATION_31": 979,
-      "&aurora.test.main.APPLICATION_32": 988,
-      "&aurora.test.main.QUOTE_33": 994,
-      "&aurora.test.main.QUOTE_34": 1002,
-      "&aurora.test.main.STRING_35": 1009,
-      "&aurora.test.utils.APPLICATION_0": 1123,
-      "&aurora.test.utils.LAMBDA_1": 1124,
-      "&aurora.test.utils.APPLICATION_2": 1135,
-      "&aurora.test.utils.LAMBDA_3": 1154,
-      "&aurora.test.utils.APPLICATION_4": 1170,
-      "&aurora.test.utils.APPLICATION_5": 1181,
-      "&aurora.test.utils.LAMBDA_6": 1196,
-      "&aurora.test.utils.APPLICATION_7": 1212,
-      "&aurora.test.MoB.APPLICATION_0": 1428,
-      "&aurora.test.MoB.LAMBDA_1": 1429,
-      "&aurora.test.MoB.APPLICATION_2": 1440,
-      "&aurora.test.MoB.STRING_3": 1454,
-      "&aurora.test.MoB.APPLICATION_4": 1522,
-      "&aurora.test.MoB.LAMBDA_5": 1534,
-      "&aurora.test.MoB.APPLICATION_6": 1567,
-      "&aurora.test.MoB.LAMBDA_7": 1585,
-      "&aurora.test.MoB.APPLICATION_8": 1608,
-      "&aurora.test.MoB.APPLICATION_9": 1616,
-      "&aurora.test.MoB.APPLICATION_10": 1648,
-      "&aurora.test.MoB.APPLICATION_11": 1676,
-      "&aurora.test.MoB.APPLICATION_12": 1680,
-      "&aurora.test.MoB.APPLICATION_13": 1699,
-      "&aurora.test.MoB.APPLICATION_14": 1702,
-      "&aurora.test.MoB.APPLICATION_15": 1707,
-      "&aurora.test.MoB.APPLICATION_16": 1723,
-      "&aurora.test.purecps.APPLICATION_0": 2772,
-      "&aurora.test.purecps.LAMBDA_1": 2773,
-      "&aurora.test.purecps.APPLICATION_2": 2784,
-      "&aurora.test.purecps.LAMBDA_3": 2800,
-      "&aurora.test.purecps.APPLICATION_4": 2817,
-      "&aurora.test.purecps.LAMBDA_5": 2823,
-      "&aurora.test.purecps.LAMBDA_6": 2845,
-      "&aurora.test.purecps.APPLICATION_7": 2869,
-      "&aurora.test.purecps.LAMBDA_8": 2870,
-      "&aurora.test.purecps.APPLICATION_9": 2900,
-      "&aurora.test.purecps.LAMBDA_10": 2901,
-      "&aurora.test.purecps.APPLICATION_11": 2934,
-      "&aurora.test.purecps.LAMBDA_12": 2935,
-      "&aurora.test.purecps.APPLICATION_13": 2950,
-      "&aurora.test.purecps.LAMBDA_14": 2956,
-      "&aurora.test.purecps.LAMBDA_15": 2970,
-      "&aurora.test.purecps.APPLICATION_16": 2982,
-      "&aurora.test.purecps.APPLICATION_17": 2985,
-      "&aurora.test.purecps.LAMBDA_18": 3026,
-      "&aurora.test.purecps.APPLICATION_19": 3063,
-      "&aurora.test.purecps.APPLICATION_20": 3064,
-      "&aurora.test.purecps.LAMBDA_21": 3098,
-      "&aurora.test.purecps.APPLICATION_22": 3112,
-      "&aurora.test.purecps.LAMBDA_23": 3144,
-      "&aurora.test.purecps.APPLICATION_24": 3178,
-      "&aurora.test.purecps.APPLICATION_25": 3210,
-      "&aurora.test.purecps.LAMBDA_26": 3211,
-      "&aurora.test.purecps.APPLICATION_27": 3226,
-      "&aurora.test.purecps.APPLICATION_28": 3287,
-      "&aurora.test.purecps.LAMBDA_29": 3288,
-      "&aurora.test.purecps.APPLICATION_30": 3402,
-      "&aurora.test.purecps.LAMBDA_31": 3403,
-      "&aurora.test.purecps.APPLICATION_32": 3418,
-      "&aurora.test.purecps.LAMBDA_33": 3424,
-      "&aurora.test.purecps.LAMBDA_34": 3438,
-      "&aurora.test.purecps.APPLICATION_35": 3450,
-      "&aurora.test.purecps.APPLICATION_36": 3453,
-      "&aurora.test.purecps.LAMBDA_37": 3466,
-      "&aurora.test.purecps.APPLICATION_38": 3514,
-      "&aurora.test.purecps.LAMBDA_39": 3578,
-      "&aurora.test.purecps.APPLICATION_40": 3633,
-      "&aurora.test.purecps.LAMBDA_41": 3634,
-      "&aurora.test.purecps.APPLICATION_42": 3649,
-      "&aurora.test.purecps.LAMBDA_43": 3655,
-      "&aurora.test.purecps.LAMBDA_44": 3669,
-      "&aurora.test.purecps.APPLICATION_45": 3681,
-      "&aurora.test.purecps.APPLICATION_46": 3684,
-      "&aurora.test.purecps.LAMBDA_47": 3697,
-      "&aurora.test.purecps.APPLICATION_48": 3804,
-      "&aurora.test.purecps.APPLICATION_49": 3805,
-      "&aurora.test.purecps.LAMBDA_50": 3820,
-      "&aurora.test.purecps.APPLICATION_51": 3860,
-      "&aurora.test.purecps.APPLICATION_52": 3861,
-      "&aurora.test.purecps.LAMBDA_53": 3876,
-      "&aurora.test.purecps.APPLICATION_54": 3916,
-      "&aurora.test.purecps.APPLICATION_55": 3917,
-      "&aurora.test.purecps.LAMBDA_56": 3932,
-      "&aurora.test.purecps.APPLICATION_57": 4017,
-      "&aurora.test.purecps.LAMBDA_58": 4088,
-      "&aurora.test.purecps.APPLICATION_59": 4100,
-      "&aurora.test.callcc-test.APPLICATION_0": 3082,
-      "&aurora.test.callcc-test.LAMBDA_1": 3083,
-      "&aurora.test.callcc-test.APPLICATION_2": 3094,
-      "&aurora.test.callcc-test.LAMBDA_3": 3110,
-      "&aurora.test.callcc-test.APPLICATION_4": 3188,
-      "&aurora.test.callcc-test.APPLICATION_5": 3189,
-      "&aurora.test.callcc-test.LAMBDA_6": 3190,
-      "&aurora.test.callcc-test.APPLICATION_7": 3202,
-      "&aurora.test.callcc-test.APPLICATION_8": 3209,
-      "&aurora.test.callcc-test.STRING_9": 3218,
-      "&aurora.test.callcc-test.APPLICATION_10": 3227,
-      "&aurora.test.callcc-test.LAMBDA_11": 3236,
-      "&aurora.test.callcc-test.APPLICATION_12": 3254,
-      "&aurora.test.callcc-test.LAMBDA_13": 3255,
-      "&aurora.test.callcc-test.APPLICATION_14": 3267,
-      "&aurora.test.callcc-test.APPLICATION_15": 3274,
-      "&aurora.test.callcc-test.STRING_16": 3283,
-      "&aurora.test.callcc-test.APPLICATION_17": 3292,
-      "&aurora.test.callcc-test.LAMBDA_18": 3301
+      "&aurora.test.main.APPLICATION_2": 88,
+      "&aurora.test.main.STRING_3": 105,
+      "&aurora.test.main.APPLICATION_4": 172,
+      "&aurora.test.main.STRING_5": 189,
+      "&aurora.test.main.APPLICATION_6": 254,
+      "&aurora.test.main.STRING_7": 271,
+      "&aurora.test.main.APPLICATION_8": 340,
+      "&aurora.test.main.STRING_9": 357,
+      "&aurora.test.main.APPLICATION_10": 430,
+      "&aurora.test.main.STRING_11": 447,
+      "&aurora.test.main.APPLICATION_12": 574,
+      "&aurora.test.main.STRING_13": 586,
+      "&aurora.test.main.APPLICATION_14": 612,
+      "&aurora.test.main.STRING_15": 624,
+      "&aurora.test.main.APPLICATION_16": 667,
+      "&aurora.test.main.STRING_17": 679,
+      "&aurora.test.main.APPLICATION_18": 693,
+      "&aurora.test.main.APPLICATION_19": 705,
+      "&aurora.test.main.LAMBDA_20": 720,
+      "&aurora.test.main.LAMBDA_21": 734,
+      "&aurora.test.main.LAMBDA_22": 749,
+      "&aurora.test.main.LAMBDA_23": 764,
+      "&aurora.test.main.LAMBDA_24": 778,
+      "&aurora.test.main.APPLICATION_25": 855,
+      "&aurora.test.main.STRING_26": 867,
+      "&aurora.test.main.APPLICATION_27": 889,
+      "&aurora.test.main.STRING_28": 901,
+      "&aurora.test.main.APPLICATION_29": 937,
+      "&aurora.test.main.STRING_30": 949,
+      "&aurora.test.main.APPLICATION_31": 967,
+      "&aurora.test.main.APPLICATION_32": 968,
+      "&aurora.test.main.APPLICATION_33": 969,
+      "&aurora.test.main.LAMBDA_34": 986,
+      "&aurora.test.main.LAMBDA_35": 1006,
+      "&aurora.test.main.APPLICATION_36": 1018,
+      "&aurora.test.main.APPLICATION_37": 1132,
+      "&aurora.test.main.STRING_38": 1144,
+      "&aurora.test.main.APPLICATION_39": 1288,
+      "&aurora.test.main.STRING_40": 1300,
+      "&aurora.test.main.APPLICATION_41": 1314,
+      "&aurora.test.main.STRING_42": 1326,
+      "&aurora.test.main.APPLICATION_43": 1345,
+      "&aurora.test.main.STRING_44": 1357,
+      "&aurora.test.main.APPLICATION_45": 1390,
+      "&aurora.test.main.APPLICATION_46": 1399,
+      "&aurora.test.main.QUOTE_47": 1416,
+      "&aurora.test.main.APPLICATION_48": 1503,
+      "&aurora.test.main.STRING_49": 1515,
+      "&aurora.test.main.APPLICATION_50": 1530,
+      "&aurora.test.main.STRING_51": 1542,
+      "&aurora.test.main.APPLICATION_52": 1582,
+      "&aurora.test.main.STRING_53": 1594,
+      "&aurora.test.main.APPLICATION_54": 1627,
+      "&aurora.test.main.APPLICATION_55": 1636,
+      "&aurora.test.main.LAMBDA_56": 1645,
+      "&aurora.test.main.APPLICATION_57": 1657,
+      "&aurora.test.main.APPLICATION_58": 1665,
+      "&aurora.test.main.APPLICATION_59": 1671,
+      "&aurora.test.main.APPLICATION_60": 1684,
+      "&aurora.test.main.QUOTE_61": 1693,
+      "&aurora.test.main.QUOTE_62": 1699,
+      "&aurora.test.main.QUOTE_63": 1712,
+      "&aurora.test.main.QUOTE_64": 1720,
+      "&aurora.test.main.QUOTE_65": 1724,
+      "&aurora.test.main.QUOTE_66": 1732,
+      "&aurora.test.main.QUOTE_67": 1738,
+      "&aurora.test.main.QUOTE_68": 1751,
+      "&aurora.test.main.QUOTE_69": 1760,
+      "&aurora.test.main.QUOTE_70": 1766,
+      "&aurora.test.utils.APPLICATION_0": 1946,
+      "&aurora.test.utils.LAMBDA_1": 1947,
+      "&aurora.test.utils.APPLICATION_2": 1958,
+      "&aurora.test.utils.LAMBDA_3": 1977,
+      "&aurora.test.utils.APPLICATION_4": 1993,
+      "&aurora.test.utils.APPLICATION_5": 2004,
+      "&aurora.test.utils.LAMBDA_6": 2019,
+      "&aurora.test.utils.APPLICATION_7": 2035,
+      "&aurora.test.MoB.APPLICATION_0": 2251,
+      "&aurora.test.MoB.LAMBDA_1": 2252,
+      "&aurora.test.MoB.APPLICATION_2": 2263,
+      "&aurora.test.MoB.STRING_3": 2277,
+      "&aurora.test.MoB.APPLICATION_4": 2345,
+      "&aurora.test.MoB.LAMBDA_5": 2357,
+      "&aurora.test.MoB.APPLICATION_6": 2390,
+      "&aurora.test.MoB.LAMBDA_7": 2408,
+      "&aurora.test.MoB.APPLICATION_8": 2431,
+      "&aurora.test.MoB.APPLICATION_9": 2439,
+      "&aurora.test.MoB.APPLICATION_10": 2471,
+      "&aurora.test.MoB.APPLICATION_11": 2499,
+      "&aurora.test.MoB.APPLICATION_12": 2503,
+      "&aurora.test.MoB.APPLICATION_13": 2522,
+      "&aurora.test.MoB.APPLICATION_14": 2525,
+      "&aurora.test.MoB.APPLICATION_15": 2530,
+      "&aurora.test.MoB.APPLICATION_16": 2546,
+      "&aurora.test.purecps.APPLICATION_0": 3595,
+      "&aurora.test.purecps.LAMBDA_1": 3596,
+      "&aurora.test.purecps.APPLICATION_2": 3607,
+      "&aurora.test.purecps.LAMBDA_3": 3623,
+      "&aurora.test.purecps.APPLICATION_4": 3640,
+      "&aurora.test.purecps.LAMBDA_5": 3646,
+      "&aurora.test.purecps.LAMBDA_6": 3668,
+      "&aurora.test.purecps.APPLICATION_7": 3692,
+      "&aurora.test.purecps.LAMBDA_8": 3693,
+      "&aurora.test.purecps.APPLICATION_9": 3723,
+      "&aurora.test.purecps.LAMBDA_10": 3724,
+      "&aurora.test.purecps.APPLICATION_11": 3757,
+      "&aurora.test.purecps.LAMBDA_12": 3758,
+      "&aurora.test.purecps.APPLICATION_13": 3773,
+      "&aurora.test.purecps.LAMBDA_14": 3779,
+      "&aurora.test.purecps.LAMBDA_15": 3793,
+      "&aurora.test.purecps.APPLICATION_16": 3805,
+      "&aurora.test.purecps.APPLICATION_17": 3808,
+      "&aurora.test.purecps.LAMBDA_18": 3849,
+      "&aurora.test.purecps.APPLICATION_19": 3886,
+      "&aurora.test.purecps.APPLICATION_20": 3887,
+      "&aurora.test.purecps.LAMBDA_21": 3921,
+      "&aurora.test.purecps.APPLICATION_22": 3935,
+      "&aurora.test.purecps.LAMBDA_23": 3967,
+      "&aurora.test.purecps.APPLICATION_24": 4001,
+      "&aurora.test.purecps.APPLICATION_25": 4033,
+      "&aurora.test.purecps.LAMBDA_26": 4034,
+      "&aurora.test.purecps.APPLICATION_27": 4049,
+      "&aurora.test.purecps.APPLICATION_28": 4110,
+      "&aurora.test.purecps.LAMBDA_29": 4111,
+      "&aurora.test.purecps.APPLICATION_30": 4225,
+      "&aurora.test.purecps.LAMBDA_31": 4226,
+      "&aurora.test.purecps.APPLICATION_32": 4241,
+      "&aurora.test.purecps.LAMBDA_33": 4247,
+      "&aurora.test.purecps.LAMBDA_34": 4261,
+      "&aurora.test.purecps.APPLICATION_35": 4273,
+      "&aurora.test.purecps.APPLICATION_36": 4276,
+      "&aurora.test.purecps.LAMBDA_37": 4289,
+      "&aurora.test.purecps.APPLICATION_38": 4337,
+      "&aurora.test.purecps.LAMBDA_39": 4401,
+      "&aurora.test.purecps.APPLICATION_40": 4456,
+      "&aurora.test.purecps.LAMBDA_41": 4457,
+      "&aurora.test.purecps.APPLICATION_42": 4472,
+      "&aurora.test.purecps.LAMBDA_43": 4478,
+      "&aurora.test.purecps.LAMBDA_44": 4492,
+      "&aurora.test.purecps.APPLICATION_45": 4504,
+      "&aurora.test.purecps.APPLICATION_46": 4507,
+      "&aurora.test.purecps.LAMBDA_47": 4520,
+      "&aurora.test.purecps.APPLICATION_48": 4627,
+      "&aurora.test.purecps.APPLICATION_49": 4628,
+      "&aurora.test.purecps.LAMBDA_50": 4643,
+      "&aurora.test.purecps.APPLICATION_51": 4683,
+      "&aurora.test.purecps.APPLICATION_52": 4684,
+      "&aurora.test.purecps.LAMBDA_53": 4699,
+      "&aurora.test.purecps.APPLICATION_54": 4739,
+      "&aurora.test.purecps.APPLICATION_55": 4740,
+      "&aurora.test.purecps.LAMBDA_56": 4755,
+      "&aurora.test.purecps.APPLICATION_57": 4840,
+      "&aurora.test.purecps.LAMBDA_58": 4911,
+      "&aurora.test.purecps.APPLICATION_59": 4923,
+      "&aurora.test.callcc-test.APPLICATION_0": 3905,
+      "&aurora.test.callcc-test.LAMBDA_1": 3906,
+      "&aurora.test.callcc-test.APPLICATION_2": 3917,
+      "&aurora.test.callcc-test.LAMBDA_3": 3933,
+      "&aurora.test.callcc-test.APPLICATION_4": 4011,
+      "&aurora.test.callcc-test.APPLICATION_5": 4012,
+      "&aurora.test.callcc-test.LAMBDA_6": 4013,
+      "&aurora.test.callcc-test.APPLICATION_7": 4025,
+      "&aurora.test.callcc-test.APPLICATION_8": 4032,
+      "&aurora.test.callcc-test.STRING_9": 4041,
+      "&aurora.test.callcc-test.APPLICATION_10": 4050,
+      "&aurora.test.callcc-test.LAMBDA_11": 4059,
+      "&aurora.test.callcc-test.APPLICATION_12": 4077,
+      "&aurora.test.callcc-test.LAMBDA_13": 4078,
+      "&aurora.test.callcc-test.APPLICATION_14": 4090,
+      "&aurora.test.callcc-test.APPLICATION_15": 4097,
+      "&aurora.test.callcc-test.STRING_16": 4106,
+      "&aurora.test.callcc-test.APPLICATION_17": 4115,
+      "&aurora.test.callcc-test.LAMBDA_18": 4124,
+      "&aurora.test.sort.APPLICATION_0": 4775,
+      "&aurora.test.sort.LAMBDA_1": 4776,
+      "&aurora.test.sort.APPLICATION_2": 4846,
+      "&aurora.test.sort.LAMBDA_3": 4863,
+      "&aurora.test.sort.APPLICATION_4": 4883,
+      "&aurora.test.sort.APPLICATION_5": 4887,
+      "&aurora.test.sort.QUOTE_6": 4908,
+      "&aurora.test.sort.APPLICATION_7": 4919,
+      "&aurora.test.sort.APPLICATION_8": 4923,
+      "&aurora.test.sort.APPLICATION_9": 4926,
+      "&aurora.test.sort.APPLICATION_10": 4949,
+      "&aurora.test.sort.APPLICATION_11": 4955,
+      "&aurora.test.sort.APPLICATION_12": 4965,
+      "&aurora.test.sort.APPLICATION_13": 4975,
+      "&aurora.test.sort.APPLICATION_14": 4999,
+      "&aurora.test.sort.APPLICATION_15": 5009,
+      "&aurora.test.sort.APPLICATION_16": 5025,
+      "&aurora.test.sort.LAMBDA_17": 5042,
+      "&aurora.test.sort.APPLICATION_18": 5060,
+      "&aurora.test.sort.APPLICATION_19": 5064,
+      "&aurora.test.sort.APPLICATION_20": 5092,
+      "&aurora.test.sort.APPLICATION_21": 5098,
+      "&aurora.test.sort.APPLICATION_22": 5106,
+      "&aurora.test.sort.APPLICATION_23": 5114,
+      "&aurora.test.sort.APPLICATION_24": 5130,
+      "&aurora.test.sort.LAMBDA_25": 5150,
+      "&aurora.test.sort.APPLICATION_26": 5170,
+      "&aurora.test.sort.APPLICATION_27": 5174,
+      "&aurora.test.sort.APPLICATION_28": 5178,
+      "&aurora.test.sort.APPLICATION_29": 5192,
+      "&aurora.test.sort.APPLICATION_30": 5199,
+      "&aurora.test.sort.APPLICATION_31": 5235,
+      "&aurora.test.sort.APPLICATION_32": 5243,
+      "&aurora.test.sort.APPLICATION_33": 5254,
+      "&aurora.test.sort.LAMBDA_34": 5262,
+      "&aurora.test.sort.APPLICATION_35": 5311,
+      "&aurora.test.sort.APPLICATION_36": 5315,
+      "&aurora.test.sort.APPLICATION_37": 5320,
+      "&aurora.test.sort.APPLICATION_38": 5411,
+      "&aurora.test.sort.APPLICATION_39": 5417,
+      "&aurora.test.sort.APPLICATION_40": 5462,
+      "&aurora.test.sort.APPLICATION_41": 5473,
+      "&aurora.test.sort.LAMBDA_42": 5481,
+      "&aurora.test.sort.APPLICATION_43": 5547,
+      "&aurora.test.sort.APPLICATION_44": 5551,
+      "&aurora.test.sort.APPLICATION_45": 5556
     },
     "lambdaHandles": [
       "&aurora.test.main.LAMBDA_1",
-      "&aurora.test.main.LAMBDA_16",
-      "&aurora.test.main.LAMBDA_17",
-      "&aurora.test.main.LAMBDA_18",
-      "&aurora.test.main.LAMBDA_19",
       "&aurora.test.main.LAMBDA_20",
-      "&aurora.test.main.LAMBDA_28",
-      "&aurora.test.main.LAMBDA_29",
+      "&aurora.test.main.LAMBDA_21",
+      "&aurora.test.main.LAMBDA_22",
+      "&aurora.test.main.LAMBDA_23",
+      "&aurora.test.main.LAMBDA_24",
+      "&aurora.test.main.LAMBDA_34",
+      "&aurora.test.main.LAMBDA_35",
+      "&aurora.test.main.LAMBDA_56",
       "&aurora.test.utils.LAMBDA_3",
       "&aurora.test.utils.LAMBDA_6",
       "&aurora.test.MoB.LAMBDA_5",
@@ -1514,11 +2337,17 @@
       "&aurora.test.callcc-test.LAMBDA_6",
       "&aurora.test.callcc-test.LAMBDA_11",
       "&aurora.test.callcc-test.LAMBDA_13",
-      "&aurora.test.callcc-test.LAMBDA_18"
+      "&aurora.test.callcc-test.LAMBDA_18",
+      "&aurora.test.sort.LAMBDA_3",
+      "&aurora.test.sort.LAMBDA_17",
+      "&aurora.test.sort.LAMBDA_25",
+      "&aurora.test.sort.LAMBDA_34",
+      "&aurora.test.sort.LAMBDA_42"
     ],
     "tailcall": [
-      "&aurora.test.main.APPLICATION_30",
-      "&aurora.test.main.APPLICATION_31",
+      "&aurora.test.main.APPLICATION_36",
+      "&aurora.test.main.APPLICATION_57",
+      "&aurora.test.main.APPLICATION_54",
       "&aurora.test.main.APPLICATION_0",
       "&aurora.test.utils.APPLICATION_4",
       "&aurora.test.utils.APPLICATION_7",
@@ -1554,11 +2383,18 @@
       "&aurora.test.callcc-test.APPLICATION_7",
       "&aurora.test.callcc-test.APPLICATION_14",
       "&aurora.test.callcc-test.APPLICATION_4",
-      "&aurora.test.callcc-test.APPLICATION_2"
+      "&aurora.test.callcc-test.APPLICATION_2",
+      "&aurora.test.sort.APPLICATION_10",
+      "&aurora.test.sort.APPLICATION_14",
+      "&aurora.test.sort.APPLICATION_20",
+      "&aurora.test.sort.APPLICATION_29",
+      "&aurora.test.sort.APPLICATION_31",
+      "&aurora.test.sort.APPLICATION_24"
     ],
     "variableMapping": {
-      "aurora.test.main.LAMBDA_28.x": "x",
-      "aurora.test.main.LAMBDA_29.x": "x",
+      "aurora.test.main.LAMBDA_34.x": "x",
+      "aurora.test.main.LAMBDA_35.x": "x",
+      "aurora.test.main.LAMBDA_56.x": "x",
       "aurora.test.utils.LAMBDA_1.decrease": "decrease",
       "aurora.test.utils.LAMBDA_3.x": "x",
       "aurora.test.utils.LAMBDA_1.show": "show",
@@ -1605,20 +2441,34 @@
       "aurora.test.callcc-test.LAMBDA_6.x": "x",
       "aurora.test.callcc-test.LAMBDA_11.k": "k",
       "aurora.test.callcc-test.LAMBDA_13.x": "x",
-      "aurora.test.callcc-test.LAMBDA_18.k": "k"
+      "aurora.test.callcc-test.LAMBDA_18.k": "k",
+      "aurora.test.sort.LAMBDA_1.filter": "filter",
+      "aurora.test.sort.LAMBDA_3.f": "f",
+      "aurora.test.sort.LAMBDA_3.lst": "lst",
+      "aurora.test.sort.LAMBDA_1.concat": "concat",
+      "aurora.test.sort.LAMBDA_17.a": "a",
+      "aurora.test.sort.LAMBDA_17.b": "b",
+      "aurora.test.sort.LAMBDA_1.quicksort": "quicksort",
+      "aurora.test.sort.LAMBDA_25.array": "array",
+      "aurora.test.sort.LAMBDA_34.x": "x",
+      "aurora.test.sort.LAMBDA_42.x": "x"
     },
     "topVariables": {
       "decrease": "aurora.test.utils.LAMBDA_1.decrease",
       "show": "aurora.test.utils.LAMBDA_1.show",
       "A": "aurora.test.MoB.LAMBDA_1.A",
       "fac-cps": "aurora.test.purecps.LAMBDA_1.fac-cps",
-      "YinYang": "aurora.test.callcc-test.LAMBDA_1.YinYang"
+      "YinYang": "aurora.test.callcc-test.LAMBDA_1.YinYang",
+      "filter": "aurora.test.sort.LAMBDA_1.filter",
+      "concat": "aurora.test.sort.LAMBDA_1.concat",
+      "quicksort": "aurora.test.sort.LAMBDA_1.quicksort"
     },
     "dependencies": {
       "Utils": "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.utils.scm",
       "ManOrBoy": "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.MoB.scm",
       "PureCPS": "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.purecps.scm",
-      "CallCC": "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.callcc-test.scm"
+      "CallCC": "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.callcc-test.scm",
+      "Sort": "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.sort.scm"
     },
     "natives": {}
   },
@@ -1626,6 +2476,12 @@
     "call @&aurora.test.main.LAMBDA_1",
     "halt",
     "@&aurora.test.main.LAMBDA_1",
+    "push @&aurora.test.sort.LAMBDA_3",
+    "store aurora.test.sort.LAMBDA_1.filter",
+    "push @&aurora.test.sort.LAMBDA_17",
+    "store aurora.test.sort.LAMBDA_1.concat",
+    "push @&aurora.test.sort.LAMBDA_25",
+    "store aurora.test.sort.LAMBDA_1.quicksort",
     "push @&aurora.test.callcc-test.LAMBDA_3",
     "store aurora.test.callcc-test.LAMBDA_1.YinYang",
     "push @&aurora.test.purecps.LAMBDA_3",
@@ -1636,21 +2492,25 @@
     "store aurora.test.utils.LAMBDA_1.decrease",
     "push @&aurora.test.utils.LAMBDA_6",
     "store aurora.test.utils.LAMBDA_1.show",
-    "push &aurora.test.main.STRING_11",
-    "call aurora.test.utils.LAMBDA_1.show",
     "push &aurora.test.main.STRING_13",
     "call aurora.test.utils.LAMBDA_1.show",
+    "push &aurora.test.main.STRING_15",
+    "call aurora.test.utils.LAMBDA_1.show",
+    "push &aurora.test.main.STRING_17",
+    "call aurora.test.utils.LAMBDA_1.show",
     "push 10",
-    "loadclosure @&aurora.test.main.LAMBDA_16",
-    "loadclosure @&aurora.test.main.LAMBDA_17",
-    "loadclosure @&aurora.test.main.LAMBDA_18",
-    "loadclosure @&aurora.test.main.LAMBDA_19",
     "loadclosure @&aurora.test.main.LAMBDA_20",
+    "loadclosure @&aurora.test.main.LAMBDA_21",
+    "loadclosure @&aurora.test.main.LAMBDA_22",
+    "loadclosure @&aurora.test.main.LAMBDA_23",
+    "loadclosure @&aurora.test.main.LAMBDA_24",
     "call aurora.test.MoB.LAMBDA_1.A",
     "call aurora.test.utils.LAMBDA_1.show",
-    "push &aurora.test.main.STRING_22",
+    "push &aurora.test.main.STRING_26",
     "call aurora.test.utils.LAMBDA_1.show",
-    "push &aurora.test.main.STRING_24",
+    "push &aurora.test.main.STRING_28",
+    "call aurora.test.utils.LAMBDA_1.show",
+    "push &aurora.test.main.STRING_30",
     "call aurora.test.utils.LAMBDA_1.show",
     "goto @APPLY_BEGIN_aurora.test.main.ID0",
     "@TEMP_LAMBDA_aurora.test.main.ID0",
@@ -1668,41 +2528,70 @@
     "tailcall TEMP_LAMBDA_PARAM0_aurora.test.main.ID1",
     "return",
     "@APPLY_BEGIN_aurora.test.main.ID1",
-    "loadclosure @&aurora.test.main.LAMBDA_28",
+    "loadclosure @&aurora.test.main.LAMBDA_34",
     "call aurora.test.purecps.LAMBDA_1.fac-cps",
     "push 10",
     "call @TEMP_LAMBDA_aurora.test.main.ID1",
     "@TEMP_LAMBDA_RETURN_TARGET_aurora.test.main.ID1",
-    "loadclosure @&aurora.test.main.LAMBDA_29",
+    "loadclosure @&aurora.test.main.LAMBDA_35",
     "call @TEMP_LAMBDA_aurora.test.main.ID0",
     "@TEMP_LAMBDA_RETURN_TARGET_aurora.test.main.ID0",
-    "push &aurora.test.main.QUOTE_33",
-    "car",
+    "push &aurora.test.main.STRING_38",
+    "call aurora.test.utils.LAMBDA_1.show",
+    "push &aurora.test.main.STRING_40",
+    "call aurora.test.utils.LAMBDA_1.show",
+    "push &aurora.test.main.STRING_42",
+    "call aurora.test.utils.LAMBDA_1.show",
+    "push &aurora.test.main.STRING_44",
+    "call aurora.test.utils.LAMBDA_1.show",
+    "push &aurora.test.main.QUOTE_47",
+    "call aurora.test.sort.LAMBDA_1.quicksort",
     "display",
-    "return",
-    "@&aurora.test.main.LAMBDA_16",
-    "push 1",
-    "return",
-    "@&aurora.test.main.LAMBDA_17",
-    "push -1",
-    "return",
-    "@&aurora.test.main.LAMBDA_18",
-    "push -1",
-    "return",
-    "@&aurora.test.main.LAMBDA_19",
-    "push 1",
+    "push &aurora.test.main.STRING_49",
+    "call aurora.test.utils.LAMBDA_1.show",
+    "push &aurora.test.main.STRING_51",
+    "call aurora.test.utils.LAMBDA_1.show",
+    "push &aurora.test.main.STRING_53",
+    "call aurora.test.utils.LAMBDA_1.show",
+    "push &aurora.test.main.QUOTE_63",
+    "call @&aurora.test.main.LAMBDA_56",
+    "display",
     "return",
     "@&aurora.test.main.LAMBDA_20",
+    "push 1",
+    "return",
+    "@&aurora.test.main.LAMBDA_21",
+    "push -1",
+    "return",
+    "@&aurora.test.main.LAMBDA_22",
+    "push -1",
+    "return",
+    "@&aurora.test.main.LAMBDA_23",
+    "push 1",
+    "return",
+    "@&aurora.test.main.LAMBDA_24",
     "push 0",
     "return",
-    "@&aurora.test.main.LAMBDA_28",
-    "store aurora.test.main.LAMBDA_28.x",
-    "load aurora.test.main.LAMBDA_28.x",
+    "@&aurora.test.main.LAMBDA_34",
+    "store aurora.test.main.LAMBDA_34.x",
+    "load aurora.test.main.LAMBDA_34.x",
     "return",
-    "@&aurora.test.main.LAMBDA_29",
-    "store aurora.test.main.LAMBDA_29.x",
-    "load aurora.test.main.LAMBDA_29.x",
+    "@&aurora.test.main.LAMBDA_35",
+    "store aurora.test.main.LAMBDA_35.x",
+    "load aurora.test.main.LAMBDA_35.x",
     "display",
+    "return",
+    "@&aurora.test.main.LAMBDA_56",
+    "store aurora.test.main.LAMBDA_56.x",
+    "load aurora.test.main.LAMBDA_56.x",
+    "push 'quote",
+    "load aurora.test.main.LAMBDA_56.x",
+    "push &aurora.test.main.QUOTE_61",
+    "cons",
+    "cons",
+    "push &aurora.test.main.QUOTE_62",
+    "cons",
+    "cons",
     "return",
     "@&aurora.test.utils.LAMBDA_3",
     "store aurora.test.utils.LAMBDA_3.x",
@@ -1978,6 +2867,111 @@
     "@&aurora.test.callcc-test.LAMBDA_18",
     "store aurora.test.callcc-test.LAMBDA_18.k",
     "load aurora.test.callcc-test.LAMBDA_18.k",
+    "return",
+    "@&aurora.test.sort.LAMBDA_3",
+    "store aurora.test.sort.LAMBDA_3.lst",
+    "store aurora.test.sort.LAMBDA_3.f",
+    "load aurora.test.sort.LAMBDA_3.lst",
+    "null?",
+    "iftrue @IF_TRUE_aurora.test.main.ID11",
+    "load aurora.test.sort.LAMBDA_3.lst",
+    "car",
+    "call aurora.test.sort.LAMBDA_3.f",
+    "iftrue @IF_TRUE_aurora.test.main.ID12",
+    "load aurora.test.sort.LAMBDA_3.f",
+    "load aurora.test.sort.LAMBDA_3.lst",
+    "cdr",
+    "tailcall aurora.test.sort.LAMBDA_1.filter",
+    "goto @IF_END_aurora.test.main.ID12",
+    "@IF_TRUE_aurora.test.main.ID12",
+    "load aurora.test.sort.LAMBDA_3.lst",
+    "car",
+    "load aurora.test.sort.LAMBDA_3.f",
+    "load aurora.test.sort.LAMBDA_3.lst",
+    "cdr",
+    "call aurora.test.sort.LAMBDA_1.filter",
+    "cons",
+    "@IF_END_aurora.test.main.ID12",
+    "goto @IF_END_aurora.test.main.ID11",
+    "@IF_TRUE_aurora.test.main.ID11",
+    "push &aurora.test.sort.QUOTE_6",
+    "@IF_END_aurora.test.main.ID11",
+    "return",
+    "@&aurora.test.sort.LAMBDA_17",
+    "store aurora.test.sort.LAMBDA_17.b",
+    "store aurora.test.sort.LAMBDA_17.a",
+    "load aurora.test.sort.LAMBDA_17.a",
+    "null?",
+    "iftrue @IF_TRUE_aurora.test.main.ID13",
+    "load aurora.test.sort.LAMBDA_17.a",
+    "car",
+    "load aurora.test.sort.LAMBDA_17.a",
+    "cdr",
+    "load aurora.test.sort.LAMBDA_17.b",
+    "call aurora.test.sort.LAMBDA_1.concat",
+    "cons",
+    "goto @IF_END_aurora.test.main.ID13",
+    "@IF_TRUE_aurora.test.main.ID13",
+    "load aurora.test.sort.LAMBDA_17.b",
+    "@IF_END_aurora.test.main.ID13",
+    "return",
+    "@&aurora.test.sort.LAMBDA_25",
+    "store aurora.test.sort.LAMBDA_25.array",
+    "load aurora.test.sort.LAMBDA_25.array",
+    "null?",
+    "iftrue @OR_FALSE_aurora.test.main.ID14",
+    "load aurora.test.sort.LAMBDA_25.array",
+    "cdr",
+    "null?",
+    "iftrue @OR_FALSE_aurora.test.main.ID14",
+    "push #f",
+    "goto @OR_END_aurora.test.main.ID14",
+    "@OR_FALSE_aurora.test.main.ID14",
+    "push #t",
+    "@OR_END_aurora.test.main.ID14",
+    "iftrue @IF_TRUE_aurora.test.main.ID15",
+    "loadclosure @&aurora.test.sort.LAMBDA_34",
+    "load aurora.test.sort.LAMBDA_25.array",
+    "call aurora.test.sort.LAMBDA_1.filter",
+    "call aurora.test.sort.LAMBDA_1.quicksort",
+    "load aurora.test.sort.LAMBDA_25.array",
+    "car",
+    "loadclosure @&aurora.test.sort.LAMBDA_42",
+    "load aurora.test.sort.LAMBDA_25.array",
+    "call aurora.test.sort.LAMBDA_1.filter",
+    "call aurora.test.sort.LAMBDA_1.quicksort",
+    "cons",
+    "tailcall aurora.test.sort.LAMBDA_1.concat",
+    "goto @IF_END_aurora.test.main.ID15",
+    "@IF_TRUE_aurora.test.main.ID15",
+    "load aurora.test.sort.LAMBDA_25.array",
+    "@IF_END_aurora.test.main.ID15",
+    "return",
+    "@&aurora.test.sort.LAMBDA_34",
+    "store aurora.test.sort.LAMBDA_34.x",
+    "load aurora.test.sort.LAMBDA_34.x",
+    "load aurora.test.sort.LAMBDA_25.array",
+    "car",
+    "lt",
+    "iftrue @IF_TRUE_aurora.test.main.ID16",
+    "push #f",
+    "goto @IF_END_aurora.test.main.ID16",
+    "@IF_TRUE_aurora.test.main.ID16",
+    "push #t",
+    "@IF_END_aurora.test.main.ID16",
+    "return",
+    "@&aurora.test.sort.LAMBDA_42",
+    "store aurora.test.sort.LAMBDA_42.x",
+    "load aurora.test.sort.LAMBDA_42.x",
+    "load aurora.test.sort.LAMBDA_25.array",
+    "car",
+    "gt",
+    "iftrue @IF_TRUE_aurora.test.main.ID17",
+    "push #f",
+    "goto @IF_END_aurora.test.main.ID17",
+    "@IF_TRUE_aurora.test.main.ID17",
+    "push #t",
+    "@IF_END_aurora.test.main.ID17",
     "return"
   ],
   "Components": [
@@ -1985,6 +2979,7 @@
     "aurora.test.MoB",
     "aurora.test.purecps",
     "aurora.test.callcc-test",
+    "aurora.test.sort",
     "aurora.test.main"
   ]
 }

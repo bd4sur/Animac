@@ -100,6 +100,7 @@ class AST {
     }
 
     // 将某个节点转换回Scheme代码
+    // TODO 对于Quote列表的输出效果可以优化
     public NodeToString(nodeHandle: Handle): string {
         let str = '';
         if(TypeOfToken(nodeHandle) === "VARIABLE") {

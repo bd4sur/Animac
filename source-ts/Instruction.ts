@@ -488,14 +488,62 @@ function AIL_CAR(argument: string, PROCESS: Process, RUNTIME: Runtime): void {
 
 // cdr 取 OP栈顶的把柄对应的列表 的尾表（临时对象） 的把柄
 function AIL_CDR(argument: string, PROCESS: Process, RUNTIME: Runtime): void {
-    let argType = TypeOfToken(argument);
-
+    let listHandle = PROCESS.PopOperand();
+    // 类型检查
+    if(TypeOfToken(listHandle) === 'HANDLE') {
+        let listObj = PROCESS.heap.Get(listHandle);
+        if(listObj.type === "QUOTE" || listObj.type === "QUASIQUOTE") {
+            let newListHandle: Handle = PROCESS.heap.AllocateHandle(listObj.type, false);
+            let newList: QuoteObject | QuasiquoteObject;
+            if(listObj.type === "QUOTE") {
+                newList = new QuoteObject(listHandle);
+            }
+            else {
+                newList = new QuasiquoteObject(listHandle);
+            }
+            newList.children = listObj.children.slice(1);
+            PROCESS.heap.Set(newListHandle, newList);
+            PROCESS.PushOperand(newListHandle);
+            PROCESS.Step();
+        }
+        else {
+            throw `[Error] cdr的参数必须是引用（quote）列表或准引用（quasiquote）列表。`;
+        }
+    }
+    else {
+        throw `[Error] cdr的参数必须是引用（quote）列表或准引用（quasiquote）列表。`;
+    }
 }
 
 // cons 同Scheme的cons
 function AIL_CONS(argument: string, PROCESS: Process, RUNTIME: Runtime): void {
-    let argType = TypeOfToken(argument);
-
+    let listHandle = PROCESS.PopOperand();
+    let firstElement = PROCESS.PopOperand();
+    // 类型检查
+    if(TypeOfToken(listHandle) === 'HANDLE') {
+        let listObj = PROCESS.heap.Get(listHandle);
+        if(listObj.type === "QUOTE" || listObj.type === "QUASIQUOTE") {
+            let newListHandle: Handle = PROCESS.heap.AllocateHandle(listObj.type, false);
+            let newList: QuoteObject | QuasiquoteObject;
+            if(listObj.type === "QUOTE") {
+                newList = new QuoteObject(listHandle);
+            }
+            else {
+                newList = new QuasiquoteObject(listHandle);
+            }
+            newList.children = listObj.children.slice(); // 复制数组
+            newList.children.unshift(firstElement);      // 并在左侧插入元素
+            PROCESS.heap.Set(newListHandle, newList);
+            PROCESS.PushOperand(newListHandle);
+            PROCESS.Step();
+        }
+        else {
+            throw `[Error] cons的第2个参数必须是引用（quote）列表或准引用（quasiquote）列表。`;
+        }
+    }
+    else {
+        throw `[Error] cons的第2个参数必须是引用（quote）列表或准引用（quasiquote）列表。`;
+    }
 }
 
 ///////////////////////////////////////
@@ -725,8 +773,64 @@ function AIL_OR(argument: string, PROCESS: Process, RUNTIME: Runtime): void {
     PROCESS.Step();
 }
 
-// TODO 还有几个谓词待实现
+// null?
+function AIL_ISNULL(argument: string, PROCESS: Process, RUNTIME: Runtime): void {
+    let arg = PROCESS.PopOperand();
+    if(TypeOfToken(arg) === 'HANDLE') {
+        let listObj = PROCESS.heap.Get(arg);
+        if(listObj.type === "QUOTE" || listObj.type === "QUASIQUOTE") {
+            if(listObj.children.length <= 0) {
+                PROCESS.PushOperand("#t");
+            }
+            else {
+                PROCESS.PushOperand("#f");
+            }
+        }
+        else {
+            PROCESS.PushOperand("#f");
+        }
+    }
+    else {
+        PROCESS.PushOperand("#f");
+    }
+    PROCESS.Step();
+}
 
+// atom?
+function AIL_ISATOM(argument: string, PROCESS: Process, RUNTIME: Runtime): void {
+    let arg = PROCESS.PopOperand();
+    if(TypeOfToken(arg) === 'HANDLE') {
+        let listObj = PROCESS.heap.Get(arg);
+        if(listObj.type === "STRING") {
+            PROCESS.PushOperand("#t");
+        }
+        else {
+            PROCESS.PushOperand("#f");
+        }
+    }
+    else {
+        PROCESS.PushOperand("#t");
+    }
+    PROCESS.Step();
+}
+
+// list?
+function AIL_ISLIST(argument: string, PROCESS: Process, RUNTIME: Runtime): void {
+    let arg = PROCESS.PopOperand();
+    if(TypeOfToken(arg) === 'HANDLE') {
+        let listObj = PROCESS.heap.Get(arg);
+        if(listObj.type === "STRING") {
+            PROCESS.PushOperand("#f");
+        }
+        else {
+            PROCESS.PushOperand("#t");
+        }
+    }
+    else {
+        PROCESS.PushOperand("#f");
+    }
+    PROCESS.Step();
+}
 
 ///////////////////////////////////////
 // 第五类：其他指令
@@ -748,7 +852,8 @@ function AIL_DISPLAY(argument: string, PROCESS: Process, RUNTIME: Runtime): void
             console.log(`[Info] 输出：${TrimQuotes(obj.content)}`);
         }
         else {
-            console.log(PROCESS.AST.NodeToString(content));
+            let str = PROCESS.AST.NodeToString(content);
+            console.log(`[Info] 输出：${str}`);
         }
     }
     else {
@@ -827,8 +932,9 @@ function Execute(PROCESS: Process, RUNTIME: Runtime) {
     else if(mnemonic === 'not')         { AIL_NOT(argument, PROCESS, RUNTIME); }
     else if(mnemonic === 'and')         { AIL_AND(argument, PROCESS, RUNTIME); }
     else if(mnemonic === 'or')          { AIL_OR(argument, PROCESS, RUNTIME); }
-
-    // TODO 还有几个谓词待实现
+    else if(mnemonic === 'null?')       { AIL_ISNULL(argument, PROCESS, RUNTIME); }
+    else if(mnemonic === 'atom?')       { AIL_ISATOM(argument, PROCESS, RUNTIME); }
+    else if(mnemonic === 'list?')       { AIL_ISLIST(argument, PROCESS, RUNTIME); }
 
     else if(mnemonic === 'fork')        { AIL_FORK(argument, PROCESS, RUNTIME); }
     else if(mnemonic === 'display')     { AIL_DISPLAY(argument, PROCESS, RUNTIME); }
