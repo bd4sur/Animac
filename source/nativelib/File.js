@@ -1,88 +1,72 @@
-// Aurora Virtual Machine for Scheme
-// mikukonai@github
-//
+
 // nativelib/File.js
 // File本地库
 
+function TrimQuotes(str) {
+    if(str[0] === '"' && str[str.length-1] === '"') {
+        return str.substring(1, str.length-1);
+    }
+    else {
+        return str;
+    }
+}
+
 const fs = require('fs');
 
-const Common = require('../common.js');
-const Executor = require('../executor.js');
-
-// 首次尝试实现JS调用Scheme（通过回调）
-// 实现思路是模拟另外一个VM实例
-// 如果native里面调用了native，那么相应地VM实例也是嵌套的
-// 但无论如何嵌套，都是针对同一个进程进行操作
-// 在这种机制下，涉及continuation的操作，结果的正确性目前还不清楚。
-const read = function(avmArgs, avmProcess, avmRuntime) {
-    if(avmProcess.STATE === Common.PROCESS_STATE.SLEEPING) {
-        avmProcess.STATE = Common.PROCESS_STATE.SLEEPING;
+function Read(PROCESS, RUNTIME) {
+    if(PROCESS.STATE === "SLEEPING") {
+        PROCESS.SetState("SLEEPING");
     }
     else {
         // console.log(`开始阻塞(file)`);
-        avmProcess.STATE = Common.PROCESS_STATE.SLEEPING;
+        PROCESS.SetState("SLEEPING");
 
-        let path = avmProcess.GetObject(avmArgs[0]).value;
-        let callback = avmArgs[1];
+        // 从栈中获取参数，注意顺序是反的
+        let pathHandle = PROCESS.PopOperand();
+        let path = TrimQuotes(PROCESS.heap.Get(pathHandle).content);
+
         fs.readFile(path, {encoding:"utf-8"}, (error, data)=> {
             if(error) {
                 console.error(error);
-                avmProcess.STATE = Common.PROCESS_STATE.RUNNING;
-                avmProcess.PC++;
+                // console.warn(`进程 ${PROCESS.PID} 恢复。`);
+                PROCESS.SetState("RUNNING");
+                PROCESS.Step();
             }
+            // 恢复进程状态
+            // /console.warn(`进程 ${PROCESS.PID} 恢复。`);
+            PROCESS.SetState("RUNNING");
 
-            avmProcess.STATE = Common.PROCESS_STATE.RUNNING;
+            // 首先构造字符串对象
+            // TODO ANI所需的接口应当采用恰当的方式暴露给Native库
+            let strHandle = PROCESS.heap.AllocateHandle("STRING", false);
+            let strObject = {
+                type: "STRING",
+                content: data.toString()
+            };
+            PROCESS.heap.Set(strHandle, strObject);
 
-            // 执行Scheme回调 (lambda (content) ...)
-            let strRef = avmProcess.NewObject('STRING', data.toString());
-            avmProcess.OPSTACK.push(strRef);
+            PROCESS.OPSTACK.push(strHandle);
 
-            let currentPC = avmProcess.PC;
+            PROCESS.Step();
+            RUNTIME.AIL_RETURN(null, PROCESS, RUNTIME);
 
-            ///////////////////////////////////
-            // 执行调用回调的操作
-            // 以下照抄executor实现
-            ///////////////////////////////////
+            // NOTE 取消异步回调设计。所有涉及阻塞的操作均设计成同步的。
+            // let currentPC = PROCESS.PC;
+            // RUNTIME.AIL_CALL(callback, PROCESS, RUNTIME);
 
-            // 新的栈帧入栈
-            avmProcess.pushStackFrame(avmProcess.CURRENT_CLOSURE_REF, avmProcess.PC + 1);
-            // 判断参数类型
-            if(Common.TypeOfToken(callback) === 'KEYWORD') {
-                // TODO 增加对primitive的一等支持
-            }
-            else if(Common.TypeOfToken(callback) === 'LABEL') {
-                let instAddr = (avmProcess.LABEL_DICT)[arg];
-                avmProcess.CURRENT_CLOSURE_REF = avmProcess.newClosure(instAddr, avmProcess.CURRENT_CLOSURE_REF);
-                avmProcess.PC = instAddr;
-            }
-            else if(Common.TypeOfToken(callback) === 'REF_CLOSURE') {
-                let targetClosure = avmProcess.getClosure(callback);
-                avmProcess.CURRENT_CLOSURE_REF = callback;
-                avmProcess.PC = targetClosure.instructionIndex;
-            }
-            else {
-                throw `[Native:File.read] 回调函数必须是函数或闭包`;
-            }
-            // 将自身从runtime的睡眠线程中换到线程池中，并重启时钟
-            avmRuntime.AddProcess(avmProcess);
-            // 执行Scheme回调函数，直至返回此条指令的下一条指令的位置
-            avmRuntime.StartClock(avmProcess.PC === currentPC + 1);
-            /*
-            while(1) {
-            // let newVM = setInterval(()=> {
-                if(avmProcess.PC === currentPC + 1) {
-                    // clearInterval(newVM);
-                    // return;
-                    break;
+            // 进程重新加入进程队列，并重启时钟
+            RUNTIME.AddProcess(PROCESS);
+            RUNTIME.StartClock(/*()=>{
+                if(PROCESS.PC === currentPC + 1) {
+                    console.warn(`进程 ${PROCESS.PID} 回调执行完毕。`);
+                    return true;
                 }
-                if(avmProcess.STATE !== Common.PROCESS_STATE.SLEEPING) {
-                    Executor.Executor(avmProcess, avmRuntime);
+                else {
+                    return false;
                 }
-            // }, 0);
-            }
-            */
+            }*/);
         });
     }
-};
+}
 
-module.exports.read = read;
+module.exports.Read = Read;

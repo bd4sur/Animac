@@ -1,60 +1,81 @@
-// Aurora Virtual Machine for Scheme
-// mikukonai@github
-//
+
 // nativelib/HTTPS.js
 // HTTPS本地库
-// Node 10+
 
-const https = require('https');
-
-const Common = require('../common.js');
-
-const request = function(avmArgs, avmProcess, avmRuntime) {
-    if(avmProcess.STATE === Common.PROCESS_STATE.SLEEPING) {
-        avmProcess.STATE = Common.PROCESS_STATE.SLEEPING;
+function TrimQuotes(str) {
+    if(str[0] === '"' && str[str.length-1] === '"') {
+        return str.substring(1, str.length-1);
     }
     else {
-        // console.log(`开始阻塞(https)`);
-        avmProcess.STATE = Common.PROCESS_STATE.SLEEPING;
-
-        let url = new URL(avmProcess.GetObject(avmArgs[0]).value);
-        function callback() {
-            avmProcess.STATE = Common.PROCESS_STATE.RUNNING;
-            avmProcess.PC++;
-            // 将自身从runtime的睡眠线程中换到线程池中，并重启时钟
-            avmRuntime.AddProcess(avmProcess);
-            avmRuntime.StartClock();
-        }
-
-        setTimeout(()=> {
-            let responseData = '';
-            // console.log(`开始请求：${url}`);
-            const req = https.request({
-                hostname: url.hostname,
-                path: url.pathname,
-                port: 443,
-                method: 'GET',
-            }, (res)=> {
-                res.on('data', (data) => {
-                    responseData += data;
-                });
-                res.on('end', () => {
-                    // console.log(responseData.toString());
-                    let resRef = avmProcess.NewObject('STRING', responseData);
-                    avmProcess.OPSTACK.push(resRef);
-                    // console.log(`响应状态：${res.statusCode}`);
-                    callback();
-                });
-            });
-            req.on('error', (e) => {
-                let resRef = avmProcess.NewObject('STRING', e.toString());
-                avmProcess.OPSTACK.push(resRef);
-                console.error(e.toString());
-                callback();
-            });
-            req.end();
-        }, 0);
+        return str;
     }
 }
 
-module.exports.request = request;
+const https = require('https');
+
+function Request(PROCESS, RUNTIME) {
+    if(PROCESS.STATE === "SLEEPING") {
+        PROCESS.SetState("SLEEPING");
+    }
+    else {
+        // console.log(`开始阻塞(file)`);
+        PROCESS.SetState("SLEEPING");
+
+        // 从栈中获取参数，注意顺序是反的
+        let urlHandle = PROCESS.PopOperand();
+        let url = new URL(TrimQuotes(PROCESS.heap.Get(urlHandle).content));
+
+        function callback() {
+            console.log(`HTTPS执行完毕`);
+            PROCESS.SetState("RUNNING");
+            PROCESS.Step();
+            // 调用返回
+            RUNTIME.AIL_RETURN(null, PROCESS, RUNTIME);
+            // 唤醒
+            RUNTIME.AddProcess(PROCESS);
+            RUNTIME.StartClock();
+        }
+
+        // 响应数据
+        let responseData = '';
+
+        // HTTPS异步请求
+        const req = https.request({
+            hostname: url.hostname,
+            path: url.pathname,
+            port: 443,
+            method: 'GET',
+        }, (res)=> {
+            res.on('data', (data) => {
+                responseData += data;
+            });
+            res.on('end', () => {
+                // TODO ANI所需的接口应当采用恰当的方式暴露给Native库
+                let strHandle = PROCESS.heap.AllocateHandle("STRING", false);
+                let strObject = {
+                    type: "STRING",
+                    content: responseData
+                };
+                PROCESS.heap.Set(strHandle, strObject);
+                PROCESS.OPSTACK.push(strHandle);
+
+                callback();
+            });
+        });
+        req.on('error', (e) => {
+            // TODO ANI所需的接口应当采用恰当的方式暴露给Native库
+            let strHandle = PROCESS.heap.AllocateHandle("STRING", false);
+            let strObject = {
+                type: "STRING",
+                content: e.toString()
+            };
+            PROCESS.heap.Set(strHandle, strObject);
+            PROCESS.OPSTACK.push(strHandle);
+
+            callback();
+        });
+        req.end();
+    }
+}
+
+module.exports.Request = Request;
