@@ -106,16 +106,23 @@ class HashMap extends Object {
     has(handle) {
         return (handle in this);
     }
+    Copy() {
+        let copy = new HashMap();
+        for (let addr in this) {
+            let value = this.get(addr);
+            if (value === undefined)
+                continue;
+            if (value instanceof SchemeObject) {
+                copy.set(addr, value.Copy());
+            }
+            else {
+                let newValue = JSON.parse(JSON.stringify(value));
+                copy.set(addr, newValue);
+            }
+        }
+        return copy;
+    }
 }
-// Memory的元数据数据结构
-/*
-interface Metadata {
-    static: boolean,
-    readOnly: boolean,
-    status: string, // allocated modified free ...
-    referrer: Array<Handle|void>
-}
-*/
 // 基于HashMap的对象存储区，用于实现pool、heap等
 class Memory {
     constructor() {
@@ -202,8 +209,17 @@ class Memory {
                 break;
         }
     }
+    // 深拷贝
+    Copy() {
+        let copy = new Memory();
+        copy.data = this.data.Copy();
+        copy.metadata = this.metadata.Copy();
+        copy.handleCounter = this.handleCounter;
+        return copy;
+    }
 }
 class SchemeObject {
+    Copy() { }
 }
 var SchemeObjectType;
 (function (SchemeObjectType) {
@@ -229,6 +245,12 @@ class ApplicationObject extends SchemeObject {
         this.parent = parent;
         this.children = new Array();
     }
+    Copy() {
+        let copy = new ApplicationObject(this.parent);
+        copy.type = SchemeObjectType.APPLICATION;
+        copy.children = this.children.slice();
+        return copy;
+    }
 }
 // Quote列表对象
 class QuoteObject extends SchemeObject {
@@ -237,6 +259,12 @@ class QuoteObject extends SchemeObject {
         this.type = SchemeObjectType.QUOTE;
         this.parent = parent;
         this.children = new Array();
+    }
+    Copy() {
+        let copy = new QuoteObject(this.parent);
+        copy.type = SchemeObjectType.QUOTE;
+        copy.children = this.children.slice();
+        return copy;
     }
 }
 // Quasiquote列表对象
@@ -247,6 +275,12 @@ class QuasiquoteObject extends SchemeObject {
         this.parent = parent;
         this.children = new Array();
     }
+    Copy() {
+        let copy = new QuasiquoteObject(this.parent);
+        copy.type = SchemeObjectType.QUASIQUOTE;
+        copy.children = this.children.slice();
+        return copy;
+    }
 }
 // Unquote列表对象
 class UnquoteObject extends SchemeObject {
@@ -255,6 +289,12 @@ class UnquoteObject extends SchemeObject {
         this.type = SchemeObjectType.UNQUOTE;
         this.parent = parent;
         this.children = new Array();
+    }
+    Copy() {
+        let copy = new UnquoteObject(this.parent);
+        copy.type = SchemeObjectType.UNQUOTE;
+        copy.children = this.children.slice();
+        return copy;
     }
 }
 // Lambda列表对象
@@ -267,6 +307,12 @@ class LambdaObject extends SchemeObject {
         this.children = new Array();
         this.children[0] = "lambda";
         this.children[1] = new Array();
+    }
+    Copy() {
+        let copy = new LambdaObject(this.parent);
+        copy.type = SchemeObjectType.LAMBDA;
+        copy.children = this.children.slice();
+        return copy;
     }
     addParameter(param) {
         if (this.children[1].indexOf(param) < 0) { // 如果有同名的变量则不添加
@@ -294,6 +340,9 @@ class StringObject extends SchemeObject {
         this.type = SchemeObjectType.STRING;
         this.content = str;
     }
+    Copy() {
+        return new StringObject(this.content);
+    }
 }
 // 闭包（运行时堆对象）
 class Closure extends SchemeObject {
@@ -305,6 +354,14 @@ class Closure extends SchemeObject {
         this.boundVariables = new HashMap();
         this.freeVariables = new HashMap();
         this.dirtyFlag = new HashMap();
+    }
+    Copy() {
+        let copy = new Closure(this.instructionAddress, this.parent);
+        copy.type = SchemeObjectType.CLOSURE;
+        copy.boundVariables = this.boundVariables.Copy();
+        copy.freeVariables = this.freeVariables.Copy();
+        copy.dirtyFlag = this.dirtyFlag.Copy();
+        return copy;
     }
     // 不加脏标记
     InitBoundVariable(variable, value) {
@@ -349,6 +406,13 @@ class Continuation extends SchemeObject {
         this.type = SchemeObjectType.CONTINUATION;
         this.partialEnvironmentJson = JSON.stringify(partialEnvironment);
         this.contReturnTargetLable = contReturnTargetLable;
+    }
+    Copy() {
+        let copy = new Continuation(null, null);
+        copy.type = SchemeObjectType.CONTINUATION;
+        copy.partialEnvironmentJson = this.partialEnvironmentJson;
+        copy.contReturnTargetLable = this.contReturnTargetLable;
+        return copy;
     }
 }
 // Lexer.ts
@@ -512,6 +576,19 @@ class AST {
         this.topVariables = new HashMap();
         this.dependencies = new HashMap();
         this.natives = new HashMap();
+    }
+    // 深拷贝
+    Copy() {
+        let copy = new AST(this.source, this.moduleQualifiedName);
+        copy.nodes = this.nodes.Copy();
+        copy.nodeIndexes = this.nodeIndexes.Copy();
+        copy.lambdaHandles = this.lambdaHandles.slice();
+        copy.tailcall = this.tailcall.slice();
+        copy.variableMapping = this.variableMapping.Copy();
+        copy.topVariables = this.topVariables.Copy();
+        copy.dependencies = this.dependencies.Copy();
+        copy.natives = this.natives.Copy();
+        return copy;
     }
     // 取出某节点
     GetNode(handle) {
@@ -1939,7 +2016,7 @@ function LoadModule(path) {
         catch (_a) {
             throw `[Error] 模块“${path}”未找到。`;
         }
-        code = `((lambda () ${code}))`;
+        code = `((lambda () ${code}))\n`;
         let moduleQualifiedName = PathUtils.GetModuleQualifiedName(path);
         let currentAST = Parse(code, moduleQualifiedName);
         allASTs.set(moduleQualifiedName, currentAST);
@@ -1993,7 +2070,102 @@ function LoadModule(path) {
     }
     // 编译
     mergedModule.ILCode = Compile(mergedModule.AST);
-    mergedModule.Components = sortedModuleNames;
+    // mergedModule.Components = sortedModuleNames;
+    return mergedModule;
+}
+// 用于fork指令：从某个Application节点开始，构建模块
+// TODO 这个函数实现不够优雅，待改进
+function LoadModuleFromNode(ast, nodeHandle) {
+    const fs = require("fs");
+    // 所有互相依赖的AST
+    let allASTs = new HashMap();
+    // 依赖关系图：[[模块名, 依赖模块名], ...]
+    let dependencyGraph = new Array();
+    // 经拓扑排序后的依赖模块序列
+    let sortedModuleNames = new Array();
+    let mainModuleQualifiedName = `${ast.moduleQualifiedName}.forked`;
+    let currentAST = ast.Copy();
+    // 将目标节点移到顶级作用域
+    let topLambdaNodeHandle = currentAST.GetNode(currentAST.TopApplicationNodeHandle()).children[0];
+    let temp = currentAST.GetNode(topLambdaNodeHandle).children;
+    currentAST.GetNode(topLambdaNodeHandle).children = temp.slice(0, 2).concat([nodeHandle]);
+    allASTs.set(mainModuleQualifiedName, currentAST);
+    for (let alias in currentAST.dependencies) {
+        let dependencyPath = currentAST.dependencies.get(alias);
+        dependencyGraph.push([
+            mainModuleQualifiedName,
+            PathUtils.GetModuleQualifiedName(dependencyPath)
+        ]);
+        // 检测是否有循环依赖
+        sortedModuleNames = TopologicSort(dependencyGraph);
+        if (sortedModuleNames === undefined) {
+            throw `[Error] 模块之间存在循环依赖，无法载入模块。`;
+        }
+        importModule(dependencyPath);
+    }
+    // 递归地引入所有依赖文件，并检测循环依赖
+    function importModule(path) {
+        let code;
+        try {
+            code = fs.readFileSync(path, "utf-8");
+        }
+        catch (_a) {
+            throw `[Error] 模块“${path}”未找到。`;
+        }
+        code = `((lambda () ${code}))\n`;
+        let moduleQualifiedName = PathUtils.GetModuleQualifiedName(path);
+        let currentAST = Parse(code, moduleQualifiedName);
+        allASTs.set(moduleQualifiedName, currentAST);
+        for (let alias in currentAST.dependencies) {
+            let dependencyPath = currentAST.dependencies.get(alias);
+            dependencyGraph.push([
+                moduleQualifiedName,
+                PathUtils.GetModuleQualifiedName(dependencyPath)
+            ]);
+            // 检测是否有循环依赖
+            sortedModuleNames = TopologicSort(dependencyGraph);
+            if (sortedModuleNames === undefined) {
+                throw `[Error] 模块之间存在循环依赖，无法载入模块。`;
+            }
+            importModule(dependencyPath);
+        }
+    }
+    // 对每个AST中使用的 外部模块引用 作换名处理
+    for (let moduleName in allASTs) {
+        let currentAST = allASTs.get(moduleName);
+        currentAST.nodes.ForEach((nodeHandle) => {
+            let node = currentAST.nodes.Get(nodeHandle);
+            if (node.type === "LAMBDA" || node.type === "APPLICATION") {
+                for (let i = 0; i < node.children.length; i++) {
+                    let token = node.children[i];
+                    if (isVariable(token) && node.children[0] !== "import") {
+                        let prefix = token.split(".")[0];
+                        let suffix = token.split(".").slice(1).join("");
+                        if (prefix in currentAST.dependencies) {
+                            // 在相应的依赖模块中查找原名，并替换
+                            let targetModuleName = PathUtils.GetModuleQualifiedName(currentAST.dependencies.get(prefix));
+                            let targetVarName = (allASTs.get(targetModuleName).topVariables).get(suffix);
+                            node.children[i] = targetVarName;
+                        }
+                    }
+                }
+            }
+        });
+    }
+    // 将AST融合起来，编译为单一模块
+    let mergedModule = new Module();
+    mergedModule.AST = allASTs.get(mainModuleQualifiedName);
+    // 按照依赖关系图的拓扑排序进行融合
+    // NOTE 由于AST融合是将被融合（依赖）的部分放在前面，所以这里需要逆序进行
+    for (let i = sortedModuleNames.length - 1; i >= 0; i--) {
+        let moduleName = sortedModuleNames[i];
+        if (moduleName === mainModuleQualifiedName)
+            continue;
+        mergedModule.AST.MergeAST(allASTs.get(moduleName));
+    }
+    // 编译
+    mergedModule.ILCode = Compile(mergedModule.AST);
+    // mergedModule.Components = sortedModuleNames;
     return mergedModule;
 }
 // 对依赖关系图作拓扑排序，进而检测是否存在环路
@@ -2088,11 +2260,11 @@ class StackFrame {
 // 进程状态枚举
 var ProcessState;
 (function (ProcessState) {
-    ProcessState[ProcessState["READY"] = 0] = "READY";
-    ProcessState[ProcessState["RUNNING"] = 1] = "RUNNING";
-    ProcessState[ProcessState["SLEEPING"] = 2] = "SLEEPING";
-    ProcessState[ProcessState["SUSPENDED"] = 3] = "SUSPENDED";
-    ProcessState[ProcessState["STOPPED"] = 4] = "STOPPED";
+    ProcessState["READY"] = "READY";
+    ProcessState["RUNNING"] = "RUNNING";
+    ProcessState["SLEEPING"] = "SLEEPING";
+    ProcessState["SUSPENDED"] = "SUSPENDED";
+    ProcessState["STOPPED"] = "STOPPED";
 })(ProcessState || (ProcessState = {}));
 class Process {
     /* 构造器 */
@@ -2100,8 +2272,8 @@ class Process {
     constructor(modul) {
         // 执行机核心：栈、闭包和续延
         this.PC = 0; // 程序计数器（即当前执行的指令索引）
-        this.processID = 0;
-        this.parentProcessID = 0;
+        this.PID = 0;
+        this.parentPID = 0;
         this.state = ProcessState.READY;
         this.AST = modul.AST;
         this.instructions = modul.ILCode;
@@ -2263,7 +2435,1040 @@ class Process {
         this.state = pstate;
     }
 }
+// Runtime.ts
+// 运行时环境
+var VMState;
+(function (VMState) {
+    VMState["IDLE"] = "IDLE";
+    VMState["RUNNING"] = "RUNNING";
+})(VMState || (VMState = {}));
 class Runtime {
+    constructor() {
+        this.processPool = new Array();
+        this.processQueue = new Array();
+    }
+    AllocatePID() {
+        return this.processPool.length;
+    }
+    AddProcess(p) {
+        // 检查是否已存在此线程
+        if (this.processPool[p.PID] === undefined) {
+            this.processPool[p.PID] = p;
+        }
+        this.processQueue.push(p.PID); // 加入队尾
+    }
+    Tick(stopCondition) {
+        stopCondition = stopCondition || (() => { return false; });
+        let timeslice = 1;
+        // 取出队头线程
+        let currentPID = this.processQueue.shift();
+        let currentProcess = this.processPool[currentPID];
+        currentProcess.state = ProcessState.RUNNING;
+        // 执行时间片
+        while (timeslice >= 0) {
+            this.Execute(currentProcess, this);
+            timeslice--;
+            if (stopCondition()) {
+                break;
+            }
+            else if (currentProcess.state === ProcessState.RUNNING) {
+                continue;
+            }
+            else if (currentProcess.state === ProcessState.SLEEPING) {
+                break;
+            }
+            else if (currentProcess.state === ProcessState.STOPPED) {
+                break;
+            }
+        }
+        // 后处理
+        if (currentProcess.state === ProcessState.RUNNING) {
+            // 仍在运行的进程加入队尾
+            currentProcess.state = ProcessState.READY;
+            this.processQueue.push(currentPID);
+        }
+        if (this.processQueue.length <= 0) {
+            return VMState.IDLE;
+        }
+        else {
+            return VMState.RUNNING;
+        }
+    }
+    StartClock(stopCondition) {
+        stopCondition = stopCondition || (() => { return false; });
+        /* NOTE 【执行时钟设计说明】为什么要用setInterval？
+            设想两个进程，其中一个是常驻的无限循环进程，另一个是需要执行某Node.js异步操作的进程。
+            根据Node.js的事件循环特性，如果单纯使用while(1)实现，则异步操作永远得不到执行。
+            但如果单纯用setInterval实现，则性能极差。
+            那么可以折中一下：
+            程序的执行，在一个短的时间周期内（称为计算周期ComputingPhase），使用while()循环全力计算。
+            全力计算一段时间后，由setInterval控制，结束当前计算周期，给异步事件处理的机会。
+            计算周期的长度COMPUTATION_PHASE_LENGTH决定了VM的性能，以及异步事件响应的速度。
+            如果COMPUTATION_PHASE_LENGTH=1，则退化为完全由setInterval控制的执行时钟，性能最差。
+            如果COMPUTATION_PHASE_LENGTH=∞，则退化为完全由while控制的执行时钟，性能最佳，但异步事件得不到执行。
+        */
+        function Run() {
+            let COMPUTATION_PHASE_LENGTH = 1000; // TODO 这个值可以调整
+            while (COMPUTATION_PHASE_LENGTH >= 0) {
+                let avmState = this.Tick(stopCondition);
+                COMPUTATION_PHASE_LENGTH--;
+                if (avmState === VMState.IDLE) {
+                    break;
+                }
+            }
+        }
+        setInterval(() => {
+            Run.call(this);
+        }, 0);
+    }
+    //=================================================================
+    //                  以下是AIL指令实现（封装成函数）
+    //=================================================================
+    ///////////////////////////////////////
+    // 第一类：基本存取指令
+    ///////////////////////////////////////
+    // store variable 将OP栈顶对象保存到当前闭包的约束变量中
+    AIL_STORE(argument, PROCESS, RUNTIME) {
+        let argType = TypeOfToken(argument);
+        if (argType !== 'VARIABLE') {
+            throw `[Error] store指令参数类型不是变量`;
+        }
+        let variable = argument;
+        let value = PROCESS.PopOperand();
+        PROCESS.GetCurrentClosure().InitBoundVariable(variable, value);
+        PROCESS.Step();
+    }
+    // load variable 解引用变量，并将对象压入OP栈顶
+    AIL_LOAD(argument, PROCESS, RUNTIME) {
+        let argType = TypeOfToken(argument);
+        if (argType !== 'VARIABLE') {
+            throw `[Error] load指令参数类型不是变量`;
+        }
+        let variable = argument;
+        let value = PROCESS.Dereference(variable);
+        let valueType = TypeOfToken(value);
+        // 值为标签，即loadclosure。
+        if (valueType === 'LABEL') {
+            let label = value;
+            let instAddress = PROCESS.GetLabelAddress(label);
+            let newClosureHandle = PROCESS.NewClosure(instAddress, PROCESS.currentClosureHandle);
+            let currentClosure = PROCESS.GetCurrentClosure();
+            for (let v in currentClosure.freeVariables) {
+                let value = currentClosure.GetFreeVariable(v);
+                PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
+            }
+            for (let v in currentClosure.boundVariables) {
+                let value = currentClosure.GetBoundVariable(v);
+                PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
+            }
+            PROCESS.PushOperand(newClosureHandle);
+            PROCESS.Step();
+        }
+        else {
+            PROCESS.PushOperand(value);
+            PROCESS.Step();
+        }
+    }
+    // loadclosure label 创建一个label处代码对应的新闭包，并将新闭包把柄压入OP栈顶
+    AIL_LOADCLOSURE(argument, PROCESS, RUNTIME) {
+        let argType = TypeOfToken(argument);
+        if (argType !== 'LABEL') {
+            throw `[Error] loadclosure指令参数类型不是标签`;
+        }
+        let label = argument;
+        let instAddress = PROCESS.GetLabelAddress(label);
+        let newClosureHandle = PROCESS.NewClosure(instAddress, PROCESS.currentClosureHandle);
+        let currentClosure = PROCESS.GetCurrentClosure();
+        for (let v in currentClosure.freeVariables) {
+            let value = currentClosure.GetFreeVariable(v);
+            PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
+        }
+        for (let v in currentClosure.boundVariables) {
+            let value = currentClosure.GetBoundVariable(v);
+            PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
+        }
+        PROCESS.PushOperand(newClosureHandle);
+        PROCESS.Step();
+    }
+    // push arg 将立即数|静态资源把柄|中间代码标签压入OP栈顶
+    AIL_PUSH(argument, PROCESS, RUNTIME) {
+        // 允许所有类型的参数
+        PROCESS.PushOperand(argument);
+        PROCESS.Step();
+    }
+    // pop 弹出并抛弃OP栈顶
+    AIL_POP(argument, PROCESS, RUNTIME) {
+        PROCESS.PopOperand();
+        PROCESS.Step();
+    }
+    // swap 交换OP栈顶的两个对象的顺序
+    AIL_SWAP(argument, PROCESS, RUNTIME) {
+        let top1 = PROCESS.PopOperand();
+        let top2 = PROCESS.PopOperand();
+        PROCESS.PushOperand(top1);
+        PROCESS.PushOperand(top2);
+        PROCESS.Step();
+    }
+    // set variable 修改某变量的值为OP栈顶的对象（同Scheme的set!）
+    AIL_SET(argument, PROCESS, RUNTIME) {
+        let argType = TypeOfToken(argument);
+        if (argType !== 'VARIABLE') {
+            throw `[Error] set指令参数类型不是变量`;
+        }
+        let variable = argument;
+        let rightValue = PROCESS.PopOperand();
+        // 修改当前闭包内部的绑定
+        let currentClosure = PROCESS.GetCurrentClosure();
+        if (currentClosure.HasBoundVariable(variable)) {
+            PROCESS.GetCurrentClosure().SetBoundVariable(variable, rightValue); // 带脏标记
+        }
+        if (currentClosure.HasFreeVariable(variable)) {
+            PROCESS.GetCurrentClosure().SetFreeVariable(variable, rightValue); // 带脏标记
+        }
+        // 沿闭包链上溯，直到找到该变量作为约束变量所在的上级闭包，修改绑定
+        let currentClosureHandle = PROCESS.currentClosureHandle;
+        while (currentClosureHandle !== TOP_NODE_HANDLE && PROCESS.heap.HasHandle(currentClosureHandle)) {
+            let currentClosure = PROCESS.GetClosure(currentClosureHandle);
+            if (currentClosure.HasBoundVariable(variable)) {
+                PROCESS.GetClosure(currentClosureHandle).SetBoundVariable(variable, rightValue); // 带脏标记
+                break;
+            }
+            currentClosureHandle = currentClosure.parent;
+        }
+        PROCESS.Step();
+    }
+    ///////////////////////////////////////
+    // 第二类：分支跳转指令
+    ///////////////////////////////////////
+    //call arg 函数调用（包括continuation、native函数）
+    AIL_CALL(argument, PROCESS, RUNTIME) {
+        let argType = TypeOfToken(argument);
+        // 新的栈帧入栈
+        PROCESS.PushStackFrame(PROCESS.currentClosureHandle, PROCESS.PC + 1);
+        // 判断参数类型
+        if (argType === 'LABEL') {
+            let label = argument;
+            let instructionAddress = PROCESS.GetLabelAddress(label);
+            let newClosureHandle = PROCESS.NewClosure(instructionAddress, PROCESS.currentClosureHandle);
+            let currentClosure = PROCESS.GetCurrentClosure();
+            for (let v in currentClosure.freeVariables) {
+                let value = currentClosure.GetFreeVariable(v);
+                PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
+            }
+            for (let v in currentClosure.boundVariables) {
+                let value = currentClosure.GetBoundVariable(v);
+                PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
+            }
+            PROCESS.SetCurrentClosure(newClosureHandle);
+            PROCESS.Goto(instructionAddress);
+        }
+        else if (argType === 'HANDLE') { // 闭包或续延（用于回调参数的情况）
+            let handle = argument;
+            let obj = PROCESS.heap.Get(handle);
+            let objType = obj.type;
+            // 闭包：已定义的函数实例
+            if (objType === SchemeObjectType.CLOSURE) {
+                let targetClosure = obj;
+                PROCESS.SetCurrentClosure(handle);
+                PROCESS.Goto(targetClosure.instructionAddress);
+            }
+            // 续延：调用continuation必须带一个参数，在栈顶。TODO 这个检查在编译时完成
+            else if (objType === SchemeObjectType.CONTINUATION) {
+                let top = PROCESS.PopOperand();
+                let returnTargetLabel = PROCESS.LoadContinuation(handle);
+                PROCESS.PushOperand(top);
+                // console.info(`[Info] Continuation已恢复，返回标签：${returnTargetLabel}`);
+                let targetAddress = PROCESS.GetLabelAddress(returnTargetLabel);
+                PROCESS.Goto(targetAddress);
+            }
+            else {
+                throw `[Error] call指令的参数必须是标签、闭包或续延`;
+            }
+        }
+        else if (argType === 'VARIABLE') {
+            // 首先判断是否为Native调用
+            let variable = argument;
+            if (PROCESS.IsUseNative(variable)) {
+                let nativeModuleName = variable.split(".")[0];
+                let nativeFunctionName = variable.split(".").slice(1).join("");
+                // 引入Native模块
+                let nativeModule = require(`./nativelib/${nativeModuleName}.js`);
+                // 调用Native模块内部的函数
+                (nativeModule[nativeFunctionName])(PROCESS, RUNTIME);
+            }
+            else {
+                let value = PROCESS.Dereference(variable);
+                let valueType = TypeOfToken(value);
+                if (valueType === 'KEYWORD') {
+                    // TODO 增加对primitive的一等支持
+                }
+                else if (valueType === 'LABEL') {
+                    let label = value;
+                    let instructionAddress = PROCESS.GetLabelAddress(label);
+                    let newClosureHandle = PROCESS.NewClosure(instructionAddress, PROCESS.currentClosureHandle);
+                    let currentClosure = PROCESS.GetCurrentClosure();
+                    for (let v in currentClosure.freeVariables) {
+                        let value = currentClosure.GetFreeVariable(v);
+                        PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
+                    }
+                    for (let v in currentClosure.boundVariables) {
+                        let value = currentClosure.GetBoundVariable(v);
+                        PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
+                    }
+                    PROCESS.SetCurrentClosure(newClosureHandle);
+                    PROCESS.Goto(instructionAddress);
+                }
+                // 值为把柄：可能是闭包、continuation或其他
+                else if (valueType === "HANDLE") {
+                    let handle = value;
+                    let obj = PROCESS.heap.Get(handle);
+                    let objType = obj.type;
+                    // 闭包：已定义的函数实例
+                    if (objType === SchemeObjectType.CLOSURE) {
+                        let targetClosure = obj;
+                        PROCESS.SetCurrentClosure(handle);
+                        PROCESS.Goto(targetClosure.instructionAddress);
+                    }
+                    // 续延：调用continuation必须带一个参数，在栈顶。TODO 这个检查在编译时完成
+                    else if (objType === SchemeObjectType.CONTINUATION) {
+                        let top = PROCESS.PopOperand();
+                        let returnTargetLabel = PROCESS.LoadContinuation(handle);
+                        PROCESS.PushOperand(top);
+                        // console.info(`[Info] Continuation已恢复，返回标签：${returnTargetLabel}`);
+                        let targetAddress = PROCESS.GetLabelAddress(returnTargetLabel);
+                        PROCESS.Goto(targetAddress);
+                    }
+                    else {
+                        throw `[Error] call指令的参数必须是标签、闭包或续延`;
+                    }
+                }
+                else {
+                    throw `[Error] call指令的参数必须是标签、闭包或续延`;
+                }
+            } // Native判断结束
+        } // Variable分支结束
+    }
+    //tailcall arg 函数尾调用
+    AIL_TAILCALL(argument, PROCESS, RUNTIME) {
+        let argType = TypeOfToken(argument);
+        // 与call唯一的不同就是调用前不压栈帧，所以下面这坨代码是可以整体复用的
+        // 判断参数类型
+        if (argType === 'LABEL') {
+            let label = argument;
+            let instructionAddress = PROCESS.GetLabelAddress(label);
+            let newClosureHandle = PROCESS.NewClosure(instructionAddress, PROCESS.currentClosureHandle);
+            let currentClosure = PROCESS.GetCurrentClosure();
+            for (let v in currentClosure.freeVariables) {
+                let value = currentClosure.GetFreeVariable(v);
+                PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
+            }
+            for (let v in currentClosure.boundVariables) {
+                let value = currentClosure.GetBoundVariable(v);
+                PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
+            }
+            PROCESS.SetCurrentClosure(newClosureHandle);
+            PROCESS.Goto(instructionAddress);
+        }
+        else if (argType === 'HANDLE') { // 闭包或续延（用于回调参数的情况）
+            let handle = argument;
+            let obj = PROCESS.heap.Get(handle);
+            let objType = obj.type;
+            // 闭包：已定义的函数实例
+            if (objType === SchemeObjectType.CLOSURE) {
+                let targetClosure = obj;
+                PROCESS.SetCurrentClosure(handle);
+                PROCESS.Goto(targetClosure.instructionAddress);
+            }
+            // 续延：调用continuation必须带一个参数，在栈顶。TODO 这个检查在编译时完成
+            else if (objType === SchemeObjectType.CONTINUATION) {
+                let top = PROCESS.PopOperand();
+                let returnTargetLabel = PROCESS.LoadContinuation(handle);
+                PROCESS.PushOperand(top);
+                // console.info(`[Info] Continuation已恢复，返回标签：${returnTargetLabel}`);
+                let targetAddress = PROCESS.GetLabelAddress(returnTargetLabel);
+                PROCESS.Goto(targetAddress);
+            }
+            else {
+                throw `[Error] call指令的参数必须是标签、闭包或续延`;
+            }
+        }
+        else if (argType === 'VARIABLE') {
+            // 首先判断是否为Native调用
+            let variable = argument;
+            if (PROCESS.IsUseNative(variable)) {
+                let nativeModuleName = variable.split(".")[0];
+                let nativeFunctionName = variable.split(".").slice(1).join("");
+                // 引入Native模块
+                let nativeModule = require(`./nativelib/${nativeModuleName}.js`);
+                // 调用Native模块内部的函数
+                (nativeModule[nativeFunctionName])(PROCESS, RUNTIME);
+            }
+            else {
+                let value = PROCESS.Dereference(variable);
+                let valueType = TypeOfToken(value);
+                if (valueType === 'KEYWORD') {
+                    // TODO 增加对primitive的一等支持
+                }
+                else if (valueType === 'LABEL') {
+                    let label = value;
+                    let instructionAddress = PROCESS.GetLabelAddress(label);
+                    let newClosureHandle = PROCESS.NewClosure(instructionAddress, PROCESS.currentClosureHandle);
+                    let currentClosure = PROCESS.GetCurrentClosure();
+                    for (let v in currentClosure.freeVariables) {
+                        let value = currentClosure.GetFreeVariable(v);
+                        PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
+                    }
+                    for (let v in currentClosure.boundVariables) {
+                        let value = currentClosure.GetBoundVariable(v);
+                        PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
+                    }
+                    PROCESS.SetCurrentClosure(newClosureHandle);
+                    PROCESS.Goto(instructionAddress);
+                }
+                // 值为把柄：可能是闭包、continuation或其他
+                else if (valueType === "HANDLE") {
+                    let handle = value;
+                    let obj = PROCESS.heap.Get(handle);
+                    let objType = obj.type;
+                    // 闭包：已定义的函数实例
+                    if (objType === SchemeObjectType.CLOSURE) {
+                        let targetClosure = obj;
+                        PROCESS.SetCurrentClosure(handle);
+                        PROCESS.Goto(targetClosure.instructionAddress);
+                    }
+                    // 续延：调用continuation必须带一个参数，在栈顶。TODO 这个检查在编译时完成
+                    else if (objType === SchemeObjectType.CONTINUATION) {
+                        let top = PROCESS.PopOperand();
+                        let returnTargetLabel = PROCESS.LoadContinuation(handle);
+                        PROCESS.PushOperand(top);
+                        // console.info(`[Info] Continuation已恢复，返回标签：${returnTargetLabel}`);
+                        let targetAddress = PROCESS.GetLabelAddress(returnTargetLabel);
+                        PROCESS.Goto(targetAddress);
+                    }
+                    else {
+                        throw `[Error] call指令的参数必须是标签、闭包或续延`;
+                    }
+                }
+                else {
+                    throw `[Error] call指令的参数必须是标签、闭包或续延`;
+                }
+            } // Native判断结束
+        } // Variable分支结束
+    }
+    //return 函数返回
+    AIL_RETURN(argument, PROCESS, RUNTIME) {
+        let stackframe = PROCESS.PopStackFrame(); // 栈帧退栈
+        PROCESS.SetCurrentClosure(stackframe.closureHandle); // 修改当前闭包
+        PROCESS.Goto(stackframe.returnTargetAddress); // 跳转到返回地址
+        stackframe = null; // 销毁当前栈帧
+    }
+    //capturecc variable 捕获当前Continuation并将其把柄保存在变量中
+    AIL_CAPTURECC(argument, PROCESS, RUNTIME) {
+        let argType = TypeOfToken(argument);
+        if (argType !== 'VARIABLE') {
+            throw `[Error] capturecc指令参数类型不是变量`;
+        }
+        let variable = argument;
+        let retTargetLable = `@${variable}`; // NOTE【约定】cont返回点的标签名称 = @ + cont被保存的变量名称
+        let contHandle = PROCESS.CaptureContinuation(retTargetLable);
+        // console.info(`[Info] Continuation ${variable} 已捕获，对应的返回标签 ${retTargetLable}`);
+        PROCESS.GetCurrentClosure().InitBoundVariable(variable, contHandle);
+        PROCESS.Step();
+    }
+    //iftrue label 如果OP栈顶条件不为false则跳转
+    AIL_IFTRUE(argument, PROCESS, RUNTIME) {
+        let argType = TypeOfToken(argument);
+        if (argType !== 'LABEL') {
+            throw `[Error] iftrue指令的参数必须是标签`;
+        }
+        let label = argument;
+        let condition = PROCESS.PopOperand();
+        if (condition !== '#f') {
+            let targetAddress = PROCESS.GetLabelAddress(label);
+            PROCESS.Goto(targetAddress);
+        }
+        else {
+            PROCESS.Step();
+        }
+    }
+    //iffalse label 如果OP栈顶条件为false则跳转
+    AIL_IFFALSE(argument, PROCESS, RUNTIME) {
+        let argType = TypeOfToken(argument);
+        if (argType !== 'LABEL') {
+            throw `[Error] iffalse指令的参数必须是标签`;
+        }
+        let label = argument;
+        let condition = PROCESS.PopOperand();
+        if (condition === '#f') {
+            let targetAddress = PROCESS.GetLabelAddress(label);
+            PROCESS.Goto(targetAddress);
+        }
+        else {
+            PROCESS.Step();
+        }
+    }
+    //goto label 无条件跳转
+    AIL_GOTO(argument, PROCESS, RUNTIME) {
+        let argType = TypeOfToken(argument);
+        if (argType !== 'LABEL') {
+            throw `[Error] goto指令的参数必须是标签`;
+        }
+        let label = argument;
+        let targetAddress = PROCESS.GetLabelAddress(label);
+        PROCESS.Goto(targetAddress);
+    }
+    ///////////////////////////////////////
+    // 第三类：列表操作指令
+    ///////////////////////////////////////
+    // car 取 OP栈顶的把柄对应的列表 的第一个元素 的把柄
+    AIL_CAR(argument, PROCESS, RUNTIME) {
+        let listHandle = PROCESS.PopOperand();
+        // 类型检查
+        if (TypeOfToken(listHandle) === 'HANDLE') {
+            let listObj = PROCESS.heap.Get(listHandle);
+            if (listObj.type === "QUOTE" || listObj.type === "QUASIQUOTE") {
+                let firstElement = listObj.children[0];
+                PROCESS.PushOperand(firstElement);
+                PROCESS.Step();
+            }
+            else {
+                throw `[Error] car的参数必须是引用（quote）列表或准引用（quasiquote）列表。`;
+            }
+        }
+        else {
+            throw `[Error] car的参数必须是引用（quote）列表或准引用（quasiquote）列表。`;
+        }
+    }
+    // cdr 取 OP栈顶的把柄对应的列表 的尾表（临时对象） 的把柄
+    AIL_CDR(argument, PROCESS, RUNTIME) {
+        let listHandle = PROCESS.PopOperand();
+        // 类型检查
+        if (TypeOfToken(listHandle) === 'HANDLE') {
+            let listObj = PROCESS.heap.Get(listHandle);
+            if (listObj.type === "QUOTE" || listObj.type === "QUASIQUOTE") {
+                let newListHandle = PROCESS.heap.AllocateHandle(listObj.type, false);
+                let newList;
+                if (listObj.type === "QUOTE") {
+                    newList = new QuoteObject(listHandle);
+                }
+                else {
+                    newList = new QuasiquoteObject(listHandle);
+                }
+                newList.children = listObj.children.slice(1);
+                PROCESS.heap.Set(newListHandle, newList);
+                PROCESS.PushOperand(newListHandle);
+                PROCESS.Step();
+            }
+            else {
+                throw `[Error] cdr的参数必须是引用（quote）列表或准引用（quasiquote）列表。`;
+            }
+        }
+        else {
+            throw `[Error] cdr的参数必须是引用（quote）列表或准引用（quasiquote）列表。`;
+        }
+    }
+    // cons 同Scheme的cons
+    AIL_CONS(argument, PROCESS, RUNTIME) {
+        let listHandle = PROCESS.PopOperand();
+        let firstElement = PROCESS.PopOperand();
+        // 类型检查
+        if (TypeOfToken(listHandle) === 'HANDLE') {
+            let listObj = PROCESS.heap.Get(listHandle);
+            if (listObj.type === "QUOTE" || listObj.type === "QUASIQUOTE") {
+                let newListHandle = PROCESS.heap.AllocateHandle(listObj.type, false);
+                let newList;
+                if (listObj.type === "QUOTE") {
+                    newList = new QuoteObject(listHandle);
+                }
+                else {
+                    newList = new QuasiquoteObject(listHandle);
+                }
+                newList.children = listObj.children.slice(); // 复制数组
+                newList.children.unshift(firstElement); // 并在左侧插入元素
+                PROCESS.heap.Set(newListHandle, newList);
+                PROCESS.PushOperand(newListHandle);
+                PROCESS.Step();
+            }
+            else {
+                throw `[Error] cons的第2个参数必须是引用（quote）列表或准引用（quasiquote）列表。`;
+            }
+        }
+        else {
+            throw `[Error] cons的第2个参数必须是引用（quote）列表或准引用（quasiquote）列表。`;
+        }
+    }
+    ///////////////////////////////////////
+    // 第四类：算术逻辑运算和谓词
+    ///////////////////////////////////////
+    // add 实数加法
+    AIL_ADD(argument, PROCESS, RUNTIME) {
+        let top1 = PROCESS.PopOperand();
+        let top2 = PROCESS.PopOperand();
+        // 类型检查与转换
+        if (TypeOfToken(top1) === "NUMBER" && TypeOfToken(top2) === "NUMBER") {
+            let operand1 = parseFloat(top1);
+            let operand2 = parseFloat(top2);
+            let result = operand2 + operand1;
+            PROCESS.PushOperand(result);
+            PROCESS.Step();
+        }
+        else {
+            throw `[Error] 指令参数类型不正确`;
+        }
+    }
+    // sub 实数减法
+    AIL_SUB(argument, PROCESS, RUNTIME) {
+        let top1 = PROCESS.PopOperand();
+        let top2 = PROCESS.PopOperand();
+        // 类型检查与转换
+        if (TypeOfToken(top1) === "NUMBER" && TypeOfToken(top2) === "NUMBER") {
+            let operand1 = parseFloat(top1);
+            let operand2 = parseFloat(top2);
+            let result = operand2 - operand1;
+            PROCESS.PushOperand(result);
+            PROCESS.Step();
+        }
+        else {
+            throw `[Error] 指令参数类型不正确`;
+        }
+    }
+    // mul 实数乘法
+    AIL_MUL(argument, PROCESS, RUNTIME) {
+        let top1 = PROCESS.PopOperand();
+        let top2 = PROCESS.PopOperand();
+        // 类型检查与转换
+        if (TypeOfToken(top1) === "NUMBER" && TypeOfToken(top2) === "NUMBER") {
+            let operand1 = parseFloat(top1);
+            let operand2 = parseFloat(top2);
+            let result = operand2 * operand1;
+            PROCESS.PushOperand(result);
+            PROCESS.Step();
+        }
+        else {
+            throw `[Error] 指令参数类型不正确`;
+        }
+    }
+    // div 实数除法
+    AIL_DIV(argument, PROCESS, RUNTIME) {
+        let top1 = PROCESS.PopOperand();
+        let top2 = PROCESS.PopOperand();
+        // 类型检查与转换
+        if (TypeOfToken(top1) === "NUMBER" && TypeOfToken(top2) === "NUMBER") {
+            let operand1 = parseFloat(top1);
+            let operand2 = parseFloat(top2);
+            if (operand1 <= Number.EPSILON || operand1 >= -Number.EPSILON) {
+                throw `[Error] 除零`;
+            }
+            let result = operand2 / operand1;
+            PROCESS.PushOperand(result);
+            PROCESS.Step();
+        }
+        else {
+            throw `[Error] 指令参数类型不正确`;
+        }
+    }
+    // mod 求余
+    AIL_MOD(argument, PROCESS, RUNTIME) {
+        let top1 = PROCESS.PopOperand();
+        let top2 = PROCESS.PopOperand();
+        // 类型检查与转换
+        if (TypeOfToken(top1) === "NUMBER" && TypeOfToken(top2) === "NUMBER") {
+            let operand1 = parseFloat(top1);
+            let operand2 = parseFloat(top2);
+            let result = operand2 % operand1;
+            PROCESS.PushOperand(result);
+            PROCESS.Step();
+        }
+        else {
+            throw `[Error] 指令参数类型不正确`;
+        }
+    }
+    // pow 求幂
+    AIL_POW(argument, PROCESS, RUNTIME) {
+        let top1 = PROCESS.PopOperand();
+        let top2 = PROCESS.PopOperand();
+        // 类型检查与转换
+        if (TypeOfToken(top1) === "NUMBER" && TypeOfToken(top2) === "NUMBER") {
+            let operand1 = parseFloat(top1);
+            let operand2 = parseFloat(top2);
+            let result = Math.pow(operand2, operand1);
+            PROCESS.PushOperand(result);
+            PROCESS.Step();
+        }
+        else {
+            throw `[Error] 指令参数类型不正确`;
+        }
+    }
+    // eqn =
+    AIL_EQN(argument, PROCESS, RUNTIME) {
+        let top1 = PROCESS.PopOperand();
+        let top2 = PROCESS.PopOperand();
+        // 类型检查与转换
+        if (TypeOfToken(top1) === "NUMBER" && TypeOfToken(top2) === "NUMBER") {
+            let operand1 = parseFloat(top1);
+            let operand2 = parseFloat(top2);
+            let result = (Math.abs(operand2 - operand1) <= Number.EPSILON) ? "#t" : "#f";
+            PROCESS.PushOperand(result);
+            PROCESS.Step();
+        }
+        else {
+            throw `[Error] 指令参数类型不正确`;
+        }
+    }
+    // ge >=
+    AIL_GE(argument, PROCESS, RUNTIME) {
+        let top1 = PROCESS.PopOperand();
+        let top2 = PROCESS.PopOperand();
+        // 类型检查与转换
+        if (TypeOfToken(top1) === "NUMBER" && TypeOfToken(top2) === "NUMBER") {
+            let operand1 = parseFloat(top1);
+            let operand2 = parseFloat(top2);
+            let result = (operand2 >= operand1) ? "#t" : "#f";
+            PROCESS.PushOperand(result);
+            PROCESS.Step();
+        }
+        else {
+            throw `[Error] 指令参数类型不正确`;
+        }
+    }
+    // le <=
+    AIL_LE(argument, PROCESS, RUNTIME) {
+        let top1 = PROCESS.PopOperand();
+        let top2 = PROCESS.PopOperand();
+        // 类型检查与转换
+        if (TypeOfToken(top1) === "NUMBER" && TypeOfToken(top2) === "NUMBER") {
+            let operand1 = parseFloat(top1);
+            let operand2 = parseFloat(top2);
+            let result = (operand2 <= operand1) ? "#t" : "#f";
+            PROCESS.PushOperand(result);
+            PROCESS.Step();
+        }
+        else {
+            throw `[Error] 指令参数类型不正确`;
+        }
+    }
+    // gt >
+    AIL_GT(argument, PROCESS, RUNTIME) {
+        let top1 = PROCESS.PopOperand();
+        let top2 = PROCESS.PopOperand();
+        // 类型检查与转换
+        if (TypeOfToken(top1) === "NUMBER" && TypeOfToken(top2) === "NUMBER") {
+            let operand1 = parseFloat(top1);
+            let operand2 = parseFloat(top2);
+            let result = (operand2 > operand1) ? "#t" : "#f";
+            PROCESS.PushOperand(result);
+            PROCESS.Step();
+        }
+        else {
+            throw `[Error] 指令参数类型不正确`;
+        }
+    }
+    // lt <
+    AIL_LT(argument, PROCESS, RUNTIME) {
+        let top1 = PROCESS.PopOperand();
+        let top2 = PROCESS.PopOperand();
+        // 类型检查与转换
+        if (TypeOfToken(top1) === "NUMBER" && TypeOfToken(top2) === "NUMBER") {
+            let operand1 = parseFloat(top1);
+            let operand2 = parseFloat(top2);
+            let result = (operand2 < operand1) ? "#t" : "#f";
+            PROCESS.PushOperand(result);
+            PROCESS.Step();
+        }
+        else {
+            throw `[Error] 指令参数类型不正确`;
+        }
+    }
+    // not
+    AIL_NOT(argument, PROCESS, RUNTIME) {
+        let top = PROCESS.PopOperand();
+        PROCESS.PushOperand((top === "#f") ? "#t" : "#f");
+        PROCESS.Step();
+    }
+    // and
+    AIL_AND(argument, PROCESS, RUNTIME) {
+        let top1 = PROCESS.PopOperand();
+        let top2 = PROCESS.PopOperand();
+        if (top1 === "#f" || top2 === "#f") {
+            PROCESS.PushOperand("#f");
+        }
+        else {
+            PROCESS.PushOperand("#t");
+        }
+        PROCESS.Step();
+    }
+    // or
+    AIL_OR(argument, PROCESS, RUNTIME) {
+        let top1 = PROCESS.PopOperand();
+        let top2 = PROCESS.PopOperand();
+        if (top1 !== "#f" && top2 !== "#f") {
+            PROCESS.PushOperand("#t");
+        }
+        else {
+            PROCESS.PushOperand("#f");
+        }
+        PROCESS.Step();
+    }
+    // null?
+    AIL_ISNULL(argument, PROCESS, RUNTIME) {
+        let arg = PROCESS.PopOperand();
+        if (TypeOfToken(arg) === 'HANDLE') {
+            let listObj = PROCESS.heap.Get(arg);
+            if (listObj.type === "QUOTE" || listObj.type === "QUASIQUOTE") {
+                if (listObj.children.length <= 0) {
+                    PROCESS.PushOperand("#t");
+                }
+                else {
+                    PROCESS.PushOperand("#f");
+                }
+            }
+            else {
+                PROCESS.PushOperand("#f");
+            }
+        }
+        else {
+            PROCESS.PushOperand("#f");
+        }
+        PROCESS.Step();
+    }
+    // atom?
+    AIL_ISATOM(argument, PROCESS, RUNTIME) {
+        let arg = PROCESS.PopOperand();
+        if (TypeOfToken(arg) === 'HANDLE') {
+            let listObj = PROCESS.heap.Get(arg);
+            if (listObj.type === "STRING") {
+                PROCESS.PushOperand("#t");
+            }
+            else {
+                PROCESS.PushOperand("#f");
+            }
+        }
+        else {
+            PROCESS.PushOperand("#t");
+        }
+        PROCESS.Step();
+    }
+    // list?
+    AIL_ISLIST(argument, PROCESS, RUNTIME) {
+        let arg = PROCESS.PopOperand();
+        if (TypeOfToken(arg) === 'HANDLE') {
+            let listObj = PROCESS.heap.Get(arg);
+            if (listObj.type === "STRING") {
+                PROCESS.PushOperand("#f");
+            }
+            else {
+                PROCESS.PushOperand("#t");
+            }
+        }
+        else {
+            PROCESS.PushOperand("#f");
+        }
+        PROCESS.Step();
+    }
+    ///////////////////////////////////////
+    // 第五类：其他指令
+    ///////////////////////////////////////
+    // fork handle 参数为某列表或者某个外部源码文件路径的字符串的把柄，新建一个进程，并行运行
+    AIL_FORK(argument, PROCESS, RUNTIME) {
+        let argType = TypeOfToken(argument);
+        if (argType === "HANDLE") {
+            let node = PROCESS.heap.Get(argument);
+            if (node.type === "APPLICATION") {
+                let modul = LoadModuleFromNode(PROCESS.AST, argument);
+                let newProcess = new Process(modul);
+                // 分配新的PID
+                newProcess.PID = RUNTIME.AllocatePID();
+                newProcess.parentPID = PROCESS.PID;
+                // 在当前runtime中加入进程
+                RUNTIME.AddProcess(newProcess);
+            }
+            else if (node.type === "STRING") {
+                let modulePath = node.content;
+                let forkedModule = LoadModule(modulePath);
+                // 构造新进程，并分配PID
+                let newProcess = new Process(forkedModule);
+                newProcess.PID = RUNTIME.AllocatePID();
+                newProcess.parentPID = PROCESS.PID;
+                // 在当前runtime中加入进程
+                RUNTIME.AddProcess(newProcess);
+            }
+            else {
+                throw `[Error] fork指令参数必须是列表或者外部模块的路径。`;
+            }
+        }
+        else {
+            throw `[Error] fork指令参数必须是列表或者外部模块的路径。`;
+        }
+        PROCESS.Step();
+    }
+    // display arg 调试输出
+    AIL_DISPLAY(argument, PROCESS, RUNTIME) {
+        let content = PROCESS.OPSTACK.pop();
+        let contentType = TypeOfToken(content);
+        if (contentType === "HANDLE") {
+            let obj = PROCESS.heap.Get(content);
+            if (obj.type === "STRING") {
+                console.log(`${TrimQuotes(obj.content)}`);
+            }
+            else {
+                let str = PROCESS.AST.NodeToString(content);
+                console.log(`${str}`);
+            }
+        }
+        else {
+            console.info(`${String(content)}`);
+        }
+        PROCESS.Step();
+    }
+    // newline 调试输出换行
+    AIL_NEWLINE(argument, PROCESS, RUNTIME) {
+        console.info(`\n`);
+        PROCESS.Step();
+    }
+    // nop 空指令
+    AIL_NOP(argument, PROCESS, RUNTIME) {
+        PROCESS.Step();
+    }
+    // pause 暂停当前进程
+    AIL_PAUSE(argument, PROCESS, RUNTIME) {
+        PROCESS.SetState(ProcessState.SUSPENDED);
+    }
+    // halt 停止当前进程
+    AIL_HALT(argument, PROCESS, RUNTIME) {
+        PROCESS.SetState(ProcessState.STOPPED);
+    }
+    // 执行（一条）中间语言指令
+    // 执行的效果从宏观上看就是修改了进程内部和运行时环境的状态，并且使用运行时环境提供的接口和资源
+    Execute(PROCESS, RUNTIME) {
+        // 取出当前指令
+        let instruction = PROCESS.CurrentInstruction();
+        let mnemonic = instruction.mnemonic;
+        let argument = instruction.argument;
+        // 译码：分配执行路径
+        if (instruction.type === "COMMENT" || instruction.type === "LABEL") {
+            PROCESS.Step(); // 跳过注释和标签
+        }
+        else if (mnemonic === "store") {
+            this.AIL_STORE(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === "load") {
+            this.AIL_LOAD(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === "loadclosure") {
+            this.AIL_LOADCLOSURE(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === "push") {
+            this.AIL_PUSH(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === "pop") {
+            this.AIL_POP(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === "swap") {
+            this.AIL_SWAP(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === "set") {
+            this.AIL_SET(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'call') {
+            this.AIL_CALL(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'tailcall') {
+            this.AIL_TAILCALL(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'return') {
+            this.AIL_RETURN(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'capturecc') {
+            this.AIL_CAPTURECC(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'iftrue') {
+            this.AIL_IFTRUE(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'iffalse') {
+            this.AIL_IFFALSE(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'goto') {
+            this.AIL_GOTO(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'car') {
+            this.AIL_CAR(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'cdr') {
+            this.AIL_CDR(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'cons') {
+            this.AIL_CONS(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'add') {
+            this.AIL_ADD(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'sub') {
+            this.AIL_SUB(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'mul') {
+            this.AIL_MUL(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'div') {
+            this.AIL_DIV(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'mod') {
+            this.AIL_MOD(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'pow') {
+            this.AIL_POW(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'eqn') {
+            this.AIL_EQN(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'ge') {
+            this.AIL_GE(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'le') {
+            this.AIL_LE(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'gt') {
+            this.AIL_GT(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'lt') {
+            this.AIL_LT(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'not') {
+            this.AIL_NOT(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'and') {
+            this.AIL_AND(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'or') {
+            this.AIL_OR(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'null?') {
+            this.AIL_ISNULL(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'atom?') {
+            this.AIL_ISATOM(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'list?') {
+            this.AIL_ISLIST(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'fork') {
+            this.AIL_FORK(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'display') {
+            this.AIL_DISPLAY(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'newline') {
+            this.AIL_NEWLINE(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === "nop") {
+            this.AIL_NOP(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'pause') {
+            this.AIL_PAUSE(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'halt') {
+            this.AIL_HALT(argument, PROCESS, RUNTIME);
+        }
+    }
 }
 // Instruction.ts
 // 指令集定义
@@ -2343,877 +3548,6 @@ class Instruction {
         }
     }
 }
-// 以下是AIL指令实现（封装成函数）
-///////////////////////////////////////
-// 第一类：基本存取指令
-///////////////////////////////////////
-// store variable 将OP栈顶对象保存到当前闭包的约束变量中
-function AIL_STORE(argument, PROCESS, RUNTIME) {
-    let argType = TypeOfToken(argument);
-    if (argType !== 'VARIABLE') {
-        throw `[Error] store指令参数类型不是变量`;
-    }
-    let variable = argument;
-    let value = PROCESS.PopOperand();
-    PROCESS.GetCurrentClosure().InitBoundVariable(variable, value);
-    PROCESS.Step();
-}
-// load variable 解引用变量，并将对象压入OP栈顶
-function AIL_LOAD(argument, PROCESS, RUNTIME) {
-    let argType = TypeOfToken(argument);
-    if (argType !== 'VARIABLE') {
-        throw `[Error] load指令参数类型不是变量`;
-    }
-    let variable = argument;
-    let value = PROCESS.Dereference(variable);
-    let valueType = TypeOfToken(value);
-    // 值为标签，即loadclosure。
-    if (valueType === 'LABEL') {
-        let label = value;
-        // TODO 可复用代码 以下照抄loadclosure的实现
-        let instAddress = PROCESS.GetLabelAddress(label);
-        let newClosureHandle = PROCESS.NewClosure(instAddress, PROCESS.currentClosureHandle);
-        let currentClosure = PROCESS.GetCurrentClosure();
-        for (let v in currentClosure.freeVariables) {
-            let value = currentClosure.GetFreeVariable(v);
-            PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
-        }
-        for (let v in currentClosure.boundVariables) {
-            let value = currentClosure.GetBoundVariable(v);
-            PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
-        }
-        PROCESS.PushOperand(newClosureHandle);
-        PROCESS.Step();
-    }
-    else {
-        PROCESS.PushOperand(value);
-        PROCESS.Step();
-    }
-}
-// loadclosure label 创建一个label处代码对应的新闭包，并将新闭包把柄压入OP栈顶
-function AIL_LOADCLOSURE(argument, PROCESS, RUNTIME) {
-    let argType = TypeOfToken(argument);
-    // TODO 可复用代码
-    if (argType !== 'LABEL') {
-        throw `[Error] loadclosure指令参数类型不是标签`;
-    }
-    let label = argument;
-    let instAddress = PROCESS.GetLabelAddress(label);
-    let newClosureHandle = PROCESS.NewClosure(instAddress, PROCESS.currentClosureHandle);
-    let currentClosure = PROCESS.GetCurrentClosure();
-    for (let v in currentClosure.freeVariables) {
-        let value = currentClosure.GetFreeVariable(v);
-        PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
-    }
-    for (let v in currentClosure.boundVariables) {
-        let value = currentClosure.GetBoundVariable(v);
-        PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
-    }
-    PROCESS.PushOperand(newClosureHandle);
-    PROCESS.Step();
-}
-// push arg 将立即数|静态资源把柄|中间代码标签压入OP栈顶
-function AIL_PUSH(argument, PROCESS, RUNTIME) {
-    // 允许所有类型的参数
-    PROCESS.PushOperand(argument);
-    PROCESS.Step();
-}
-// pop 弹出并抛弃OP栈顶
-function AIL_POP(argument, PROCESS, RUNTIME) {
-    PROCESS.PopOperand();
-    PROCESS.Step();
-}
-// swap 交换OP栈顶的两个对象的顺序
-function AIL_SWAP(argument, PROCESS, RUNTIME) {
-    let top1 = PROCESS.PopOperand();
-    let top2 = PROCESS.PopOperand();
-    PROCESS.PushOperand(top1);
-    PROCESS.PushOperand(top2);
-    PROCESS.Step();
-}
-// set variable 修改某变量的值为OP栈顶的对象（同Scheme的set!）
-function AIL_SET(argument, PROCESS, RUNTIME) {
-    let argType = TypeOfToken(argument);
-    if (argType !== 'VARIABLE') {
-        throw `[Error] set指令参数类型不是变量`;
-    }
-    let variable = argument;
-    let rightValue = PROCESS.PopOperand();
-    // 修改当前闭包内部的绑定
-    let currentClosure = PROCESS.GetCurrentClosure();
-    if (currentClosure.HasBoundVariable(variable)) {
-        PROCESS.GetCurrentClosure().SetBoundVariable(variable, rightValue); // 带脏标记
-    }
-    if (currentClosure.HasFreeVariable(variable)) {
-        PROCESS.GetCurrentClosure().SetFreeVariable(variable, rightValue); // 带脏标记
-    }
-    // 沿闭包链上溯，直到找到该变量作为约束变量所在的上级闭包，修改绑定
-    let currentClosureHandle = PROCESS.currentClosureHandle;
-    while (currentClosureHandle !== TOP_NODE_HANDLE && PROCESS.heap.HasHandle(currentClosureHandle)) {
-        let currentClosure = PROCESS.GetClosure(currentClosureHandle);
-        if (currentClosure.HasBoundVariable(variable)) {
-            PROCESS.GetClosure(currentClosureHandle).SetBoundVariable(variable, rightValue); // 带脏标记
-            break;
-        }
-        currentClosureHandle = currentClosure.parent;
-    }
-    PROCESS.Step();
-}
-///////////////////////////////////////
-// 第二类：分支跳转指令
-///////////////////////////////////////
-//call arg 函数调用（包括continuation、native函数）
-function AIL_CALL(argument, PROCESS, RUNTIME) {
-    let argType = TypeOfToken(argument);
-    // 新的栈帧入栈
-    PROCESS.PushStackFrame(PROCESS.currentClosureHandle, PROCESS.PC + 1);
-    // 判断参数类型
-    if (argType === 'LABEL') {
-        let label = argument;
-        // TODO 可复用代码
-        let instructionAddress = PROCESS.GetLabelAddress(label);
-        let newClosureHandle = PROCESS.NewClosure(instructionAddress, PROCESS.currentClosureHandle);
-        let currentClosure = PROCESS.GetCurrentClosure();
-        for (let v in currentClosure.freeVariables) {
-            let value = currentClosure.GetFreeVariable(v);
-            PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
-        }
-        for (let v in currentClosure.boundVariables) {
-            let value = currentClosure.GetBoundVariable(v);
-            PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
-        }
-        PROCESS.SetCurrentClosure(newClosureHandle);
-        PROCESS.Goto(instructionAddress);
-    }
-    else if (argType === 'VARIABLE') {
-        // 首先判断是否为Native调用
-        let variable = argument;
-        if (PROCESS.IsUseNative(variable)) {
-            //
-            // TODO 这里重新实现原有的callnative指令
-            //
-        }
-        else {
-            let value = PROCESS.Dereference(variable);
-            let valueType = TypeOfToken(value);
-            if (valueType === 'KEYWORD') {
-                // TODO 增加对primitive的一等支持
-            }
-            else if (valueType === 'LABEL') {
-                let label = value;
-                // TODO 可复用代码：与以上LABEL分支的处理方法相同，这里复制过来
-                let instructionAddress = PROCESS.GetLabelAddress(label);
-                let newClosureHandle = PROCESS.NewClosure(instructionAddress, PROCESS.currentClosureHandle);
-                let currentClosure = PROCESS.GetCurrentClosure();
-                for (let v in currentClosure.freeVariables) {
-                    let value = currentClosure.GetFreeVariable(v);
-                    PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
-                }
-                for (let v in currentClosure.boundVariables) {
-                    let value = currentClosure.GetBoundVariable(v);
-                    PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
-                }
-                PROCESS.SetCurrentClosure(newClosureHandle);
-                PROCESS.Goto(instructionAddress);
-            }
-            // 值为把柄：可能是闭包、continuation或其他
-            else if (valueType === "HANDLE") {
-                let handle = value;
-                let obj = PROCESS.heap.Get(handle);
-                let objType = obj.type;
-                // 闭包：已定义的函数实例
-                if (objType === SchemeObjectType.CLOSURE) {
-                    let targetClosure = obj;
-                    PROCESS.SetCurrentClosure(handle);
-                    PROCESS.Goto(targetClosure.instructionAddress);
-                }
-                // 续延：调用continuation必须带一个参数，在栈顶。TODO 这个检查在编译时完成
-                else if (objType === SchemeObjectType.CONTINUATION) {
-                    let top = PROCESS.PopOperand();
-                    let returnTargetLabel = PROCESS.LoadContinuation(handle);
-                    PROCESS.PushOperand(top);
-                    // console.info(`[Info] Continuation已恢复，返回标签：${returnTargetLabel}`);
-                    let targetAddress = PROCESS.GetLabelAddress(returnTargetLabel);
-                    PROCESS.Goto(targetAddress);
-                }
-                else {
-                    throw `[Error] call指令的参数必须是标签、闭包或续延`;
-                }
-            }
-            else {
-                throw `[Error] call指令的参数必须是标签、闭包或续延`;
-            }
-        } // Native判断结束
-    } // Variable分支结束
-}
-//tailcall arg 函数尾调用
-function AIL_TAILCALL(argument, PROCESS, RUNTIME) {
-    let argType = TypeOfToken(argument);
-    // TODO 可复用代码 与call唯一的不同就是调用前不压栈帧，所以下面这坨代码是可以整体复用的
-    // 判断参数类型
-    if (argType === 'LABEL') {
-        let label = argument;
-        // TODO 可复用代码
-        let instructionAddress = PROCESS.GetLabelAddress(label);
-        let newClosureHandle = PROCESS.NewClosure(instructionAddress, PROCESS.currentClosureHandle);
-        let currentClosure = PROCESS.GetCurrentClosure();
-        for (let v in currentClosure.freeVariables) {
-            let value = currentClosure.GetFreeVariable(v);
-            PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
-        }
-        for (let v in currentClosure.boundVariables) {
-            let value = currentClosure.GetBoundVariable(v);
-            PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
-        }
-        PROCESS.SetCurrentClosure(newClosureHandle);
-        PROCESS.Goto(instructionAddress);
-    }
-    else if (argType === 'VARIABLE') {
-        // 首先判断是否为Native调用
-        let variable = argument;
-        if (PROCESS.IsUseNative(variable)) {
-            //
-            // TODO 这里重新实现原有的callnative指令
-            //
-        }
-        else {
-            let value = PROCESS.Dereference(variable);
-            let valueType = TypeOfToken(value);
-            if (valueType === 'KEYWORD') {
-                // TODO 增加对primitive的一等支持
-            }
-            else if (valueType === 'LABEL') {
-                let label = value;
-                // TODO 可复用代码：与以上LABEL分支的处理方法相同，这里复制过来
-                let instructionAddress = PROCESS.GetLabelAddress(label);
-                let newClosureHandle = PROCESS.NewClosure(instructionAddress, PROCESS.currentClosureHandle);
-                let currentClosure = PROCESS.GetCurrentClosure();
-                for (let v in currentClosure.freeVariables) {
-                    let value = currentClosure.GetFreeVariable(v);
-                    PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
-                }
-                for (let v in currentClosure.boundVariables) {
-                    let value = currentClosure.GetBoundVariable(v);
-                    PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
-                }
-                PROCESS.SetCurrentClosure(newClosureHandle);
-                PROCESS.Goto(instructionAddress);
-            }
-            // 值为把柄：可能是闭包、continuation或其他
-            else if (valueType === "HANDLE") {
-                let handle = value;
-                let obj = PROCESS.heap.Get(handle);
-                let objType = obj.type;
-                // 闭包：已定义的函数实例
-                if (objType === SchemeObjectType.CLOSURE) {
-                    let targetClosure = obj;
-                    PROCESS.SetCurrentClosure(handle);
-                    PROCESS.Goto(targetClosure.instructionAddress);
-                }
-                // 续延：调用continuation必须带一个参数，在栈顶。TODO 这个检查在编译时完成
-                else if (objType === SchemeObjectType.CONTINUATION) {
-                    let top = PROCESS.PopOperand();
-                    let returnTargetLabel = PROCESS.LoadContinuation(handle);
-                    PROCESS.PushOperand(top);
-                    // console.info(`[Info] Continuation已恢复，返回标签：${returnTargetLabel}`);
-                    let targetAddress = PROCESS.GetLabelAddress(returnTargetLabel);
-                    PROCESS.Goto(targetAddress);
-                }
-                else {
-                    throw `[Error] call指令的参数必须是标签、闭包或续延`;
-                }
-            }
-            else {
-                throw `[Error] call指令的参数必须是标签、闭包或续延`;
-            }
-        } // Native判断结束
-    } // Variable分支结束
-}
-//return 函数返回
-function AIL_RETURN(argument, PROCESS, RUNTIME) {
-    let stackframe = PROCESS.PopStackFrame(); // 栈帧退栈
-    PROCESS.SetCurrentClosure(stackframe.closureHandle); // 修改当前闭包
-    PROCESS.Goto(stackframe.returnTargetAddress); // 跳转到返回地址
-    stackframe = null; // 销毁当前栈帧
-}
-//capturecc variable 捕获当前Continuation并将其把柄保存在变量中
-function AIL_CAPTURECC(argument, PROCESS, RUNTIME) {
-    let argType = TypeOfToken(argument);
-    if (argType !== 'VARIABLE') {
-        throw `[Error] capturecc指令参数类型不是变量`;
-    }
-    let variable = argument;
-    let retTargetLable = `@${variable}`; // NOTE【约定】cont返回点的标签名称 = @ + cont被保存的变量名称
-    let contHandle = PROCESS.CaptureContinuation(retTargetLable);
-    // console.info(`[Info] Continuation ${variable} 已捕获，对应的返回标签 ${retTargetLable}`);
-    PROCESS.GetCurrentClosure().InitBoundVariable(variable, contHandle);
-    PROCESS.Step();
-}
-//iftrue label 如果OP栈顶条件不为false则跳转
-function AIL_IFTRUE(argument, PROCESS, RUNTIME) {
-    let argType = TypeOfToken(argument);
-    if (argType !== 'LABEL') {
-        throw `[Error] iftrue指令的参数必须是标签`;
-    }
-    let label = argument;
-    let condition = PROCESS.PopOperand();
-    if (condition !== '#f') {
-        let targetAddress = PROCESS.GetLabelAddress(label);
-        PROCESS.Goto(targetAddress);
-    }
-    else {
-        PROCESS.Step();
-    }
-}
-//iffalse label 如果OP栈顶条件为false则跳转
-function AIL_IFFALSE(argument, PROCESS, RUNTIME) {
-    let argType = TypeOfToken(argument);
-    if (argType !== 'LABEL') {
-        throw `[Error] iffalse指令的参数必须是标签`;
-    }
-    let label = argument;
-    let condition = PROCESS.PopOperand();
-    if (condition === '#f') {
-        let targetAddress = PROCESS.GetLabelAddress(label);
-        PROCESS.Goto(targetAddress);
-    }
-    else {
-        PROCESS.Step();
-    }
-}
-//goto label 无条件跳转
-function AIL_GOTO(argument, PROCESS, RUNTIME) {
-    let argType = TypeOfToken(argument);
-    if (argType !== 'LABEL') {
-        throw `[Error] goto指令的参数必须是标签`;
-    }
-    let label = argument;
-    let targetAddress = PROCESS.GetLabelAddress(label);
-    PROCESS.Goto(targetAddress);
-}
-///////////////////////////////////////
-// 第三类：列表操作指令
-///////////////////////////////////////
-// car 取 OP栈顶的把柄对应的列表 的第一个元素 的把柄
-function AIL_CAR(argument, PROCESS, RUNTIME) {
-    let listHandle = PROCESS.PopOperand();
-    // 类型检查
-    if (TypeOfToken(listHandle) === 'HANDLE') {
-        let listObj = PROCESS.heap.Get(listHandle);
-        if (listObj.type === "QUOTE" || listObj.type === "QUASIQUOTE") {
-            let firstElement = listObj.children[0];
-            PROCESS.PushOperand(firstElement);
-            PROCESS.Step();
-        }
-        else {
-            throw `[Error] car的参数必须是引用（quote）列表或准引用（quasiquote）列表。`;
-        }
-    }
-    else {
-        throw `[Error] car的参数必须是引用（quote）列表或准引用（quasiquote）列表。`;
-    }
-}
-// cdr 取 OP栈顶的把柄对应的列表 的尾表（临时对象） 的把柄
-function AIL_CDR(argument, PROCESS, RUNTIME) {
-    let listHandle = PROCESS.PopOperand();
-    // 类型检查
-    if (TypeOfToken(listHandle) === 'HANDLE') {
-        let listObj = PROCESS.heap.Get(listHandle);
-        if (listObj.type === "QUOTE" || listObj.type === "QUASIQUOTE") {
-            let newListHandle = PROCESS.heap.AllocateHandle(listObj.type, false);
-            let newList;
-            if (listObj.type === "QUOTE") {
-                newList = new QuoteObject(listHandle);
-            }
-            else {
-                newList = new QuasiquoteObject(listHandle);
-            }
-            newList.children = listObj.children.slice(1);
-            PROCESS.heap.Set(newListHandle, newList);
-            PROCESS.PushOperand(newListHandle);
-            PROCESS.Step();
-        }
-        else {
-            throw `[Error] cdr的参数必须是引用（quote）列表或准引用（quasiquote）列表。`;
-        }
-    }
-    else {
-        throw `[Error] cdr的参数必须是引用（quote）列表或准引用（quasiquote）列表。`;
-    }
-}
-// cons 同Scheme的cons
-function AIL_CONS(argument, PROCESS, RUNTIME) {
-    let listHandle = PROCESS.PopOperand();
-    let firstElement = PROCESS.PopOperand();
-    // 类型检查
-    if (TypeOfToken(listHandle) === 'HANDLE') {
-        let listObj = PROCESS.heap.Get(listHandle);
-        if (listObj.type === "QUOTE" || listObj.type === "QUASIQUOTE") {
-            let newListHandle = PROCESS.heap.AllocateHandle(listObj.type, false);
-            let newList;
-            if (listObj.type === "QUOTE") {
-                newList = new QuoteObject(listHandle);
-            }
-            else {
-                newList = new QuasiquoteObject(listHandle);
-            }
-            newList.children = listObj.children.slice(); // 复制数组
-            newList.children.unshift(firstElement); // 并在左侧插入元素
-            PROCESS.heap.Set(newListHandle, newList);
-            PROCESS.PushOperand(newListHandle);
-            PROCESS.Step();
-        }
-        else {
-            throw `[Error] cons的第2个参数必须是引用（quote）列表或准引用（quasiquote）列表。`;
-        }
-    }
-    else {
-        throw `[Error] cons的第2个参数必须是引用（quote）列表或准引用（quasiquote）列表。`;
-    }
-}
-///////////////////////////////////////
-// 第四类：算术逻辑运算和谓词
-///////////////////////////////////////
-// add 实数加法
-function AIL_ADD(argument, PROCESS, RUNTIME) {
-    let top1 = PROCESS.PopOperand();
-    let top2 = PROCESS.PopOperand();
-    // 类型检查与转换
-    if (TypeOfToken(top1) === "NUMBER" && TypeOfToken(top2) === "NUMBER") {
-        let operand1 = parseFloat(top1);
-        let operand2 = parseFloat(top2);
-        let result = operand2 + operand1;
-        PROCESS.PushOperand(result);
-        PROCESS.Step();
-    }
-    else {
-        throw `[Error] 指令参数类型不正确`;
-    }
-}
-// sub 实数减法
-function AIL_SUB(argument, PROCESS, RUNTIME) {
-    let top1 = PROCESS.PopOperand();
-    let top2 = PROCESS.PopOperand();
-    // 类型检查与转换
-    if (TypeOfToken(top1) === "NUMBER" && TypeOfToken(top2) === "NUMBER") {
-        let operand1 = parseFloat(top1);
-        let operand2 = parseFloat(top2);
-        let result = operand2 - operand1;
-        PROCESS.PushOperand(result);
-        PROCESS.Step();
-    }
-    else {
-        throw `[Error] 指令参数类型不正确`;
-    }
-}
-// mul 实数乘法
-function AIL_MUL(argument, PROCESS, RUNTIME) {
-    let top1 = PROCESS.PopOperand();
-    let top2 = PROCESS.PopOperand();
-    // 类型检查与转换
-    if (TypeOfToken(top1) === "NUMBER" && TypeOfToken(top2) === "NUMBER") {
-        let operand1 = parseFloat(top1);
-        let operand2 = parseFloat(top2);
-        let result = operand2 * operand1;
-        PROCESS.PushOperand(result);
-        PROCESS.Step();
-    }
-    else {
-        throw `[Error] 指令参数类型不正确`;
-    }
-}
-// div 实数除法
-function AIL_DIV(argument, PROCESS, RUNTIME) {
-    let top1 = PROCESS.PopOperand();
-    let top2 = PROCESS.PopOperand();
-    // 类型检查与转换
-    if (TypeOfToken(top1) === "NUMBER" && TypeOfToken(top2) === "NUMBER") {
-        let operand1 = parseFloat(top1);
-        let operand2 = parseFloat(top2);
-        if (operand1 <= Number.EPSILON || operand1 >= -Number.EPSILON) {
-            throw `[Error] 除零`;
-        }
-        let result = operand2 / operand1;
-        PROCESS.PushOperand(result);
-        PROCESS.Step();
-    }
-    else {
-        throw `[Error] 指令参数类型不正确`;
-    }
-}
-// mod 求余
-function AIL_MOD(argument, PROCESS, RUNTIME) {
-    let top1 = PROCESS.PopOperand();
-    let top2 = PROCESS.PopOperand();
-    // 类型检查与转换
-    if (TypeOfToken(top1) === "NUMBER" && TypeOfToken(top2) === "NUMBER") {
-        let operand1 = parseFloat(top1);
-        let operand2 = parseFloat(top2);
-        let result = operand2 % operand1;
-        PROCESS.PushOperand(result);
-        PROCESS.Step();
-    }
-    else {
-        throw `[Error] 指令参数类型不正确`;
-    }
-}
-// pow 求幂
-function AIL_POW(argument, PROCESS, RUNTIME) {
-    let top1 = PROCESS.PopOperand();
-    let top2 = PROCESS.PopOperand();
-    // 类型检查与转换
-    if (TypeOfToken(top1) === "NUMBER" && TypeOfToken(top2) === "NUMBER") {
-        let operand1 = parseFloat(top1);
-        let operand2 = parseFloat(top2);
-        let result = Math.pow(operand2, operand1);
-        PROCESS.PushOperand(result);
-        PROCESS.Step();
-    }
-    else {
-        throw `[Error] 指令参数类型不正确`;
-    }
-}
-// eqn =
-function AIL_EQN(argument, PROCESS, RUNTIME) {
-    let top1 = PROCESS.PopOperand();
-    let top2 = PROCESS.PopOperand();
-    // 类型检查与转换
-    if (TypeOfToken(top1) === "NUMBER" && TypeOfToken(top2) === "NUMBER") {
-        let operand1 = parseFloat(top1);
-        let operand2 = parseFloat(top2);
-        let result = (Math.abs(operand2 - operand1) <= Number.EPSILON) ? "#t" : "#f";
-        PROCESS.PushOperand(result);
-        PROCESS.Step();
-    }
-    else {
-        throw `[Error] 指令参数类型不正确`;
-    }
-}
-// ge >=
-function AIL_GE(argument, PROCESS, RUNTIME) {
-    let top1 = PROCESS.PopOperand();
-    let top2 = PROCESS.PopOperand();
-    // 类型检查与转换
-    if (TypeOfToken(top1) === "NUMBER" && TypeOfToken(top2) === "NUMBER") {
-        let operand1 = parseFloat(top1);
-        let operand2 = parseFloat(top2);
-        let result = (operand2 >= operand1) ? "#t" : "#f";
-        PROCESS.PushOperand(result);
-        PROCESS.Step();
-    }
-    else {
-        throw `[Error] 指令参数类型不正确`;
-    }
-}
-// le <=
-function AIL_LE(argument, PROCESS, RUNTIME) {
-    let top1 = PROCESS.PopOperand();
-    let top2 = PROCESS.PopOperand();
-    // 类型检查与转换
-    if (TypeOfToken(top1) === "NUMBER" && TypeOfToken(top2) === "NUMBER") {
-        let operand1 = parseFloat(top1);
-        let operand2 = parseFloat(top2);
-        let result = (operand2 <= operand1) ? "#t" : "#f";
-        PROCESS.PushOperand(result);
-        PROCESS.Step();
-    }
-    else {
-        throw `[Error] 指令参数类型不正确`;
-    }
-}
-// gt >
-function AIL_GT(argument, PROCESS, RUNTIME) {
-    let top1 = PROCESS.PopOperand();
-    let top2 = PROCESS.PopOperand();
-    // 类型检查与转换
-    if (TypeOfToken(top1) === "NUMBER" && TypeOfToken(top2) === "NUMBER") {
-        let operand1 = parseFloat(top1);
-        let operand2 = parseFloat(top2);
-        let result = (operand2 > operand1) ? "#t" : "#f";
-        PROCESS.PushOperand(result);
-        PROCESS.Step();
-    }
-    else {
-        throw `[Error] 指令参数类型不正确`;
-    }
-}
-// lt <
-function AIL_LT(argument, PROCESS, RUNTIME) {
-    let top1 = PROCESS.PopOperand();
-    let top2 = PROCESS.PopOperand();
-    // 类型检查与转换
-    if (TypeOfToken(top1) === "NUMBER" && TypeOfToken(top2) === "NUMBER") {
-        let operand1 = parseFloat(top1);
-        let operand2 = parseFloat(top2);
-        let result = (operand2 < operand1) ? "#t" : "#f";
-        PROCESS.PushOperand(result);
-        PROCESS.Step();
-    }
-    else {
-        throw `[Error] 指令参数类型不正确`;
-    }
-}
-// not
-function AIL_NOT(argument, PROCESS, RUNTIME) {
-    let top = PROCESS.PopOperand();
-    PROCESS.PushOperand((top === "#f") ? "#t" : "#f");
-    PROCESS.Step();
-}
-// and
-function AIL_AND(argument, PROCESS, RUNTIME) {
-    let top1 = PROCESS.PopOperand();
-    let top2 = PROCESS.PopOperand();
-    if (top1 === "#f" || top2 === "#f") {
-        PROCESS.PushOperand("#f");
-    }
-    else {
-        PROCESS.PushOperand("#t");
-    }
-    PROCESS.Step();
-}
-// or
-function AIL_OR(argument, PROCESS, RUNTIME) {
-    let top1 = PROCESS.PopOperand();
-    let top2 = PROCESS.PopOperand();
-    if (top1 !== "#f" && top2 !== "#f") {
-        PROCESS.PushOperand("#t");
-    }
-    else {
-        PROCESS.PushOperand("#f");
-    }
-    PROCESS.Step();
-}
-// null?
-function AIL_ISNULL(argument, PROCESS, RUNTIME) {
-    let arg = PROCESS.PopOperand();
-    if (TypeOfToken(arg) === 'HANDLE') {
-        let listObj = PROCESS.heap.Get(arg);
-        if (listObj.type === "QUOTE" || listObj.type === "QUASIQUOTE") {
-            if (listObj.children.length <= 0) {
-                PROCESS.PushOperand("#t");
-            }
-            else {
-                PROCESS.PushOperand("#f");
-            }
-        }
-        else {
-            PROCESS.PushOperand("#f");
-        }
-    }
-    else {
-        PROCESS.PushOperand("#f");
-    }
-    PROCESS.Step();
-}
-// atom?
-function AIL_ISATOM(argument, PROCESS, RUNTIME) {
-    let arg = PROCESS.PopOperand();
-    if (TypeOfToken(arg) === 'HANDLE') {
-        let listObj = PROCESS.heap.Get(arg);
-        if (listObj.type === "STRING") {
-            PROCESS.PushOperand("#t");
-        }
-        else {
-            PROCESS.PushOperand("#f");
-        }
-    }
-    else {
-        PROCESS.PushOperand("#t");
-    }
-    PROCESS.Step();
-}
-// list?
-function AIL_ISLIST(argument, PROCESS, RUNTIME) {
-    let arg = PROCESS.PopOperand();
-    if (TypeOfToken(arg) === 'HANDLE') {
-        let listObj = PROCESS.heap.Get(arg);
-        if (listObj.type === "STRING") {
-            PROCESS.PushOperand("#f");
-        }
-        else {
-            PROCESS.PushOperand("#t");
-        }
-    }
-    else {
-        PROCESS.PushOperand("#f");
-    }
-    PROCESS.Step();
-}
-///////////////////////////////////////
-// 第五类：其他指令
-///////////////////////////////////////
-// fork handle 参数为某列表或者某个外部源码文件路径的字符串的把柄，新建一个进程，并行运行
-function AIL_FORK(argument, PROCESS, RUNTIME) {
-    let argType = TypeOfToken(argument);
-}
-// display arg 调试输出
-function AIL_DISPLAY(argument, PROCESS, RUNTIME) {
-    let content = PROCESS.OPSTACK.pop();
-    let contentType = TypeOfToken(content);
-    if (contentType === "HANDLE") {
-        let obj = PROCESS.heap.Get(content);
-        if (obj.type === "STRING") {
-            console.log(`[Info] 输出：${TrimQuotes(obj.content)}`);
-        }
-        else {
-            let str = PROCESS.AST.NodeToString(content);
-            console.log(`[Info] 输出：${str}`);
-        }
-    }
-    else {
-        console.info(`[Info] 输出：${String(content)}`);
-    }
-    PROCESS.Step();
-}
-// newline 调试输出换行
-function AIL_NEWLINE(argument, PROCESS, RUNTIME) {
-    console.info(`[Info] 换行`);
-    PROCESS.Step();
-}
-// nop 空指令
-function AIL_NOP(argument, PROCESS, RUNTIME) {
-    PROCESS.Step();
-}
-// pause 暂停当前进程
-function AIL_PAUSE(argument, PROCESS, RUNTIME) {
-    PROCESS.SetState(ProcessState.SUSPENDED);
-}
-// halt 停止当前进程
-function AIL_HALT(argument, PROCESS, RUNTIME) {
-    PROCESS.SetState(ProcessState.STOPPED);
-}
-// 执行（一条）中间语言指令
-// 执行的效果从宏观上看就是修改了进程内部和运行时环境的状态，并且使用运行时环境提供的接口和资源
-function Execute(PROCESS, RUNTIME) {
-    // 取出当前指令
-    let instruction = PROCESS.CurrentInstruction();
-    let mnemonic = instruction.mnemonic;
-    let argument = instruction.argument;
-    // 译码：分配执行路径
-    if (instruction.type === "COMMENT" || instruction.type === "LABEL") {
-        PROCESS.Step(); // 跳过注释和标签
-    }
-    else if (mnemonic === "store") {
-        AIL_STORE(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === "load") {
-        AIL_LOAD(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === "loadclosure") {
-        AIL_LOADCLOSURE(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === "push") {
-        AIL_PUSH(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === "pop") {
-        AIL_POP(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === "swap") {
-        AIL_SWAP(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === "set") {
-        AIL_SET(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'call') {
-        AIL_CALL(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'tailcall') {
-        AIL_TAILCALL(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'return') {
-        AIL_RETURN(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'capturecc') {
-        AIL_CAPTURECC(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'iftrue') {
-        AIL_IFTRUE(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'iffalse') {
-        AIL_IFFALSE(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'goto') {
-        AIL_GOTO(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'car') {
-        AIL_CAR(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'cdr') {
-        AIL_CDR(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'cons') {
-        AIL_CONS(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'add') {
-        AIL_ADD(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'sub') {
-        AIL_SUB(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'mul') {
-        AIL_MUL(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'div') {
-        AIL_DIV(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'mod') {
-        AIL_MOD(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'pow') {
-        AIL_POW(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'eqn') {
-        AIL_EQN(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'ge') {
-        AIL_GE(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'le') {
-        AIL_LE(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'gt') {
-        AIL_GT(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'lt') {
-        AIL_LT(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'not') {
-        AIL_NOT(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'and') {
-        AIL_AND(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'or') {
-        AIL_OR(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'null?') {
-        AIL_ISNULL(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'atom?') {
-        AIL_ISATOM(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'list?') {
-        AIL_ISLIST(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'fork') {
-        AIL_FORK(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'display') {
-        AIL_DISPLAY(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'newline') {
-        AIL_NEWLINE(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === "nop") {
-        AIL_NOP(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'pause') {
-        AIL_PAUSE(argument, PROCESS, RUNTIME);
-    }
-    else if (mnemonic === 'halt') {
-        AIL_HALT(argument, PROCESS, RUNTIME);
-    }
-}
 ///////////////////////////////////////////////
 // UT.ts
 // 单元测试
@@ -3223,11 +3557,9 @@ function UT() {
     let sourcePath = "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.main.scm";
     let targetModule = LoadModule(sourcePath);
     fs.writeFileSync("E:/Desktop/GitRepos/AuroraScheme/testcase/Module.json", JSON.stringify(targetModule, null, 2), "utf-8");
-    // 捎带着测试一下AVM
-    let process = new Process(targetModule);
-    while (process.state !== ProcessState.STOPPED) {
-        // console.log(process.CurrentInstruction().instruction);
-        Execute(process, null);
-    }
+    let PROCESS = new Process(targetModule);
+    let RUNTIME = new Runtime();
+    RUNTIME.AddProcess(PROCESS);
+    RUNTIME.StartClock();
 }
 UT();

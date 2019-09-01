@@ -15,13 +15,17 @@ class StackFrame {
 
 // 进程状态枚举
 enum ProcessState {
-    READY, RUNNING, SLEEPING, SUSPENDED, STOPPED
+    READY = "READY",
+    RUNNING = "RUNNING",
+    SLEEPING = "SLEEPING",
+    SUSPENDED = "SUSPENDED",
+    STOPPED = "STOPPED"
 }
 
 class Process {
     // 进程基本信息
-    public processID: number;                  // 进程ID
-    public parentProcessID: number;            // 父进程PID
+    public PID: PID;                           // 进程ID
+    public parentPID: PID;                     // 父进程PID
 
     // 进程状态
     public state: ProcessState;                // 进程状态
@@ -46,8 +50,8 @@ class Process {
     /* 构造器 */
     // TODO 待实现，目前仅供测试
     constructor(modul: Module) {
-        this.processID = 0;
-        this.parentProcessID = 0;
+        this.PID = 0;
+        this.parentPID = 0;
 
         this.state = ProcessState.READY;
 

@@ -1,6 +1,6 @@
 {
   "AST": {
-    "source": "((lambda () ;;;;;;;;;;;;;;;;;;;;;;;;;\n;; AuroraScheme测试用例 ;;\n;;;;;;;;;;;;;;;;;;;;;;;;;\n\n(import Utils    \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.utils.scm\")\n(import ManOrBoy \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.MoB.scm\")\n(import PureCPS  \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.purecps.scm\")\n(import CallCC   \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.callcc-test.scm\")\n(import Sort     \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.sort.scm\")\n\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n\n(Utils.show \"⚙️ 测试：Man or Boy Test：\")\n(Utils.show \"🔹 此用例用来测试系统能否正确处理词法作用域、一等函数、set!等基本特性。\")\n(Utils.show \"✅ 期望结果：-67\")\n(Utils.show (ManOrBoy.A 10 (lambda () 1) (lambda () -1) (lambda () -1) (lambda () 1) (lambda () 0)))\n\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n\n(Utils.show \"⚙️ 测试：真·CPS阶乘：10!=\")\n(Utils.show \"🔹 此用例用来测试系统能否正确处理复杂嵌套的匿名函数及其调用。\")\n(Utils.show \"✅ 期望结果：3628800\")\n(((PureCPS.fac-cps (lambda (x) x)) 10) (lambda (x) (display x)))\n\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n\n;(Utils.show \"⚙️ 测试：Yin-yang Puzzle：\")\n(Utils.show \"🔹 此用例用来测试call/cc功能。\")\n;(Utils.show \"✅ 期望结果：@*@**@***@****...\")\n;(CallCC.YinYang)\n\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n\n(Utils.show \"⚙️ 测试：快速排序\")\n(Utils.show \"🔹 此用例用来测试列表操作。\")\n(Utils.show \"✅ 期望结果：'(0 1 2 3 4 5 6 7 8 9)\")\n(display (Sort.quicksort '(5 9 1 7 5 3 0 4 6 8 2)))\n\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n\n(Utils.show \"⚙️ 测试：Quine\")\n(Utils.show \"🔹 此用例用来测试列表操作、display对于复杂列表的处理是否正确。\")\n(display\n(\n       (lambda (x) (cons x (cons (cons 'quote (cons x '())) '())))\n(quote (lambda (x) (cons x (cons (cons 'quote (cons x '())) '()))))\n)\n)\n\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n\n))\n((lambda () ;; 最基本的快速排序，用于验证一等函数、列表操作、if、and/or等特殊结构\n;; 此排序算法无法处理重复元素\n\n(define filter\n  (lambda (f lst)\n    (if (null? lst)\n        '()\n        (if (f (car lst))\n            (cons (car lst) (filter f (cdr lst)))\n            (filter f (cdr lst))))))\n\n(define concat\n  (lambda (a b)\n    (if (null? a)\n        b\n        (cons (car a) (concat (cdr a) b)))))\n\n(define quicksort\n  (lambda (array)\n    (if (or (null? array) (null? (cdr array)))\n        array\n        (concat (quicksort (filter (lambda (x)\n                                     (if (< x (car array)) #t #f))\n                                   array))\n                           (cons (car array)\n                                 (quicksort (filter (lambda (x)\n                                                      (if (> x (car array)) #t #f))\n                                                    array)))))))\n))\n((lambda () (define YinYang\n(lambda ()\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n(((lambda (x) (begin (display \"@\") x)) (call/cc (lambda (k) k)))\n ((lambda (x) (begin (display \"*\") x)) (call/cc (lambda (k) k))))\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n)\n)))\n((lambda () (define fac-cps\n(lambda (cont)\n  (cont (lambda (n)\n          (lambda (k)\n            ((lambda (cont)\n               ((lambda (cont)\n                  ((lambda (cont) (cont (lambda (x y) (lambda (k) (k (= x y)))))) ; 内置相等判断\n                   (lambda (node0)\n                     ((node0 0 n)\n                      (lambda (res) (cont res))))))\n                (lambda (p-res)\n                  (if p-res\n                      ((lambda (cont) (cont 1))\n                       cont)\n                      ((lambda (cont)\n                         ; 以下仅仅是对每个AST节点进行简单的遍历CPST/重命名,并未体现求值顺序，可以理解成并行的\n                         ((lambda (cont) (cont (lambda (x y) (lambda (k) (k (* x y)))))) (lambda (node0) ; 内置乘法\n                         ( fac-cps                                                       (lambda (node1) ; 递归调用(重命名后的)\n                         ((lambda (cont) (cont (lambda (x y) (lambda (k) (k (- x y)))))) (lambda (node2) ; 内置减法\n                         ; 从这里开始体现求值顺序,几乎等于是 A-Normal Form\n                         ((node2 n 1)    (lambda (res2)\n                         ((node1 res2)   (lambda (res1)\n                         ((node0 n res1) (lambda (res)\n                         ; 最后执行总的continuation\n                         ( cont res))))))))))))))\n                       cont)))))\n             (lambda (m) (k m))))))))\n))\n((lambda () (import Utils \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.utils.scm\")\n\n(define A\n  (lambda (k x1 x2 x3 x4 x5)\n      (define B\n        (lambda ()\n            (set! k (Utils.decrease k))\n            (A k B x1 x2 x3 x4)))\n      (if (<= k 0)\n          (+ (x4) (x5))\n          (B))))\n))\n((lambda () (define decrease\n  (lambda (x)\n    (- x 1)))\n\n(define show\n  (lambda (x)\n    (display x)))\n))",
+    "source": "((lambda () ;;;;;;;;;;;;;;;;;;;;;;;;;\n;; AuroraScheme测试用例 ;;\n;;;;;;;;;;;;;;;;;;;;;;;;;\n\n(import Utils    \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.utils.scm\")\n(import ManOrBoy \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.MoB.scm\")\n(import PureCPS  \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.purecps.scm\")\n(import CallCC   \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.callcc-test.scm\")\n(import Sort     \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.sort.scm\")\n\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n\n(Utils.show \"测试：Man or Boy Test：\")\n(Utils.show \"此用例用来测试系统能否正确处理词法作用域、一等函数、set!等基本特性。\")\n(Utils.show \"期望结果：-67\")\n(Utils.show (ManOrBoy.A 10 (lambda () 1) (lambda () -1) (lambda () -1) (lambda () 1) (lambda () 0)))\n(newline)\n\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n\n(Utils.show \"测试：真·CPS阶乘：10!=\")\n(Utils.show \"此用例用来测试系统能否正确处理复杂嵌套的匿名函数及其调用。\")\n(Utils.show \"期望结果：3628800\")\n(((PureCPS.fac-cps (lambda (x) x)) 10) (lambda (x) (display x)))\n(newline)\n\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n\n;(Utils.show \"测试：Yin-yang Puzzle：\")\n;(Utils.show \"此用例用来测试call/cc功能。\")\n;(Utils.show \"期望结果：@*@**@***@****...\")\n;(CallCC.YinYang)\n\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n\n(Utils.show \"测试：快速排序\")\n(Utils.show \"此用例用来测试列表操作。\")\n(Utils.show \"期望结果：'(0 1 2 3 4 5 6 7 8 9)\")\n(display (Sort.quicksort '(5 9 1 7 5 3 0 4 6 8 2)))\n(newline)\n\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n\n(Utils.show \"测试：Quine\")\n(Utils.show \"此用例用来测试列表操作、display对于复杂列表的处理是否正确。\")\n(Utils.show\n(\n       (lambda (x) (cons x (cons (cons 'quote (cons x '())) '())))\n(quote (lambda (x) (cons x (cons (cons 'quote (cons x '())) '()))))\n)\n)\n(newline)\n\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n\n(Utils.show \"测试：Fork和本地库函数\")\n\n(fork {\n    (Utils.show \"子进程1开始啦\")\n    (define infinite\n      (lambda ()\n        ;(Utils.show \"无限循环的进程\")\n        (infinite)))\n    (infinite)\n    (Utils.show \"子进程1结束啦（并不会）\")\n})\n\n(fork {\n    (Utils.show \"子进程2开始啦\")\n    (native Console)\n    (native HTTPS)\n    (define res #f)\n    (set! res (HTTPS.Request \"https://mikukonai.com/feed.xml\"))\n    (Utils.show res)\n    (Utils.show \"子进程2结束啦\")\n})\n\n(fork {\n    (Utils.show \"子进程3开始啦\")\n    (native File)\n    (define res #f)\n    (set! res (File.Read \"E:/text.txt\"))\n    (Utils.show res)\n    (define foo\n    (lambda (n)\n        (if (= n 0)\n            1\n            (* n (foo (- n 1))))))\n    ((lambda (kkk)\n       (Utils.show \"子进程里计算阶乘的结果：\")\n       (Utils.show kkk))\n     (foo 10))\n    (Utils.show \"子进程3结束啦\")\n})\n))\n\n((lambda () ;; 最基本的快速排序，用于验证一等函数、列表操作、if、and/or等特殊结构\n;; 此排序算法无法处理重复元素\n\n(define filter\n  (lambda (f lst)\n    (if (null? lst)\n        '()\n        (if (f (car lst))\n            (cons (car lst) (filter f (cdr lst)))\n            (filter f (cdr lst))))))\n\n(define concat\n  (lambda (a b)\n    (if (null? a)\n        b\n        (cons (car a) (concat (cdr a) b)))))\n\n(define quicksort\n  (lambda (array)\n    (if (or (null? array) (null? (cdr array)))\n        array\n        (concat (quicksort (filter (lambda (x)\n                                     (if (< x (car array)) #t #f))\n                                   array))\n                           (cons (car array)\n                                 (quicksort (filter (lambda (x)\n                                                      (if (> x (car array)) #t #f))\n                                                    array)))))))\n))\n\n((lambda () (define YinYang\n(lambda ()\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n(((lambda (x) (begin (display \"@\") x)) (call/cc (lambda (k) k)))\n ((lambda (x) (begin (display \"*\") x)) (call/cc (lambda (k) k))))\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n)\n)))\n\n((lambda () (define fac-cps\n(lambda (cont)\n  (cont (lambda (n)\n          (lambda (k)\n            ((lambda (cont)\n               ((lambda (cont)\n                  ((lambda (cont) (cont (lambda (x y) (lambda (k) (k (= x y)))))) ; 内置相等判断\n                   (lambda (node0)\n                     ((node0 0 n)\n                      (lambda (res) (cont res))))))\n                (lambda (p-res)\n                  (if p-res\n                      ((lambda (cont) (cont 1))\n                       cont)\n                      ((lambda (cont)\n                         ; 以下仅仅是对每个AST节点进行简单的遍历CPST/重命名,并未体现求值顺序，可以理解成并行的\n                         ((lambda (cont) (cont (lambda (x y) (lambda (k) (k (* x y)))))) (lambda (node0) ; 内置乘法\n                         ( fac-cps                                                       (lambda (node1) ; 递归调用(重命名后的)\n                         ((lambda (cont) (cont (lambda (x y) (lambda (k) (k (- x y)))))) (lambda (node2) ; 内置减法\n                         ; 从这里开始体现求值顺序,几乎等于是 A-Normal Form\n                         ((node2 n 1)    (lambda (res2)\n                         ((node1 res2)   (lambda (res1)\n                         ((node0 n res1) (lambda (res)\n                         ; 最后执行总的continuation\n                         ( cont res))))))))))))))\n                       cont)))))\n             (lambda (m) (k m))))))))\n))\n\n((lambda () (import Utils \"E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.utils.scm\")\n\n(define A\n  (lambda (k x1 x2 x3 x4 x5)\n      (define B\n        (lambda ()\n            (set! k (Utils.decrease k))\n            (A k B x1 x2 x3 x4)))\n      (if (<= k 0)\n          (+ (x4) (x5))\n          (B))))\n))\n\n((lambda () (define decrease\n  (lambda (x)\n    (- x 1)))\n\n(define show\n  (lambda (x)\n    (display x)))\n))\n",
     "moduleQualifiedName": "aurora.test.main",
     "nodes": {
       "data": {
@@ -36,17 +36,24 @@
             "&aurora.test.main.APPLICATION_16",
             "&aurora.test.main.APPLICATION_18",
             "&aurora.test.main.APPLICATION_25",
-            "&aurora.test.main.APPLICATION_27",
-            "&aurora.test.main.APPLICATION_29",
-            "&aurora.test.main.APPLICATION_31",
-            "&aurora.test.main.APPLICATION_37",
+            "&aurora.test.main.APPLICATION_26",
+            "&aurora.test.main.APPLICATION_28",
+            "&aurora.test.main.APPLICATION_30",
+            "&aurora.test.main.APPLICATION_32",
+            "&aurora.test.main.APPLICATION_38",
             "&aurora.test.main.APPLICATION_39",
             "&aurora.test.main.APPLICATION_41",
             "&aurora.test.main.APPLICATION_43",
             "&aurora.test.main.APPLICATION_45",
             "&aurora.test.main.APPLICATION_48",
-            "&aurora.test.main.APPLICATION_50",
-            "&aurora.test.main.APPLICATION_52"
+            "&aurora.test.main.APPLICATION_49",
+            "&aurora.test.main.APPLICATION_51",
+            "&aurora.test.main.APPLICATION_53",
+            "&aurora.test.main.APPLICATION_70",
+            "&aurora.test.main.APPLICATION_71",
+            "&aurora.test.main.APPLICATION_73",
+            "&aurora.test.main.APPLICATION_83",
+            "&aurora.test.main.APPLICATION_96"
           ]
         },
         "&aurora.test.main.APPLICATION_2": {
@@ -124,7 +131,7 @@
         },
         "&aurora.test.main.STRING_13": {
           "type": "STRING",
-          "content": "\"⚙️ 测试：Man or Boy Test：\""
+          "content": "\"测试：Man or Boy Test：\""
         },
         "&aurora.test.main.APPLICATION_14": {
           "type": "APPLICATION",
@@ -136,7 +143,7 @@
         },
         "&aurora.test.main.STRING_15": {
           "type": "STRING",
-          "content": "\"🔹 此用例用来测试系统能否正确处理词法作用域、一等函数、set!等基本特性。\""
+          "content": "\"此用例用来测试系统能否正确处理词法作用域、一等函数、set!等基本特性。\""
         },
         "&aurora.test.main.APPLICATION_16": {
           "type": "APPLICATION",
@@ -148,7 +155,7 @@
         },
         "&aurora.test.main.STRING_17": {
           "type": "STRING",
-          "content": "\"✅ 期望结果：-67\""
+          "content": "\"期望结果：-67\""
         },
         "&aurora.test.main.APPLICATION_18": {
           "type": "APPLICATION",
@@ -220,103 +227,105 @@
           "type": "APPLICATION",
           "parent": "&aurora.test.main.LAMBDA_1",
           "children": [
-            "aurora.test.utils.LAMBDA_1.show",
-            "&aurora.test.main.STRING_26"
+            "newline"
           ]
         },
-        "&aurora.test.main.STRING_26": {
-          "type": "STRING",
-          "content": "\"⚙️ 测试：真·CPS阶乘：10!=\""
-        },
-        "&aurora.test.main.APPLICATION_27": {
+        "&aurora.test.main.APPLICATION_26": {
           "type": "APPLICATION",
           "parent": "&aurora.test.main.LAMBDA_1",
           "children": [
             "aurora.test.utils.LAMBDA_1.show",
-            "&aurora.test.main.STRING_28"
+            "&aurora.test.main.STRING_27"
           ]
         },
-        "&aurora.test.main.STRING_28": {
+        "&aurora.test.main.STRING_27": {
           "type": "STRING",
-          "content": "\"🔹 此用例用来测试系统能否正确处理复杂嵌套的匿名函数及其调用。\""
+          "content": "\"测试：真·CPS阶乘：10!=\""
         },
-        "&aurora.test.main.APPLICATION_29": {
+        "&aurora.test.main.APPLICATION_28": {
           "type": "APPLICATION",
           "parent": "&aurora.test.main.LAMBDA_1",
           "children": [
             "aurora.test.utils.LAMBDA_1.show",
-            "&aurora.test.main.STRING_30"
+            "&aurora.test.main.STRING_29"
           ]
         },
-        "&aurora.test.main.STRING_30": {
+        "&aurora.test.main.STRING_29": {
           "type": "STRING",
-          "content": "\"✅ 期望结果：3628800\""
+          "content": "\"此用例用来测试系统能否正确处理复杂嵌套的匿名函数及其调用。\""
         },
-        "&aurora.test.main.APPLICATION_31": {
+        "&aurora.test.main.APPLICATION_30": {
           "type": "APPLICATION",
           "parent": "&aurora.test.main.LAMBDA_1",
           "children": [
-            "&aurora.test.main.APPLICATION_32",
-            "&aurora.test.main.LAMBDA_35"
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.STRING_31"
           ]
+        },
+        "&aurora.test.main.STRING_31": {
+          "type": "STRING",
+          "content": "\"期望结果：3628800\""
         },
         "&aurora.test.main.APPLICATION_32": {
           "type": "APPLICATION",
-          "parent": "&aurora.test.main.APPLICATION_31",
+          "parent": "&aurora.test.main.LAMBDA_1",
           "children": [
             "&aurora.test.main.APPLICATION_33",
-            10
+            "&aurora.test.main.LAMBDA_36"
           ]
         },
         "&aurora.test.main.APPLICATION_33": {
           "type": "APPLICATION",
           "parent": "&aurora.test.main.APPLICATION_32",
           "children": [
-            "aurora.test.purecps.LAMBDA_1.fac-cps",
-            "&aurora.test.main.LAMBDA_34"
+            "&aurora.test.main.APPLICATION_34",
+            10
           ]
         },
-        "&aurora.test.main.LAMBDA_34": {
-          "type": "LAMBDA",
+        "&aurora.test.main.APPLICATION_34": {
+          "type": "APPLICATION",
           "parent": "&aurora.test.main.APPLICATION_33",
           "children": [
-            "lambda",
-            [
-              "aurora.test.main.LAMBDA_34.x"
-            ],
-            "aurora.test.main.LAMBDA_34.x"
+            "aurora.test.purecps.LAMBDA_1.fac-cps",
+            "&aurora.test.main.LAMBDA_35"
           ]
         },
         "&aurora.test.main.LAMBDA_35": {
           "type": "LAMBDA",
-          "parent": "&aurora.test.main.APPLICATION_31",
+          "parent": "&aurora.test.main.APPLICATION_34",
           "children": [
             "lambda",
             [
               "aurora.test.main.LAMBDA_35.x"
             ],
-            "&aurora.test.main.APPLICATION_36"
+            "aurora.test.main.LAMBDA_35.x"
           ]
         },
-        "&aurora.test.main.APPLICATION_36": {
-          "type": "APPLICATION",
-          "parent": "&aurora.test.main.LAMBDA_35",
+        "&aurora.test.main.LAMBDA_36": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.main.APPLICATION_32",
           "children": [
-            "display",
-            "aurora.test.main.LAMBDA_35.x"
+            "lambda",
+            [
+              "aurora.test.main.LAMBDA_36.x"
+            ],
+            "&aurora.test.main.APPLICATION_37"
           ]
         },
         "&aurora.test.main.APPLICATION_37": {
           "type": "APPLICATION",
-          "parent": "&aurora.test.main.LAMBDA_1",
+          "parent": "&aurora.test.main.LAMBDA_36",
           "children": [
-            "aurora.test.utils.LAMBDA_1.show",
-            "&aurora.test.main.STRING_38"
+            "display",
+            "aurora.test.main.LAMBDA_36.x"
           ]
         },
-        "&aurora.test.main.STRING_38": {
-          "type": "STRING",
-          "content": "\"🔹 此用例用来测试call/cc功能。\""
+        "&aurora.test.main.APPLICATION_38": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "newline"
+          ]
         },
         "&aurora.test.main.APPLICATION_39": {
           "type": "APPLICATION",
@@ -328,7 +337,7 @@
         },
         "&aurora.test.main.STRING_40": {
           "type": "STRING",
-          "content": "\"⚙️ 测试：快速排序\""
+          "content": "\"测试：快速排序\""
         },
         "&aurora.test.main.APPLICATION_41": {
           "type": "APPLICATION",
@@ -340,7 +349,7 @@
         },
         "&aurora.test.main.STRING_42": {
           "type": "STRING",
-          "content": "\"🔹 此用例用来测试列表操作。\""
+          "content": "\"此用例用来测试列表操作。\""
         },
         "&aurora.test.main.APPLICATION_43": {
           "type": "APPLICATION",
@@ -352,7 +361,7 @@
         },
         "&aurora.test.main.STRING_44": {
           "type": "STRING",
-          "content": "\"✅ 期望结果：'(0 1 2 3 4 5 6 7 8 9)\""
+          "content": "\"期望结果：'(0 1 2 3 4 5 6 7 8 9)\""
         },
         "&aurora.test.main.APPLICATION_45": {
           "type": "APPLICATION",
@@ -391,69 +400,67 @@
           "type": "APPLICATION",
           "parent": "&aurora.test.main.LAMBDA_1",
           "children": [
-            "aurora.test.utils.LAMBDA_1.show",
-            "&aurora.test.main.STRING_49"
+            "newline"
           ]
         },
-        "&aurora.test.main.STRING_49": {
-          "type": "STRING",
-          "content": "\"⚙️ 测试：Quine\""
-        },
-        "&aurora.test.main.APPLICATION_50": {
+        "&aurora.test.main.APPLICATION_49": {
           "type": "APPLICATION",
           "parent": "&aurora.test.main.LAMBDA_1",
           "children": [
             "aurora.test.utils.LAMBDA_1.show",
-            "&aurora.test.main.STRING_51"
+            "&aurora.test.main.STRING_50"
           ]
         },
-        "&aurora.test.main.STRING_51": {
+        "&aurora.test.main.STRING_50": {
           "type": "STRING",
-          "content": "\"🔹 此用例用来测试列表操作、display对于复杂列表的处理是否正确。\""
+          "content": "\"测试：Quine\""
         },
-        "&aurora.test.main.APPLICATION_52": {
+        "&aurora.test.main.APPLICATION_51": {
           "type": "APPLICATION",
           "parent": "&aurora.test.main.LAMBDA_1",
           "children": [
-            "display",
-            "&aurora.test.main.APPLICATION_53"
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.STRING_52"
           ]
+        },
+        "&aurora.test.main.STRING_52": {
+          "type": "STRING",
+          "content": "\"此用例用来测试列表操作、display对于复杂列表的处理是否正确。\""
         },
         "&aurora.test.main.APPLICATION_53": {
           "type": "APPLICATION",
-          "parent": "&aurora.test.main.APPLICATION_52",
+          "parent": "&aurora.test.main.LAMBDA_1",
           "children": [
-            "&aurora.test.main.LAMBDA_54",
-            "&aurora.test.main.QUOTE_61"
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.APPLICATION_54"
           ]
         },
-        "&aurora.test.main.LAMBDA_54": {
-          "type": "LAMBDA",
+        "&aurora.test.main.APPLICATION_54": {
+          "type": "APPLICATION",
           "parent": "&aurora.test.main.APPLICATION_53",
+          "children": [
+            "&aurora.test.main.LAMBDA_55",
+            "&aurora.test.main.QUOTE_62"
+          ]
+        },
+        "&aurora.test.main.LAMBDA_55": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.main.APPLICATION_54",
           "children": [
             "lambda",
             [
-              "aurora.test.main.LAMBDA_54.x"
+              "aurora.test.main.LAMBDA_55.x"
             ],
-            "&aurora.test.main.APPLICATION_55"
-          ]
-        },
-        "&aurora.test.main.APPLICATION_55": {
-          "type": "APPLICATION",
-          "parent": "&aurora.test.main.LAMBDA_54",
-          "children": [
-            "cons",
-            "aurora.test.main.LAMBDA_54.x",
             "&aurora.test.main.APPLICATION_56"
           ]
         },
         "&aurora.test.main.APPLICATION_56": {
           "type": "APPLICATION",
-          "parent": "&aurora.test.main.APPLICATION_55",
+          "parent": "&aurora.test.main.LAMBDA_55",
           "children": [
             "cons",
-            "&aurora.test.main.APPLICATION_57",
-            "&aurora.test.main.QUOTE_60"
+            "aurora.test.main.LAMBDA_55.x",
+            "&aurora.test.main.APPLICATION_57"
           ]
         },
         "&aurora.test.main.APPLICATION_57": {
@@ -461,8 +468,8 @@
           "parent": "&aurora.test.main.APPLICATION_56",
           "children": [
             "cons",
-            "'quote",
-            "&aurora.test.main.APPLICATION_58"
+            "&aurora.test.main.APPLICATION_58",
+            "&aurora.test.main.QUOTE_61"
           ]
         },
         "&aurora.test.main.APPLICATION_58": {
@@ -470,52 +477,52 @@
           "parent": "&aurora.test.main.APPLICATION_57",
           "children": [
             "cons",
-            "aurora.test.main.LAMBDA_54.x",
-            "&aurora.test.main.QUOTE_59"
+            "'quote",
+            "&aurora.test.main.APPLICATION_59"
           ]
         },
-        "&aurora.test.main.QUOTE_59": {
-          "type": "QUOTE",
+        "&aurora.test.main.APPLICATION_59": {
+          "type": "APPLICATION",
           "parent": "&aurora.test.main.APPLICATION_58",
-          "children": []
+          "children": [
+            "cons",
+            "aurora.test.main.LAMBDA_55.x",
+            "&aurora.test.main.QUOTE_60"
+          ]
         },
         "&aurora.test.main.QUOTE_60": {
           "type": "QUOTE",
-          "parent": "&aurora.test.main.APPLICATION_56",
+          "parent": "&aurora.test.main.APPLICATION_59",
           "children": []
         },
         "&aurora.test.main.QUOTE_61": {
           "type": "QUOTE",
-          "parent": "&aurora.test.main.APPLICATION_53",
-          "children": [
-            "'lambda",
-            "&aurora.test.main.QUOTE_62",
-            "&aurora.test.main.QUOTE_63"
-          ]
+          "parent": "&aurora.test.main.APPLICATION_57",
+          "children": []
         },
         "&aurora.test.main.QUOTE_62": {
           "type": "QUOTE",
-          "parent": "&aurora.test.main.QUOTE_61",
+          "parent": "&aurora.test.main.APPLICATION_54",
           "children": [
-            "'x"
+            "'lambda",
+            "&aurora.test.main.QUOTE_63",
+            "&aurora.test.main.QUOTE_64"
           ]
         },
         "&aurora.test.main.QUOTE_63": {
           "type": "QUOTE",
-          "parent": "&aurora.test.main.QUOTE_61",
+          "parent": "&aurora.test.main.QUOTE_62",
           "children": [
-            "'cons",
-            "'x",
-            "&aurora.test.main.QUOTE_64"
+            "'x"
           ]
         },
         "&aurora.test.main.QUOTE_64": {
           "type": "QUOTE",
-          "parent": "&aurora.test.main.QUOTE_63",
+          "parent": "&aurora.test.main.QUOTE_62",
           "children": [
             "'cons",
-            "&aurora.test.main.QUOTE_65",
-            "&aurora.test.main.QUOTE_68"
+            "'x",
+            "&aurora.test.main.QUOTE_65"
           ]
         },
         "&aurora.test.main.QUOTE_65": {
@@ -523,8 +530,8 @@
           "parent": "&aurora.test.main.QUOTE_64",
           "children": [
             "'cons",
-            "'quote",
-            "&aurora.test.main.QUOTE_66"
+            "&aurora.test.main.QUOTE_66",
+            "&aurora.test.main.QUOTE_69"
           ]
         },
         "&aurora.test.main.QUOTE_66": {
@@ -532,19 +539,428 @@
           "parent": "&aurora.test.main.QUOTE_65",
           "children": [
             "'cons",
-            "'x",
+            "'quote",
             "&aurora.test.main.QUOTE_67"
           ]
         },
         "&aurora.test.main.QUOTE_67": {
           "type": "QUOTE",
           "parent": "&aurora.test.main.QUOTE_66",
-          "children": []
+          "children": [
+            "'cons",
+            "'x",
+            "&aurora.test.main.QUOTE_68"
+          ]
         },
         "&aurora.test.main.QUOTE_68": {
           "type": "QUOTE",
-          "parent": "&aurora.test.main.QUOTE_64",
+          "parent": "&aurora.test.main.QUOTE_67",
           "children": []
+        },
+        "&aurora.test.main.QUOTE_69": {
+          "type": "QUOTE",
+          "parent": "&aurora.test.main.QUOTE_65",
+          "children": []
+        },
+        "&aurora.test.main.APPLICATION_70": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "newline"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_71": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.STRING_72"
+          ]
+        },
+        "&aurora.test.main.STRING_72": {
+          "type": "STRING",
+          "content": "\"测试：Fork和本地库函数\""
+        },
+        "&aurora.test.main.APPLICATION_73": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "fork",
+            "&aurora.test.main.APPLICATION_74"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_74": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_73",
+          "children": [
+            "begin",
+            "&aurora.test.main.APPLICATION_75",
+            "&aurora.test.main.APPLICATION_77",
+            "&aurora.test.main.APPLICATION_80",
+            "&aurora.test.main.APPLICATION_81"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_75": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_74",
+          "children": [
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.STRING_76"
+          ]
+        },
+        "&aurora.test.main.STRING_76": {
+          "type": "STRING",
+          "content": "\"子进程1开始啦\""
+        },
+        "&aurora.test.main.APPLICATION_77": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_74",
+          "children": [
+            "define",
+            "aurora.test.main.LAMBDA_1.infinite",
+            "&aurora.test.main.LAMBDA_78"
+          ]
+        },
+        "&aurora.test.main.LAMBDA_78": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.main.APPLICATION_77",
+          "children": [
+            "lambda",
+            [],
+            "&aurora.test.main.APPLICATION_79"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_79": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_78",
+          "children": [
+            "aurora.test.main.LAMBDA_1.infinite"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_80": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_74",
+          "children": [
+            "aurora.test.main.LAMBDA_1.infinite"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_81": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_74",
+          "children": [
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.STRING_82"
+          ]
+        },
+        "&aurora.test.main.STRING_82": {
+          "type": "STRING",
+          "content": "\"子进程1结束啦（并不会）\""
+        },
+        "&aurora.test.main.APPLICATION_83": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "fork",
+            "&aurora.test.main.APPLICATION_84"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_84": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_83",
+          "children": [
+            "begin",
+            "&aurora.test.main.APPLICATION_85",
+            "&aurora.test.main.APPLICATION_87",
+            "&aurora.test.main.APPLICATION_88",
+            "&aurora.test.main.APPLICATION_89",
+            "&aurora.test.main.APPLICATION_90",
+            "&aurora.test.main.APPLICATION_93",
+            "&aurora.test.main.APPLICATION_94"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_85": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_84",
+          "children": [
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.STRING_86"
+          ]
+        },
+        "&aurora.test.main.STRING_86": {
+          "type": "STRING",
+          "content": "\"子进程2开始啦\""
+        },
+        "&aurora.test.main.APPLICATION_87": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_84",
+          "children": [
+            "native",
+            "Console"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_88": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_84",
+          "children": [
+            "native",
+            "HTTPS"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_89": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_84",
+          "children": [
+            "define",
+            "aurora.test.main.LAMBDA_1.res",
+            "#f"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_90": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_84",
+          "children": [
+            "set!",
+            "aurora.test.main.LAMBDA_1.res",
+            "&aurora.test.main.APPLICATION_91"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_91": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_90",
+          "children": [
+            "HTTPS.Request",
+            "&aurora.test.main.STRING_92"
+          ]
+        },
+        "&aurora.test.main.STRING_92": {
+          "type": "STRING",
+          "content": "\"https://mikukonai.com/feed.xml\""
+        },
+        "&aurora.test.main.APPLICATION_93": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_84",
+          "children": [
+            "aurora.test.utils.LAMBDA_1.show",
+            "aurora.test.main.LAMBDA_1.res"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_94": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_84",
+          "children": [
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.STRING_95"
+          ]
+        },
+        "&aurora.test.main.STRING_95": {
+          "type": "STRING",
+          "content": "\"子进程2结束啦\""
+        },
+        "&aurora.test.main.APPLICATION_96": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_1",
+          "children": [
+            "fork",
+            "&aurora.test.main.APPLICATION_97"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_97": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_96",
+          "children": [
+            "begin",
+            "&aurora.test.main.APPLICATION_98",
+            "&aurora.test.main.APPLICATION_100",
+            "&aurora.test.main.APPLICATION_101",
+            "&aurora.test.main.APPLICATION_102",
+            "&aurora.test.main.APPLICATION_105",
+            "&aurora.test.main.APPLICATION_106",
+            "&aurora.test.main.APPLICATION_113",
+            "&aurora.test.main.APPLICATION_119"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_98": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_97",
+          "children": [
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.STRING_99"
+          ]
+        },
+        "&aurora.test.main.STRING_99": {
+          "type": "STRING",
+          "content": "\"子进程3开始啦\""
+        },
+        "&aurora.test.main.APPLICATION_100": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_97",
+          "children": [
+            "native",
+            "File"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_101": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_97",
+          "children": [
+            "define",
+            "aurora.test.main.LAMBDA_1.res",
+            "#f"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_102": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_97",
+          "children": [
+            "set!",
+            "aurora.test.main.LAMBDA_1.res",
+            "&aurora.test.main.APPLICATION_103"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_103": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_102",
+          "children": [
+            "File.Read",
+            "&aurora.test.main.STRING_104"
+          ]
+        },
+        "&aurora.test.main.STRING_104": {
+          "type": "STRING",
+          "content": "\"E:/text.txt\""
+        },
+        "&aurora.test.main.APPLICATION_105": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_97",
+          "children": [
+            "aurora.test.utils.LAMBDA_1.show",
+            "aurora.test.main.LAMBDA_1.res"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_106": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_97",
+          "children": [
+            "define",
+            "aurora.test.main.LAMBDA_1.foo",
+            "&aurora.test.main.LAMBDA_107"
+          ]
+        },
+        "&aurora.test.main.LAMBDA_107": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.main.APPLICATION_106",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.main.LAMBDA_107.n"
+            ],
+            "&aurora.test.main.APPLICATION_108"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_108": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_107",
+          "children": [
+            "if",
+            "&aurora.test.main.APPLICATION_109",
+            1,
+            "&aurora.test.main.APPLICATION_110"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_109": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_108",
+          "children": [
+            "=",
+            "aurora.test.main.LAMBDA_107.n",
+            0
+          ]
+        },
+        "&aurora.test.main.APPLICATION_110": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_108",
+          "children": [
+            "*",
+            "aurora.test.main.LAMBDA_107.n",
+            "&aurora.test.main.APPLICATION_111"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_111": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_110",
+          "children": [
+            "aurora.test.main.LAMBDA_1.foo",
+            "&aurora.test.main.APPLICATION_112"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_112": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_111",
+          "children": [
+            "-",
+            "aurora.test.main.LAMBDA_107.n",
+            1
+          ]
+        },
+        "&aurora.test.main.APPLICATION_113": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_97",
+          "children": [
+            "&aurora.test.main.LAMBDA_114",
+            "&aurora.test.main.APPLICATION_118"
+          ]
+        },
+        "&aurora.test.main.LAMBDA_114": {
+          "type": "LAMBDA",
+          "parent": "&aurora.test.main.APPLICATION_113",
+          "children": [
+            "lambda",
+            [
+              "aurora.test.main.LAMBDA_114.kkk"
+            ],
+            "&aurora.test.main.APPLICATION_115",
+            "&aurora.test.main.APPLICATION_117"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_115": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_114",
+          "children": [
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.STRING_116"
+          ]
+        },
+        "&aurora.test.main.STRING_116": {
+          "type": "STRING",
+          "content": "\"子进程里计算阶乘的结果：\""
+        },
+        "&aurora.test.main.APPLICATION_117": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.LAMBDA_114",
+          "children": [
+            "aurora.test.utils.LAMBDA_1.show",
+            "aurora.test.main.LAMBDA_114.kkk"
+          ]
+        },
+        "&aurora.test.main.APPLICATION_118": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_113",
+          "children": [
+            "aurora.test.main.LAMBDA_1.foo",
+            10
+          ]
+        },
+        "&aurora.test.main.APPLICATION_119": {
+          "type": "APPLICATION",
+          "parent": "&aurora.test.main.APPLICATION_97",
+          "children": [
+            "aurora.test.utils.LAMBDA_1.show",
+            "&aurora.test.main.STRING_120"
+          ]
+        },
+        "&aurora.test.main.STRING_120": {
+          "type": "STRING",
+          "content": "\"子进程3结束啦\""
         },
         "&aurora.test.sort.APPLICATION_2": {
           "type": "APPLICATION",
@@ -1859,19 +2275,19 @@
         "&aurora.test.main.LAMBDA_23": "S_M",
         "&aurora.test.main.LAMBDA_24": "S_M",
         "&aurora.test.main.APPLICATION_25": "S_M",
-        "&aurora.test.main.STRING_26": "S_M",
-        "&aurora.test.main.APPLICATION_27": "S_M",
-        "&aurora.test.main.STRING_28": "S_M",
-        "&aurora.test.main.APPLICATION_29": "S_M",
-        "&aurora.test.main.STRING_30": "S_M",
-        "&aurora.test.main.APPLICATION_31": "S_M",
+        "&aurora.test.main.APPLICATION_26": "S_M",
+        "&aurora.test.main.STRING_27": "S_M",
+        "&aurora.test.main.APPLICATION_28": "S_M",
+        "&aurora.test.main.STRING_29": "S_M",
+        "&aurora.test.main.APPLICATION_30": "S_M",
+        "&aurora.test.main.STRING_31": "S_M",
         "&aurora.test.main.APPLICATION_32": "S_M",
         "&aurora.test.main.APPLICATION_33": "S_M",
-        "&aurora.test.main.LAMBDA_34": "S_M",
+        "&aurora.test.main.APPLICATION_34": "S_M",
         "&aurora.test.main.LAMBDA_35": "S_M",
-        "&aurora.test.main.APPLICATION_36": "S_M",
+        "&aurora.test.main.LAMBDA_36": "S_M",
         "&aurora.test.main.APPLICATION_37": "S_M",
-        "&aurora.test.main.STRING_38": "S_M",
+        "&aurora.test.main.APPLICATION_38": "S_M",
         "&aurora.test.main.APPLICATION_39": "S_M",
         "&aurora.test.main.STRING_40": "S_M",
         "&aurora.test.main.APPLICATION_41": "S_M",
@@ -1882,17 +2298,17 @@
         "&aurora.test.main.APPLICATION_46": "S_M",
         "&aurora.test.main.QUOTE_47": "S_M",
         "&aurora.test.main.APPLICATION_48": "S_M",
-        "&aurora.test.main.STRING_49": "S_M",
-        "&aurora.test.main.APPLICATION_50": "S_M",
-        "&aurora.test.main.STRING_51": "S_M",
-        "&aurora.test.main.APPLICATION_52": "S_M",
+        "&aurora.test.main.APPLICATION_49": "S_M",
+        "&aurora.test.main.STRING_50": "S_M",
+        "&aurora.test.main.APPLICATION_51": "S_M",
+        "&aurora.test.main.STRING_52": "S_M",
         "&aurora.test.main.APPLICATION_53": "S_M",
-        "&aurora.test.main.LAMBDA_54": "S_M",
-        "&aurora.test.main.APPLICATION_55": "S_M",
+        "&aurora.test.main.APPLICATION_54": "S_M",
+        "&aurora.test.main.LAMBDA_55": "S_M",
         "&aurora.test.main.APPLICATION_56": "S_M",
         "&aurora.test.main.APPLICATION_57": "S_M",
         "&aurora.test.main.APPLICATION_58": "S_M",
-        "&aurora.test.main.QUOTE_59": "S_M",
+        "&aurora.test.main.APPLICATION_59": "S_M",
         "&aurora.test.main.QUOTE_60": "S_M",
         "&aurora.test.main.QUOTE_61": "S_M",
         "&aurora.test.main.QUOTE_62": "S_M",
@@ -1902,6 +2318,58 @@
         "&aurora.test.main.QUOTE_66": "S_M",
         "&aurora.test.main.QUOTE_67": "S_M",
         "&aurora.test.main.QUOTE_68": "S_M",
+        "&aurora.test.main.QUOTE_69": "S_M",
+        "&aurora.test.main.APPLICATION_70": "S_M",
+        "&aurora.test.main.APPLICATION_71": "S_M",
+        "&aurora.test.main.STRING_72": "S_M",
+        "&aurora.test.main.APPLICATION_73": "S_M",
+        "&aurora.test.main.APPLICATION_74": "S_M",
+        "&aurora.test.main.APPLICATION_75": "S_M",
+        "&aurora.test.main.STRING_76": "S_M",
+        "&aurora.test.main.APPLICATION_77": "S_M",
+        "&aurora.test.main.LAMBDA_78": "S_M",
+        "&aurora.test.main.APPLICATION_79": "S_M",
+        "&aurora.test.main.APPLICATION_80": "S_M",
+        "&aurora.test.main.APPLICATION_81": "S_M",
+        "&aurora.test.main.STRING_82": "S_M",
+        "&aurora.test.main.APPLICATION_83": "S_M",
+        "&aurora.test.main.APPLICATION_84": "S_M",
+        "&aurora.test.main.APPLICATION_85": "S_M",
+        "&aurora.test.main.STRING_86": "S_M",
+        "&aurora.test.main.APPLICATION_87": "S_M",
+        "&aurora.test.main.APPLICATION_88": "S_M",
+        "&aurora.test.main.APPLICATION_89": "S_M",
+        "&aurora.test.main.APPLICATION_90": "S_M",
+        "&aurora.test.main.APPLICATION_91": "S_M",
+        "&aurora.test.main.STRING_92": "S_M",
+        "&aurora.test.main.APPLICATION_93": "S_M",
+        "&aurora.test.main.APPLICATION_94": "S_M",
+        "&aurora.test.main.STRING_95": "S_M",
+        "&aurora.test.main.APPLICATION_96": "S_M",
+        "&aurora.test.main.APPLICATION_97": "S_M",
+        "&aurora.test.main.APPLICATION_98": "S_M",
+        "&aurora.test.main.STRING_99": "S_M",
+        "&aurora.test.main.APPLICATION_100": "S_M",
+        "&aurora.test.main.APPLICATION_101": "S_M",
+        "&aurora.test.main.APPLICATION_102": "S_M",
+        "&aurora.test.main.APPLICATION_103": "S_M",
+        "&aurora.test.main.STRING_104": "S_M",
+        "&aurora.test.main.APPLICATION_105": "S_M",
+        "&aurora.test.main.APPLICATION_106": "S_M",
+        "&aurora.test.main.LAMBDA_107": "S_M",
+        "&aurora.test.main.APPLICATION_108": "S_M",
+        "&aurora.test.main.APPLICATION_109": "S_M",
+        "&aurora.test.main.APPLICATION_110": "S_M",
+        "&aurora.test.main.APPLICATION_111": "S_M",
+        "&aurora.test.main.APPLICATION_112": "S_M",
+        "&aurora.test.main.APPLICATION_113": "S_M",
+        "&aurora.test.main.LAMBDA_114": "S_M",
+        "&aurora.test.main.APPLICATION_115": "S_M",
+        "&aurora.test.main.STRING_116": "S_M",
+        "&aurora.test.main.APPLICATION_117": "S_M",
+        "&aurora.test.main.APPLICATION_118": "S_M",
+        "&aurora.test.main.APPLICATION_119": "S_M",
+        "&aurora.test.main.STRING_120": "S_M",
         "&aurora.test.sort.APPLICATION_0": "__F",
         "&aurora.test.sort.LAMBDA_1": "__F",
         "&aurora.test.sort.APPLICATION_2": "S_M",
@@ -2053,7 +2521,7 @@
         "&aurora.test.utils.LAMBDA_6": "S_M",
         "&aurora.test.utils.APPLICATION_7": "S_M"
       },
-      "handleCounter": 69
+      "handleCounter": 121
     },
     "nodeIndexes": {
       "&aurora.test.main.APPLICATION_0": 0,
@@ -2070,211 +2538,263 @@
       "&aurora.test.main.STRING_11": 447,
       "&aurora.test.main.APPLICATION_12": 574,
       "&aurora.test.main.STRING_13": 586,
-      "&aurora.test.main.APPLICATION_14": 612,
-      "&aurora.test.main.STRING_15": 624,
-      "&aurora.test.main.APPLICATION_16": 667,
-      "&aurora.test.main.STRING_17": 679,
-      "&aurora.test.main.APPLICATION_18": 693,
-      "&aurora.test.main.APPLICATION_19": 705,
-      "&aurora.test.main.LAMBDA_20": 720,
-      "&aurora.test.main.LAMBDA_21": 734,
-      "&aurora.test.main.LAMBDA_22": 749,
-      "&aurora.test.main.LAMBDA_23": 764,
-      "&aurora.test.main.LAMBDA_24": 778,
-      "&aurora.test.main.APPLICATION_25": 855,
-      "&aurora.test.main.STRING_26": 867,
-      "&aurora.test.main.APPLICATION_27": 889,
-      "&aurora.test.main.STRING_28": 901,
-      "&aurora.test.main.APPLICATION_29": 937,
-      "&aurora.test.main.STRING_30": 949,
-      "&aurora.test.main.APPLICATION_31": 967,
-      "&aurora.test.main.APPLICATION_32": 968,
-      "&aurora.test.main.APPLICATION_33": 969,
-      "&aurora.test.main.LAMBDA_34": 986,
-      "&aurora.test.main.LAMBDA_35": 1006,
-      "&aurora.test.main.APPLICATION_36": 1018,
-      "&aurora.test.main.APPLICATION_37": 1132,
-      "&aurora.test.main.STRING_38": 1144,
-      "&aurora.test.main.APPLICATION_39": 1288,
-      "&aurora.test.main.STRING_40": 1300,
-      "&aurora.test.main.APPLICATION_41": 1314,
-      "&aurora.test.main.STRING_42": 1326,
-      "&aurora.test.main.APPLICATION_43": 1345,
-      "&aurora.test.main.STRING_44": 1357,
-      "&aurora.test.main.APPLICATION_45": 1390,
-      "&aurora.test.main.APPLICATION_46": 1399,
-      "&aurora.test.main.QUOTE_47": 1416,
-      "&aurora.test.main.APPLICATION_48": 1503,
-      "&aurora.test.main.STRING_49": 1515,
-      "&aurora.test.main.APPLICATION_50": 1530,
-      "&aurora.test.main.STRING_51": 1542,
-      "&aurora.test.main.APPLICATION_52": 1582,
-      "&aurora.test.main.APPLICATION_53": 1591,
-      "&aurora.test.main.LAMBDA_54": 1600,
-      "&aurora.test.main.APPLICATION_55": 1612,
-      "&aurora.test.main.APPLICATION_56": 1620,
-      "&aurora.test.main.APPLICATION_57": 1626,
-      "&aurora.test.main.APPLICATION_58": 1639,
-      "&aurora.test.main.QUOTE_59": 1648,
-      "&aurora.test.main.QUOTE_60": 1654,
-      "&aurora.test.main.QUOTE_61": 1667,
-      "&aurora.test.main.QUOTE_62": 1675,
-      "&aurora.test.main.QUOTE_63": 1679,
-      "&aurora.test.main.QUOTE_64": 1687,
-      "&aurora.test.main.QUOTE_65": 1693,
-      "&aurora.test.main.QUOTE_66": 1706,
-      "&aurora.test.main.QUOTE_67": 1715,
-      "&aurora.test.main.QUOTE_68": 1721,
-      "&aurora.test.sort.APPLICATION_0": 2665,
-      "&aurora.test.sort.LAMBDA_1": 2666,
-      "&aurora.test.sort.APPLICATION_2": 2736,
-      "&aurora.test.sort.LAMBDA_3": 2753,
-      "&aurora.test.sort.APPLICATION_4": 2773,
-      "&aurora.test.sort.APPLICATION_5": 2777,
-      "&aurora.test.sort.QUOTE_6": 2798,
-      "&aurora.test.sort.APPLICATION_7": 2809,
-      "&aurora.test.sort.APPLICATION_8": 2813,
-      "&aurora.test.sort.APPLICATION_9": 2816,
-      "&aurora.test.sort.APPLICATION_10": 2839,
-      "&aurora.test.sort.APPLICATION_11": 2845,
-      "&aurora.test.sort.APPLICATION_12": 2855,
-      "&aurora.test.sort.APPLICATION_13": 2865,
-      "&aurora.test.sort.APPLICATION_14": 2889,
-      "&aurora.test.sort.APPLICATION_15": 2899,
-      "&aurora.test.sort.APPLICATION_16": 2915,
-      "&aurora.test.sort.LAMBDA_17": 2932,
-      "&aurora.test.sort.APPLICATION_18": 2950,
-      "&aurora.test.sort.APPLICATION_19": 2954,
-      "&aurora.test.sort.APPLICATION_20": 2982,
-      "&aurora.test.sort.APPLICATION_21": 2988,
-      "&aurora.test.sort.APPLICATION_22": 2996,
-      "&aurora.test.sort.APPLICATION_23": 3004,
-      "&aurora.test.sort.APPLICATION_24": 3020,
-      "&aurora.test.sort.LAMBDA_25": 3040,
-      "&aurora.test.sort.APPLICATION_26": 3060,
-      "&aurora.test.sort.APPLICATION_27": 3064,
-      "&aurora.test.sort.APPLICATION_28": 3068,
-      "&aurora.test.sort.APPLICATION_29": 3082,
-      "&aurora.test.sort.APPLICATION_30": 3089,
-      "&aurora.test.sort.APPLICATION_31": 3125,
-      "&aurora.test.sort.APPLICATION_32": 3133,
-      "&aurora.test.sort.APPLICATION_33": 3144,
-      "&aurora.test.sort.LAMBDA_34": 3152,
-      "&aurora.test.sort.APPLICATION_35": 3201,
-      "&aurora.test.sort.APPLICATION_36": 3205,
-      "&aurora.test.sort.APPLICATION_37": 3210,
-      "&aurora.test.sort.APPLICATION_38": 3301,
-      "&aurora.test.sort.APPLICATION_39": 3307,
-      "&aurora.test.sort.APPLICATION_40": 3352,
-      "&aurora.test.sort.APPLICATION_41": 3363,
-      "&aurora.test.sort.LAMBDA_42": 3371,
-      "&aurora.test.sort.APPLICATION_43": 3437,
-      "&aurora.test.sort.APPLICATION_44": 3441,
-      "&aurora.test.sort.APPLICATION_45": 3446,
-      "&aurora.test.callcc-test.APPLICATION_0": 2975,
-      "&aurora.test.callcc-test.LAMBDA_1": 2976,
-      "&aurora.test.callcc-test.APPLICATION_2": 2987,
-      "&aurora.test.callcc-test.LAMBDA_3": 3003,
-      "&aurora.test.callcc-test.APPLICATION_4": 3081,
-      "&aurora.test.callcc-test.APPLICATION_5": 3082,
-      "&aurora.test.callcc-test.LAMBDA_6": 3083,
-      "&aurora.test.callcc-test.APPLICATION_7": 3095,
-      "&aurora.test.callcc-test.APPLICATION_8": 3102,
-      "&aurora.test.callcc-test.STRING_9": 3111,
-      "&aurora.test.callcc-test.APPLICATION_10": 3120,
-      "&aurora.test.callcc-test.LAMBDA_11": 3129,
-      "&aurora.test.callcc-test.APPLICATION_12": 3147,
-      "&aurora.test.callcc-test.LAMBDA_13": 3148,
-      "&aurora.test.callcc-test.APPLICATION_14": 3160,
-      "&aurora.test.callcc-test.APPLICATION_15": 3167,
-      "&aurora.test.callcc-test.STRING_16": 3176,
-      "&aurora.test.callcc-test.APPLICATION_17": 3185,
-      "&aurora.test.callcc-test.LAMBDA_18": 3194,
-      "&aurora.test.purecps.APPLICATION_0": 4319,
-      "&aurora.test.purecps.LAMBDA_1": 4320,
-      "&aurora.test.purecps.APPLICATION_2": 4331,
-      "&aurora.test.purecps.LAMBDA_3": 4347,
-      "&aurora.test.purecps.APPLICATION_4": 4364,
-      "&aurora.test.purecps.LAMBDA_5": 4370,
-      "&aurora.test.purecps.LAMBDA_6": 4392,
-      "&aurora.test.purecps.APPLICATION_7": 4416,
-      "&aurora.test.purecps.LAMBDA_8": 4417,
-      "&aurora.test.purecps.APPLICATION_9": 4447,
-      "&aurora.test.purecps.LAMBDA_10": 4448,
-      "&aurora.test.purecps.APPLICATION_11": 4481,
-      "&aurora.test.purecps.LAMBDA_12": 4482,
-      "&aurora.test.purecps.APPLICATION_13": 4497,
-      "&aurora.test.purecps.LAMBDA_14": 4503,
-      "&aurora.test.purecps.LAMBDA_15": 4517,
-      "&aurora.test.purecps.APPLICATION_16": 4529,
-      "&aurora.test.purecps.APPLICATION_17": 4532,
-      "&aurora.test.purecps.LAMBDA_18": 4573,
-      "&aurora.test.purecps.APPLICATION_19": 4610,
-      "&aurora.test.purecps.APPLICATION_20": 4611,
-      "&aurora.test.purecps.LAMBDA_21": 4645,
-      "&aurora.test.purecps.APPLICATION_22": 4659,
-      "&aurora.test.purecps.LAMBDA_23": 4691,
-      "&aurora.test.purecps.APPLICATION_24": 4725,
-      "&aurora.test.purecps.APPLICATION_25": 4757,
-      "&aurora.test.purecps.LAMBDA_26": 4758,
-      "&aurora.test.purecps.APPLICATION_27": 4773,
-      "&aurora.test.purecps.APPLICATION_28": 4834,
-      "&aurora.test.purecps.LAMBDA_29": 4835,
-      "&aurora.test.purecps.APPLICATION_30": 4949,
-      "&aurora.test.purecps.LAMBDA_31": 4950,
-      "&aurora.test.purecps.APPLICATION_32": 4965,
-      "&aurora.test.purecps.LAMBDA_33": 4971,
-      "&aurora.test.purecps.LAMBDA_34": 4985,
-      "&aurora.test.purecps.APPLICATION_35": 4997,
-      "&aurora.test.purecps.APPLICATION_36": 5000,
-      "&aurora.test.purecps.LAMBDA_37": 5013,
-      "&aurora.test.purecps.APPLICATION_38": 5061,
-      "&aurora.test.purecps.LAMBDA_39": 5125,
-      "&aurora.test.purecps.APPLICATION_40": 5180,
-      "&aurora.test.purecps.LAMBDA_41": 5181,
-      "&aurora.test.purecps.APPLICATION_42": 5196,
-      "&aurora.test.purecps.LAMBDA_43": 5202,
-      "&aurora.test.purecps.LAMBDA_44": 5216,
-      "&aurora.test.purecps.APPLICATION_45": 5228,
-      "&aurora.test.purecps.APPLICATION_46": 5231,
-      "&aurora.test.purecps.LAMBDA_47": 5244,
-      "&aurora.test.purecps.APPLICATION_48": 5351,
-      "&aurora.test.purecps.APPLICATION_49": 5352,
-      "&aurora.test.purecps.LAMBDA_50": 5367,
-      "&aurora.test.purecps.APPLICATION_51": 5407,
-      "&aurora.test.purecps.APPLICATION_52": 5408,
-      "&aurora.test.purecps.LAMBDA_53": 5423,
-      "&aurora.test.purecps.APPLICATION_54": 5463,
-      "&aurora.test.purecps.APPLICATION_55": 5464,
-      "&aurora.test.purecps.LAMBDA_56": 5479,
-      "&aurora.test.purecps.APPLICATION_57": 5564,
-      "&aurora.test.purecps.LAMBDA_58": 5635,
-      "&aurora.test.purecps.APPLICATION_59": 5647,
-      "&aurora.test.MoB.APPLICATION_0": 4624,
-      "&aurora.test.MoB.LAMBDA_1": 4625,
-      "&aurora.test.MoB.APPLICATION_2": 4636,
-      "&aurora.test.MoB.STRING_3": 4650,
-      "&aurora.test.MoB.APPLICATION_4": 4718,
-      "&aurora.test.MoB.LAMBDA_5": 4730,
-      "&aurora.test.MoB.APPLICATION_6": 4763,
-      "&aurora.test.MoB.LAMBDA_7": 4781,
-      "&aurora.test.MoB.APPLICATION_8": 4804,
-      "&aurora.test.MoB.APPLICATION_9": 4812,
-      "&aurora.test.MoB.APPLICATION_10": 4844,
-      "&aurora.test.MoB.APPLICATION_11": 4872,
-      "&aurora.test.MoB.APPLICATION_12": 4876,
-      "&aurora.test.MoB.APPLICATION_13": 4895,
-      "&aurora.test.MoB.APPLICATION_14": 4898,
-      "&aurora.test.MoB.APPLICATION_15": 4903,
-      "&aurora.test.MoB.APPLICATION_16": 4919,
-      "&aurora.test.utils.APPLICATION_0": 4730,
-      "&aurora.test.utils.LAMBDA_1": 4731,
-      "&aurora.test.utils.APPLICATION_2": 4742,
-      "&aurora.test.utils.LAMBDA_3": 4761,
-      "&aurora.test.utils.APPLICATION_4": 4777,
-      "&aurora.test.utils.APPLICATION_5": 4788,
-      "&aurora.test.utils.LAMBDA_6": 4803,
-      "&aurora.test.utils.APPLICATION_7": 4819
+      "&aurora.test.main.APPLICATION_14": 609,
+      "&aurora.test.main.STRING_15": 621,
+      "&aurora.test.main.APPLICATION_16": 661,
+      "&aurora.test.main.STRING_17": 673,
+      "&aurora.test.main.APPLICATION_18": 685,
+      "&aurora.test.main.APPLICATION_19": 697,
+      "&aurora.test.main.LAMBDA_20": 712,
+      "&aurora.test.main.LAMBDA_21": 726,
+      "&aurora.test.main.LAMBDA_22": 741,
+      "&aurora.test.main.LAMBDA_23": 756,
+      "&aurora.test.main.LAMBDA_24": 770,
+      "&aurora.test.main.APPLICATION_25": 786,
+      "&aurora.test.main.APPLICATION_26": 857,
+      "&aurora.test.main.STRING_27": 869,
+      "&aurora.test.main.APPLICATION_28": 888,
+      "&aurora.test.main.STRING_29": 900,
+      "&aurora.test.main.APPLICATION_30": 933,
+      "&aurora.test.main.STRING_31": 945,
+      "&aurora.test.main.APPLICATION_32": 961,
+      "&aurora.test.main.APPLICATION_33": 962,
+      "&aurora.test.main.APPLICATION_34": 963,
+      "&aurora.test.main.LAMBDA_35": 980,
+      "&aurora.test.main.LAMBDA_36": 1000,
+      "&aurora.test.main.APPLICATION_37": 1012,
+      "&aurora.test.main.APPLICATION_38": 1026,
+      "&aurora.test.main.APPLICATION_39": 1285,
+      "&aurora.test.main.STRING_40": 1297,
+      "&aurora.test.main.APPLICATION_41": 1308,
+      "&aurora.test.main.STRING_42": 1320,
+      "&aurora.test.main.APPLICATION_43": 1336,
+      "&aurora.test.main.STRING_44": 1348,
+      "&aurora.test.main.APPLICATION_45": 1379,
+      "&aurora.test.main.APPLICATION_46": 1388,
+      "&aurora.test.main.QUOTE_47": 1405,
+      "&aurora.test.main.APPLICATION_48": 1431,
+      "&aurora.test.main.APPLICATION_49": 1502,
+      "&aurora.test.main.STRING_50": 1514,
+      "&aurora.test.main.APPLICATION_51": 1526,
+      "&aurora.test.main.STRING_52": 1538,
+      "&aurora.test.main.APPLICATION_53": 1575,
+      "&aurora.test.main.APPLICATION_54": 1587,
+      "&aurora.test.main.LAMBDA_55": 1596,
+      "&aurora.test.main.APPLICATION_56": 1608,
+      "&aurora.test.main.APPLICATION_57": 1616,
+      "&aurora.test.main.APPLICATION_58": 1622,
+      "&aurora.test.main.APPLICATION_59": 1635,
+      "&aurora.test.main.QUOTE_60": 1644,
+      "&aurora.test.main.QUOTE_61": 1650,
+      "&aurora.test.main.QUOTE_62": 1663,
+      "&aurora.test.main.QUOTE_63": 1671,
+      "&aurora.test.main.QUOTE_64": 1675,
+      "&aurora.test.main.QUOTE_65": 1683,
+      "&aurora.test.main.QUOTE_66": 1689,
+      "&aurora.test.main.QUOTE_67": 1702,
+      "&aurora.test.main.QUOTE_68": 1711,
+      "&aurora.test.main.QUOTE_69": 1717,
+      "&aurora.test.main.APPLICATION_70": 1728,
+      "&aurora.test.main.APPLICATION_71": 1799,
+      "&aurora.test.main.STRING_72": 1811,
+      "&aurora.test.main.APPLICATION_73": 1829,
+      "&aurora.test.main.APPLICATION_74": 1835,
+      "&aurora.test.main.APPLICATION_75": 1841,
+      "&aurora.test.main.STRING_76": 1853,
+      "&aurora.test.main.APPLICATION_77": 1868,
+      "&aurora.test.main.LAMBDA_78": 1891,
+      "&aurora.test.main.APPLICATION_79": 1942,
+      "&aurora.test.main.APPLICATION_80": 1959,
+      "&aurora.test.main.APPLICATION_81": 1974,
+      "&aurora.test.main.STRING_82": 1986,
+      "&aurora.test.main.APPLICATION_83": 2006,
+      "&aurora.test.main.APPLICATION_84": 2012,
+      "&aurora.test.main.APPLICATION_85": 2018,
+      "&aurora.test.main.STRING_86": 2030,
+      "&aurora.test.main.APPLICATION_87": 2045,
+      "&aurora.test.main.APPLICATION_88": 2066,
+      "&aurora.test.main.APPLICATION_89": 2085,
+      "&aurora.test.main.APPLICATION_90": 2105,
+      "&aurora.test.main.APPLICATION_91": 2115,
+      "&aurora.test.main.STRING_92": 2130,
+      "&aurora.test.main.APPLICATION_93": 2169,
+      "&aurora.test.main.APPLICATION_94": 2190,
+      "&aurora.test.main.STRING_95": 2202,
+      "&aurora.test.main.APPLICATION_96": 2217,
+      "&aurora.test.main.APPLICATION_97": 2223,
+      "&aurora.test.main.APPLICATION_98": 2229,
+      "&aurora.test.main.STRING_99": 2241,
+      "&aurora.test.main.APPLICATION_100": 2256,
+      "&aurora.test.main.APPLICATION_101": 2274,
+      "&aurora.test.main.APPLICATION_102": 2294,
+      "&aurora.test.main.APPLICATION_103": 2304,
+      "&aurora.test.main.STRING_104": 2315,
+      "&aurora.test.main.APPLICATION_105": 2335,
+      "&aurora.test.main.APPLICATION_106": 2356,
+      "&aurora.test.main.LAMBDA_107": 2372,
+      "&aurora.test.main.APPLICATION_108": 2392,
+      "&aurora.test.main.APPLICATION_109": 2396,
+      "&aurora.test.main.APPLICATION_110": 2430,
+      "&aurora.test.main.APPLICATION_111": 2435,
+      "&aurora.test.main.APPLICATION_112": 2440,
+      "&aurora.test.main.APPLICATION_113": 2457,
+      "&aurora.test.main.LAMBDA_114": 2458,
+      "&aurora.test.main.APPLICATION_115": 2479,
+      "&aurora.test.main.STRING_116": 2491,
+      "&aurora.test.main.APPLICATION_117": 2514,
+      "&aurora.test.main.APPLICATION_118": 2537,
+      "&aurora.test.main.APPLICATION_119": 2551,
+      "&aurora.test.main.STRING_120": 2563,
+      "&aurora.test.sort.APPLICATION_0": 3451,
+      "&aurora.test.sort.LAMBDA_1": 3452,
+      "&aurora.test.sort.APPLICATION_2": 3522,
+      "&aurora.test.sort.LAMBDA_3": 3539,
+      "&aurora.test.sort.APPLICATION_4": 3559,
+      "&aurora.test.sort.APPLICATION_5": 3563,
+      "&aurora.test.sort.QUOTE_6": 3584,
+      "&aurora.test.sort.APPLICATION_7": 3595,
+      "&aurora.test.sort.APPLICATION_8": 3599,
+      "&aurora.test.sort.APPLICATION_9": 3602,
+      "&aurora.test.sort.APPLICATION_10": 3625,
+      "&aurora.test.sort.APPLICATION_11": 3631,
+      "&aurora.test.sort.APPLICATION_12": 3641,
+      "&aurora.test.sort.APPLICATION_13": 3651,
+      "&aurora.test.sort.APPLICATION_14": 3675,
+      "&aurora.test.sort.APPLICATION_15": 3685,
+      "&aurora.test.sort.APPLICATION_16": 3701,
+      "&aurora.test.sort.LAMBDA_17": 3718,
+      "&aurora.test.sort.APPLICATION_18": 3736,
+      "&aurora.test.sort.APPLICATION_19": 3740,
+      "&aurora.test.sort.APPLICATION_20": 3768,
+      "&aurora.test.sort.APPLICATION_21": 3774,
+      "&aurora.test.sort.APPLICATION_22": 3782,
+      "&aurora.test.sort.APPLICATION_23": 3790,
+      "&aurora.test.sort.APPLICATION_24": 3806,
+      "&aurora.test.sort.LAMBDA_25": 3826,
+      "&aurora.test.sort.APPLICATION_26": 3846,
+      "&aurora.test.sort.APPLICATION_27": 3850,
+      "&aurora.test.sort.APPLICATION_28": 3854,
+      "&aurora.test.sort.APPLICATION_29": 3868,
+      "&aurora.test.sort.APPLICATION_30": 3875,
+      "&aurora.test.sort.APPLICATION_31": 3911,
+      "&aurora.test.sort.APPLICATION_32": 3919,
+      "&aurora.test.sort.APPLICATION_33": 3930,
+      "&aurora.test.sort.LAMBDA_34": 3938,
+      "&aurora.test.sort.APPLICATION_35": 3987,
+      "&aurora.test.sort.APPLICATION_36": 3991,
+      "&aurora.test.sort.APPLICATION_37": 3996,
+      "&aurora.test.sort.APPLICATION_38": 4087,
+      "&aurora.test.sort.APPLICATION_39": 4093,
+      "&aurora.test.sort.APPLICATION_40": 4138,
+      "&aurora.test.sort.APPLICATION_41": 4149,
+      "&aurora.test.sort.LAMBDA_42": 4157,
+      "&aurora.test.sort.APPLICATION_43": 4223,
+      "&aurora.test.sort.APPLICATION_44": 4227,
+      "&aurora.test.sort.APPLICATION_45": 4232,
+      "&aurora.test.callcc-test.APPLICATION_0": 3762,
+      "&aurora.test.callcc-test.LAMBDA_1": 3763,
+      "&aurora.test.callcc-test.APPLICATION_2": 3774,
+      "&aurora.test.callcc-test.LAMBDA_3": 3790,
+      "&aurora.test.callcc-test.APPLICATION_4": 3868,
+      "&aurora.test.callcc-test.APPLICATION_5": 3869,
+      "&aurora.test.callcc-test.LAMBDA_6": 3870,
+      "&aurora.test.callcc-test.APPLICATION_7": 3882,
+      "&aurora.test.callcc-test.APPLICATION_8": 3889,
+      "&aurora.test.callcc-test.STRING_9": 3898,
+      "&aurora.test.callcc-test.APPLICATION_10": 3907,
+      "&aurora.test.callcc-test.LAMBDA_11": 3916,
+      "&aurora.test.callcc-test.APPLICATION_12": 3934,
+      "&aurora.test.callcc-test.LAMBDA_13": 3935,
+      "&aurora.test.callcc-test.APPLICATION_14": 3947,
+      "&aurora.test.callcc-test.APPLICATION_15": 3954,
+      "&aurora.test.callcc-test.STRING_16": 3963,
+      "&aurora.test.callcc-test.APPLICATION_17": 3972,
+      "&aurora.test.callcc-test.LAMBDA_18": 3981,
+      "&aurora.test.purecps.APPLICATION_0": 5107,
+      "&aurora.test.purecps.LAMBDA_1": 5108,
+      "&aurora.test.purecps.APPLICATION_2": 5119,
+      "&aurora.test.purecps.LAMBDA_3": 5135,
+      "&aurora.test.purecps.APPLICATION_4": 5152,
+      "&aurora.test.purecps.LAMBDA_5": 5158,
+      "&aurora.test.purecps.LAMBDA_6": 5180,
+      "&aurora.test.purecps.APPLICATION_7": 5204,
+      "&aurora.test.purecps.LAMBDA_8": 5205,
+      "&aurora.test.purecps.APPLICATION_9": 5235,
+      "&aurora.test.purecps.LAMBDA_10": 5236,
+      "&aurora.test.purecps.APPLICATION_11": 5269,
+      "&aurora.test.purecps.LAMBDA_12": 5270,
+      "&aurora.test.purecps.APPLICATION_13": 5285,
+      "&aurora.test.purecps.LAMBDA_14": 5291,
+      "&aurora.test.purecps.LAMBDA_15": 5305,
+      "&aurora.test.purecps.APPLICATION_16": 5317,
+      "&aurora.test.purecps.APPLICATION_17": 5320,
+      "&aurora.test.purecps.LAMBDA_18": 5361,
+      "&aurora.test.purecps.APPLICATION_19": 5398,
+      "&aurora.test.purecps.APPLICATION_20": 5399,
+      "&aurora.test.purecps.LAMBDA_21": 5433,
+      "&aurora.test.purecps.APPLICATION_22": 5447,
+      "&aurora.test.purecps.LAMBDA_23": 5479,
+      "&aurora.test.purecps.APPLICATION_24": 5513,
+      "&aurora.test.purecps.APPLICATION_25": 5545,
+      "&aurora.test.purecps.LAMBDA_26": 5546,
+      "&aurora.test.purecps.APPLICATION_27": 5561,
+      "&aurora.test.purecps.APPLICATION_28": 5622,
+      "&aurora.test.purecps.LAMBDA_29": 5623,
+      "&aurora.test.purecps.APPLICATION_30": 5737,
+      "&aurora.test.purecps.LAMBDA_31": 5738,
+      "&aurora.test.purecps.APPLICATION_32": 5753,
+      "&aurora.test.purecps.LAMBDA_33": 5759,
+      "&aurora.test.purecps.LAMBDA_34": 5773,
+      "&aurora.test.purecps.APPLICATION_35": 5785,
+      "&aurora.test.purecps.APPLICATION_36": 5788,
+      "&aurora.test.purecps.LAMBDA_37": 5801,
+      "&aurora.test.purecps.APPLICATION_38": 5849,
+      "&aurora.test.purecps.LAMBDA_39": 5913,
+      "&aurora.test.purecps.APPLICATION_40": 5968,
+      "&aurora.test.purecps.LAMBDA_41": 5969,
+      "&aurora.test.purecps.APPLICATION_42": 5984,
+      "&aurora.test.purecps.LAMBDA_43": 5990,
+      "&aurora.test.purecps.LAMBDA_44": 6004,
+      "&aurora.test.purecps.APPLICATION_45": 6016,
+      "&aurora.test.purecps.APPLICATION_46": 6019,
+      "&aurora.test.purecps.LAMBDA_47": 6032,
+      "&aurora.test.purecps.APPLICATION_48": 6139,
+      "&aurora.test.purecps.APPLICATION_49": 6140,
+      "&aurora.test.purecps.LAMBDA_50": 6155,
+      "&aurora.test.purecps.APPLICATION_51": 6195,
+      "&aurora.test.purecps.APPLICATION_52": 6196,
+      "&aurora.test.purecps.LAMBDA_53": 6211,
+      "&aurora.test.purecps.APPLICATION_54": 6251,
+      "&aurora.test.purecps.APPLICATION_55": 6252,
+      "&aurora.test.purecps.LAMBDA_56": 6267,
+      "&aurora.test.purecps.APPLICATION_57": 6352,
+      "&aurora.test.purecps.LAMBDA_58": 6423,
+      "&aurora.test.purecps.APPLICATION_59": 6435,
+      "&aurora.test.MoB.APPLICATION_0": 5413,
+      "&aurora.test.MoB.LAMBDA_1": 5414,
+      "&aurora.test.MoB.APPLICATION_2": 5425,
+      "&aurora.test.MoB.STRING_3": 5439,
+      "&aurora.test.MoB.APPLICATION_4": 5507,
+      "&aurora.test.MoB.LAMBDA_5": 5519,
+      "&aurora.test.MoB.APPLICATION_6": 5552,
+      "&aurora.test.MoB.LAMBDA_7": 5570,
+      "&aurora.test.MoB.APPLICATION_8": 5593,
+      "&aurora.test.MoB.APPLICATION_9": 5601,
+      "&aurora.test.MoB.APPLICATION_10": 5633,
+      "&aurora.test.MoB.APPLICATION_11": 5661,
+      "&aurora.test.MoB.APPLICATION_12": 5665,
+      "&aurora.test.MoB.APPLICATION_13": 5684,
+      "&aurora.test.MoB.APPLICATION_14": 5687,
+      "&aurora.test.MoB.APPLICATION_15": 5692,
+      "&aurora.test.MoB.APPLICATION_16": 5708,
+      "&aurora.test.utils.APPLICATION_0": 5520,
+      "&aurora.test.utils.LAMBDA_1": 5521,
+      "&aurora.test.utils.APPLICATION_2": 5532,
+      "&aurora.test.utils.LAMBDA_3": 5551,
+      "&aurora.test.utils.APPLICATION_4": 5567,
+      "&aurora.test.utils.APPLICATION_5": 5578,
+      "&aurora.test.utils.LAMBDA_6": 5593,
+      "&aurora.test.utils.APPLICATION_7": 5609
     },
     "lambdaHandles": [
       "&aurora.test.main.LAMBDA_1",
@@ -2283,9 +2803,12 @@
       "&aurora.test.main.LAMBDA_22",
       "&aurora.test.main.LAMBDA_23",
       "&aurora.test.main.LAMBDA_24",
-      "&aurora.test.main.LAMBDA_34",
       "&aurora.test.main.LAMBDA_35",
-      "&aurora.test.main.LAMBDA_54",
+      "&aurora.test.main.LAMBDA_36",
+      "&aurora.test.main.LAMBDA_55",
+      "&aurora.test.main.LAMBDA_78",
+      "&aurora.test.main.LAMBDA_107",
+      "&aurora.test.main.LAMBDA_114",
       "&aurora.test.sort.LAMBDA_3",
       "&aurora.test.sort.LAMBDA_17",
       "&aurora.test.sort.LAMBDA_25",
@@ -2328,9 +2851,12 @@
       "&aurora.test.utils.LAMBDA_6"
     ],
     "tailcall": [
-      "&aurora.test.main.APPLICATION_36",
-      "&aurora.test.main.APPLICATION_55",
-      "&aurora.test.main.APPLICATION_52",
+      "&aurora.test.main.APPLICATION_37",
+      "&aurora.test.main.APPLICATION_56",
+      "&aurora.test.main.APPLICATION_79",
+      "&aurora.test.main.APPLICATION_110",
+      "&aurora.test.main.APPLICATION_117",
+      "&aurora.test.main.APPLICATION_96",
       "&aurora.test.main.APPLICATION_0",
       "&aurora.test.sort.APPLICATION_10",
       "&aurora.test.sort.APPLICATION_14",
@@ -2375,9 +2901,14 @@
       "&aurora.test.utils.APPLICATION_5"
     ],
     "variableMapping": {
-      "aurora.test.main.LAMBDA_34.x": "x",
       "aurora.test.main.LAMBDA_35.x": "x",
-      "aurora.test.main.LAMBDA_54.x": "x",
+      "aurora.test.main.LAMBDA_36.x": "x",
+      "aurora.test.main.LAMBDA_55.x": "x",
+      "aurora.test.main.LAMBDA_1.infinite": "infinite",
+      "aurora.test.main.LAMBDA_1.res": "res",
+      "aurora.test.main.LAMBDA_1.foo": "foo",
+      "aurora.test.main.LAMBDA_107.n": "n",
+      "aurora.test.main.LAMBDA_114.kkk": "kkk",
       "aurora.test.sort.LAMBDA_1.filter": "filter",
       "aurora.test.sort.LAMBDA_3.f": "f",
       "aurora.test.sort.LAMBDA_3.lst": "lst",
@@ -2453,7 +2984,11 @@
       "CallCC": "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.callcc-test.scm",
       "Sort": "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.sort.scm"
     },
-    "natives": {}
+    "natives": {
+      "Console": "enabled",
+      "HTTPS": "enabled",
+      "File": "enabled"
+    }
   },
   "ILCode": [
     "call @&aurora.test.main.LAMBDA_1",
@@ -2489,11 +3024,12 @@
     "loadclosure @&aurora.test.main.LAMBDA_24",
     "call aurora.test.MoB.LAMBDA_1.A",
     "call aurora.test.utils.LAMBDA_1.show",
-    "push &aurora.test.main.STRING_26",
+    "newline",
+    "push &aurora.test.main.STRING_27",
     "call aurora.test.utils.LAMBDA_1.show",
-    "push &aurora.test.main.STRING_28",
+    "push &aurora.test.main.STRING_29",
     "call aurora.test.utils.LAMBDA_1.show",
-    "push &aurora.test.main.STRING_30",
+    "push &aurora.test.main.STRING_31",
     "call aurora.test.utils.LAMBDA_1.show",
     "goto @APPLY_BEGIN_aurora.test.main.ID0",
     "@TEMP_LAMBDA_aurora.test.main.ID0",
@@ -2511,16 +3047,15 @@
     "tailcall TEMP_LAMBDA_PARAM0_aurora.test.main.ID1",
     "return",
     "@APPLY_BEGIN_aurora.test.main.ID1",
-    "loadclosure @&aurora.test.main.LAMBDA_34",
+    "loadclosure @&aurora.test.main.LAMBDA_35",
     "call aurora.test.purecps.LAMBDA_1.fac-cps",
     "push 10",
     "call @TEMP_LAMBDA_aurora.test.main.ID1",
     "@TEMP_LAMBDA_RETURN_TARGET_aurora.test.main.ID1",
-    "loadclosure @&aurora.test.main.LAMBDA_35",
+    "loadclosure @&aurora.test.main.LAMBDA_36",
     "call @TEMP_LAMBDA_aurora.test.main.ID0",
     "@TEMP_LAMBDA_RETURN_TARGET_aurora.test.main.ID0",
-    "push &aurora.test.main.STRING_38",
-    "call aurora.test.utils.LAMBDA_1.show",
+    "newline",
     "push &aurora.test.main.STRING_40",
     "call aurora.test.utils.LAMBDA_1.show",
     "push &aurora.test.main.STRING_42",
@@ -2530,13 +3065,20 @@
     "push &aurora.test.main.QUOTE_47",
     "call aurora.test.sort.LAMBDA_1.quicksort",
     "display",
-    "push &aurora.test.main.STRING_49",
+    "newline",
+    "push &aurora.test.main.STRING_50",
     "call aurora.test.utils.LAMBDA_1.show",
-    "push &aurora.test.main.STRING_51",
+    "push &aurora.test.main.STRING_52",
     "call aurora.test.utils.LAMBDA_1.show",
-    "push &aurora.test.main.QUOTE_61",
-    "call @&aurora.test.main.LAMBDA_54",
-    "display",
+    "push &aurora.test.main.QUOTE_62",
+    "call @&aurora.test.main.LAMBDA_55",
+    "call aurora.test.utils.LAMBDA_1.show",
+    "newline",
+    "push &aurora.test.main.STRING_72",
+    "call aurora.test.utils.LAMBDA_1.show",
+    "fork &aurora.test.main.APPLICATION_74",
+    "fork &aurora.test.main.APPLICATION_84",
+    "fork &aurora.test.main.APPLICATION_97",
     "return",
     "@&aurora.test.main.LAMBDA_20",
     "push 1",
@@ -2553,43 +3095,70 @@
     "@&aurora.test.main.LAMBDA_24",
     "push 0",
     "return",
-    "@&aurora.test.main.LAMBDA_34",
-    "store aurora.test.main.LAMBDA_34.x",
-    "load aurora.test.main.LAMBDA_34.x",
-    "return",
     "@&aurora.test.main.LAMBDA_35",
     "store aurora.test.main.LAMBDA_35.x",
     "load aurora.test.main.LAMBDA_35.x",
+    "return",
+    "@&aurora.test.main.LAMBDA_36",
+    "store aurora.test.main.LAMBDA_36.x",
+    "load aurora.test.main.LAMBDA_36.x",
     "display",
     "return",
-    "@&aurora.test.main.LAMBDA_54",
-    "store aurora.test.main.LAMBDA_54.x",
-    "load aurora.test.main.LAMBDA_54.x",
+    "@&aurora.test.main.LAMBDA_55",
+    "store aurora.test.main.LAMBDA_55.x",
+    "load aurora.test.main.LAMBDA_55.x",
     "push 'quote",
-    "load aurora.test.main.LAMBDA_54.x",
-    "push &aurora.test.main.QUOTE_59",
-    "cons",
-    "cons",
+    "load aurora.test.main.LAMBDA_55.x",
     "push &aurora.test.main.QUOTE_60",
     "cons",
     "cons",
+    "push &aurora.test.main.QUOTE_61",
+    "cons",
+    "cons",
+    "return",
+    "@&aurora.test.main.LAMBDA_78",
+    "tailcall aurora.test.main.LAMBDA_1.infinite",
+    "return",
+    "@&aurora.test.main.LAMBDA_107",
+    "store aurora.test.main.LAMBDA_107.n",
+    "load aurora.test.main.LAMBDA_107.n",
+    "push 0",
+    "eqn",
+    "iftrue @IF_TRUE_aurora.test.main.ID2",
+    "load aurora.test.main.LAMBDA_107.n",
+    "load aurora.test.main.LAMBDA_107.n",
+    "push 1",
+    "sub",
+    "call aurora.test.main.LAMBDA_1.foo",
+    "mul",
+    "goto @IF_END_aurora.test.main.ID2",
+    "@IF_TRUE_aurora.test.main.ID2",
+    "push 1",
+    "@IF_END_aurora.test.main.ID2",
+    "return",
+    "@&aurora.test.main.LAMBDA_114",
+    "store aurora.test.main.LAMBDA_114.kkk",
+    "push &aurora.test.main.STRING_116",
+    "call aurora.test.utils.LAMBDA_1.show",
+    "load aurora.test.main.LAMBDA_114.kkk",
+    "tailcall aurora.test.utils.LAMBDA_1.show",
     "return",
     "@&aurora.test.sort.LAMBDA_3",
     "store aurora.test.sort.LAMBDA_3.lst",
     "store aurora.test.sort.LAMBDA_3.f",
     "load aurora.test.sort.LAMBDA_3.lst",
     "null?",
-    "iftrue @IF_TRUE_aurora.test.main.ID2",
+    "iftrue @IF_TRUE_aurora.test.main.ID3",
     "load aurora.test.sort.LAMBDA_3.lst",
     "car",
     "call aurora.test.sort.LAMBDA_3.f",
-    "iftrue @IF_TRUE_aurora.test.main.ID3",
+    "iftrue @IF_TRUE_aurora.test.main.ID4",
     "load aurora.test.sort.LAMBDA_3.f",
     "load aurora.test.sort.LAMBDA_3.lst",
     "cdr",
     "tailcall aurora.test.sort.LAMBDA_1.filter",
-    "goto @IF_END_aurora.test.main.ID3",
-    "@IF_TRUE_aurora.test.main.ID3",
+    "goto @IF_END_aurora.test.main.ID4",
+    "@IF_TRUE_aurora.test.main.ID4",
     "load aurora.test.sort.LAMBDA_3.lst",
     "car",
     "load aurora.test.sort.LAMBDA_3.f",
@@ -2597,18 +3166,18 @@
     "cdr",
     "call aurora.test.sort.LAMBDA_1.filter",
     "cons",
-    "@IF_END_aurora.test.main.ID3",
-    "goto @IF_END_aurora.test.main.ID2",
-    "@IF_TRUE_aurora.test.main.ID2",
+    "@IF_END_aurora.test.main.ID4",
+    "goto @IF_END_aurora.test.main.ID3",
+    "@IF_TRUE_aurora.test.main.ID3",
     "push &aurora.test.sort.QUOTE_6",
-    "@IF_END_aurora.test.main.ID2",
+    "@IF_END_aurora.test.main.ID3",
     "return",
     "@&aurora.test.sort.LAMBDA_17",
     "store aurora.test.sort.LAMBDA_17.b",
     "store aurora.test.sort.LAMBDA_17.a",
     "load aurora.test.sort.LAMBDA_17.a",
     "null?",
-    "iftrue @IF_TRUE_aurora.test.main.ID4",
+    "iftrue @IF_TRUE_aurora.test.main.ID5",
     "load aurora.test.sort.LAMBDA_17.a",
     "car",
     "load aurora.test.sort.LAMBDA_17.a",
@@ -2616,26 +3185,26 @@
     "load aurora.test.sort.LAMBDA_17.b",
     "call aurora.test.sort.LAMBDA_1.concat",
     "cons",
-    "goto @IF_END_aurora.test.main.ID4",
-    "@IF_TRUE_aurora.test.main.ID4",
+    "goto @IF_END_aurora.test.main.ID5",
+    "@IF_TRUE_aurora.test.main.ID5",
     "load aurora.test.sort.LAMBDA_17.b",
-    "@IF_END_aurora.test.main.ID4",
+    "@IF_END_aurora.test.main.ID5",
     "return",
     "@&aurora.test.sort.LAMBDA_25",
     "store aurora.test.sort.LAMBDA_25.array",
     "load aurora.test.sort.LAMBDA_25.array",
     "null?",
-    "iftrue @OR_FALSE_aurora.test.main.ID5",
+    "iftrue @OR_FALSE_aurora.test.main.ID6",
     "load aurora.test.sort.LAMBDA_25.array",
     "cdr",
     "null?",
-    "iftrue @OR_FALSE_aurora.test.main.ID5",
+    "iftrue @OR_FALSE_aurora.test.main.ID6",
     "push #f",
-    "goto @OR_END_aurora.test.main.ID5",
-    "@OR_FALSE_aurora.test.main.ID5",
+    "goto @OR_END_aurora.test.main.ID6",
+    "@OR_FALSE_aurora.test.main.ID6",
     "push #t",
-    "@OR_END_aurora.test.main.ID5",
-    "iftrue @IF_TRUE_aurora.test.main.ID6",
+    "@OR_END_aurora.test.main.ID6",
+    "iftrue @IF_TRUE_aurora.test.main.ID7",
     "loadclosure @&aurora.test.sort.LAMBDA_34",
     "load aurora.test.sort.LAMBDA_25.array",
     "call aurora.test.sort.LAMBDA_1.filter",
@@ -2648,10 +3217,10 @@
     "call aurora.test.sort.LAMBDA_1.quicksort",
     "cons",
     "tailcall aurora.test.sort.LAMBDA_1.concat",
-    "goto @IF_END_aurora.test.main.ID6",
-    "@IF_TRUE_aurora.test.main.ID6",
+    "goto @IF_END_aurora.test.main.ID7",
+    "@IF_TRUE_aurora.test.main.ID7",
     "load aurora.test.sort.LAMBDA_25.array",
-    "@IF_END_aurora.test.main.ID6",
+    "@IF_END_aurora.test.main.ID7",
     "return",
     "@&aurora.test.sort.LAMBDA_34",
     "store aurora.test.sort.LAMBDA_34.x",
@@ -2659,19 +3228,6 @@
     "load aurora.test.sort.LAMBDA_25.array",
     "car",
     "lt",
-    "iftrue @IF_TRUE_aurora.test.main.ID7",
-    "push #f",
-    "goto @IF_END_aurora.test.main.ID7",
-    "@IF_TRUE_aurora.test.main.ID7",
-    "push #t",
-    "@IF_END_aurora.test.main.ID7",
-    "return",
-    "@&aurora.test.sort.LAMBDA_42",
-    "store aurora.test.sort.LAMBDA_42.x",
-    "load aurora.test.sort.LAMBDA_42.x",
-    "load aurora.test.sort.LAMBDA_25.array",
-    "car",
-    "gt",
     "iftrue @IF_TRUE_aurora.test.main.ID8",
     "push #f",
     "goto @IF_END_aurora.test.main.ID8",
@@ -2679,27 +3235,40 @@
     "push #t",
     "@IF_END_aurora.test.main.ID8",
     "return",
-    "@&aurora.test.callcc-test.LAMBDA_3",
-    "goto @APPLY_BEGIN_aurora.test.main.ID9",
-    "@TEMP_LAMBDA_aurora.test.main.ID9",
-    "store TEMP_LAMBDA_PARAM1_aurora.test.main.ID9",
-    "store TEMP_LAMBDA_PARAM0_aurora.test.main.ID9",
-    "load TEMP_LAMBDA_PARAM1_aurora.test.main.ID9",
-    "tailcall TEMP_LAMBDA_PARAM0_aurora.test.main.ID9",
+    "@&aurora.test.sort.LAMBDA_42",
+    "store aurora.test.sort.LAMBDA_42.x",
+    "load aurora.test.sort.LAMBDA_42.x",
+    "load aurora.test.sort.LAMBDA_25.array",
+    "car",
+    "gt",
+    "iftrue @IF_TRUE_aurora.test.main.ID9",
+    "push #f",
+    "goto @IF_END_aurora.test.main.ID9",
+    "@IF_TRUE_aurora.test.main.ID9",
+    "push #t",
+    "@IF_END_aurora.test.main.ID9",
     "return",
-    "@APPLY_BEGIN_aurora.test.main.ID9",
-    "capturecc CC_&aurora.test.callcc-test.LAMBDA_11_aurora.test.main.ID10",
-    "load CC_&aurora.test.callcc-test.LAMBDA_11_aurora.test.main.ID10",
+    "@&aurora.test.callcc-test.LAMBDA_3",
+    "goto @APPLY_BEGIN_aurora.test.main.ID10",
+    "@TEMP_LAMBDA_aurora.test.main.ID10",
+    "store TEMP_LAMBDA_PARAM1_aurora.test.main.ID10",
+    "store TEMP_LAMBDA_PARAM0_aurora.test.main.ID10",
+    "load TEMP_LAMBDA_PARAM1_aurora.test.main.ID10",
+    "tailcall TEMP_LAMBDA_PARAM0_aurora.test.main.ID10",
+    "return",
+    "@APPLY_BEGIN_aurora.test.main.ID10",
+    "capturecc CC_&aurora.test.callcc-test.LAMBDA_11_aurora.test.main.ID11",
+    "load CC_&aurora.test.callcc-test.LAMBDA_11_aurora.test.main.ID11",
     "call @&aurora.test.callcc-test.LAMBDA_11",
-    "@CC_&aurora.test.callcc-test.LAMBDA_11_aurora.test.main.ID10",
+    "@CC_&aurora.test.callcc-test.LAMBDA_11_aurora.test.main.ID11",
     "call @&aurora.test.callcc-test.LAMBDA_6",
-    "capturecc CC_&aurora.test.callcc-test.LAMBDA_18_aurora.test.main.ID11",
-    "load CC_&aurora.test.callcc-test.LAMBDA_18_aurora.test.main.ID11",
+    "capturecc CC_&aurora.test.callcc-test.LAMBDA_18_aurora.test.main.ID12",
+    "load CC_&aurora.test.callcc-test.LAMBDA_18_aurora.test.main.ID12",
     "call @&aurora.test.callcc-test.LAMBDA_18",
-    "@CC_&aurora.test.callcc-test.LAMBDA_18_aurora.test.main.ID11",
+    "@CC_&aurora.test.callcc-test.LAMBDA_18_aurora.test.main.ID12",
     "call @&aurora.test.callcc-test.LAMBDA_13",
-    "call @TEMP_LAMBDA_aurora.test.main.ID9",
-    "@TEMP_LAMBDA_RETURN_TARGET_aurora.test.main.ID9",
+    "call @TEMP_LAMBDA_aurora.test.main.ID10",
+    "@TEMP_LAMBDA_RETURN_TARGET_aurora.test.main.ID10",
     "return",
     "@&aurora.test.callcc-test.LAMBDA_6",
     "store aurora.test.callcc-test.LAMBDA_6.x",
@@ -2764,20 +3333,20 @@
     "return",
     "@&aurora.test.purecps.LAMBDA_18",
     "store aurora.test.purecps.LAMBDA_18.node0",
-    "goto @APPLY_BEGIN_aurora.test.main.ID12",
-    "@TEMP_LAMBDA_aurora.test.main.ID12",
-    "store TEMP_LAMBDA_PARAM1_aurora.test.main.ID12",
-    "store TEMP_LAMBDA_PARAM0_aurora.test.main.ID12",
-    "load TEMP_LAMBDA_PARAM1_aurora.test.main.ID12",
-    "tailcall TEMP_LAMBDA_PARAM0_aurora.test.main.ID12",
+    "goto @APPLY_BEGIN_aurora.test.main.ID13",
+    "@TEMP_LAMBDA_aurora.test.main.ID13",
+    "store TEMP_LAMBDA_PARAM1_aurora.test.main.ID13",
+    "store TEMP_LAMBDA_PARAM0_aurora.test.main.ID13",
+    "load TEMP_LAMBDA_PARAM1_aurora.test.main.ID13",
+    "tailcall TEMP_LAMBDA_PARAM0_aurora.test.main.ID13",
     "return",
-    "@APPLY_BEGIN_aurora.test.main.ID12",
+    "@APPLY_BEGIN_aurora.test.main.ID13",
     "push 0",
     "load aurora.test.purecps.LAMBDA_5.n",
     "call aurora.test.purecps.LAMBDA_18.node0",
     "loadclosure @&aurora.test.purecps.LAMBDA_21",
-    "call @TEMP_LAMBDA_aurora.test.main.ID12",
-    "@TEMP_LAMBDA_RETURN_TARGET_aurora.test.main.ID12",
+    "call @TEMP_LAMBDA_aurora.test.main.ID13",
+    "@TEMP_LAMBDA_RETURN_TARGET_aurora.test.main.ID13",
     "return",
     "@&aurora.test.purecps.LAMBDA_21",
     "store aurora.test.purecps.LAMBDA_21.res",
@@ -2787,14 +3356,14 @@
     "@&aurora.test.purecps.LAMBDA_23",
     "store aurora.test.purecps.LAMBDA_23.p-res",
     "load aurora.test.purecps.LAMBDA_23.p-res",
-    "iftrue @IF_TRUE_aurora.test.main.ID13",
+    "iftrue @IF_TRUE_aurora.test.main.ID14",
     "load aurora.test.purecps.LAMBDA_8.cont",
     "tailcall @&aurora.test.purecps.LAMBDA_29",
-    "goto @IF_END_aurora.test.main.ID13",
-    "@IF_TRUE_aurora.test.main.ID13",
+    "goto @IF_END_aurora.test.main.ID14",
+    "@IF_TRUE_aurora.test.main.ID14",
     "load aurora.test.purecps.LAMBDA_8.cont",
     "tailcall @&aurora.test.purecps.LAMBDA_26",
-    "@IF_END_aurora.test.main.ID13",
+    "@IF_END_aurora.test.main.ID14",
     "return",
     "@&aurora.test.purecps.LAMBDA_26",
     "store aurora.test.purecps.LAMBDA_26.cont",
@@ -2852,23 +3421,6 @@
     "return",
     "@&aurora.test.purecps.LAMBDA_47",
     "store aurora.test.purecps.LAMBDA_47.node2",
-    "goto @APPLY_BEGIN_aurora.test.main.ID14",
-    "@TEMP_LAMBDA_aurora.test.main.ID14",
-    "store TEMP_LAMBDA_PARAM1_aurora.test.main.ID14",
-    "store TEMP_LAMBDA_PARAM0_aurora.test.main.ID14",
-    "load TEMP_LAMBDA_PARAM1_aurora.test.main.ID14",
-    "tailcall TEMP_LAMBDA_PARAM0_aurora.test.main.ID14",
-    "return",
-    "@APPLY_BEGIN_aurora.test.main.ID14",
-    "load aurora.test.purecps.LAMBDA_5.n",
-    "push 1",
-    "call aurora.test.purecps.LAMBDA_47.node2",
-    "loadclosure @&aurora.test.purecps.LAMBDA_50",
-    "call @TEMP_LAMBDA_aurora.test.main.ID14",
-    "@TEMP_LAMBDA_RETURN_TARGET_aurora.test.main.ID14",
-    "return",
-    "@&aurora.test.purecps.LAMBDA_50",
-    "store aurora.test.purecps.LAMBDA_50.res2",
     "goto @APPLY_BEGIN_aurora.test.main.ID15",
     "@TEMP_LAMBDA_aurora.test.main.ID15",
     "store TEMP_LAMBDA_PARAM1_aurora.test.main.ID15",
@@ -2877,14 +3429,15 @@
     "tailcall TEMP_LAMBDA_PARAM0_aurora.test.main.ID15",
     "return",
     "@APPLY_BEGIN_aurora.test.main.ID15",
-    "load aurora.test.purecps.LAMBDA_50.res2",
-    "call aurora.test.purecps.LAMBDA_39.node1",
-    "loadclosure @&aurora.test.purecps.LAMBDA_53",
+    "load aurora.test.purecps.LAMBDA_5.n",
+    "push 1",
+    "call aurora.test.purecps.LAMBDA_47.node2",
+    "loadclosure @&aurora.test.purecps.LAMBDA_50",
     "call @TEMP_LAMBDA_aurora.test.main.ID15",
     "@TEMP_LAMBDA_RETURN_TARGET_aurora.test.main.ID15",
     "return",
-    "@&aurora.test.purecps.LAMBDA_53",
-    "store aurora.test.purecps.LAMBDA_53.res1",
+    "@&aurora.test.purecps.LAMBDA_50",
+    "store aurora.test.purecps.LAMBDA_50.res2",
     "goto @APPLY_BEGIN_aurora.test.main.ID16",
     "@TEMP_LAMBDA_aurora.test.main.ID16",
     "store TEMP_LAMBDA_PARAM1_aurora.test.main.ID16",
@@ -2893,12 +3446,28 @@
     "tailcall TEMP_LAMBDA_PARAM0_aurora.test.main.ID16",
     "return",
     "@APPLY_BEGIN_aurora.test.main.ID16",
+    "load aurora.test.purecps.LAMBDA_50.res2",
+    "call aurora.test.purecps.LAMBDA_39.node1",
+    "loadclosure @&aurora.test.purecps.LAMBDA_53",
+    "call @TEMP_LAMBDA_aurora.test.main.ID16",
+    "@TEMP_LAMBDA_RETURN_TARGET_aurora.test.main.ID16",
+    "return",
+    "@&aurora.test.purecps.LAMBDA_53",
+    "store aurora.test.purecps.LAMBDA_53.res1",
+    "goto @APPLY_BEGIN_aurora.test.main.ID17",
+    "@TEMP_LAMBDA_aurora.test.main.ID17",
+    "store TEMP_LAMBDA_PARAM1_aurora.test.main.ID17",
+    "store TEMP_LAMBDA_PARAM0_aurora.test.main.ID17",
+    "load TEMP_LAMBDA_PARAM1_aurora.test.main.ID17",
+    "tailcall TEMP_LAMBDA_PARAM0_aurora.test.main.ID17",
+    "return",
+    "@APPLY_BEGIN_aurora.test.main.ID17",
     "load aurora.test.purecps.LAMBDA_5.n",
     "load aurora.test.purecps.LAMBDA_53.res1",
     "call aurora.test.purecps.LAMBDA_37.node0",
     "loadclosure @&aurora.test.purecps.LAMBDA_56",
-    "call @TEMP_LAMBDA_aurora.test.main.ID16",
-    "@TEMP_LAMBDA_RETURN_TARGET_aurora.test.main.ID16",
+    "call @TEMP_LAMBDA_aurora.test.main.ID17",
+    "@TEMP_LAMBDA_RETURN_TARGET_aurora.test.main.ID17",
     "return",
     "@&aurora.test.purecps.LAMBDA_56",
     "store aurora.test.purecps.LAMBDA_56.res",
@@ -2922,14 +3491,14 @@
     "load aurora.test.MoB.LAMBDA_5.k",
     "push 0",
     "le",
-    "iftrue @IF_TRUE_aurora.test.main.ID17",
+    "iftrue @IF_TRUE_aurora.test.main.ID18",
     "tailcall aurora.test.MoB.LAMBDA_5.B",
-    "goto @IF_END_aurora.test.main.ID17",
-    "@IF_TRUE_aurora.test.main.ID17",
+    "goto @IF_END_aurora.test.main.ID18",
+    "@IF_TRUE_aurora.test.main.ID18",
     "call aurora.test.MoB.LAMBDA_5.x4",
     "call aurora.test.MoB.LAMBDA_5.x5",
     "add",
-    "@IF_END_aurora.test.main.ID17",
+    "@IF_END_aurora.test.main.ID18",
     "return",
     "@&aurora.test.MoB.LAMBDA_7",
     "load aurora.test.MoB.LAMBDA_5.k",
@@ -2954,13 +3523,5 @@
     "load aurora.test.utils.LAMBDA_6.x",
     "display",
     "return"
-  ],
-  "Components": [
-    "aurora.test.utils",
-    "aurora.test.MoB",
-    "aurora.test.purecps",
-    "aurora.test.callcc-test",
-    "aurora.test.sort",
-    "aurora.test.main"
   ]
 }

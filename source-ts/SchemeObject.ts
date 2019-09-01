@@ -2,29 +2,36 @@
 // SchemeObjects.ts
 // 内存管理和对象定义
 
+// TODO 完善所有对象的深拷贝
+
 type Handle = string;
 
 class HashMap<DummyHandle, V> extends Object{
-    public set(handle: Handle, value: V): void {
+    public set(handle: Handle, value: any): void {
         this[handle] = value;
     }
-    public get(handle: Handle): V{
+    public get(handle: Handle): any{
         return this[handle];
     }
     public has(handle: Handle): boolean {
         return (handle in this);
     }
+    public Copy(): HashMap<DummyHandle, any> {
+        let copy: HashMap<DummyHandle, any> = new HashMap();
+        for(let addr in this) {
+            let value = this.get(addr);
+            if(value === undefined) continue;
+            if(value instanceof SchemeObject) {
+                copy.set(addr, value.Copy());
+            }
+            else {
+                let newValue = JSON.parse(JSON.stringify(value));
+                copy.set(addr, newValue);
+            }
+        }
+        return copy;
+    }
 }
-
-// Memory的元数据数据结构
-/*
-interface Metadata {
-    static: boolean,
-    readOnly: boolean,
-    status: string, // allocated modified free ...
-    referrer: Array<Handle|void>
-}
-*/
 
 // 基于HashMap的对象存储区，用于实现pool、heap等
 class Memory {
@@ -122,10 +129,21 @@ class Memory {
             if(ctrl === "break") break;
         }
     }
+
+    // 深拷贝
+    public Copy(): Memory {
+        let copy = new Memory();
+        copy.data = this.data.Copy();
+        copy.metadata = this.metadata.Copy();
+        copy.handleCounter = this.handleCounter;
+        return copy;
+    }
 }
 
 class SchemeObject {
     public type: SchemeObjectType;
+
+    public Copy() {}
 }
 
 enum SchemeObjectType {
@@ -156,6 +174,13 @@ class ApplicationObject extends SchemeObject {
         this.parent = parent;
         this.children = new Array<any>();
     }
+
+    public Copy(): ApplicationObject {
+        let copy = new ApplicationObject(this.parent);
+        copy.type = SchemeObjectType.APPLICATION;
+        copy.children = this.children.slice();
+        return copy;
+    }
 }
 
 // Quote列表对象
@@ -168,6 +193,13 @@ class QuoteObject extends SchemeObject {
         this.type = SchemeObjectType.QUOTE;
         this.parent = parent;
         this.children = new Array<any>();
+    }
+
+    public Copy(): QuoteObject {
+        let copy = new QuoteObject(this.parent);
+        copy.type = SchemeObjectType.QUOTE;
+        copy.children = this.children.slice();
+        return copy;
     }
 }
 
@@ -182,6 +214,13 @@ class QuasiquoteObject extends SchemeObject {
         this.parent = parent;
         this.children = new Array<any>();
     }
+
+    public Copy(): QuasiquoteObject {
+        let copy = new QuasiquoteObject(this.parent);
+        copy.type = SchemeObjectType.QUASIQUOTE;
+        copy.children = this.children.slice();
+        return copy;
+    }
 }
 
 // Unquote列表对象
@@ -194,6 +233,13 @@ class UnquoteObject extends SchemeObject {
         this.type = SchemeObjectType.UNQUOTE;
         this.parent = parent;
         this.children = new Array<any>();
+    }
+
+    public Copy(): UnquoteObject {
+        let copy = new UnquoteObject(this.parent);
+        copy.type = SchemeObjectType.UNQUOTE;
+        copy.children = this.children.slice();
+        return copy;
     }
 }
 
@@ -210,6 +256,13 @@ class LambdaObject extends SchemeObject {
         this.children = new Array<any>();
         this.children[0] = "lambda";
         this.children[1] = new Array<string>();
+    }
+
+    public Copy(): LambdaObject {
+        let copy = new LambdaObject(this.parent);
+        copy.type = SchemeObjectType.LAMBDA;
+        copy.children = this.children.slice();
+        return copy;
     }
 
     public addParameter(param: string): void {
@@ -244,6 +297,10 @@ class StringObject extends SchemeObject {
         this.type = SchemeObjectType.STRING;
         this.content = str;
     }
+
+    public Copy(): StringObject {
+        return new StringObject(this.content);
+    }
 }
 
 // 闭包（运行时堆对象）
@@ -263,6 +320,15 @@ class Closure extends SchemeObject {
         this.boundVariables = new HashMap<string, any>();
         this.freeVariables = new HashMap<string, any>();
         this.dirtyFlag = new HashMap<string, boolean>();
+    }
+
+    public Copy(): Closure {
+        let copy = new Closure(this.instructionAddress, this.parent);
+        copy.type = SchemeObjectType.CLOSURE;
+        copy.boundVariables = this.boundVariables.Copy();
+        copy.freeVariables = this.freeVariables.Copy();
+        copy.dirtyFlag = this.dirtyFlag.Copy();
+        return copy;
     }
 
     // 不加脏标记
@@ -314,5 +380,13 @@ class Continuation extends SchemeObject{
         this.type = SchemeObjectType.CONTINUATION;
         this.partialEnvironmentJson = JSON.stringify(partialEnvironment);
         this.contReturnTargetLable = contReturnTargetLable;
+    }
+
+    public Copy(): Continuation {
+        let copy = new Continuation(null, null);
+        copy.type = SchemeObjectType.CONTINUATION;
+        copy.partialEnvironmentJson = this.partialEnvironmentJson;
+        copy.contReturnTargetLable = this.contReturnTargetLable;
+        return copy;
     }
 }

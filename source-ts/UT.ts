@@ -12,13 +12,11 @@ function UT() {
     let targetModule = LoadModule(sourcePath);
     fs.writeFileSync("E:/Desktop/GitRepos/AuroraScheme/testcase/Module.json", JSON.stringify(targetModule, null, 2), "utf-8");
 
-    // 捎带着测试一下AVM
-    let process = new Process(targetModule);
+    let PROCESS = new Process(targetModule);
+    let RUNTIME = new Runtime();
 
-    while(process.state !== ProcessState.STOPPED) {
-        // console.log(process.CurrentInstruction().instruction);
-        Execute(process, null);
-    }
+    RUNTIME.AddProcess(PROCESS);
+    RUNTIME.StartClock();
 }
 
 UT();

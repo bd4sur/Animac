@@ -38,6 +38,20 @@ class AST {
         this.natives = new HashMap();
     }
 
+    // 深拷贝
+    public Copy(): AST {
+        let copy = new AST(this.source, this.moduleQualifiedName);
+        copy.nodes = this.nodes.Copy();
+        copy.nodeIndexes = this.nodeIndexes.Copy();
+        copy.lambdaHandles = this.lambdaHandles.slice();
+        copy.tailcall = this.tailcall.slice();
+        copy.variableMapping = this.variableMapping.Copy();
+        copy.topVariables = this.topVariables.Copy();
+        copy.dependencies = this.dependencies.Copy();
+        copy.natives = this.natives.Copy();
+        return copy;
+    }
+
     // 取出某节点
     public GetNode(handle: Handle): any {
         return this.nodes.Get(handle);

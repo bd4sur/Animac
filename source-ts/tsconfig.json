@@ -13,6 +13,6 @@
         "Process.ts",
         "Runtime.ts",
         "Instruction.ts",
-        "UT.ts"
+        "UT.ts",
     ]
 }
