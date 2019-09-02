@@ -2459,6 +2459,9 @@ class Runtime {
     }
     Tick(stopCondition) {
         stopCondition = stopCondition || (() => { return false; });
+        if (this.processQueue.length <= 0) {
+            return VMState.IDLE;
+        }
         let timeslice = 1;
         // 取出队头线程
         let currentPID = this.processQueue.shift();

@@ -7,6 +7,7 @@
 (import PureCPS  "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.purecps.scm")
 (import CallCC   "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.callcc-test.scm")
 (import Sort     "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.sort.scm")
+(import Church   "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.church-encoding.scm")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -50,6 +51,47 @@
 )
 )
 (newline)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; TODO 在没有靠谱的垃圾回收之前，不要跑这个测试用例，否则后续测试无法执行。
+
+;(Utils.show "测试：丘奇编码")
+;(Utils.show "此用例用来测试Scheme语言核心。")
+;(Utils.show "期望结果：略（结果比较直观）")
+;
+;(display "6!=")
+;(display
+;(Church.SHOWNUM 
+;((Church.Y (lambda (f)
+;     (lambda (n)
+;       (Church.IF (Church.IS_EQUAL n Church.<0>)
+;           Church.<1>
+;           (lambda (x y) ((Church.MUL n (f (Church.DEC n)))
+;                          x
+;                          y))
+;       ))))
+; Church.<6>)))
+;
+;(Utils.show "Count(1,2,3,3,3)=")
+;(Utils.show (Church.SHOWNUM (Church.COUNT (Church.CONS Church.<1> (Church.CONS Church.<2> (Church.CONS Church.<3> (Church.CONS Church.<3> (Church.CONS Church.<3> (Church.NULL_LIST)))))))))
+;
+;(Utils.show "List=(")
+;(Church.SHOWLIST (Church.CONS Church.<1> (Church.CONS Church.<2> (Church.CONS Church.<3> (Church.CONS Church.<4> (Church.CONS Church.<5> (Church.NULL_LIST)))))))
+;
+;(Utils.show "Range(2,7)=(")
+;(Church.SHOWLIST (Church.RANGE Church.<2> Church.<7>))
+;
+;(Utils.show "Fold(1:10,0,ADD)=")
+;(Utils.show (Church.SHOWNUM (Church.FOLD (Church.RANGE Church.<1> Church.<10>) Church.<0> Church.ADD)))
+;
+;(Utils.show "MAP(1:9,0,INC)=(")
+;(Church.SHOWLIST (Church.MAP (Church.RANGE Church.<1> Church.<9>) Church.INC))
+;
+;(Utils.show "Proj(2:10,5)=")
+;(Utils.show (Church.SHOWNUM (Church.PROJ (Church.MAP (Church.RANGE Church.<1> Church.<9>) Church.INC) Church.<5>)))
+;
+;(newline)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
