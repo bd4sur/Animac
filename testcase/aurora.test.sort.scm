@@ -1,5 +1,4 @@
-;; 最基本的快速排序，用于验证一等函数、列表操作、if、and/or等特殊结构
-;; 此排序算法无法处理重复元素
+;; 快速排序，用于验证一等函数、列表操作、if、and/or等特殊结构
 
 (define filter
   (lambda (f lst)
@@ -15,14 +14,20 @@
         b
         (cons (car a) (concat (cdr a) b)))))
 
+(define partition
+  (lambda (op pivot array)
+    (filter (lambda (x) (if (op x pivot) #t #f)) array)))
+
 (define quicksort
   (lambda (array)
+    (define pivot #f)
     (if (or (null? array) (null? (cdr array)))
         array
-        (concat (quicksort (filter (lambda (x)
-                                     (if (< x (car array)) #t #f))
-                                   array))
-                           (cons (car array)
-                                 (quicksort (filter (lambda (x)
-                                                      (if (> x (car array)) #t #f))
-                                                    array)))))))
+        {
+          (set! pivot (car array))
+          (concat (quicksort (partition < pivot array))
+                  (concat (partition = pivot array)
+                          (quicksort (partition > pivot array))))
+        }
+    )
+))

@@ -36,7 +36,7 @@
 (Utils.show "测试：快速排序")
 (Utils.show "此用例用来测试列表操作。")
 (Utils.show "期望结果：'(0 1 2 3 4 5 6 7 8 9)")
-(display (Sort.quicksort '(5 9 1 7 5 3 0 4 6 8 2)))
+(display (Sort.quicksort '(6 5 9 6 1 7 5 3 0 4 6 8 2)))
 (newline)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

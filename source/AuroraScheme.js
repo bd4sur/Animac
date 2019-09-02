@@ -8,8 +8,8 @@ const TOP_NODE_HANDLE = "&TOP_NODE";
 // 关键字集合
 const KEYWORDS = [
     "car", "cdr", "cons", "cond", "if", "else", "begin",
-    "+", "-", "*", "/", "=", "and", "or",
-    "not", ">", "<", ">=", "<=", "eq?",
+    "+", "-", "*", "/", "=", "%", "pow",
+    "and", "or", "not", ">", "<", ">=", "<=", "eq?",
     "define", "set!", "null?",
     "display", "newline",
     "call/cc",
@@ -2700,7 +2700,7 @@ class Runtime {
                 let value = PROCESS.Dereference(variable);
                 let valueType = TypeOfToken(value);
                 if (valueType === 'KEYWORD') {
-                    // TODO 增加对primitive的一等支持
+                    this.ExecutePrimitive(value, argument, PROCESS, RUNTIME);
                 }
                 else if (valueType === 'LABEL') {
                     let label = value;
@@ -2807,7 +2807,7 @@ class Runtime {
                 let value = PROCESS.Dereference(variable);
                 let valueType = TypeOfToken(value);
                 if (valueType === 'KEYWORD') {
-                    // TODO 增加对primitive的一等支持
+                    this.ExecutePrimitive(value, argument, PROCESS, RUNTIME);
                 }
                 else if (valueType === 'LABEL') {
                     let label = value;
@@ -3467,6 +3467,40 @@ class Runtime {
         }
         else if (mnemonic === 'halt') {
             this.AIL_HALT(argument, PROCESS, RUNTIME);
+        }
+    }
+    // 执行内置运算符所对应的指令
+    ExecutePrimitive(op, argument, PROCESS, RUNTIME) {
+        let primitiveInst = PrimitiveInstruction[op];
+        if (primitiveInst === 'add') {
+            this.AIL_ADD(argument, PROCESS, RUNTIME);
+        }
+        else if (primitiveInst === 'sub') {
+            this.AIL_SUB(argument, PROCESS, RUNTIME);
+        }
+        else if (primitiveInst === 'mul') {
+            this.AIL_MUL(argument, PROCESS, RUNTIME);
+        }
+        else if (primitiveInst === 'div') {
+            this.AIL_DIV(argument, PROCESS, RUNTIME);
+        }
+        else if (primitiveInst === 'mod') {
+            this.AIL_MOD(argument, PROCESS, RUNTIME);
+        }
+        else if (primitiveInst === 'eqn') {
+            this.AIL_EQN(argument, PROCESS, RUNTIME);
+        }
+        else if (primitiveInst === 'ge') {
+            this.AIL_GE(argument, PROCESS, RUNTIME);
+        }
+        else if (primitiveInst === 'le') {
+            this.AIL_LE(argument, PROCESS, RUNTIME);
+        }
+        else if (primitiveInst === 'gt') {
+            this.AIL_GT(argument, PROCESS, RUNTIME);
+        }
+        else if (primitiveInst === 'lt') {
+            this.AIL_LT(argument, PROCESS, RUNTIME);
         }
     }
 }
