@@ -35,7 +35,7 @@ class Runtime {
         if(this.processQueue.length <= 0) {
             return VMState.IDLE;
         }
-        let timeslice = 1;
+        let timeslice = 100;
         // 取出队头线程
         let currentPID = this.processQueue.shift();
         let currentProcess = this.processPool[currentPID];
@@ -87,7 +87,7 @@ class Runtime {
         */
 
         function Run() {
-            let COMPUTATION_PHASE_LENGTH = 1000; // TODO 这个值可以调整
+            let COMPUTATION_PHASE_LENGTH = 10; // TODO 这个值可以调整
             while(COMPUTATION_PHASE_LENGTH >= 0) {
                 let avmState = this.Tick(stopCondition);
                 COMPUTATION_PHASE_LENGTH--;
