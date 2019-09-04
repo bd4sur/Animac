@@ -1,0 +1,183 @@
+body {
+    width: 60%;
+    min-width: 800px;
+    margin: 10px auto;
+    font-family: -apple-system, BlinkMacSystemFont, Microsoft YaHei, "宋体", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+* {
+    outline: none;
+}
+
+.mainbox {
+    max-width: 1000px;
+    margin: 20px auto 20px auto;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, Microsoft YaHei, "宋体", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    color: #353535;
+    border: 1px solid #dddddd;
+    border-radius: 10px;
+    box-shadow: 0 0px #e5e5e5, 0 0 15px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.05);
+    overflow: hidden;
+}
+
+header {
+    margin: 20px 30px;
+}
+
+.title {
+    margin: 12px 0;
+    font-size: 23px;
+    font-weight: bold;
+}
+
+.copyright, .subtitle {
+    font-size: 13px;
+    color: #aaaaaa;
+    margin: 5px 0;
+}
+
+.debugger {
+    margin: 20px 30px;
+}
+
+a {
+    color: inherit;
+    text-decoration: underline;
+}
+a:hover {
+    color: #00a4e6;
+    text-decoration: underline;
+}
+
+button {
+    font-family: 'consolas', Courier, monospace;
+    line-height:0px;
+    height:30px;
+    font-size: 14px;
+    border-radius: 5px;
+    padding: 3px 10px 3px 10px;
+}
+
+.btn-stop {
+    color: #ff5888;
+    border: 1px solid #ffefef;
+    background-color: #ffefef;
+}
+.btn-stop:hover {
+    color: #ff5888;
+    border: 1px solid #ff5888;
+}
+
+.btn-common {
+    color: #33bbff;
+    border: 1px solid #e1f5ff;
+    background-color: #e1f5ff;
+}
+.btn-common:hover {
+    color: #33bbff;
+    border: 1px solid #40bfff;
+}
+
+.btn-start {
+    color: #60c700;
+    border: 1px solid #e7ffd0;
+    background-color: #e7ffd0;
+}
+.btn-start:hover {
+    color: #60c700;
+    border: 1px solid #60c700;
+}
+
+pre {
+    margin: 0;
+}
+
+.console {
+    line-height: 20px;
+    background-color: #333333;
+    color:#eeeeee;
+    border-radius: 5px;
+    padding:5px 8px;
+    margin: 10px 0;
+    font-size: 13px;
+    overflow-wrap:
+    break-word;
+    font-family: Menlo,Monaco,Consolas,monospace;
+    -webkit-font-smoothing: antialiased;
+}
+
+
+.code {
+    width: 300px;
+}
+.lineNum {
+    color: #aaaaaa;
+    display: inline-block;
+    text-align: right;
+    width: 20px;
+    margin-right: 15px;
+}
+p {
+    margin: 2px 0;
+}
+.table-container {
+    overflow-x: auto;
+    border-radius: 8px;
+    box-shadow: 0 1px 1px 0 rgba(64,64,64,0.08), 0 1px 3px 1px rgba(64,64,64,0.16);
+}
+table {
+    font-size: 11px;
+    border-collapse: collapse;
+    width: 100%;
+    background-color: transparent;
+    border-spacing: 0;
+}
+td:first-child, th:first-child {
+    border: none;
+}
+
+td, th {
+    min-width: 30px;
+    border: none;
+    border-left: 1px solid #f5f5f5;
+    vertical-align: top;
+    font-family: monospace;
+    text-align: left;
+}
+td {
+    padding: 5px 0;
+}
+th {
+    padding: 5px 8px;
+    height: 30px;
+    background-color: #f5f5f5;
+    vertical-align: middle;
+    font-weight: bold;
+}
+.closureTable {
+    border: 2px solid #dddddd;
+    margin: 3px 0;
+}
+.closureTable td{
+    min-width: 20px;
+    padding: 1px 2px;
+    text-align: center;
+}
+.envSymbol,.envValue{
+    background-color: lightskyblue;
+}
+.envSymbol{
+    font-weight: bold;
+}
+.upvaluesSymbol,.upvaluesValue{
+    background-color:pink;
+}
+.upvaluesSymbol{
+    font-weight: bold;
+}
+hr {
+    border: none;
+    border-top: 2px solid #b9e8ff;
+}
