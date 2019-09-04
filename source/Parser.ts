@@ -819,7 +819,8 @@ function Parse(code: string, moduleQualifiedName: string): AST {
                 else {
                     for(let i = 0; i < node.children.length; i++) {
                         let istail = false;
-                        if((i === node.children.length - 1) && (node.children[0] === 'and' || node.children[0] === 'or')) {
+                        if ((i === node.children.length - 1) &&
+                            (node.children[0] === 'begin' || node.children[0] === 'and' || node.children[0] === 'or')) {
                             istail = true;
                         }
                         TailCallAnalysis(node.children[i], istail);

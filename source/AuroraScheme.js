@@ -1311,7 +1311,8 @@ function Parse(code, moduleQualifiedName) {
                 else {
                     for (let i = 0; i < node.children.length; i++) {
                         let istail = false;
-                        if ((i === node.children.length - 1) && (node.children[0] === 'and' || node.children[0] === 'or')) {
+                        if ((i === node.children.length - 1) &&
+                            (node.children[0] === 'begin' || node.children[0] === 'and' || node.children[0] === 'or')) {
                             istail = true;
                         }
                         TailCallAnalysis(node.children[i], istail);
@@ -2462,7 +2463,7 @@ class Runtime {
         if (this.processQueue.length <= 0) {
             return VMState.IDLE;
         }
-        let timeslice = 100;
+        let timeslice = 1000;
         // 取出队头线程
         let currentPID = this.processQueue.shift();
         let currentProcess = this.processPool[currentPID];
@@ -2511,7 +2512,7 @@ class Runtime {
             如果COMPUTATION_PHASE_LENGTH=∞，则退化为完全由while控制的执行时钟，性能最佳，但异步事件得不到执行。
         */
         function Run() {
-            let COMPUTATION_PHASE_LENGTH = 10; // TODO 这个值可以调整
+            let COMPUTATION_PHASE_LENGTH = 100; // TODO 这个值可以调整
             while (COMPUTATION_PHASE_LENGTH >= 0) {
                 let avmState = this.Tick(stopCondition);
                 COMPUTATION_PHASE_LENGTH--;
@@ -2759,17 +2760,19 @@ class Runtime {
         if (argType === 'LABEL') {
             let label = argument;
             let instructionAddress = PROCESS.GetLabelAddress(label);
-            let newClosureHandle = PROCESS.NewClosure(instructionAddress, PROCESS.currentClosureHandle);
             let currentClosure = PROCESS.GetCurrentClosure();
-            for (let v in currentClosure.freeVariables) {
-                let value = currentClosure.GetFreeVariable(v);
-                PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
+            if (currentClosure.instructionAddress !== instructionAddress) {
+                let newClosureHandle = PROCESS.NewClosure(instructionAddress, PROCESS.currentClosureHandle);
+                for (let v in currentClosure.freeVariables) {
+                    let value = currentClosure.GetFreeVariable(v);
+                    PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
+                }
+                for (let v in currentClosure.boundVariables) {
+                    let value = currentClosure.GetBoundVariable(v);
+                    PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
+                }
+                PROCESS.SetCurrentClosure(newClosureHandle);
             }
-            for (let v in currentClosure.boundVariables) {
-                let value = currentClosure.GetBoundVariable(v);
-                PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
-            }
-            PROCESS.SetCurrentClosure(newClosureHandle);
             PROCESS.Goto(instructionAddress);
         }
         else if (argType === 'HANDLE') { // 闭包或续延（用于回调参数的情况）
@@ -2815,17 +2818,19 @@ class Runtime {
                 else if (valueType === 'LABEL') {
                     let label = value;
                     let instructionAddress = PROCESS.GetLabelAddress(label);
-                    let newClosureHandle = PROCESS.NewClosure(instructionAddress, PROCESS.currentClosureHandle);
                     let currentClosure = PROCESS.GetCurrentClosure();
-                    for (let v in currentClosure.freeVariables) {
-                        let value = currentClosure.GetFreeVariable(v);
-                        PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
+                    if (currentClosure.instructionAddress !== instructionAddress) {
+                        let newClosureHandle = PROCESS.NewClosure(instructionAddress, PROCESS.currentClosureHandle);
+                        for (let v in currentClosure.freeVariables) {
+                            let value = currentClosure.GetFreeVariable(v);
+                            PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
+                        }
+                        for (let v in currentClosure.boundVariables) {
+                            let value = currentClosure.GetBoundVariable(v);
+                            PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
+                        }
+                        PROCESS.SetCurrentClosure(newClosureHandle);
                     }
-                    for (let v in currentClosure.boundVariables) {
-                        let value = currentClosure.GetBoundVariable(v);
-                        PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
-                    }
-                    PROCESS.SetCurrentClosure(newClosureHandle);
                     PROCESS.Goto(instructionAddress);
                 }
                 // 值为把柄：可能是闭包、continuation或其他
