@@ -1,6 +1,6 @@
 # AuroraScheme
 
-![GitHub top language](https://img.shields.io/github/languages/top/mikukonai/AuroraScheme.svg) ![GitHub](https://img.shields.io/github/license/mikukonai/AuroraScheme.svg?label=Licence) 
+![GitHub top language](https://img.shields.io/github/languages/top/mikukonai/AuroraScheme) ![GitHub](https://img.shields.io/github/license/mikukonai/AuroraScheme.svg?label=Licence) 
 
 Scheme语言实现 / A Scheme Implementation
 
