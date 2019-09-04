@@ -7,16 +7,9 @@
 (define generator #f)
 (define g
   (lambda ()
-    ((lambda (init) (begin
+    ((lambda (init)
       (call/cc (lambda (Kont)
                  (set! generator Kont)))
       (set! init (+ init 1))
       (set! count init)
-      init)) 0)))
-
-(display "【SSC编译】生成器：")
-(display (g))
-(display " ")
-(if (>= count 10)
-    (newline)
-    (display (generator 666)))
+      init) 0)))

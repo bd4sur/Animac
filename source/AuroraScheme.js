@@ -19,16 +19,8 @@ const KEYWORDS = [
 ];
 // Primitive对应的AIL指令
 const PrimitiveInstruction = {
-    "+": "add",
-    "-": "sub",
-    "*": "mul",
-    "/": "div",
-    "%": "mod",
-    "=": "eqn",
-    "<": "lt",
-    ">": "gt",
-    "<=": "le",
-    ">=": "ge"
+    "+": "add", "-": "sub", "*": "mul", "/": "div", "%": "mod",
+    "=": "eqn", "<": "lt", ">": "gt", "<=": "le", ">=": "ge"
 };
 // 取数组/栈的栈顶
 function Top(arr) {
@@ -2447,6 +2439,7 @@ class Runtime {
     constructor() {
         this.processPool = new Array();
         this.processQueue = new Array();
+        this.outputBuffer = new Array();
     }
     AllocatePID() {
         return this.processPool.length;
@@ -2458,6 +2451,9 @@ class Runtime {
         }
         this.processQueue.push(p.PID); // 加入队尾
     }
+    //=================================================================
+    //                       以下是进程调度器
+    //=================================================================
     Tick(stopCondition) {
         stopCondition = stopCondition || (() => { return false; });
         if (this.processQueue.length <= 0) {
@@ -2482,6 +2478,7 @@ class Runtime {
                 break;
             }
             else if (currentProcess.state === ProcessState.STOPPED) {
+                delete this.processPool[currentPID]; // 清理掉执行完的进程
                 break;
             }
         }
@@ -2523,7 +2520,18 @@ class Runtime {
         }
         setInterval(() => {
             Run.call(this);
+            // 控制台输出
+            if (this.outputBuffer.length > 0) {
+                process.stdout.write(this.outputBuffer.join(""));
+                this.outputBuffer = new Array();
+            }
         }, 0);
+    }
+    //=================================================================
+    //                      以下是控制台输入输出
+    //=================================================================
+    Output(str) {
+        this.outputBuffer.push(str);
     }
     //=================================================================
     //                  以下是AIL指令实现（封装成函数）
@@ -3316,21 +3324,21 @@ class Runtime {
         if (contentType === "HANDLE") {
             let obj = PROCESS.heap.Get(content);
             if (obj.type === "STRING") {
-                console.log(`${TrimQuotes(obj.content)}`);
+                RUNTIME.Output(`${TrimQuotes(obj.content)}`);
             }
             else {
                 let str = PROCESS.AST.NodeToString(content);
-                console.log(`${str}`);
+                RUNTIME.Output(`${str}`);
             }
         }
         else {
-            console.info(`${String(content)}`);
+            RUNTIME.Output(`${String(content)}`);
         }
         PROCESS.Step();
     }
     // newline 调试输出换行
     AIL_NEWLINE(argument, PROCESS, RUNTIME) {
-        console.info(`\n`);
+        RUNTIME.Output(`\n`);
         PROCESS.Step();
     }
     // nop 空指令

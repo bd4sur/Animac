@@ -2,27 +2,59 @@
 ;; AuroraScheme测试用例 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(import Utils    "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.utils.scm")
-(import ManOrBoy "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.MoB.scm")
-(import PureCPS  "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.purecps.scm")
-(import CallCC   "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.callcc-test.scm")
-(import Sort     "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.sort.scm")
-(import Church   "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.church-encoding.scm")
+(import Utils      "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.utils.scm")
+(import ManOrBoy   "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.MoB.scm")
+(import PureCPS    "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.purecps.scm")
+(import CallCC     "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.callcc-test.scm")
+(import Sort       "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.sort.scm")
+(import Church     "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.church-encoding.scm")
+(import Generator  "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.generator.scm")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(Utils.show "测试：Man or Boy Test：")
-(Utils.show "此用例用来测试系统能否正确处理词法作用域、一等函数、set!等基本特性。")
-(Utils.show "期望结果：-67")
+(Utils.show "测试：Man or Boy Test")(newline)
+(Utils.show "此用例用来测试系统能否正确处理词法作用域、一等函数、set!等基本特性。")(newline)
+(Utils.show "期望结果：-67")(newline)
+(Utils.show "实际结果：")
 (Utils.show (ManOrBoy.A 10 (lambda () 1) (lambda () -1) (lambda () -1) (lambda () 1) (lambda () 0)))
+(newline)
 (newline)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(Utils.show "测试：真·CPS阶乘：10!=")
-(Utils.show "此用例用来测试系统能否正确处理复杂嵌套的匿名函数及其调用。")
-(Utils.show "期望结果：3628800")
+(Utils.show "测试：真·CPS阶乘：10!")(newline)
+(Utils.show "此用例用来测试系统能否正确处理复杂嵌套的匿名函数及其调用。")(newline)
+(Utils.show "期望结果：3628800")(newline)
+(Utils.show "实际结果：")
 (((PureCPS.fac-cps (lambda (x) x)) 10) (lambda (x) (display x)))
+(newline)
+(newline)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(Utils.show "测试：CPS阶乘+set！")(newline)
+(Utils.show "此用例用来测试系统能否正确处理复杂嵌套的匿名函数及其调用。")(newline)
+(Utils.show "期望结果：120 5 6")(newline)
+(define fac-count 0)
+(define clo-count 0)
+(define fac
+  (lambda (n cont) (begin
+    (set! fac-count (+ fac-count 1))
+    (if (= n 0)
+        (cont 1)
+        (fac (- n 1)
+             (lambda (res) (begin
+               (set! clo-count (+ clo-count 1))
+               (cont (* res n)))))))))
+(display "5!=")
+(display (fac 5 (lambda (x) x)))
+(newline)
+(display "闭包调用次数=")
+(display clo-count)
+(newline)
+(display "阶乘递归调用次数=")
+(display fac-count)
+(newline)
 (newline)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -34,22 +66,25 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(Utils.show "测试：快速排序")
-(Utils.show "此用例用来测试列表操作。")
-(Utils.show "期望结果：'(0 1 2 3 4 5 6 7 8 9)")
-(display (Sort.quicksort '(6 5 9 6 1 7 5 3 0 4 6 8 2)))
+(Utils.show "测试：快速排序")(newline)
+(Utils.show "此用例用来测试列表操作。")(newline)
+(Utils.show "期望结果：'(0 1 2 3 4 5 5 6 6 6 7 8 9)")(newline)
+(Utils.show "实际结果：")
+(Utils.show (Sort.quicksort '(6 5 9 6 1 7 5 3 0 4 6 8 2)))
+(newline)
 (newline)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(Utils.show "测试：Quine")
-(Utils.show "此用例用来测试列表操作、display对于复杂列表的处理是否正确。")
+(Utils.show "测试：Quine")(newline)
+(Utils.show "此用例用来测试列表操作、display对于复杂列表的处理是否正确。")(newline)
 (Utils.show
 (
        (lambda (x) (cons x (cons (cons 'quote (cons x '())) '())))
 (quote (lambda (x) (cons x (cons (cons 'quote (cons x '())) '()))))
 )
 )
+(newline)
 (newline)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -95,10 +130,10 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(Utils.show "测试：尾递归优化")
-(Utils.show "此用例用来尾调用（尾递归）优化。")
-(Utils.show "期望结果：5000050000")
-;; 尾递归优化演示
+(Utils.show "测试：尾递归优化")(newline)
+(Utils.show "此用例用来测试尾调用（尾递归）优化。")(newline)
+(Utils.show "期望结果：5000050000")(newline)
+(Utils.show "实际结果：")
 (define sum
   (lambda (n s)
     (if (= n 0)
@@ -106,37 +141,54 @@
         (sum (- n 1) (+ n s)))))
 (display (sum 100000 0))
 (newline)
+(newline)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(Utils.show "测试：Fork和本地库函数")
+(Utils.show "测试：使用call/cc模拟其他高级语言的生成器。")(newline)
+(Utils.show "此用例用来测试call/cc。")(newline)
+(Utils.show "期望结果：输出1~10")(newline)
+(Utils.show "实际结果：")
+(Utils.show (Generator.g))
+(Utils.show " ")
+(if (>= Generator.count 10)
+    (newline)
+    (Utils.show (Generator.generator 666)))
+(newline)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+
+(Utils.show "测试：Fork和本地库函数")(newline)
 
 (fork {
-    (Utils.show "子进程1开始啦")
+    (Utils.show "子进程1开始啦")(newline)
     (define infinite
       (lambda ()
-        ;(Utils.show "无限循环的进程")
+        ;(Utils.show "无限循环的进程 ")
         (infinite)))
     (infinite)
-    (Utils.show "子进程1结束啦（并不会）")
+    (Utils.show "子进程1结束啦（并不会）")(newline)
 })
 
 (fork {
-    (Utils.show "子进程2开始啦")
+    (Utils.show "子进程2开始啦")(newline)
     (native Console)
     (native HTTPS)
     (define res #f)
     (set! res (HTTPS.Request "https://mikukonai.com/feed.xml"))
     (Utils.show res)
-    (Utils.show "子进程2结束啦")
+    (Utils.show "子进程2结束啦")(newline)
 })
 
 (fork {
-    (Utils.show "子进程3开始啦")
+    (Utils.show "子进程3开始啦")(newline)
     (native File)
     (define res #f)
     (set! res (File.Read "E:/text.txt"))
     (Utils.show res)
+    (newline)
     (define foo
     (lambda (n)
         (if (= n 0)
@@ -144,7 +196,8 @@
             (* n (foo (- n 1))))))
     ((lambda (kkk)
        (Utils.show "子进程里计算阶乘的结果：")
-       (Utils.show kkk))
+       (Utils.show kkk)
+       (newline))
      (foo 10))
-    (Utils.show "子进程3结束啦")
+    (Utils.show "子进程3结束啦")(newline)
 })

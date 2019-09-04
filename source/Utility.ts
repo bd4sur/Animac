@@ -26,16 +26,8 @@ const KEYWORDS = [
 // Primitive对应的AIL指令
 
 const PrimitiveInstruction = {
-    "+": "add",
-    "-": "sub",
-    "*": "mul",
-    "/": "div",
-    "%": "mod",
-    "=": "eqn",
-    "<": "lt",
-    ">": "gt",
-    "<=": "le",
-    ">=": "ge"
+    "+": "add",    "-": "sub",    "*": "mul",    "/": "div",    "%": "mod",
+    "=": "eqn",    "<": "lt",     ">": "gt",     "<=": "le",    ">=": "ge"
 };
 
 

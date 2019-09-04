@@ -13,9 +13,12 @@ class Runtime {
     public processPool: Array<Process>;  // 进程池
     public processQueue: Array<PID>;     // 进程队列
 
+    public outputBuffer: Array<string>;  // 控制台输出缓冲
+
     constructor() {
         this.processPool = new Array();
         this.processQueue = new Array();
+        this.outputBuffer = new Array();
     }
 
     public AllocatePID(): number {
@@ -29,6 +32,10 @@ class Runtime {
         }
         this.processQueue.push(p.PID); // 加入队尾
     }
+
+    //=================================================================
+    //                       以下是进程调度器
+    //=================================================================
 
     public Tick(stopCondition: (()=>boolean) | void) {
         stopCondition = stopCondition || (()=>{return false;});
@@ -54,6 +61,7 @@ class Runtime {
                 break;
             }
             else if(currentProcess.state === ProcessState.STOPPED) {
+                delete this.processPool[currentPID]; // 清理掉执行完的进程
                 break;
             }
         }
@@ -99,9 +107,22 @@ class Runtime {
 
         setInterval(()=>{
             Run.call(this);
+            // 控制台输出
+            if(this.outputBuffer.length > 0) {
+                process.stdout.write(this.outputBuffer.join(""));
+                this.outputBuffer = new Array();
+            }
         }, 0);
     }
 
+
+    //=================================================================
+    //                      以下是控制台输入输出
+    //=================================================================
+
+    public Output(str: string): void {
+        this.outputBuffer.push(str);
+    }
 
 
     //=================================================================
@@ -950,22 +971,22 @@ class Runtime {
         if(contentType === "HANDLE") {
             let obj = PROCESS.heap.Get(content);
             if(obj.type === "STRING") {
-                console.log(`${TrimQuotes(obj.content)}`);
+                RUNTIME.Output(`${TrimQuotes(obj.content)}`);
             }
             else {
                 let str = PROCESS.AST.NodeToString(content);
-                console.log(`${str}`);
+                RUNTIME.Output(`${str}`);
             }
         }
         else {
-            console.info(`${String(content)}`);
+            RUNTIME.Output(`${String(content)}`);
         }
         PROCESS.Step();
     }
 
     // newline 调试输出换行
     public AIL_NEWLINE(argument: string, PROCESS: Process, RUNTIME: Runtime): void {
-        console.info(`\n`);
+        RUNTIME.Output(`\n`);
         PROCESS.Step();
     }
 
