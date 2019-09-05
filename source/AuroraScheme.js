@@ -12,6 +12,7 @@ const KEYWORDS = [
     "and", "or", "not", ">", "<", ">=", "<=", "eq?",
     "define", "set!", "null?",
     "display", "newline",
+    "write", "read",
     "call/cc",
     "import", "native",
     "fork",
@@ -57,6 +58,9 @@ function TypeOfToken(token) {
     }
     else if (isNaN(parseFloat(token)) === false) {
         return "NUMBER";
+    }
+    else if (token[0] === ':') {
+        return "PORT";
     }
     else if (token[0] === '&') {
         return "HANDLE";
@@ -1038,7 +1042,7 @@ function Parse(code, moduleQualifiedName) {
                     NODE_STACK.push(currentToken); // 压入string
                 }
                 // 被quote的变量和关键字（除了quote、unquote和quasiquote），变成symbol
-                else if (type === "VARIABLE" || type === "KEYWORD" ||
+                else if (type === "VARIABLE" || type === "KEYWORD" || type === "PORT" ||
                     (currentToken !== "quasiquote" && currentToken !== "quote" && currentToken !== "unquote")) {
                     NODE_STACK.push(`'${currentToken}`);
                 }
@@ -1061,7 +1065,7 @@ function Parse(code, moduleQualifiedName) {
                     NODE_STACK.push(stringHandle);
                     ast.nodeIndexes.set(stringHandle, tokens[index].index);
                 }
-                else if (type === "VARIABLE" || type === "KEYWORD" || type === "BOOLEAN") {
+                else if (type === "VARIABLE" || type === "KEYWORD" || type === "BOOLEAN" || type === "PORT") {
                     NODE_STACK.push(currentToken); // VARIABLE原样保留，在作用域分析的时候才被录入AST
                 }
                 else {
@@ -1081,7 +1085,7 @@ function Parse(code, moduleQualifiedName) {
                 else if (type === "SYMBOL") {
                     NODE_STACK.push(currentToken);
                 }
-                else if (type === "VARIABLE" || type === "KEYWORD" || type === "BOOLEAN") {
+                else if (type === "VARIABLE" || type === "KEYWORD" || type === "BOOLEAN" || type === "PORT") {
                     NODE_STACK.push(currentToken); // VARIABLE原样保留，在作用域分析的时候才被录入AST
                 }
                 else {
@@ -1411,7 +1415,7 @@ function Compile(ast) {
             else if (bodyType === "VARIABLE") {
                 AddInstruction(`load ${body}`);
             }
-            else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD"].indexOf(bodyType) >= 0) {
+            else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(bodyType) >= 0) {
                 AddInstruction(`push ${body}`);
             }
             else {
@@ -1478,7 +1482,7 @@ function Compile(ast) {
         else if (rightValueType === "VARIABLE") {
             AddInstruction(`load ${rightValue}`);
         }
-        else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD"].indexOf(rightValueType) >= 0) {
+        else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(rightValueType) >= 0) {
             AddInstruction(`push ${rightValue}`);
         }
         else {
@@ -1525,7 +1529,7 @@ function Compile(ast) {
         else if (rightValueType === "VARIABLE") {
             AddInstruction(`load ${rightValue}`);
         }
-        else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD"].indexOf(rightValueType) >= 0) {
+        else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(rightValueType) >= 0) {
             AddInstruction(`push ${rightValue}`);
         }
         else {
@@ -1565,7 +1569,7 @@ function Compile(ast) {
             AddInstruction(`load ${predicate}`);
         }
         // TODO 此处可以作优化
-        else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD"].indexOf(predicateType) >= 0) {
+        else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(predicateType) >= 0) {
             AddInstruction(`push ${predicate}`);
         }
         else {
@@ -1600,7 +1604,7 @@ function Compile(ast) {
         else if (falseBranchType === "VARIABLE") {
             AddInstruction(`load ${falseBranch}`);
         }
-        else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD"].indexOf(falseBranchType) >= 0) {
+        else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(falseBranchType) >= 0) {
             AddInstruction(`push ${falseBranch}`);
         }
         else {
@@ -1634,7 +1638,7 @@ function Compile(ast) {
         else if (trueBranchType === "VARIABLE") {
             AddInstruction(`load ${trueBranch}`);
         }
-        else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD"].indexOf(trueBranchType) >= 0) {
+        else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(trueBranchType) >= 0) {
             AddInstruction(`push ${trueBranch}`);
         }
         else {
@@ -1680,7 +1684,7 @@ function Compile(ast) {
                 AddInstruction(`load ${clause}`);
             }
             // TODO 此处可以作优化（短路）
-            else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD"].indexOf(clauseType) >= 0) {
+            else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(clauseType) >= 0) {
                 AddInstruction(`push ${clause}`);
             }
             else {
@@ -1735,7 +1739,7 @@ function Compile(ast) {
                 AddInstruction(`load ${clause}`);
             }
             // TODO 此处可以作优化（短路）
-            else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD"].indexOf(clauseType) >= 0) {
+            else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(clauseType) >= 0) {
                 AddInstruction(`push ${clause}`);
             }
             else {
@@ -1817,7 +1821,7 @@ function Compile(ast) {
             else if (childType === "VARIABLE") {
                 AddInstruction(`load ${child}`);
             }
-            else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD"].indexOf(childType) >= 0) {
+            else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(childType) >= 0) {
                 AddInstruction(`push ${child}`);
             }
             else {
@@ -1907,7 +1911,7 @@ function Compile(ast) {
                 else if (childType === "VARIABLE") {
                     AddInstruction(`load ${child}`);
                 }
-                else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD"].indexOf(childType) >= 0) {
+                else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(childType) >= 0) {
                     AddInstruction(`push ${child}`);
                 }
                 else {
@@ -2081,7 +2085,18 @@ function LoadModuleFromNode(ast, nodeHandle) {
     // 将目标节点移到顶级作用域
     let topLambdaNodeHandle = currentAST.GetNode(currentAST.TopApplicationNodeHandle()).children[0];
     let temp = currentAST.GetNode(topLambdaNodeHandle).children;
-    currentAST.GetNode(topLambdaNodeHandle).children = temp.slice(0, 2).concat([nodeHandle]);
+    // 将所在AST的顶级作用域的(define ..)搬迁到顶级作用域
+    let temp2 = new Array();
+    for (let i = 2; i < temp.length; i++) {
+        if (TypeOfToken(temp[i]) === "HANDLE") {
+            let childNode = currentAST.GetNode(temp[i]);
+            if (childNode.type === "APPLICATION" && childNode.children[0] === "define") {
+                temp2.push(temp[i]);
+            }
+        }
+    }
+    temp2.push(nodeHandle);
+    currentAST.GetNode(topLambdaNodeHandle).children = temp.slice(0, 2).concat(temp2);
     allASTs.set(mainModuleQualifiedName, currentAST);
     for (let alias in currentAST.dependencies) {
         let dependencyPath = currentAST.dependencies.get(alias);
@@ -2439,6 +2454,7 @@ class Runtime {
     constructor() {
         this.processPool = new Array();
         this.processQueue = new Array();
+        this.ports = new HashMap();
         this.outputBuffer = new Array();
     }
     AllocatePID() {
@@ -3341,6 +3357,31 @@ class Runtime {
         RUNTIME.Output(`\n`);
         PROCESS.Step();
     }
+    // read 读端口内容
+    AIL_READ(argument, PROCESS, RUNTIME) {
+        let port = PROCESS.PopOperand();
+        // 类型检查
+        if (TypeOfToken(port) === 'PORT') {
+            PROCESS.PushOperand(RUNTIME.ports.get(port));
+            PROCESS.Step();
+        }
+        else {
+            throw `[Error] read指令参数必须是端口。`;
+        }
+    }
+    // write 写端口内容
+    AIL_WRITE(argument, PROCESS, RUNTIME) {
+        let value = PROCESS.PopOperand();
+        let port = PROCESS.PopOperand();
+        // 类型检查
+        if (TypeOfToken(port) === 'PORT') {
+            RUNTIME.ports.set(port, value);
+            PROCESS.Step();
+        }
+        else {
+            throw `[Error] read指令参数必须是端口。`;
+        }
+    }
     // nop 空指令
     AIL_NOP(argument, PROCESS, RUNTIME) {
         PROCESS.Step();
@@ -3475,6 +3516,12 @@ class Runtime {
         else if (mnemonic === 'newline') {
             this.AIL_NEWLINE(argument, PROCESS, RUNTIME);
         }
+        else if (mnemonic === 'read') {
+            this.AIL_READ(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'write') {
+            this.AIL_WRITE(argument, PROCESS, RUNTIME);
+        }
         else if (mnemonic === "nop") {
             this.AIL_NOP(argument, PROCESS, RUNTIME);
         }
@@ -3604,7 +3651,7 @@ class Instruction {
 const fs = require("fs");
 function UT() {
     // TODO 相对路径处理
-    let sourcePath = "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.main.scm";
+    let sourcePath = "E:/Desktop/GitRepos/AuroraScheme/testcase/deadlock.scm";
     let targetModule = LoadModule(sourcePath);
     fs.writeFileSync("E:/Desktop/GitRepos/AuroraScheme/testcase/Module.json", JSON.stringify(targetModule, null, 2), "utf-8");
     let PROCESS = new Process(targetModule);

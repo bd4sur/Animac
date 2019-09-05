@@ -13,11 +13,14 @@ class Runtime {
     public processPool: Array<Process>;  // 进程池
     public processQueue: Array<PID>;     // 进程队列
 
+    public ports: HashMap<string, any>;            // 端口：对进程间共享资源的抽象 TODO 增加PortObject类
+
     public outputBuffer: Array<string>;  // 控制台输出缓冲
 
     constructor() {
         this.processPool = new Array();
         this.processQueue = new Array();
+        this.ports = new HashMap();
         this.outputBuffer = new Array();
     }
 
@@ -990,6 +993,33 @@ class Runtime {
         PROCESS.Step();
     }
 
+    // read 读端口内容
+    public AIL_READ(argument: string, PROCESS: Process, RUNTIME: Runtime): void {
+        let port = PROCESS.PopOperand();
+        // 类型检查
+        if(TypeOfToken(port) === 'PORT') {
+            PROCESS.PushOperand(RUNTIME.ports.get(port));
+            PROCESS.Step();
+        }
+        else {
+            throw `[Error] read指令参数必须是端口。`;
+        }
+    }
+
+    // write 写端口内容
+    public AIL_WRITE(argument: string, PROCESS: Process, RUNTIME: Runtime): void {
+        let value = PROCESS.PopOperand();
+        let port = PROCESS.PopOperand();
+        // 类型检查
+        if(TypeOfToken(port) === 'PORT') {
+            RUNTIME.ports.set(port, value);
+            PROCESS.Step();
+        }
+        else {
+            throw `[Error] read指令参数必须是端口。`;
+        }
+    }
+
     // nop 空指令
     public AIL_NOP(argument: string, PROCESS: Process, RUNTIME: Runtime): void {
         PROCESS.Step();
@@ -1061,6 +1091,8 @@ class Runtime {
         else if(mnemonic === 'fork')        { this.AIL_FORK(argument, PROCESS, RUNTIME); }
         else if(mnemonic === 'display')     { this.AIL_DISPLAY(argument, PROCESS, RUNTIME); }
         else if(mnemonic === 'newline')     { this.AIL_NEWLINE(argument, PROCESS, RUNTIME); }
+        else if(mnemonic === 'read')        { this.AIL_READ(argument, PROCESS, RUNTIME); }
+        else if(mnemonic === 'write')       { this.AIL_WRITE(argument, PROCESS, RUNTIME); }
         else if(mnemonic === "nop")         { this.AIL_NOP(argument, PROCESS, RUNTIME); }
         else if(mnemonic === 'pause')       { this.AIL_PAUSE(argument, PROCESS, RUNTIME); }
         else if(mnemonic === 'halt')        { this.AIL_HALT(argument, PROCESS, RUNTIME); }

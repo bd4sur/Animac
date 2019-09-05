@@ -540,7 +540,7 @@ function Parse(code: string, moduleQualifiedName: string): AST {
                     NODE_STACK.push(currentToken); // 压入string
                 }
                 // 被quote的变量和关键字（除了quote、unquote和quasiquote），变成symbol
-                else if(type === "VARIABLE" || type === "KEYWORD" || 
+                else if(type === "VARIABLE" || type === "KEYWORD" || type === "PORT" || 
                         (currentToken !== "quasiquote" && currentToken !== "quote" && currentToken !== "unquote")) {
                     NODE_STACK.push(`'${currentToken}`);
                 }
@@ -563,7 +563,7 @@ function Parse(code: string, moduleQualifiedName: string): AST {
                     NODE_STACK.push(stringHandle);
                     ast.nodeIndexes.set(stringHandle, tokens[index].index);
                 }
-                else if(type === "VARIABLE" || type === "KEYWORD" || type === "BOOLEAN") {
+                else if(type === "VARIABLE" || type === "KEYWORD" || type === "BOOLEAN" || type === "PORT") {
                     NODE_STACK.push(currentToken); // VARIABLE原样保留，在作用域分析的时候才被录入AST
                 }
                 else {
@@ -583,7 +583,7 @@ function Parse(code: string, moduleQualifiedName: string): AST {
                 else if(type === "SYMBOL") {
                     NODE_STACK.push(currentToken);
                 }
-                else if(type === "VARIABLE" || type === "KEYWORD" || type === "BOOLEAN") {
+                else if(type === "VARIABLE" || type === "KEYWORD" || type === "BOOLEAN" || type === "PORT") {
                     NODE_STACK.push(currentToken); // VARIABLE原样保留，在作用域分析的时候才被录入AST
                 }
                 else {

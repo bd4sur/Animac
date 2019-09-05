@@ -16,6 +16,7 @@ const KEYWORDS = [
     "and",     "or",    "not",    ">",      "<",       ">=",      "<=",    "eq?",
     "define", "set!",   "null?",
     "display","newline",
+    "write",  "read",
     "call/cc",
     "import", "native",
     "fork",
@@ -68,6 +69,9 @@ function TypeOfToken(token: any): string {
     }
     else if(isNaN(parseFloat(token)) === false) {
         return "NUMBER";
+    }
+    else if(token[0] === ':') {
+        return "PORT";
     }
     else if(token[0] === '&') {
         return "HANDLE";

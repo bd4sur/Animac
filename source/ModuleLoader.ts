@@ -119,7 +119,20 @@ function LoadModuleFromNode(ast: AST, nodeHandle: Handle): Module {
     // 将目标节点移到顶级作用域
     let topLambdaNodeHandle = currentAST.GetNode(currentAST.TopApplicationNodeHandle()).children[0];
     let temp = currentAST.GetNode(topLambdaNodeHandle).children;
-    currentAST.GetNode(topLambdaNodeHandle).children = temp.slice(0,2).concat([nodeHandle]);
+
+    // 将所在AST的顶级作用域的(define ..)搬迁到顶级作用域
+    let temp2: Array<any> = new Array();
+    for(let i = 2; i < temp.length; i++) {
+        if(TypeOfToken(temp[i]) === "HANDLE") {
+            let childNode = currentAST.GetNode(temp[i]);
+            if(childNode.type === "APPLICATION" && childNode.children[0] === "define") {
+                temp2.push(temp[i]);
+            }
+        }
+    }
+    temp2.push(nodeHandle);
+
+    currentAST.GetNode(topLambdaNodeHandle).children = temp.slice(0,2).concat(temp2);
     allASTs.set(mainModuleQualifiedName, currentAST);
 
     for(let alias in currentAST.dependencies) {

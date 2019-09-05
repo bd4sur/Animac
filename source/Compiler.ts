@@ -82,7 +82,7 @@ function Compile(ast: AST): Array<string> {
             else if(bodyType === "VARIABLE") {
                 AddInstruction(`load ${body}`);
             }
-            else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD"].indexOf(bodyType) >= 0) {
+            else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(bodyType) >= 0) {
                 AddInstruction(`push ${body}`);
             }
             else {
@@ -161,7 +161,7 @@ function Compile(ast: AST): Array<string> {
         else if(rightValueType === "VARIABLE") {
             AddInstruction(`load ${rightValue}`);
         }
-        else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD"].indexOf(rightValueType) >= 0) {
+        else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(rightValueType) >= 0) {
             AddInstruction(`push ${rightValue}`);
         }
         else {
@@ -212,7 +212,7 @@ function Compile(ast: AST): Array<string> {
         else if(rightValueType === "VARIABLE") {
             AddInstruction(`load ${rightValue}`);
         }
-        else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD"].indexOf(rightValueType) >= 0) {
+        else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(rightValueType) >= 0) {
             AddInstruction(`push ${rightValue}`);
         }
         else {
@@ -256,7 +256,7 @@ function Compile(ast: AST): Array<string> {
             AddInstruction(`load ${predicate}`);
         }
         // TODO 此处可以作优化
-        else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD"].indexOf(predicateType) >= 0) {
+        else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(predicateType) >= 0) {
             AddInstruction(`push ${predicate}`);
         }
         else {
@@ -294,7 +294,7 @@ function Compile(ast: AST): Array<string> {
         else if(falseBranchType === "VARIABLE") {
             AddInstruction(`load ${falseBranch}`);
         }
-        else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD"].indexOf(falseBranchType) >= 0) {
+        else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(falseBranchType) >= 0) {
             AddInstruction(`push ${falseBranch}`);
         }
         else {
@@ -332,7 +332,7 @@ function Compile(ast: AST): Array<string> {
         else if(trueBranchType === "VARIABLE") {
             AddInstruction(`load ${trueBranch}`);
         }
-        else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD"].indexOf(trueBranchType) >= 0) {
+        else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(trueBranchType) >= 0) {
             AddInstruction(`push ${trueBranch}`);
         }
         else {
@@ -384,7 +384,7 @@ function Compile(ast: AST): Array<string> {
                 AddInstruction(`load ${clause}`);
             }
             // TODO 此处可以作优化（短路）
-            else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD"].indexOf(clauseType) >= 0) {
+            else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(clauseType) >= 0) {
                 AddInstruction(`push ${clause}`);
             }
             else {
@@ -448,7 +448,7 @@ function Compile(ast: AST): Array<string> {
                 AddInstruction(`load ${clause}`);
             }
             // TODO 此处可以作优化（短路）
-            else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD"].indexOf(clauseType) >= 0) {
+            else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(clauseType) >= 0) {
                 AddInstruction(`push ${clause}`);
             }
             else {
@@ -548,7 +548,7 @@ function Compile(ast: AST): Array<string> {
             else if(childType === "VARIABLE") {
                 AddInstruction(`load ${child}`);
             }
-            else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD"].indexOf(childType) >= 0) {
+            else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(childType) >= 0) {
                 AddInstruction(`push ${child}`);
             }
             else {
@@ -627,7 +627,7 @@ function Compile(ast: AST): Array<string> {
                 else if(childType === "VARIABLE") {
                     AddInstruction(`load ${child}`);
                 }
-                else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD"].indexOf(childType) >= 0) {
+                else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(childType) >= 0) {
                     AddInstruction(`push ${child}`);
                 }
                 else {
