@@ -154,8 +154,17 @@ function Compile(ast: AST): Array<string> {
             if(rightValueNode.type === "LAMBDA") {
                 AddInstruction(`push @${rightValue}`); // 注意：define并不对Lambda节点求值（即，生成闭包实例）
             }
-            else { // 包括Application和String对象
-                AddInstruction(`push ${rightValue}`); // 注意：define并不对Application（包括各种quote）求值
+            else if(rightValueNode.type === "QUOTE" || rightValueNode.type === "QUASIQUOTE" || rightValueNode.type === "UNQUOTE") {
+                AddInstruction(`push ${rightValue}`);
+            }
+            else if(rightValueNode.type === "STRING") {
+                AddInstruction(`push ${rightValue}`);
+            }
+            else if(rightValueNode.type === "APPLICATION") {
+                CompileApplication(rightValue);
+            }
+            else {
+                throw `[Error] 意外的set!右值。`;
             }
         }
         else if(rightValueType === "VARIABLE") {
@@ -194,7 +203,7 @@ function Compile(ast: AST): Array<string> {
         if(rightValueType === "HANDLE") {
             let rightValueNode = ast.GetNode(rightValue);
             if(rightValueNode.type === "LAMBDA") {
-                AddInstruction(`push @${rightValue}`); // 注意：set!也不对Lambda节点求值（即，生成闭包实例）
+                AddInstruction(`loadclosure @${rightValue}`); // 注意：set!对Lambda节点求值（即，生成闭包实例）
             }
             else if(rightValueNode.type === "QUOTE" || rightValueNode.type === "QUASIQUOTE" || rightValueNode.type === "UNQUOTE") {
                 AddInstruction(`push ${rightValue}`);
