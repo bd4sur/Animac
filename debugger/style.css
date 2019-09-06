@@ -69,6 +69,11 @@ button {
     color: #ff5888;
     border: 1px solid #ff5888;
 }
+.btn-stop:active {
+    color: #ffffff;
+    background-color: #ff5888;
+    border: 1px solid #ff5888;
+}
 
 .btn-common {
     color: #33bbff;
@@ -79,6 +84,11 @@ button {
     color: #33bbff;
     border: 1px solid #40bfff;
 }
+.btn-common:active {
+    color: #ffffff;
+    background-color: #40bfff;
+    border: 1px solid #40bfff;
+}
 
 .btn-start {
     color: #60c700;
@@ -87,6 +97,11 @@ button {
 }
 .btn-start:hover {
     color: #60c700;
+    border: 1px solid #60c700;
+}
+.btn-start:active {
+    color: #ffffff;
+    background-color: #60c700;
     border: 1px solid #60c700;
 }
 
