@@ -158,6 +158,17 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(define power
+  (lambda (base exp init)
+    (cond ((= exp 0) init)
+          ((= 0 (% exp 2)) (power (* base base) (/ exp 2) init))
+          (else (power base (- exp 1) (* base init))))))
+
+(display (power 2 10 1))
+(newline)
+(newline)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
 (Utils.show "测试：Fork和本地库函数")(newline)

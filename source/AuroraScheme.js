@@ -10,7 +10,7 @@ const KEYWORDS = [
     "car", "cdr", "cons", "cond", "if", "else", "begin",
     "+", "-", "*", "/", "=", "%", "pow",
     "and", "or", "not", ">", "<", ">=", "<=", "eq?",
-    "define", "set!", "null?",
+    "define", "set!", "null?", "atom?", "list?", "number?",
     "display", "newline",
     "write", "read",
     "call/cc",
@@ -21,7 +21,8 @@ const KEYWORDS = [
 // Primitive对应的AIL指令
 const PrimitiveInstruction = {
     "+": "add", "-": "sub", "*": "mul", "/": "div", "%": "mod",
-    "=": "eqn", "<": "lt", ">": "gt", "<=": "le", ">=": "ge"
+    "=": "eqn", "<": "lt", ">": "gt", "<=": "le", ">=": "ge",
+    "set!": "set"
 };
 // 取数组/栈的栈顶
 function Top(arr) {
@@ -1556,6 +1557,138 @@ function Compile(ast) {
         AddInstruction(`;; 🛑 SET! “${nodeHandle}” END   `);
         AddInstruction(`;;`);
     }
+    // TODO 编译begin
+    /*
+    function CompileBegin(nodeHandle: Handle): void {
+        let node: ApplicationObject = ast.GetNode(nodeHandle);
+        // 注释
+        AddInstruction(`;; ✅ BEGIN “${nodeHandle}” BEGIN`);
+
+        // 用于标识此cond的唯一字符串
+        let uqStr = UniqueString();
+
+        // 遍历每个分支
+        for(let i = 1; i < node.children.length; i++) {
+            let child = node.children[i];
+            let childType = TypeOfToken(child);
+            if(childType === "HANDLE") {
+                let trueBranchNode = ast.GetNode(child);
+                if(trueBranchNode.type === "LAMBDA") {
+                    AddInstruction(`loadclosure @${child}`); // 返回闭包
+                }
+                else if(trueBranchNode.type === "QUOTE" || trueBranchNode.type === "QUASIQUOTE" || trueBranchNode.type === "UNQUOTE") {
+                    AddInstruction(`push ${child}`);
+                }
+                else if(trueBranchNode.type === "STRING") {
+                    AddInstruction(`push ${child}`);
+                }
+                else if(trueBranchNode.type === "APPLICATION") {
+                    CompileApplication(child);
+                }
+                else {
+                    throw `[Error] 意外的 child。`;
+                }
+            }
+            else if(childType === "VARIABLE") {
+                AddInstruction(`load ${child}`);
+            }
+            else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(childType) >= 0) {
+                AddInstruction(`push ${child}`);
+            }
+            else {
+                throw `[Error] 意外的 child。`;
+            }
+
+            // 只保留最后一个child的压栈结果，其他的全部pop掉
+            if(i !== node.children.length - 1) {
+                AddInstruction(`pop`);
+            }
+        } // 分支遍历结束
+
+        AddInstruction(`;; 🛑 BEGIN “${nodeHandle}” END   `);
+        AddInstruction(`;;`);
+    }
+    */
+    // 编译cond
+    function CompileCond(nodeHandle) {
+        let node = ast.GetNode(nodeHandle);
+        // 注释
+        AddInstruction(`;; ✅ COND “${nodeHandle}” BEGIN`);
+        // 用于标识此cond的唯一字符串
+        let uqStr = UniqueString();
+        // 遍历每个分支
+        for (let i = 1; i < node.children.length; i++) {
+            let clauseNode = ast.GetNode(node.children[i]);
+            // 插入开始标签（实际上第一个分支不需要）
+            AddInstruction(`@COND_BRANCH_${uqStr}_${i}`);
+            // 处理分支条件（除了else分支）
+            let predicate = clauseNode.children[0];
+            if (predicate !== "else") {
+                let predicateType = TypeOfToken(predicate);
+                if (predicateType === "HANDLE") {
+                    let predicateNode = ast.GetNode(predicate);
+                    if (predicateNode.type === "APPLICATION") {
+                        CompileApplication(predicate);
+                    }
+                    // 其余情况，统统作push处理
+                    else {
+                        AddInstruction(`push ${predicate}`);
+                    }
+                }
+                else if (predicateType === "VARIABLE") {
+                    AddInstruction(`load ${predicate}`);
+                }
+                // TODO 此处可以作优化
+                else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(predicateType) >= 0) {
+                    AddInstruction(`push ${predicate}`);
+                }
+                else {
+                    throw `[Error] 意外的cond分支条件。`;
+                }
+                // 跳转到下一条件
+                AddInstruction(`iffalse @COND_BRANCH_${uqStr}_${(i + 1)}`);
+            }
+            // 处理分支主体
+            let branch = clauseNode.children[1];
+            let branchType = TypeOfToken(branch);
+            if (branchType === "HANDLE") {
+                let branchNode = ast.GetNode(branch);
+                if (branchNode.type === "LAMBDA") {
+                    AddInstruction(`loadclosure @${branch}`); // 返回闭包
+                }
+                else if (branchNode.type === "QUOTE" || branchNode.type === "QUASIQUOTE" || branchNode.type === "UNQUOTE") {
+                    AddInstruction(`push ${branch}`);
+                }
+                else if (branchNode.type === "STRING") {
+                    AddInstruction(`push ${branch}`);
+                }
+                else if (branchNode.type === "APPLICATION") {
+                    CompileApplication(branch);
+                }
+                else {
+                    throw `[Error] 意外的if-true分支。`;
+                }
+            }
+            else if (branchType === "VARIABLE") {
+                AddInstruction(`load ${branch}`);
+            }
+            else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(branchType) >= 0) {
+                AddInstruction(`push ${branch}`);
+            }
+            else {
+                throw `[Error] 意外的if-true分支。`;
+            }
+            // 插入收尾语句（区分else分支和非else分支）
+            if (predicate !== "else") {
+                AddInstruction(`goto @COND_END_${uqStr}`);
+            }
+            else {
+                AddInstruction(`@COND_END_${uqStr}`);
+            }
+        } // 分支遍历结束
+        AddInstruction(`;; 🛑 COND “${nodeHandle}” END   `);
+        AddInstruction(`;;`);
+    }
     // 编译if
     function CompileIf(nodeHandle) {
         let node = ast.GetNode(nodeHandle);
@@ -1866,6 +1999,7 @@ function Compile(ast) {
         else if (first === 'native') {
             return;
         }
+        // TODO else if(first === 'begin')   { return CompileBegin(nodeHandle); }
         else if (first === 'call/cc') {
             return CompileCallCC(nodeHandle);
         }
@@ -1874,6 +2008,9 @@ function Compile(ast) {
         }
         else if (first === 'set!') {
             return CompileSet(nodeHandle);
+        }
+        else if (first === 'cond') {
+            return CompileCond(nodeHandle);
         }
         else if (first === 'if') {
             return CompileIf(nodeHandle);
@@ -2464,7 +2601,6 @@ class Runtime {
         this.processPool = new Array();
         this.processQueue = new Array();
         this.ports = new HashMap();
-        this.outputBuffer = new Array();
     }
     AllocatePID() {
         return this.processPool.length;
@@ -2545,18 +2681,13 @@ class Runtime {
         }
         setInterval(() => {
             Run.call(this);
-            // 控制台输出
-            if (this.outputBuffer.length > 0) {
-                process.stdout.write(this.outputBuffer.join(""));
-                this.outputBuffer = new Array();
-            }
         }, 0);
     }
     //=================================================================
     //                      以下是控制台输入输出
     //=================================================================
     Output(str) {
-        this.outputBuffer.push(str);
+        process.stdout.write(str);
     }
     //=================================================================
     //                  以下是AIL指令实现（封装成函数）
@@ -2737,7 +2868,10 @@ class Runtime {
                 let value = PROCESS.Dereference(variable);
                 let valueType = TypeOfToken(value);
                 if (valueType === 'KEYWORD') {
-                    this.ExecutePrimitive(value, argument, PROCESS, RUNTIME);
+                    // NOTE primitive不压栈帧
+                    PROCESS.PopStackFrame();
+                    let mnemonic = PrimitiveInstruction[value] || value;
+                    this.ExecuteOneInst(mnemonic, argument, PROCESS, RUNTIME);
                 }
                 else if (valueType === 'LABEL') {
                     let label = value;
@@ -2846,7 +2980,8 @@ class Runtime {
                 let value = PROCESS.Dereference(variable);
                 let valueType = TypeOfToken(value);
                 if (valueType === 'KEYWORD') {
-                    this.ExecutePrimitive(value, argument, PROCESS, RUNTIME);
+                    let mnemonic = PrimitiveInstruction[value] || value;
+                    this.ExecuteOneInst(mnemonic, argument, PROCESS, RUNTIME);
                 }
                 else if (valueType === 'LABEL') {
                     let label = value;
@@ -2987,6 +3122,9 @@ class Runtime {
         if (TypeOfToken(listHandle) === 'HANDLE') {
             let listObj = PROCESS.heap.Get(listHandle);
             if (listObj.type === "QUOTE" || listObj.type === "QUASIQUOTE") {
+                if (listObj.children.length <= 0) {
+                    throw `[Error] cdr参数不能是空表。`;
+                }
                 let newListHandle = PROCESS.heap.AllocateHandle(listObj.type, false);
                 let newList;
                 if (listObj.type === "QUOTE") {
@@ -3097,7 +3235,7 @@ class Runtime {
         if (TypeOfToken(top1) === "NUMBER" && TypeOfToken(top2) === "NUMBER") {
             let operand1 = parseFloat(top1);
             let operand2 = parseFloat(top2);
-            if (operand1 <= Number.EPSILON || operand1 >= -Number.EPSILON) {
+            if (operand1 <= Number.EPSILON && operand1 >= -Number.EPSILON) {
                 throw `[Error] 除零`;
             }
             let result = operand2 / operand1;
@@ -3250,6 +3388,19 @@ class Runtime {
         }
         PROCESS.Step();
     }
+    // eq?
+    // TODO eq?的逻辑需要进一步精确化
+    AIL_ISEQ(argument, PROCESS, RUNTIME) {
+        let top1 = PROCESS.PopOperand();
+        let top2 = PROCESS.PopOperand();
+        if (String(top1) === String(top2)) {
+            PROCESS.PushOperand("#t");
+        }
+        else {
+            PROCESS.PushOperand("#f");
+        }
+        PROCESS.Step();
+    }
     // null?
     AIL_ISNULL(argument, PROCESS, RUNTIME) {
         let arg = PROCESS.PopOperand();
@@ -3300,6 +3451,17 @@ class Runtime {
             else {
                 PROCESS.PushOperand("#t");
             }
+        }
+        else {
+            PROCESS.PushOperand("#f");
+        }
+        PROCESS.Step();
+    }
+    // number?
+    AIL_ISNUMBER(argument, PROCESS, RUNTIME) {
+        let arg = PROCESS.PopOperand();
+        if (TypeOfToken(arg) === 'NUMBER') {
+            PROCESS.PushOperand("#t");
         }
         else {
             PROCESS.PushOperand("#f");
@@ -3414,7 +3576,12 @@ class Runtime {
         if (instruction.type === "COMMENT" || instruction.type === "LABEL") {
             PROCESS.Step(); // 跳过注释和标签
         }
-        else if (mnemonic === "store") {
+        else {
+            this.ExecuteOneInst(mnemonic, argument, PROCESS, RUNTIME);
+        }
+    }
+    ExecuteOneInst(mnemonic, argument, PROCESS, RUNTIME) {
+        if (mnemonic === "store") {
             this.AIL_STORE(argument, PROCESS, RUNTIME);
         }
         else if (mnemonic === "load") {
@@ -3507,6 +3674,9 @@ class Runtime {
         else if (mnemonic === 'or') {
             this.AIL_OR(argument, PROCESS, RUNTIME);
         }
+        else if (mnemonic === 'eq?') {
+            this.AIL_ISEQ(argument, PROCESS, RUNTIME);
+        }
         else if (mnemonic === 'null?') {
             this.AIL_ISNULL(argument, PROCESS, RUNTIME);
         }
@@ -3515,6 +3685,9 @@ class Runtime {
         }
         else if (mnemonic === 'list?') {
             this.AIL_ISLIST(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'number?') {
+            this.AIL_ISNUMBER(argument, PROCESS, RUNTIME);
         }
         else if (mnemonic === 'fork') {
             this.AIL_FORK(argument, PROCESS, RUNTIME);
@@ -3539,40 +3712,6 @@ class Runtime {
         }
         else if (mnemonic === 'halt') {
             this.AIL_HALT(argument, PROCESS, RUNTIME);
-        }
-    }
-    // 执行内置运算符所对应的指令
-    ExecutePrimitive(op, argument, PROCESS, RUNTIME) {
-        let primitiveInst = PrimitiveInstruction[op];
-        if (primitiveInst === 'add') {
-            this.AIL_ADD(argument, PROCESS, RUNTIME);
-        }
-        else if (primitiveInst === 'sub') {
-            this.AIL_SUB(argument, PROCESS, RUNTIME);
-        }
-        else if (primitiveInst === 'mul') {
-            this.AIL_MUL(argument, PROCESS, RUNTIME);
-        }
-        else if (primitiveInst === 'div') {
-            this.AIL_DIV(argument, PROCESS, RUNTIME);
-        }
-        else if (primitiveInst === 'mod') {
-            this.AIL_MOD(argument, PROCESS, RUNTIME);
-        }
-        else if (primitiveInst === 'eqn') {
-            this.AIL_EQN(argument, PROCESS, RUNTIME);
-        }
-        else if (primitiveInst === 'ge') {
-            this.AIL_GE(argument, PROCESS, RUNTIME);
-        }
-        else if (primitiveInst === 'le') {
-            this.AIL_LE(argument, PROCESS, RUNTIME);
-        }
-        else if (primitiveInst === 'gt') {
-            this.AIL_GT(argument, PROCESS, RUNTIME);
-        }
-        else if (primitiveInst === 'lt') {
-            this.AIL_LT(argument, PROCESS, RUNTIME);
         }
     }
 }
@@ -3660,7 +3799,7 @@ class Instruction {
 const fs = require("fs");
 function UT() {
     // TODO 相对路径处理
-    let sourcePath = "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.main.scm";
+    let sourcePath = "E:/Desktop/GitRepos/AuroraScheme/testcase/interpreter.scm";
     let targetModule = LoadModule(sourcePath);
     fs.writeFileSync("E:/Desktop/GitRepos/AuroraScheme/testcase/Module.json", JSON.stringify(targetModule, null, 2), "utf-8");
     let PROCESS = new Process(targetModule);

@@ -242,6 +242,148 @@ function Compile(ast: AST): Array<string> {
         AddInstruction(`;;`);
     }
 
+    // TODO 编译begin
+    /*
+    function CompileBegin(nodeHandle: Handle): void {
+        let node: ApplicationObject = ast.GetNode(nodeHandle);
+        // 注释
+        AddInstruction(`;; ✅ BEGIN “${nodeHandle}” BEGIN`);
+
+        // 用于标识此cond的唯一字符串
+        let uqStr = UniqueString();
+
+        // 遍历每个分支
+        for(let i = 1; i < node.children.length; i++) {
+            let child = node.children[i];
+            let childType = TypeOfToken(child);
+            if(childType === "HANDLE") {
+                let trueBranchNode = ast.GetNode(child);
+                if(trueBranchNode.type === "LAMBDA") {
+                    AddInstruction(`loadclosure @${child}`); // 返回闭包
+                }
+                else if(trueBranchNode.type === "QUOTE" || trueBranchNode.type === "QUASIQUOTE" || trueBranchNode.type === "UNQUOTE") {
+                    AddInstruction(`push ${child}`);
+                }
+                else if(trueBranchNode.type === "STRING") {
+                    AddInstruction(`push ${child}`);
+                }
+                else if(trueBranchNode.type === "APPLICATION") {
+                    CompileApplication(child);
+                }
+                else {
+                    throw `[Error] 意外的 child。`;
+                }
+            }
+            else if(childType === "VARIABLE") {
+                AddInstruction(`load ${child}`);
+            }
+            else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(childType) >= 0) {
+                AddInstruction(`push ${child}`);
+            }
+            else {
+                throw `[Error] 意外的 child。`;
+            }
+
+            // 只保留最后一个child的压栈结果，其他的全部pop掉
+            if(i !== node.children.length - 1) {
+                AddInstruction(`pop`);
+            }
+        } // 分支遍历结束
+
+        AddInstruction(`;; 🛑 BEGIN “${nodeHandle}” END   `);
+        AddInstruction(`;;`);
+    }
+    */
+
+    // 编译cond
+    function CompileCond(nodeHandle: Handle): void {
+        let node: ApplicationObject = ast.GetNode(nodeHandle);
+        // 注释
+        AddInstruction(`;; ✅ COND “${nodeHandle}” BEGIN`);
+
+        // 用于标识此cond的唯一字符串
+        let uqStr = UniqueString();
+
+        // 遍历每个分支
+        for(let i = 1; i < node.children.length; i++) {
+            let clauseNode = ast.GetNode(node.children[i]);
+
+            // 插入开始标签（实际上第一个分支不需要）
+            AddInstruction(`@COND_BRANCH_${uqStr}_${i}`);
+
+            // 处理分支条件（除了else分支）
+            let predicate = clauseNode.children[0];
+            if(predicate !== "else") {
+                let predicateType = TypeOfToken(predicate);
+                if(predicateType === "HANDLE") {
+                    let predicateNode = ast.GetNode(predicate);
+                    if(predicateNode.type === "APPLICATION") {
+                        CompileApplication(predicate);
+                    }
+                    // 其余情况，统统作push处理
+                    else {
+                        AddInstruction(`push ${predicate}`);
+                    }
+                }
+                else if(predicateType === "VARIABLE") {
+                    AddInstruction(`load ${predicate}`);
+                }
+                // TODO 此处可以作优化
+                else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(predicateType) >= 0) {
+                    AddInstruction(`push ${predicate}`);
+                }
+                else {
+                    throw `[Error] 意外的cond分支条件。`;
+                }
+                // 跳转到下一条件
+                AddInstruction(`iffalse @COND_BRANCH_${uqStr}_${(i+1)}`);
+            }
+
+            // 处理分支主体
+            let branch = clauseNode.children[1];
+            let branchType = TypeOfToken(branch);
+            if(branchType === "HANDLE") {
+                let branchNode = ast.GetNode(branch);
+                if(branchNode.type === "LAMBDA") {
+                    AddInstruction(`loadclosure @${branch}`); // 返回闭包
+                }
+                else if(branchNode.type === "QUOTE" || branchNode.type === "QUASIQUOTE" || branchNode.type === "UNQUOTE") {
+                    AddInstruction(`push ${branch}`);
+                }
+                else if(branchNode.type === "STRING") {
+                    AddInstruction(`push ${branch}`);
+                }
+                else if(branchNode.type === "APPLICATION") {
+                    CompileApplication(branch);
+                }
+                else {
+                    throw `[Error] 意外的if-true分支。`;
+                }
+            }
+            else if(branchType === "VARIABLE") {
+                AddInstruction(`load ${branch}`);
+            }
+            else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(branchType) >= 0) {
+                AddInstruction(`push ${branch}`);
+            }
+            else {
+                throw `[Error] 意外的if-true分支。`;
+            }
+
+            // 插入收尾语句（区分else分支和非else分支）
+            if(predicate !== "else") {
+                AddInstruction(`goto @COND_END_${uqStr}`);
+            }
+            else {
+                AddInstruction(`@COND_END_${uqStr}`);
+            }
+
+        } // 分支遍历结束
+
+        AddInstruction(`;; 🛑 COND “${nodeHandle}” END   `);
+        AddInstruction(`;;`);
+    }
+
     // 编译if
     function CompileIf(nodeHandle: Handle): void {
         let node: ApplicationObject = ast.GetNode(nodeHandle);
@@ -596,9 +738,11 @@ function Compile(ast: AST): Array<string> {
 
         if(first === 'import')       { return; }
         else if(first === 'native')  { return; }
+        // TODO else if(first === 'begin')   { return CompileBegin(nodeHandle); }
         else if(first === 'call/cc') { return CompileCallCC(nodeHandle); }
         else if(first === 'define')  { return CompileDefine(nodeHandle); }
         else if(first === 'set!')    { return CompileSet(nodeHandle); }
+        else if(first === 'cond')    { return CompileCond(nodeHandle);}
         else if(first === 'if')      { return CompileIf(nodeHandle);}
         else if(first === 'and')     { return CompileAnd(nodeHandle);}
         else if(first === 'or')      { return CompileOr(nodeHandle);}

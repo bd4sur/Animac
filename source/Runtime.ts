@@ -15,13 +15,10 @@ class Runtime {
 
     public ports: HashMap<string, any>;            // 端口：对进程间共享资源的抽象 TODO 增加PortObject类
 
-    public outputBuffer: Array<string>;  // 控制台输出缓冲
-
     constructor() {
         this.processPool = new Array();
         this.processQueue = new Array();
         this.ports = new HashMap();
-        this.outputBuffer = new Array();
     }
 
     public AllocatePID(): number {
@@ -110,11 +107,6 @@ class Runtime {
 
         setInterval(()=>{
             Run.call(this);
-            // 控制台输出
-            if(this.outputBuffer.length > 0) {
-                process.stdout.write(this.outputBuffer.join(""));
-                this.outputBuffer = new Array();
-            }
         }, 0);
     }
 
@@ -124,7 +116,7 @@ class Runtime {
     //=================================================================
 
     public Output(str: string): void {
-        this.outputBuffer.push(str);
+        process.stdout.write(str);
     }
 
 
@@ -323,7 +315,10 @@ class Runtime {
                 let valueType = TypeOfToken(value);
 
                 if(valueType === 'KEYWORD') {
-                    this.ExecutePrimitive(value, argument, PROCESS, RUNTIME);
+                    // NOTE primitive不压栈帧
+                    PROCESS.PopStackFrame();
+                    let mnemonic = PrimitiveInstruction[value] || value;
+                    this.ExecuteOneInst(mnemonic, argument, PROCESS, RUNTIME);
                 }
                 else if(valueType === 'LABEL') {
                     let label = value;
@@ -441,7 +436,8 @@ class Runtime {
                 let valueType = TypeOfToken(value);
 
                 if(valueType === 'KEYWORD') {
-                    this.ExecutePrimitive(value, argument, PROCESS, RUNTIME);
+                    let mnemonic = PrimitiveInstruction[value] || value;
+                    this.ExecuteOneInst(mnemonic, argument, PROCESS, RUNTIME);
                 }
                 else if(valueType === 'LABEL') {
                     let label = value;
@@ -589,6 +585,9 @@ class Runtime {
         if(TypeOfToken(listHandle) === 'HANDLE') {
             let listObj = PROCESS.heap.Get(listHandle);
             if(listObj.type === "QUOTE" || listObj.type === "QUASIQUOTE") {
+                if(listObj.children.length <= 0) {
+                    throw `[Error] cdr参数不能是空表。`;
+                }
                 let newListHandle: Handle = PROCESS.heap.AllocateHandle(listObj.type, false);
                 let newList: QuoteObject | QuasiquoteObject;
                 if(listObj.type === "QUOTE") {
@@ -705,7 +704,7 @@ class Runtime {
         if(TypeOfToken(top1) === "NUMBER" && TypeOfToken(top2) === "NUMBER") {
             let operand1 = parseFloat(top1);
             let operand2 = parseFloat(top2);
-            if(operand1 <= Number.EPSILON || operand1 >= -Number.EPSILON) {
+            if(operand1 <= Number.EPSILON && operand1 >= -Number.EPSILON) {
                 throw `[Error] 除零`;
             }
             let result = operand2 / operand1;
@@ -869,6 +868,20 @@ class Runtime {
         PROCESS.Step();
     }
 
+    // eq?
+    // TODO eq?的逻辑需要进一步精确化
+    public AIL_ISEQ(argument: string, PROCESS: Process, RUNTIME: Runtime): void {
+        let top1 = PROCESS.PopOperand();
+        let top2 = PROCESS.PopOperand();
+        if(String(top1) === String(top2)) {
+            PROCESS.PushOperand("#t");
+        }
+        else {
+            PROCESS.PushOperand("#f");
+        }
+        PROCESS.Step();
+    }
+
     // null?
     public AIL_ISNULL(argument: string, PROCESS: Process, RUNTIME: Runtime): void {
         let arg = PROCESS.PopOperand();
@@ -921,6 +934,18 @@ class Runtime {
             else {
                 PROCESS.PushOperand("#t");
             }
+        }
+        else {
+            PROCESS.PushOperand("#f");
+        }
+        PROCESS.Step();
+    }
+
+    // number?
+    public AIL_ISNUMBER(argument: string, PROCESS: Process, RUNTIME: Runtime): void {
+        let arg = PROCESS.PopOperand();
+        if(TypeOfToken(arg) === 'NUMBER') {
+            PROCESS.PushOperand("#t");
         }
         else {
             PROCESS.PushOperand("#f");
@@ -1044,13 +1069,17 @@ class Runtime {
         let instruction = PROCESS.CurrentInstruction();
         let mnemonic = instruction.mnemonic;
         let argument = instruction.argument;
-
         // 译码：分配执行路径
         if(instruction.type === "COMMENT" || instruction.type === "LABEL") {
             PROCESS.Step(); // 跳过注释和标签
         }
+        else {
+            this.ExecuteOneInst(mnemonic, argument, PROCESS, RUNTIME);
+        }
+    }
 
-        else if(mnemonic === "store")       { this.AIL_STORE(argument, PROCESS, RUNTIME); }
+    public ExecuteOneInst(mnemonic: string, argument: any, PROCESS: Process, RUNTIME: Runtime) {
+             if(mnemonic === "store")       { this.AIL_STORE(argument, PROCESS, RUNTIME); }
         else if(mnemonic === "load")        { this.AIL_LOAD(argument, PROCESS, RUNTIME); }
         else if(mnemonic === "loadclosure") { this.AIL_LOADCLOSURE(argument, PROCESS, RUNTIME); }
         else if(mnemonic === "push")        { this.AIL_PUSH(argument, PROCESS, RUNTIME); }
@@ -1084,9 +1113,11 @@ class Runtime {
         else if(mnemonic === 'not')         { this.AIL_NOT(argument, PROCESS, RUNTIME); }
         else if(mnemonic === 'and')         { this.AIL_AND(argument, PROCESS, RUNTIME); }
         else if(mnemonic === 'or')          { this.AIL_OR(argument, PROCESS, RUNTIME); }
+        else if(mnemonic === 'eq?')         { this.AIL_ISEQ(argument, PROCESS, RUNTIME); }
         else if(mnemonic === 'null?')       { this.AIL_ISNULL(argument, PROCESS, RUNTIME); }
         else if(mnemonic === 'atom?')       { this.AIL_ISATOM(argument, PROCESS, RUNTIME); }
         else if(mnemonic === 'list?')       { this.AIL_ISLIST(argument, PROCESS, RUNTIME); }
+        else if(mnemonic === 'number?')     { this.AIL_ISNUMBER(argument, PROCESS, RUNTIME); }
 
         else if(mnemonic === 'fork')        { this.AIL_FORK(argument, PROCESS, RUNTIME); }
         else if(mnemonic === 'display')     { this.AIL_DISPLAY(argument, PROCESS, RUNTIME); }
@@ -1097,23 +1128,5 @@ class Runtime {
         else if(mnemonic === 'pause')       { this.AIL_PAUSE(argument, PROCESS, RUNTIME); }
         else if(mnemonic === 'halt')        { this.AIL_HALT(argument, PROCESS, RUNTIME); }
     }
-
-
-    // 执行内置运算符所对应的指令
-
-    private ExecutePrimitive(op: string, argument: string, PROCESS: Process, RUNTIME: Runtime): void {
-        let primitiveInst = PrimitiveInstruction[op];
-        if(primitiveInst === 'add')         { this.AIL_ADD(argument, PROCESS, RUNTIME); }
-        else if(primitiveInst === 'sub')    { this.AIL_SUB(argument, PROCESS, RUNTIME); }
-        else if(primitiveInst === 'mul')    { this.AIL_MUL(argument, PROCESS, RUNTIME); }
-        else if(primitiveInst === 'div')    { this.AIL_DIV(argument, PROCESS, RUNTIME); }
-        else if(primitiveInst === 'mod')    { this.AIL_MOD(argument, PROCESS, RUNTIME); }
-        else if(primitiveInst === 'eqn')    { this.AIL_EQN(argument, PROCESS, RUNTIME); }
-        else if(primitiveInst === 'ge')     { this.AIL_GE(argument, PROCESS, RUNTIME); }
-        else if(primitiveInst === 'le')     { this.AIL_LE(argument, PROCESS, RUNTIME); }
-        else if(primitiveInst === 'gt')     { this.AIL_GT(argument, PROCESS, RUNTIME); }
-        else if(primitiveInst === 'lt')     { this.AIL_LT(argument, PROCESS, RUNTIME); }
-    }
-
 
 }

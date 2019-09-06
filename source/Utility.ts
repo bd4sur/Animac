@@ -13,8 +13,8 @@ const TOP_NODE_HANDLE: Handle = "&TOP_NODE";
 const KEYWORDS = [
     "car",    "cdr",    "cons",    "cond",    "if",    "else",    "begin",
     "+",      "-",      "*",       "/",       "=",     "%",       "pow",
-    "and",     "or",    "not",    ">",      "<",       ">=",      "<=",    "eq?",
-    "define", "set!",   "null?",
+    "and",     "or",    "not",     ">",       "<",     ">=",      "<=",    "eq?",
+    "define", "set!",   "null?",   "atom?",   "list?", "number?",
     "display","newline",
     "write",  "read",
     "call/cc",
@@ -28,7 +28,8 @@ const KEYWORDS = [
 
 const PrimitiveInstruction = {
     "+": "add",    "-": "sub",    "*": "mul",    "/": "div",    "%": "mod",
-    "=": "eqn",    "<": "lt",     ">": "gt",     "<=": "le",    ">=": "ge"
+    "=": "eqn",    "<": "lt",     ">": "gt",     "<=": "le",    ">=": "ge",
+    "set!": "set"
 };
 
 
