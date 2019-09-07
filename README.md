@@ -1,4 +1,6 @@
-# AuroraScheme
+<p align="center"><img src="./documentation/AuroraScheme-Logo.png" width="500"></p>
+
+<h1 align="center">AuroraScheme</h1>
 
 ![GitHub top language](https://img.shields.io/github/languages/top/mikukonai/AuroraScheme) ![GitHub](https://img.shields.io/github/license/mikukonai/AuroraScheme.svg?label=Licence) 
 
