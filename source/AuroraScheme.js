@@ -655,6 +655,9 @@ class AST {
                 return String(nodeHandle);
             }
         }
+        else if (TypeOfToken(nodeHandle) === "SYMBOL") {
+            return String(nodeHandle.substring(1));
+        }
         else if (TypeOfToken(nodeHandle) !== "HANDLE") {
             return String(nodeHandle);
         }
@@ -665,14 +668,10 @@ class AST {
                 return node.content;
             }
             else if (type === "APPLICATION" || type === "QUOTE" || type === "QUASIQUOTE" || type === "UNQUOTE") {
-                if (type === "QUOTE")
-                    str = "'(";
-                else if (type === "QUASIQUOTE")
-                    str = "`(";
-                else if (type === "UNQUOTE")
-                    str = ",(";
-                else
-                    str = "(";
+                /*if(type === "QUOTE") str = "'(";
+                else if(type === "QUASIQUOTE") str = "`(";
+                else if(type === "UNQUOTE") str = ",(";
+                else */ str = "(";
                 if (node.children.length > 0) {
                     for (let i = 0; i < node.children.length - 1; i++) {
                         str += this.NodeToString(node.children[i]);
@@ -3427,13 +3426,7 @@ class Runtime {
     AIL_ISATOM(argument, PROCESS, RUNTIME) {
         let arg = PROCESS.PopOperand();
         if (TypeOfToken(arg) === 'HANDLE') {
-            let listObj = PROCESS.heap.Get(arg);
-            if (listObj.type === "STRING") {
-                PROCESS.PushOperand("#t");
-            }
-            else {
-                PROCESS.PushOperand("#f");
-            }
+            PROCESS.PushOperand("#f");
         }
         else {
             PROCESS.PushOperand("#t");
@@ -3799,7 +3792,7 @@ class Instruction {
 const fs = require("fs");
 function UT() {
     // TODO 相对路径处理
-    let sourcePath = "E:/Desktop/GitRepos/AuroraScheme/testcase/interpreter.scm";
+    let sourcePath = "E:/Desktop/GitRepos/AuroraScheme/testcase/calendar.scm";
     let targetModule = LoadModule(sourcePath);
     fs.writeFileSync("E:/Desktop/GitRepos/AuroraScheme/testcase/Module.json", JSON.stringify(targetModule, null, 2), "utf-8");
     let PROCESS = new Process(targetModule);

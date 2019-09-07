@@ -125,6 +125,9 @@ class AST {
                 return String(nodeHandle);
             }
         }
+        else if(TypeOfToken(nodeHandle) === "SYMBOL") {
+            return String(nodeHandle.substring(1));
+        }
         else if(TypeOfToken(nodeHandle) !== "HANDLE") {
             return String(nodeHandle);
         }
@@ -135,10 +138,10 @@ class AST {
                 return node.content;
             }
             else if(type === "APPLICATION" || type === "QUOTE" || type === "QUASIQUOTE" || type === "UNQUOTE") {
-                if(type === "QUOTE") str = "'(";
+                /*if(type === "QUOTE") str = "'(";
                 else if(type === "QUASIQUOTE") str = "`(";
                 else if(type === "UNQUOTE") str = ",(";
-                else str = "(";
+                else */str = "(";
                 if(node.children.length > 0) {
                     for(let i = 0; i < node.children.length-1; i++) {
                         str += this.NodeToString(node.children[i]);

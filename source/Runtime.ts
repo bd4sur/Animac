@@ -909,13 +909,7 @@ class Runtime {
     public AIL_ISATOM(argument: string, PROCESS: Process, RUNTIME: Runtime): void {
         let arg = PROCESS.PopOperand();
         if(TypeOfToken(arg) === 'HANDLE') {
-            let listObj = PROCESS.heap.Get(arg);
-            if(listObj.type === "STRING") {
-                PROCESS.PushOperand("#t");
-            }
-            else {
-                PROCESS.PushOperand("#f");
-            }
+            PROCESS.PushOperand("#f");
         }
         else {
             PROCESS.PushOperand("#t");

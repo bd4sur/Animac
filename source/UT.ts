@@ -7,7 +7,7 @@ const fs = require("fs");
 
 function UT() {
     // TODO 相对路径处理
-    let sourcePath = "E:/Desktop/GitRepos/AuroraScheme/testcase/interpreter.scm";
+    let sourcePath = "E:/Desktop/GitRepos/AuroraScheme/testcase/calendar.scm";
 
     let targetModule = LoadModule(sourcePath);
     fs.writeFileSync("E:/Desktop/GitRepos/AuroraScheme/testcase/Module.json", JSON.stringify(targetModule, null, 2), "utf-8");
