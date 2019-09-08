@@ -343,7 +343,7 @@ class Closure extends SchemeObject {
         this.boundVariables[variable] = value;
         this.dirtyFlag[variable] = true;
     }
-    public GetBoundVariable(variable: string): void {
+    public GetBoundVariable(variable: string): any {
         return this.boundVariables[variable];
     }
     // 不加脏标记
@@ -356,7 +356,7 @@ class Closure extends SchemeObject {
         this.freeVariables[variable] = value;
         this.dirtyFlag[variable] = true;
     }
-    public GetFreeVariable(variable: string): void {
+    public GetFreeVariable(variable: string): any {
         return this.freeVariables[variable];
     }
 
