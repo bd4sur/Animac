@@ -91,8 +91,10 @@ class Memory {
 
     // 动态回收堆对象把柄：删除堆中相应位置
     public DeleteHandle (handle: Handle): void {
-        this.data.set(handle, undefined);
-        this.metadata.set(handle, this.MetaString(false, false, "free"));
+        delete this.data[handle];
+        delete this.metadata[handle];
+        // this.data.set(handle, undefined);
+        // this.metadata.set(handle, this.MetaString(false, false, "free"));
     }
 
     // 根据把柄获取对象

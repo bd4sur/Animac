@@ -68,6 +68,7 @@ class Runtime {
         // 后处理
         if(currentProcess.state === ProcessState.RUNNING) {
             // 仍在运行的进程加入队尾
+            // currentProcess.GC(); // TODO 垃圾回收仍然不完善
             currentProcess.state = ProcessState.READY;
             this.processQueue.push(currentPID);
         }

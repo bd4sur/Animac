@@ -170,6 +170,76 @@ class Process {
         throw `[Error] 变量'${variableName}' at Closure${this.currentClosureHandle}未定义`;
     }
 
+    public GC() {
+        // 获取当前所有闭包空间的全部绑定、以及操作数栈内的把柄，作为可达性分析的根节点
+        let gcroots: Array<any> = new Array();
+
+        this.heap.ForEach((hd)=> {
+            let obj = this.heap.Get(hd);
+            if(obj.type === "CLOSURE") {
+                let currentClosure = obj;
+                for(let bound in currentClosure.boundVariables) {
+                    let boundValue = currentClosure.GetBoundVariable(bound);
+                    if(TypeOfToken(boundValue) === "HANDLE") {
+                        gcroots.push(boundValue);
+                    }
+                }
+                for(let free in currentClosure.freeVariables) {
+                    let freeValue = currentClosure.GetFreeVariable(free);
+                    if(TypeOfToken(freeValue) === "HANDLE") {
+                        gcroots.push(freeValue);
+                    }
+                }
+            }
+        });
+
+        for(let r of this.OPSTACK) {
+            if(TypeOfToken(r) === "HANDLE") {
+                gcroots.push(r);
+            }
+        }
+
+        // 仅标记列表和字符串，不处理闭包和续延。清除也是。
+        let alives: HashMap<string, boolean> = new HashMap();
+        let thisProcess = this;
+        function GCMark(handle) {
+            if(TypeOfToken(handle) !== "HANDLE") return;
+            let obj = thisProcess.heap.Get(handle);
+            if(obj.type === "QUOTE" || obj.type === "QUASIQUOTE" || obj.type === "UNQUOTE" || obj.type === "APPLICATION") {
+                alives.set(handle, true);
+                for(let child of obj.children) {
+                    GCMark(child);
+                }
+            }
+            else if(obj.type === "STRING"){
+                alives.set(handle, true);
+            }
+        }
+
+        for(let root of gcroots) {
+            GCMark(root);
+        }
+
+        // 清理
+        let gcount = 0;
+        let count = 0;
+        this.heap.ForEach((hd)=> {
+            count++;
+            let obj = this.heap.Get(hd);
+            let isStatic = (this.heap.metadata.get(hd).charAt(0) === "S");
+            if(isStatic) return;
+            else if(obj.type === "QUOTE" || obj.type === "QUASIQUOTE" || obj.type === "UNQUOTE" || obj.type === "STRING") {
+                if(alives.get(hd) !== true) {
+                    this.heap.DeleteHandle(hd);
+                    gcount++;
+                }
+            }
+            else return;
+        });
+
+        console.info(`[GC] 已回收 ${gcount} / ${count} 个对象。`);
+    }
+
     /* 程序流程控制 */
 
     // 获取并解析当前指令
