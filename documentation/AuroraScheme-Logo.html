@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head></head>
+<body>
+<div id="logo" style="
+margin: 50px auto 40px auto;
+text-align: center;
+vertical-align: middle;
+background-color: #ffffff;
+width: 480px;
+height: 480px;
+border-radius: 90px;
+box-shadow: 0 0px #e5e5e5, 0 0 15px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.05);
+">
+    <svg id="aslogo" width="312px" height="360px" version="1.1" xmlns="http://www.w3.org/2000/svg" style="margin: auto; margin-top: 60px;">
+</svg>
+</div>
+
+<div style="
+font-family: 'UD Digi Kyokasho NP-B', 'consolas', Courier, monospace;
+font-size: 80px;
+text-align: center;
+"><span style="color:#66ccff;">(Aurora</span><span style="color:#cccccc;">.</span><span style="color:#ff75a6;">Scheme)</span></div>
+
+<div style="
+margin-top: 20px;
+font-family: 'UD Digi Kyokasho NP-B', 'consolas', Courier, monospace;
+font-size: 32px;
+text-align: center;
+"><span style="color:#cccccc;">Scheme Compiler and Virtual Machine</div>
+
+<script>
+const n = 30;
+const w = 0.24 * n;
+const S = Math.sqrt(3);
+const S1 = S * n;
+const S2 = 2 * S1;
+const S3 = 3 * S1;
+const S4 = 4 * S1;
+const S5 = 5 * S1;
+const S6 = 6 * S1;
+
+const A = `${S3},${0}`;
+const B = `${0},${3*n}`;
+const C = `${0},${9*n}`;
+const D = `${S3},${12*n}`;
+const E = `${S6},${9*n}`;
+const F = `${S6},${3*n}`;
+
+const a = `${S3},${2*n}`;
+const b = `${S1},${4*n}`;
+const c = `${S1},${8*n}`;
+const d = `${S3},${10*n}`;
+const e = `${S5},${8*n}`;
+const f = `${S5},${4*n}`;
+
+let outer = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+outer.setAttribute("points", `${A} ${B} ${C} ${c} ${b} ${a} ${f} ${F}`);
+outer.setAttribute("style", "fill:#66ccff;stroke:none;");
+
+let inner = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+inner.setAttribute("points", `${F} ${E} ${D} ${C} ${c} ${d} ${e} ${f}`);
+inner.setAttribute("style", "fill:#ff75a6;stroke:none;");
+
+let line1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+line1.setAttribute("x1", `${0}`);
+line1.setAttribute("y1", `${9*n}`);
+line1.setAttribute("x2", `${S6}`);
+line1.setAttribute("y2", `${3*n}`);
+line1.setAttribute("style", `stroke:#ffffff;stroke-width:${w};`);
+
+let line2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+line2.setAttribute("x1", `${0 - S * w}`);
+line2.setAttribute("y1", `${5*n + w / 1.7 + w}`);
+line2.setAttribute("x2", `${S1 + S * w}`);
+line2.setAttribute("y2", `${4*n + w / 1.7 - w}`);
+line2.setAttribute("style", `stroke:#ffffff;stroke-width:${w};`);
+
+let line3 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+line3.setAttribute("x1", `${S5 - S * w}`);
+line3.setAttribute("y1", `${8*n - w / 1.7 + w}`);
+line3.setAttribute("x2", `${S6 + S * w}`);
+line3.setAttribute("y2", `${7*n - w / 1.7 - w}`);
+line3.setAttribute("style", `stroke:#ffffff;stroke-width:${w};`);
+
+let line4 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+line4.setAttribute("x1", `${S2 - S * w}`);
+line4.setAttribute("y1", `${n + w / 1.7 - w}`);
+line4.setAttribute("x2", `${S3}`);
+line4.setAttribute("y2", `${2*n + w / 1.7}`);
+line4.setAttribute("style", `stroke:#ffffff;stroke-width:${w};`);
+
+let line5 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+line5.setAttribute("x1", `${S3}`);
+line5.setAttribute("y1", `${n*10 - w / 1.7}`);
+line5.setAttribute("x2", `${S4 + S * w}`);
+line5.setAttribute("y2", `${11*n - w / 1.7 + w}`);
+line5.setAttribute("style", `stroke:#ffffff;stroke-width:${w};`);
+
+
+document.getElementById("aslogo").appendChild(outer);
+document.getElementById("aslogo").appendChild(inner);
+document.getElementById("aslogo").appendChild(line1);
+document.getElementById("aslogo").appendChild(line2);
+document.getElementById("aslogo").appendChild(line3);
+document.getElementById("aslogo").appendChild(line4);
+document.getElementById("aslogo").appendChild(line5);
+</script>
+
+</body>
+</html>
