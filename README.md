@@ -2,7 +2,7 @@
 
 <h1 align="center">AuroraScheme</h1>
 
-![GitHub top language](https://img.shields.io/github/languages/top/mikukonai/AuroraScheme) ![GitHub](https://img.shields.io/github/license/mikukonai/AuroraScheme.svg?label=Licence) 
+![GitHub top language](https://img.shields.io/github/languages/top/mikukonai/AuroraScheme) ![GitHub](https://img.shields.io/github/license/mikukonai/AuroraScheme.svg?label=Licence)
 
 
 **AuroraScheme**是一款[Scheme](https://zh.wikipedia.org/wiki/Scheme)语言实现，能够将Scheme编译为中间语言代码，并且在虚拟机上执行中间语言代码。AuroraScheme基于Node.js开发，你可以使用JavaScript或者TypeScript编写“本地函数库”，以扩展AuroraScheme的功能。
@@ -15,7 +15,10 @@
 
 ## 构建 / Building
 
-(需要/Requires) Node.js v10+
+依赖项 / Dependencies：
+
+- Node.js v10+
+- TypeScript 3+
 
 ```
 cd ./source
@@ -35,9 +38,9 @@ node AuroraScheme.js
 
 ### 运行时系统 / Runtime system
 
-- Scheme代码将被编译为中间语言代码，在基于栈的虚拟机上运行。
-- 基于标记-清除算法的垃圾回收。
-- 支持虚拟机层次上的多进程。支持“端口”机制以实现进程间通信。
+- Scheme代码将被编译为中间语言代码，在基于栈的虚拟机上运行。 / Scheme code will be compiled to IL code. The compiled IL code will running on a stack-based virtual machine.
+- 基于标记-清除算法的垃圾回收。 / Mark-and-sweep GC.
+- 支持虚拟机层次上的多进程。支持“端口”机制以实现进程间通信。 / Supports VM-level "multi-process" mechanism. Supports "port" mechanism for inter-process communication.
 
 ### 标准库和可扩展性 / Standard library and extendibility
 
