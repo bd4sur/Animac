@@ -38,7 +38,7 @@ node AuroraScheme.js
 
 ### 运行时系统 / Runtime system
 
-- Scheme代码将被编译为中间语言代码，在基于栈的虚拟机上运行。 / Scheme code will be compiled to IL code. The compiled IL code will running on a stack-based virtual machine.
+- Scheme代码将被编译为中间语言代码，在基于栈的虚拟机上运行。 / Scheme code will be compiled to IL code. The compiled IL code will run on a stack-based virtual machine.
 - 基于标记-清除算法的垃圾回收。 / Mark-and-sweep GC.
 - 支持虚拟机层次上的多进程。支持“端口”机制以实现进程间通信。 / Supports VM-level "multi-process" mechanism. Supports "port" mechanism for inter-process communication.
 
@@ -54,17 +54,16 @@ node AuroraScheme.js
 |----|-----|----|
 |可视化调试工具 / Visual debugger|★★★|开发中|
 |卫生宏和模式匹配 / Hygienic macros & Pattern matching|★★★|研究中|
+|字符串模板和正则表达式 / Template string & Regex|★★★|开发中|
 |完善设计文档和用户手册 / Documentation|★★☆|开发中|
 |数值类型塔（数学库） / Math lib|★★☆|计划中|
-|字符串模板和正则表达式 / Template string & Regex|★★☆|计划中|
-|Canvas图形库 / Graphic lib based on Canvas|★★☆|计划中|
+|Canvas/SVG图形库 / Canvas/SVG Graphic lib|★★☆|计划中|
 |R<sup>n</sup>RS尽量兼容 / Compatibility with R<sup>n</sup>RS|★☆☆|研究中|
 |持续集成和自动化测试 / CI & Auto test|★☆☆|计划中|
-|编译优化 / Compiling optimization|★☆☆|计划中|
-|C语言重构VM / VM Refactoring in C|★☆☆|开发中|
+|较高级的编译优化 / Advanced compiling optimization|★☆☆|计划中|
+|用C语言重构VM / VM Refactoring in C|★☆☆|开发中|
 |自动CPST&自动柯里化 / Auto CPST & Currying|★☆☆|计划中|
 |类型系统 / Type system embedding|★☆☆|计划中|
-
 
 ### 开发目标 / Development Goals
 
@@ -129,7 +128,7 @@ node AuroraScheme.js
 ; @*@**@***@**** ...
 ```
 
-更多测试用例，请参考`/testcase`。 / For more test cases, please refer to `/testcase`.
+更多测试用例，请参考[`/testcase`](https://github.com/mikukonai/AuroraScheme/tree/master/testcase)。 / For more test cases, please refer to [`/testcase`](https://github.com/mikukonai/AuroraScheme/tree/master/testcase).
 
 ## 形式语法（BNF表示） / Formal syntax (BNF notation)
 
