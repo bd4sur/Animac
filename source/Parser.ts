@@ -82,7 +82,7 @@ class AST {
                 break;
             case "UNQUOTE":
                 handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.UNQUOTE`, true);
-                node = new QuoteObject(parentHandle);
+                node = new UnquoteObject(parentHandle);
                 break;
             default:
                 handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.APPLICATION`, true);
@@ -756,7 +756,7 @@ function Parse(code: string, moduleQualifiedName: string): AST {
                 }
             }
             // Application节点：处理方式类似body
-            else if(nodeType === "APPLICATION" || nodeType === "UNQUOTE") {
+            else if(nodeType === "APPLICATION" || nodeType === "UNQUOTE" || nodeType === "QUASIQUOTE") {
                 // 跳过若干特殊类型的node
                 let first = node.children[0];
                 if(["native", "import"].indexOf(first) >= 0) {

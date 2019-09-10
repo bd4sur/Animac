@@ -1,2287 +1,466 @@
 {
   "AST": {
-    "source": "((lambda () ;;;;;;;;;;;;;;;;;;;;;;;;;\n;; AuroraScheme测试用例 ;;\n;;;;;;;;;;;;;;;;;;;;;;;;;\n\n;; 打印某年某月的日历\n\n(define get-value-iter\n  (lambda (list i counter)\n    (if (= counter i)\n        (car list)\n        (get-value-iter (cdr list) i (+ counter 1)))))\n\n(define get-value\n  (lambda (list i)\n    (get-value-iter list i 0)))\n\n(define is-leap-year?\n  (lambda (year)\n    (cond ((and (= (% year 4) 0)\n                (not (= (% year 100) 0)))\n           #t)\n          ((= (% year 400) 0)\n           #t)\n          (else\n           #f))))\n\n(define days-of-month\n  (lambda (year month)\n    (cond ((< month 1) 0)\n          ((> month 12) 0)\n          (else (cond ((is-leap-year? year)\n                       (get-value '(0 31 29 31 30 31 30 31 31 30 31 30 31) month))\n                      (else\n                       (get-value '(0 31 28 31 30 31 30 31 31 30 31 30 31) month)))))))\n\n(define days-of-year\n  (lambda (year)\n    (if (is-leap-year? year)\n        366 \n        365)))\n\n;某月某日是某年的第几天\n(define day-count\n  (lambda (year month day)\n    (cond ((= month 0) day)\n          (else (+ (days-of-month year (- month 1)) (day-count year (- month 1) day))))))\n\n;计算两个日期之间的日数差\n(define day-diff\n  (lambda (y1 m1 d1 y2 m2 d2)\n    (cond ((= y1 y2) (- (day-count y2 m2 d2) (day-count y1 m1 d1)))\n          (else (+ (days-of-year (- y2 1)) (day-diff y1 m1 d1 (- y2 1) m2 d2))))))\n\n;计算某日的星期数\n(define get-week\n  (lambda (year month day)\n    (% (day-diff 2017 1 1 year month day) 7)))\n\n;格式输出\n(define print-iter\n  (lambda (year month iter blank-flag)\n    (cond ((>= iter (+ (get-week year month 1) (days-of-month year month)))\n           (newline)) ;月末结束\n          ((< iter (get-week year month 1)) {\n             (display \"   \")\n             (print-iter year month (+ iter 1) blank-flag)}) ;月初空格\n          (else\n             (cond ((and (< (- iter (get-week year month 1)) 9) (= blank-flag 0)) {\n                      (display \" \")\n                      (print-iter year month iter 1)})\n                   (else\n                      (cond ((= (% iter 7) 6) {\n                               (display (+ 1 (- iter (get-week year month 1)))) (newline) (print-iter year month (+ iter 1) 0)}) ;行末换行\n                            (else {(display (+ 1 (- iter (get-week year month 1)))) (display \" \") (print-iter year month (+ iter 1) 0)}))))))))\n\n(define print-calendar\n  (lambda (year month)\n    (print-iter year month 0 0)))\n\n(define Calendar\n  (lambda (year month)\n    (display \"AuroraScheme测试用例：日历\")(newline)\n    (display \"2012.6      C语言编写\")(newline)\n    (display \"2017.8.26   改写为Scheme\")(newline)\n    (display year)(display \"年\")(display month)(display \"月\")(newline)\n    (display \"====================\")(newline)\n    (display \"Su Mo Tu We Th Fr Sa\")(newline)\n    (display \"====================\")(newline)\n    (print-calendar year month)\n    (display \"====================\")(newline)\n  ))\n\n(Calendar 2019 9)\n))\n",
-    "moduleQualifiedName": "calendar",
+    "source": "((lambda () ;;;;;;;;;;;;;;;;;;;;;;;;;\n;; AuroraScheme测试用例 ;;\n;;;;;;;;;;;;;;;;;;;;;;;;;\n\n;; 准引用列表（quasiquote）\n\n(define printf\n  (lambda (template)\n    (cond ((null? template) #f)\n          ((not (list? template)) (display template))\n          (else {\n              (display (car template))\n              (printf (cdr template))\n          }))))\n\n(define a 100)\n\n(define qq `(\"a=${\" ,(car `((a ,(* a 2) ,a) 1 a ,a ,(* a a))) \"}\"))\n\n(printf qq)(newline)\n\n;; 准引用列表里面的unquote也应该是词法作用域的。\n((lambda (a)\n    (printf (cdr qq))\n    (newline)\n ) 200)\n))\n",
+    "moduleQualifiedName": "quasiquote",
     "nodes": {
       "data": {
-        "&calendar.APPLICATION_0": {
+        "&quasiquote.APPLICATION_0": {
           "type": "APPLICATION",
           "parent": "&TOP_NODE",
           "children": [
-            "&calendar.LAMBDA_1"
+            "&quasiquote.LAMBDA_1"
           ]
         },
-        "&calendar.LAMBDA_1": {
+        "&quasiquote.LAMBDA_1": {
           "type": "LAMBDA",
-          "parent": "&calendar.APPLICATION_0",
+          "parent": "&quasiquote.APPLICATION_0",
           "children": [
             "lambda",
             [],
-            "&calendar.APPLICATION_2",
-            "&calendar.APPLICATION_10",
-            "&calendar.APPLICATION_13",
-            "&calendar.APPLICATION_27",
-            "&calendar.APPLICATION_43",
-            "&calendar.APPLICATION_47",
-            "&calendar.APPLICATION_58",
-            "&calendar.APPLICATION_72",
-            "&calendar.APPLICATION_76",
-            "&calendar.APPLICATION_128",
-            "&calendar.APPLICATION_131",
-            "&calendar.APPLICATION_162"
+            "&quasiquote.APPLICATION_2",
+            "&quasiquote.APPLICATION_17",
+            "&quasiquote.APPLICATION_18",
+            "&quasiquote.APPLICATION_27",
+            "&quasiquote.APPLICATION_28",
+            "&quasiquote.APPLICATION_29"
           ]
         },
-        "&calendar.APPLICATION_2": {
+        "&quasiquote.APPLICATION_2": {
           "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_1",
+          "parent": "&quasiquote.LAMBDA_1",
           "children": [
             "define",
-            "calendar.LAMBDA_1.get-value-iter",
-            "&calendar.LAMBDA_3"
+            "quasiquote.LAMBDA_1.printf",
+            "&quasiquote.LAMBDA_3"
           ]
         },
-        "&calendar.LAMBDA_3": {
+        "&quasiquote.LAMBDA_3": {
           "type": "LAMBDA",
-          "parent": "&calendar.APPLICATION_2",
+          "parent": "&quasiquote.APPLICATION_2",
           "children": [
             "lambda",
             [
-              "calendar.LAMBDA_3.list",
-              "calendar.LAMBDA_3.i",
-              "calendar.LAMBDA_3.counter"
+              "quasiquote.LAMBDA_3.template"
             ],
-            "&calendar.APPLICATION_4"
+            "&quasiquote.APPLICATION_4"
           ]
         },
-        "&calendar.APPLICATION_4": {
+        "&quasiquote.APPLICATION_4": {
           "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_3",
-          "children": [
-            "if",
-            "&calendar.APPLICATION_5",
-            "&calendar.APPLICATION_6",
-            "&calendar.APPLICATION_7"
-          ]
-        },
-        "&calendar.APPLICATION_5": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_4",
-          "children": [
-            "=",
-            "calendar.LAMBDA_3.counter",
-            "calendar.LAMBDA_3.i"
-          ]
-        },
-        "&calendar.APPLICATION_6": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_4",
-          "children": [
-            "car",
-            "calendar.LAMBDA_3.list"
-          ]
-        },
-        "&calendar.APPLICATION_7": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_4",
-          "children": [
-            "calendar.LAMBDA_1.get-value-iter",
-            "&calendar.APPLICATION_8",
-            "calendar.LAMBDA_3.i",
-            "&calendar.APPLICATION_9"
-          ]
-        },
-        "&calendar.APPLICATION_8": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_7",
-          "children": [
-            "cdr",
-            "calendar.LAMBDA_3.list"
-          ]
-        },
-        "&calendar.APPLICATION_9": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_7",
-          "children": [
-            "+",
-            "calendar.LAMBDA_3.counter",
-            1
-          ]
-        },
-        "&calendar.APPLICATION_10": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_1",
-          "children": [
-            "define",
-            "calendar.LAMBDA_1.get-value",
-            "&calendar.LAMBDA_11"
-          ]
-        },
-        "&calendar.LAMBDA_11": {
-          "type": "LAMBDA",
-          "parent": "&calendar.APPLICATION_10",
-          "children": [
-            "lambda",
-            [
-              "calendar.LAMBDA_11.list",
-              "calendar.LAMBDA_11.i"
-            ],
-            "&calendar.APPLICATION_12"
-          ]
-        },
-        "&calendar.APPLICATION_12": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_11",
-          "children": [
-            "calendar.LAMBDA_1.get-value-iter",
-            "calendar.LAMBDA_11.list",
-            "calendar.LAMBDA_11.i",
-            0
-          ]
-        },
-        "&calendar.APPLICATION_13": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_1",
-          "children": [
-            "define",
-            "calendar.LAMBDA_1.is-leap-year?",
-            "&calendar.LAMBDA_14"
-          ]
-        },
-        "&calendar.LAMBDA_14": {
-          "type": "LAMBDA",
-          "parent": "&calendar.APPLICATION_13",
-          "children": [
-            "lambda",
-            [
-              "calendar.LAMBDA_14.year"
-            ],
-            "&calendar.APPLICATION_15"
-          ]
-        },
-        "&calendar.APPLICATION_15": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_14",
+          "parent": "&quasiquote.LAMBDA_3",
           "children": [
             "cond",
-            "&calendar.APPLICATION_16",
-            "&calendar.APPLICATION_23",
-            "&calendar.APPLICATION_26"
+            "&quasiquote.APPLICATION_5",
+            "&quasiquote.APPLICATION_7",
+            "&quasiquote.APPLICATION_11"
           ]
         },
-        "&calendar.APPLICATION_16": {
+        "&quasiquote.APPLICATION_5": {
           "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_15",
+          "parent": "&quasiquote.APPLICATION_4",
           "children": [
-            "&calendar.APPLICATION_17",
-            "#t"
-          ]
-        },
-        "&calendar.APPLICATION_17": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_16",
-          "children": [
-            "and",
-            "&calendar.APPLICATION_18",
-            "&calendar.APPLICATION_20"
-          ]
-        },
-        "&calendar.APPLICATION_18": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_17",
-          "children": [
-            "=",
-            "&calendar.APPLICATION_19",
-            0
-          ]
-        },
-        "&calendar.APPLICATION_19": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_18",
-          "children": [
-            "%",
-            "calendar.LAMBDA_14.year",
-            4
-          ]
-        },
-        "&calendar.APPLICATION_20": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_17",
-          "children": [
-            "not",
-            "&calendar.APPLICATION_21"
-          ]
-        },
-        "&calendar.APPLICATION_21": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_20",
-          "children": [
-            "=",
-            "&calendar.APPLICATION_22",
-            0
-          ]
-        },
-        "&calendar.APPLICATION_22": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_21",
-          "children": [
-            "%",
-            "calendar.LAMBDA_14.year",
-            100
-          ]
-        },
-        "&calendar.APPLICATION_23": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_15",
-          "children": [
-            "&calendar.APPLICATION_24",
-            "#t"
-          ]
-        },
-        "&calendar.APPLICATION_24": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_23",
-          "children": [
-            "=",
-            "&calendar.APPLICATION_25",
-            0
-          ]
-        },
-        "&calendar.APPLICATION_25": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_24",
-          "children": [
-            "%",
-            "calendar.LAMBDA_14.year",
-            400
-          ]
-        },
-        "&calendar.APPLICATION_26": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_15",
-          "children": [
-            "else",
+            "&quasiquote.APPLICATION_6",
             "#f"
           ]
         },
-        "&calendar.APPLICATION_27": {
+        "&quasiquote.APPLICATION_6": {
           "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_1",
+          "parent": "&quasiquote.APPLICATION_5",
           "children": [
-            "define",
-            "calendar.LAMBDA_1.days-of-month",
-            "&calendar.LAMBDA_28"
+            "null?",
+            "quasiquote.LAMBDA_3.template"
           ]
         },
-        "&calendar.LAMBDA_28": {
-          "type": "LAMBDA",
-          "parent": "&calendar.APPLICATION_27",
+        "&quasiquote.APPLICATION_7": {
+          "type": "APPLICATION",
+          "parent": "&quasiquote.APPLICATION_4",
           "children": [
-            "lambda",
-            [
-              "calendar.LAMBDA_28.year",
-              "calendar.LAMBDA_28.month"
-            ],
-            "&calendar.APPLICATION_29"
+            "&quasiquote.APPLICATION_8",
+            "&quasiquote.APPLICATION_10"
           ]
         },
-        "&calendar.APPLICATION_29": {
+        "&quasiquote.APPLICATION_8": {
           "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_28",
+          "parent": "&quasiquote.APPLICATION_7",
           "children": [
-            "cond",
-            "&calendar.APPLICATION_30",
-            "&calendar.APPLICATION_32",
-            "&calendar.APPLICATION_34"
+            "not",
+            "&quasiquote.APPLICATION_9"
           ]
         },
-        "&calendar.APPLICATION_30": {
+        "&quasiquote.APPLICATION_9": {
           "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_29",
+          "parent": "&quasiquote.APPLICATION_8",
           "children": [
-            "&calendar.APPLICATION_31",
-            0
+            "list?",
+            "quasiquote.LAMBDA_3.template"
           ]
         },
-        "&calendar.APPLICATION_31": {
+        "&quasiquote.APPLICATION_10": {
           "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_30",
+          "parent": "&quasiquote.APPLICATION_7",
           "children": [
-            "<",
-            "calendar.LAMBDA_28.month",
-            1
+            "display",
+            "quasiquote.LAMBDA_3.template"
           ]
         },
-        "&calendar.APPLICATION_32": {
+        "&quasiquote.APPLICATION_11": {
           "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_29",
-          "children": [
-            "&calendar.APPLICATION_33",
-            0
-          ]
-        },
-        "&calendar.APPLICATION_33": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_32",
-          "children": [
-            ">",
-            "calendar.LAMBDA_28.month",
-            12
-          ]
-        },
-        "&calendar.APPLICATION_34": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_29",
+          "parent": "&quasiquote.APPLICATION_4",
           "children": [
             "else",
-            "&calendar.APPLICATION_35"
+            "&quasiquote.APPLICATION_12"
           ]
         },
-        "&calendar.APPLICATION_35": {
+        "&quasiquote.APPLICATION_12": {
           "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_34",
-          "children": [
-            "cond",
-            "&calendar.APPLICATION_36",
-            "&calendar.APPLICATION_40"
-          ]
-        },
-        "&calendar.APPLICATION_36": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_35",
-          "children": [
-            "&calendar.APPLICATION_37",
-            "&calendar.APPLICATION_38"
-          ]
-        },
-        "&calendar.APPLICATION_37": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_36",
-          "children": [
-            "calendar.LAMBDA_1.is-leap-year?",
-            "calendar.LAMBDA_28.year"
-          ]
-        },
-        "&calendar.APPLICATION_38": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_36",
-          "children": [
-            "calendar.LAMBDA_1.get-value",
-            "&calendar.QUOTE_39",
-            "calendar.LAMBDA_28.month"
-          ]
-        },
-        "&calendar.QUOTE_39": {
-          "type": "QUOTE",
-          "parent": "&calendar.APPLICATION_38",
-          "children": [
-            0,
-            31,
-            29,
-            31,
-            30,
-            31,
-            30,
-            31,
-            31,
-            30,
-            31,
-            30,
-            31
-          ]
-        },
-        "&calendar.APPLICATION_40": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_35",
-          "children": [
-            "else",
-            "&calendar.APPLICATION_41"
-          ]
-        },
-        "&calendar.APPLICATION_41": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_40",
-          "children": [
-            "calendar.LAMBDA_1.get-value",
-            "&calendar.QUOTE_42",
-            "calendar.LAMBDA_28.month"
-          ]
-        },
-        "&calendar.QUOTE_42": {
-          "type": "QUOTE",
-          "parent": "&calendar.APPLICATION_41",
-          "children": [
-            0,
-            31,
-            28,
-            31,
-            30,
-            31,
-            30,
-            31,
-            31,
-            30,
-            31,
-            30,
-            31
-          ]
-        },
-        "&calendar.APPLICATION_43": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_1",
-          "children": [
-            "define",
-            "calendar.LAMBDA_1.days-of-year",
-            "&calendar.LAMBDA_44"
-          ]
-        },
-        "&calendar.LAMBDA_44": {
-          "type": "LAMBDA",
-          "parent": "&calendar.APPLICATION_43",
-          "children": [
-            "lambda",
-            [
-              "calendar.LAMBDA_44.year"
-            ],
-            "&calendar.APPLICATION_45"
-          ]
-        },
-        "&calendar.APPLICATION_45": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_44",
-          "children": [
-            "if",
-            "&calendar.APPLICATION_46",
-            366,
-            365
-          ]
-        },
-        "&calendar.APPLICATION_46": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_45",
-          "children": [
-            "calendar.LAMBDA_1.is-leap-year?",
-            "calendar.LAMBDA_44.year"
-          ]
-        },
-        "&calendar.APPLICATION_47": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_1",
-          "children": [
-            "define",
-            "calendar.LAMBDA_1.day-count",
-            "&calendar.LAMBDA_48"
-          ]
-        },
-        "&calendar.LAMBDA_48": {
-          "type": "LAMBDA",
-          "parent": "&calendar.APPLICATION_47",
-          "children": [
-            "lambda",
-            [
-              "calendar.LAMBDA_48.year",
-              "calendar.LAMBDA_48.month",
-              "calendar.LAMBDA_48.day"
-            ],
-            "&calendar.APPLICATION_49"
-          ]
-        },
-        "&calendar.APPLICATION_49": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_48",
-          "children": [
-            "cond",
-            "&calendar.APPLICATION_50",
-            "&calendar.APPLICATION_52"
-          ]
-        },
-        "&calendar.APPLICATION_50": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_49",
-          "children": [
-            "&calendar.APPLICATION_51",
-            "calendar.LAMBDA_48.day"
-          ]
-        },
-        "&calendar.APPLICATION_51": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_50",
-          "children": [
-            "=",
-            "calendar.LAMBDA_48.month",
-            0
-          ]
-        },
-        "&calendar.APPLICATION_52": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_49",
-          "children": [
-            "else",
-            "&calendar.APPLICATION_53"
-          ]
-        },
-        "&calendar.APPLICATION_53": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_52",
-          "children": [
-            "+",
-            "&calendar.APPLICATION_54",
-            "&calendar.APPLICATION_56"
-          ]
-        },
-        "&calendar.APPLICATION_54": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_53",
-          "children": [
-            "calendar.LAMBDA_1.days-of-month",
-            "calendar.LAMBDA_48.year",
-            "&calendar.APPLICATION_55"
-          ]
-        },
-        "&calendar.APPLICATION_55": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_54",
-          "children": [
-            "-",
-            "calendar.LAMBDA_48.month",
-            1
-          ]
-        },
-        "&calendar.APPLICATION_56": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_53",
-          "children": [
-            "calendar.LAMBDA_1.day-count",
-            "calendar.LAMBDA_48.year",
-            "&calendar.APPLICATION_57",
-            "calendar.LAMBDA_48.day"
-          ]
-        },
-        "&calendar.APPLICATION_57": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_56",
-          "children": [
-            "-",
-            "calendar.LAMBDA_48.month",
-            1
-          ]
-        },
-        "&calendar.APPLICATION_58": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_1",
-          "children": [
-            "define",
-            "calendar.LAMBDA_1.day-diff",
-            "&calendar.LAMBDA_59"
-          ]
-        },
-        "&calendar.LAMBDA_59": {
-          "type": "LAMBDA",
-          "parent": "&calendar.APPLICATION_58",
-          "children": [
-            "lambda",
-            [
-              "calendar.LAMBDA_59.y1",
-              "calendar.LAMBDA_59.m1",
-              "calendar.LAMBDA_59.d1",
-              "calendar.LAMBDA_59.y2",
-              "calendar.LAMBDA_59.m2",
-              "calendar.LAMBDA_59.d2"
-            ],
-            "&calendar.APPLICATION_60"
-          ]
-        },
-        "&calendar.APPLICATION_60": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_59",
-          "children": [
-            "cond",
-            "&calendar.APPLICATION_61",
-            "&calendar.APPLICATION_66"
-          ]
-        },
-        "&calendar.APPLICATION_61": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_60",
-          "children": [
-            "&calendar.APPLICATION_62",
-            "&calendar.APPLICATION_63"
-          ]
-        },
-        "&calendar.APPLICATION_62": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_61",
-          "children": [
-            "=",
-            "calendar.LAMBDA_59.y1",
-            "calendar.LAMBDA_59.y2"
-          ]
-        },
-        "&calendar.APPLICATION_63": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_61",
-          "children": [
-            "-",
-            "&calendar.APPLICATION_64",
-            "&calendar.APPLICATION_65"
-          ]
-        },
-        "&calendar.APPLICATION_64": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_63",
-          "children": [
-            "calendar.LAMBDA_1.day-count",
-            "calendar.LAMBDA_59.y2",
-            "calendar.LAMBDA_59.m2",
-            "calendar.LAMBDA_59.d2"
-          ]
-        },
-        "&calendar.APPLICATION_65": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_63",
-          "children": [
-            "calendar.LAMBDA_1.day-count",
-            "calendar.LAMBDA_59.y1",
-            "calendar.LAMBDA_59.m1",
-            "calendar.LAMBDA_59.d1"
-          ]
-        },
-        "&calendar.APPLICATION_66": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_60",
-          "children": [
-            "else",
-            "&calendar.APPLICATION_67"
-          ]
-        },
-        "&calendar.APPLICATION_67": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_66",
-          "children": [
-            "+",
-            "&calendar.APPLICATION_68",
-            "&calendar.APPLICATION_70"
-          ]
-        },
-        "&calendar.APPLICATION_68": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_67",
-          "children": [
-            "calendar.LAMBDA_1.days-of-year",
-            "&calendar.APPLICATION_69"
-          ]
-        },
-        "&calendar.APPLICATION_69": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_68",
-          "children": [
-            "-",
-            "calendar.LAMBDA_59.y2",
-            1
-          ]
-        },
-        "&calendar.APPLICATION_70": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_67",
-          "children": [
-            "calendar.LAMBDA_1.day-diff",
-            "calendar.LAMBDA_59.y1",
-            "calendar.LAMBDA_59.m1",
-            "calendar.LAMBDA_59.d1",
-            "&calendar.APPLICATION_71",
-            "calendar.LAMBDA_59.m2",
-            "calendar.LAMBDA_59.d2"
-          ]
-        },
-        "&calendar.APPLICATION_71": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_70",
-          "children": [
-            "-",
-            "calendar.LAMBDA_59.y2",
-            1
-          ]
-        },
-        "&calendar.APPLICATION_72": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_1",
-          "children": [
-            "define",
-            "calendar.LAMBDA_1.get-week",
-            "&calendar.LAMBDA_73"
-          ]
-        },
-        "&calendar.LAMBDA_73": {
-          "type": "LAMBDA",
-          "parent": "&calendar.APPLICATION_72",
-          "children": [
-            "lambda",
-            [
-              "calendar.LAMBDA_73.year",
-              "calendar.LAMBDA_73.month",
-              "calendar.LAMBDA_73.day"
-            ],
-            "&calendar.APPLICATION_74"
-          ]
-        },
-        "&calendar.APPLICATION_74": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_73",
-          "children": [
-            "%",
-            "&calendar.APPLICATION_75",
-            7
-          ]
-        },
-        "&calendar.APPLICATION_75": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_74",
-          "children": [
-            "calendar.LAMBDA_1.day-diff",
-            2017,
-            1,
-            1,
-            "calendar.LAMBDA_73.year",
-            "calendar.LAMBDA_73.month",
-            "calendar.LAMBDA_73.day"
-          ]
-        },
-        "&calendar.APPLICATION_76": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_1",
-          "children": [
-            "define",
-            "calendar.LAMBDA_1.print-iter",
-            "&calendar.LAMBDA_77"
-          ]
-        },
-        "&calendar.LAMBDA_77": {
-          "type": "LAMBDA",
-          "parent": "&calendar.APPLICATION_76",
-          "children": [
-            "lambda",
-            [
-              "calendar.LAMBDA_77.year",
-              "calendar.LAMBDA_77.month",
-              "calendar.LAMBDA_77.iter",
-              "calendar.LAMBDA_77.blank-flag"
-            ],
-            "&calendar.APPLICATION_78"
-          ]
-        },
-        "&calendar.APPLICATION_78": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_77",
-          "children": [
-            "cond",
-            "&calendar.APPLICATION_79",
-            "&calendar.APPLICATION_85",
-            "&calendar.APPLICATION_93"
-          ]
-        },
-        "&calendar.APPLICATION_79": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_78",
-          "children": [
-            "&calendar.APPLICATION_80",
-            "&calendar.APPLICATION_84"
-          ]
-        },
-        "&calendar.APPLICATION_80": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_79",
-          "children": [
-            ">=",
-            "calendar.LAMBDA_77.iter",
-            "&calendar.APPLICATION_81"
-          ]
-        },
-        "&calendar.APPLICATION_81": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_80",
-          "children": [
-            "+",
-            "&calendar.APPLICATION_82",
-            "&calendar.APPLICATION_83"
-          ]
-        },
-        "&calendar.APPLICATION_82": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_81",
-          "children": [
-            "calendar.LAMBDA_1.get-week",
-            "calendar.LAMBDA_77.year",
-            "calendar.LAMBDA_77.month",
-            1
-          ]
-        },
-        "&calendar.APPLICATION_83": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_81",
-          "children": [
-            "calendar.LAMBDA_1.days-of-month",
-            "calendar.LAMBDA_77.year",
-            "calendar.LAMBDA_77.month"
-          ]
-        },
-        "&calendar.APPLICATION_84": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_79",
-          "children": [
-            "newline"
-          ]
-        },
-        "&calendar.APPLICATION_85": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_78",
-          "children": [
-            "&calendar.APPLICATION_86",
-            "&calendar.APPLICATION_88"
-          ]
-        },
-        "&calendar.APPLICATION_86": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_85",
-          "children": [
-            "<",
-            "calendar.LAMBDA_77.iter",
-            "&calendar.APPLICATION_87"
-          ]
-        },
-        "&calendar.APPLICATION_87": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_86",
-          "children": [
-            "calendar.LAMBDA_1.get-week",
-            "calendar.LAMBDA_77.year",
-            "calendar.LAMBDA_77.month",
-            1
-          ]
-        },
-        "&calendar.APPLICATION_88": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_85",
+          "parent": "&quasiquote.APPLICATION_11",
           "children": [
             "begin",
-            "&calendar.APPLICATION_89",
-            "&calendar.APPLICATION_91"
+            "&quasiquote.APPLICATION_13",
+            "&quasiquote.APPLICATION_15"
           ]
         },
-        "&calendar.APPLICATION_89": {
+        "&quasiquote.APPLICATION_13": {
           "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_88",
+          "parent": "&quasiquote.APPLICATION_12",
           "children": [
             "display",
-            "&calendar.STRING_90"
+            "&quasiquote.APPLICATION_14"
           ]
         },
-        "&calendar.STRING_90": {
+        "&quasiquote.APPLICATION_14": {
+          "type": "APPLICATION",
+          "parent": "&quasiquote.APPLICATION_13",
+          "children": [
+            "car",
+            "quasiquote.LAMBDA_3.template"
+          ]
+        },
+        "&quasiquote.APPLICATION_15": {
+          "type": "APPLICATION",
+          "parent": "&quasiquote.APPLICATION_12",
+          "children": [
+            "quasiquote.LAMBDA_1.printf",
+            "&quasiquote.APPLICATION_16"
+          ]
+        },
+        "&quasiquote.APPLICATION_16": {
+          "type": "APPLICATION",
+          "parent": "&quasiquote.APPLICATION_15",
+          "children": [
+            "cdr",
+            "quasiquote.LAMBDA_3.template"
+          ]
+        },
+        "&quasiquote.APPLICATION_17": {
+          "type": "APPLICATION",
+          "parent": "&quasiquote.LAMBDA_1",
+          "children": [
+            "define",
+            "quasiquote.LAMBDA_1.a",
+            100
+          ]
+        },
+        "&quasiquote.APPLICATION_18": {
+          "type": "APPLICATION",
+          "parent": "&quasiquote.LAMBDA_1",
+          "children": [
+            "define",
+            "quasiquote.LAMBDA_1.qq",
+            "&quasiquote.QUASIQUOTE_19"
+          ]
+        },
+        "&quasiquote.QUASIQUOTE_19": {
+          "type": "QUASIQUOTE",
+          "parent": "&quasiquote.APPLICATION_18",
+          "children": [
+            "&quasiquote.STRING_20",
+            "&quasiquote.UNQUOTE_21",
+            "&quasiquote.STRING_26"
+          ]
+        },
+        "&quasiquote.STRING_20": {
           "type": "STRING",
-          "content": "\"   \""
+          "content": "\"a=${\""
         },
-        "&calendar.APPLICATION_91": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_88",
+        "&quasiquote.UNQUOTE_21": {
+          "type": "UNQUOTE",
+          "parent": "&quasiquote.QUASIQUOTE_19",
           "children": [
-            "calendar.LAMBDA_1.print-iter",
-            "calendar.LAMBDA_77.year",
-            "calendar.LAMBDA_77.month",
-            "&calendar.APPLICATION_92",
-            "calendar.LAMBDA_77.blank-flag"
+            "car",
+            "&quasiquote.QUASIQUOTE_22"
           ]
         },
-        "&calendar.APPLICATION_92": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_91",
+        "&quasiquote.QUASIQUOTE_22": {
+          "type": "QUASIQUOTE",
+          "parent": "&quasiquote.UNQUOTE_21",
           "children": [
-            "+",
-            "calendar.LAMBDA_77.iter",
-            1
-          ]
-        },
-        "&calendar.APPLICATION_93": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_78",
-          "children": [
-            "else",
-            "&calendar.APPLICATION_94"
-          ]
-        },
-        "&calendar.APPLICATION_94": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_93",
-          "children": [
-            "cond",
-            "&calendar.APPLICATION_95",
-            "&calendar.APPLICATION_105"
-          ]
-        },
-        "&calendar.APPLICATION_95": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_94",
-          "children": [
-            "&calendar.APPLICATION_96",
-            "&calendar.APPLICATION_101"
-          ]
-        },
-        "&calendar.APPLICATION_96": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_95",
-          "children": [
-            "and",
-            "&calendar.APPLICATION_97",
-            "&calendar.APPLICATION_100"
-          ]
-        },
-        "&calendar.APPLICATION_97": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_96",
-          "children": [
-            "<",
-            "&calendar.APPLICATION_98",
-            9
-          ]
-        },
-        "&calendar.APPLICATION_98": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_97",
-          "children": [
-            "-",
-            "calendar.LAMBDA_77.iter",
-            "&calendar.APPLICATION_99"
-          ]
-        },
-        "&calendar.APPLICATION_99": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_98",
-          "children": [
-            "calendar.LAMBDA_1.get-week",
-            "calendar.LAMBDA_77.year",
-            "calendar.LAMBDA_77.month",
-            1
-          ]
-        },
-        "&calendar.APPLICATION_100": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_96",
-          "children": [
-            "=",
-            "calendar.LAMBDA_77.blank-flag",
-            0
-          ]
-        },
-        "&calendar.APPLICATION_101": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_95",
-          "children": [
-            "begin",
-            "&calendar.APPLICATION_102",
-            "&calendar.APPLICATION_104"
-          ]
-        },
-        "&calendar.APPLICATION_102": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_101",
-          "children": [
-            "display",
-            "&calendar.STRING_103"
-          ]
-        },
-        "&calendar.STRING_103": {
-          "type": "STRING",
-          "content": "\" \""
-        },
-        "&calendar.APPLICATION_104": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_101",
-          "children": [
-            "calendar.LAMBDA_1.print-iter",
-            "calendar.LAMBDA_77.year",
-            "calendar.LAMBDA_77.month",
-            "calendar.LAMBDA_77.iter",
-            1
-          ]
-        },
-        "&calendar.APPLICATION_105": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_94",
-          "children": [
-            "else",
-            "&calendar.APPLICATION_106"
-          ]
-        },
-        "&calendar.APPLICATION_106": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_105",
-          "children": [
-            "cond",
-            "&calendar.APPLICATION_107",
-            "&calendar.APPLICATION_118"
-          ]
-        },
-        "&calendar.APPLICATION_107": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_106",
-          "children": [
-            "&calendar.APPLICATION_108",
-            "&calendar.APPLICATION_110"
-          ]
-        },
-        "&calendar.APPLICATION_108": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_107",
-          "children": [
-            "=",
-            "&calendar.APPLICATION_109",
-            6
-          ]
-        },
-        "&calendar.APPLICATION_109": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_108",
-          "children": [
-            "%",
-            "calendar.LAMBDA_77.iter",
-            7
-          ]
-        },
-        "&calendar.APPLICATION_110": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_107",
-          "children": [
-            "begin",
-            "&calendar.APPLICATION_111",
-            "&calendar.APPLICATION_115",
-            "&calendar.APPLICATION_116"
-          ]
-        },
-        "&calendar.APPLICATION_111": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_110",
-          "children": [
-            "display",
-            "&calendar.APPLICATION_112"
-          ]
-        },
-        "&calendar.APPLICATION_112": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_111",
-          "children": [
-            "+",
+            "&quasiquote.QUASIQUOTE_23",
             1,
-            "&calendar.APPLICATION_113"
+            "'a",
+            "quasiquote.LAMBDA_1.a",
+            "&quasiquote.UNQUOTE_25"
           ]
         },
-        "&calendar.APPLICATION_113": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_112",
+        "&quasiquote.QUASIQUOTE_23": {
+          "type": "QUASIQUOTE",
+          "parent": "&quasiquote.QUASIQUOTE_22",
           "children": [
-            "-",
-            "calendar.LAMBDA_77.iter",
-            "&calendar.APPLICATION_114"
+            "'a",
+            "&quasiquote.UNQUOTE_24",
+            "quasiquote.LAMBDA_1.a"
           ]
         },
-        "&calendar.APPLICATION_114": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_113",
+        "&quasiquote.UNQUOTE_24": {
+          "type": "UNQUOTE",
+          "parent": "&quasiquote.QUASIQUOTE_23",
           "children": [
-            "calendar.LAMBDA_1.get-week",
-            "calendar.LAMBDA_77.year",
-            "calendar.LAMBDA_77.month",
-            1
+            "*",
+            "quasiquote.LAMBDA_1.a",
+            2
           ]
         },
-        "&calendar.APPLICATION_115": {
+        "&quasiquote.UNQUOTE_25": {
+          "type": "UNQUOTE",
+          "parent": "&quasiquote.QUASIQUOTE_22",
+          "children": [
+            "*",
+            "quasiquote.LAMBDA_1.a",
+            "quasiquote.LAMBDA_1.a"
+          ]
+        },
+        "&quasiquote.STRING_26": {
+          "type": "STRING",
+          "content": "\"}\""
+        },
+        "&quasiquote.APPLICATION_27": {
           "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_110",
+          "parent": "&quasiquote.LAMBDA_1",
+          "children": [
+            "quasiquote.LAMBDA_1.printf",
+            "quasiquote.LAMBDA_1.qq"
+          ]
+        },
+        "&quasiquote.APPLICATION_28": {
+          "type": "APPLICATION",
+          "parent": "&quasiquote.LAMBDA_1",
           "children": [
             "newline"
           ]
         },
-        "&calendar.APPLICATION_116": {
+        "&quasiquote.APPLICATION_29": {
           "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_110",
+          "parent": "&quasiquote.LAMBDA_1",
           "children": [
-            "calendar.LAMBDA_1.print-iter",
-            "calendar.LAMBDA_77.year",
-            "calendar.LAMBDA_77.month",
-            "&calendar.APPLICATION_117",
-            0
+            "&quasiquote.LAMBDA_30",
+            200
           ]
         },
-        "&calendar.APPLICATION_117": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_116",
-          "children": [
-            "+",
-            "calendar.LAMBDA_77.iter",
-            1
-          ]
-        },
-        "&calendar.APPLICATION_118": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_106",
-          "children": [
-            "else",
-            "&calendar.APPLICATION_119"
-          ]
-        },
-        "&calendar.APPLICATION_119": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_118",
-          "children": [
-            "begin",
-            "&calendar.APPLICATION_120",
-            "&calendar.APPLICATION_124",
-            "&calendar.APPLICATION_126"
-          ]
-        },
-        "&calendar.APPLICATION_120": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_119",
-          "children": [
-            "display",
-            "&calendar.APPLICATION_121"
-          ]
-        },
-        "&calendar.APPLICATION_121": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_120",
-          "children": [
-            "+",
-            1,
-            "&calendar.APPLICATION_122"
-          ]
-        },
-        "&calendar.APPLICATION_122": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_121",
-          "children": [
-            "-",
-            "calendar.LAMBDA_77.iter",
-            "&calendar.APPLICATION_123"
-          ]
-        },
-        "&calendar.APPLICATION_123": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_122",
-          "children": [
-            "calendar.LAMBDA_1.get-week",
-            "calendar.LAMBDA_77.year",
-            "calendar.LAMBDA_77.month",
-            1
-          ]
-        },
-        "&calendar.APPLICATION_124": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_119",
-          "children": [
-            "display",
-            "&calendar.STRING_125"
-          ]
-        },
-        "&calendar.STRING_125": {
-          "type": "STRING",
-          "content": "\" \""
-        },
-        "&calendar.APPLICATION_126": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_119",
-          "children": [
-            "calendar.LAMBDA_1.print-iter",
-            "calendar.LAMBDA_77.year",
-            "calendar.LAMBDA_77.month",
-            "&calendar.APPLICATION_127",
-            0
-          ]
-        },
-        "&calendar.APPLICATION_127": {
-          "type": "APPLICATION",
-          "parent": "&calendar.APPLICATION_126",
-          "children": [
-            "+",
-            "calendar.LAMBDA_77.iter",
-            1
-          ]
-        },
-        "&calendar.APPLICATION_128": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_1",
-          "children": [
-            "define",
-            "calendar.LAMBDA_1.print-calendar",
-            "&calendar.LAMBDA_129"
-          ]
-        },
-        "&calendar.LAMBDA_129": {
+        "&quasiquote.LAMBDA_30": {
           "type": "LAMBDA",
-          "parent": "&calendar.APPLICATION_128",
+          "parent": "&quasiquote.APPLICATION_29",
           "children": [
             "lambda",
             [
-              "calendar.LAMBDA_129.year",
-              "calendar.LAMBDA_129.month"
+              "quasiquote.LAMBDA_30.a"
             ],
-            "&calendar.APPLICATION_130"
+            "&quasiquote.APPLICATION_31",
+            "&quasiquote.APPLICATION_33"
           ]
         },
-        "&calendar.APPLICATION_130": {
+        "&quasiquote.APPLICATION_31": {
           "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_129",
+          "parent": "&quasiquote.LAMBDA_30",
           "children": [
-            "calendar.LAMBDA_1.print-iter",
-            "calendar.LAMBDA_129.year",
-            "calendar.LAMBDA_129.month",
-            0,
-            0
+            "quasiquote.LAMBDA_1.printf",
+            "&quasiquote.APPLICATION_32"
           ]
         },
-        "&calendar.APPLICATION_131": {
+        "&quasiquote.APPLICATION_32": {
           "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_1",
+          "parent": "&quasiquote.APPLICATION_31",
           "children": [
-            "define",
-            "calendar.LAMBDA_1.Calendar",
-            "&calendar.LAMBDA_132"
+            "cdr",
+            "quasiquote.LAMBDA_1.qq"
           ]
         },
-        "&calendar.LAMBDA_132": {
-          "type": "LAMBDA",
-          "parent": "&calendar.APPLICATION_131",
-          "children": [
-            "lambda",
-            [
-              "calendar.LAMBDA_132.year",
-              "calendar.LAMBDA_132.month"
-            ],
-            "&calendar.APPLICATION_133",
-            "&calendar.APPLICATION_135",
-            "&calendar.APPLICATION_136",
-            "&calendar.APPLICATION_138",
-            "&calendar.APPLICATION_139",
-            "&calendar.APPLICATION_141",
-            "&calendar.APPLICATION_142",
-            "&calendar.APPLICATION_143",
-            "&calendar.APPLICATION_145",
-            "&calendar.APPLICATION_146",
-            "&calendar.APPLICATION_148",
-            "&calendar.APPLICATION_149",
-            "&calendar.APPLICATION_151",
-            "&calendar.APPLICATION_152",
-            "&calendar.APPLICATION_154",
-            "&calendar.APPLICATION_155",
-            "&calendar.APPLICATION_157",
-            "&calendar.APPLICATION_158",
-            "&calendar.APPLICATION_159",
-            "&calendar.APPLICATION_161"
-          ]
-        },
-        "&calendar.APPLICATION_133": {
+        "&quasiquote.APPLICATION_33": {
           "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_132",
-          "children": [
-            "display",
-            "&calendar.STRING_134"
-          ]
-        },
-        "&calendar.STRING_134": {
-          "type": "STRING",
-          "content": "\"AuroraScheme测试用例：日历\""
-        },
-        "&calendar.APPLICATION_135": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_132",
+          "parent": "&quasiquote.LAMBDA_30",
           "children": [
             "newline"
-          ]
-        },
-        "&calendar.APPLICATION_136": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_132",
-          "children": [
-            "display",
-            "&calendar.STRING_137"
-          ]
-        },
-        "&calendar.STRING_137": {
-          "type": "STRING",
-          "content": "\"2012.6      C语言编写\""
-        },
-        "&calendar.APPLICATION_138": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_132",
-          "children": [
-            "newline"
-          ]
-        },
-        "&calendar.APPLICATION_139": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_132",
-          "children": [
-            "display",
-            "&calendar.STRING_140"
-          ]
-        },
-        "&calendar.STRING_140": {
-          "type": "STRING",
-          "content": "\"2017.8.26   改写为Scheme\""
-        },
-        "&calendar.APPLICATION_141": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_132",
-          "children": [
-            "newline"
-          ]
-        },
-        "&calendar.APPLICATION_142": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_132",
-          "children": [
-            "display",
-            "calendar.LAMBDA_132.year"
-          ]
-        },
-        "&calendar.APPLICATION_143": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_132",
-          "children": [
-            "display",
-            "&calendar.STRING_144"
-          ]
-        },
-        "&calendar.STRING_144": {
-          "type": "STRING",
-          "content": "\"年\""
-        },
-        "&calendar.APPLICATION_145": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_132",
-          "children": [
-            "display",
-            "calendar.LAMBDA_132.month"
-          ]
-        },
-        "&calendar.APPLICATION_146": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_132",
-          "children": [
-            "display",
-            "&calendar.STRING_147"
-          ]
-        },
-        "&calendar.STRING_147": {
-          "type": "STRING",
-          "content": "\"月\""
-        },
-        "&calendar.APPLICATION_148": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_132",
-          "children": [
-            "newline"
-          ]
-        },
-        "&calendar.APPLICATION_149": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_132",
-          "children": [
-            "display",
-            "&calendar.STRING_150"
-          ]
-        },
-        "&calendar.STRING_150": {
-          "type": "STRING",
-          "content": "\"====================\""
-        },
-        "&calendar.APPLICATION_151": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_132",
-          "children": [
-            "newline"
-          ]
-        },
-        "&calendar.APPLICATION_152": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_132",
-          "children": [
-            "display",
-            "&calendar.STRING_153"
-          ]
-        },
-        "&calendar.STRING_153": {
-          "type": "STRING",
-          "content": "\"Su Mo Tu We Th Fr Sa\""
-        },
-        "&calendar.APPLICATION_154": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_132",
-          "children": [
-            "newline"
-          ]
-        },
-        "&calendar.APPLICATION_155": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_132",
-          "children": [
-            "display",
-            "&calendar.STRING_156"
-          ]
-        },
-        "&calendar.STRING_156": {
-          "type": "STRING",
-          "content": "\"====================\""
-        },
-        "&calendar.APPLICATION_157": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_132",
-          "children": [
-            "newline"
-          ]
-        },
-        "&calendar.APPLICATION_158": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_132",
-          "children": [
-            "calendar.LAMBDA_1.print-calendar",
-            "calendar.LAMBDA_132.year",
-            "calendar.LAMBDA_132.month"
-          ]
-        },
-        "&calendar.APPLICATION_159": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_132",
-          "children": [
-            "display",
-            "&calendar.STRING_160"
-          ]
-        },
-        "&calendar.STRING_160": {
-          "type": "STRING",
-          "content": "\"====================\""
-        },
-        "&calendar.APPLICATION_161": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_132",
-          "children": [
-            "newline"
-          ]
-        },
-        "&calendar.APPLICATION_162": {
-          "type": "APPLICATION",
-          "parent": "&calendar.LAMBDA_1",
-          "children": [
-            "calendar.LAMBDA_1.Calendar",
-            2019,
-            9
           ]
         }
       },
       "metadata": {
-        "&calendar.APPLICATION_0": "S_M",
-        "&calendar.LAMBDA_1": "S_M",
-        "&calendar.APPLICATION_2": "S_M",
-        "&calendar.LAMBDA_3": "S_M",
-        "&calendar.APPLICATION_4": "S_M",
-        "&calendar.APPLICATION_5": "S_M",
-        "&calendar.APPLICATION_6": "S_M",
-        "&calendar.APPLICATION_7": "S_M",
-        "&calendar.APPLICATION_8": "S_M",
-        "&calendar.APPLICATION_9": "S_M",
-        "&calendar.APPLICATION_10": "S_M",
-        "&calendar.LAMBDA_11": "S_M",
-        "&calendar.APPLICATION_12": "S_M",
-        "&calendar.APPLICATION_13": "S_M",
-        "&calendar.LAMBDA_14": "S_M",
-        "&calendar.APPLICATION_15": "S_M",
-        "&calendar.APPLICATION_16": "S_M",
-        "&calendar.APPLICATION_17": "S_M",
-        "&calendar.APPLICATION_18": "S_M",
-        "&calendar.APPLICATION_19": "S_M",
-        "&calendar.APPLICATION_20": "S_M",
-        "&calendar.APPLICATION_21": "S_M",
-        "&calendar.APPLICATION_22": "S_M",
-        "&calendar.APPLICATION_23": "S_M",
-        "&calendar.APPLICATION_24": "S_M",
-        "&calendar.APPLICATION_25": "S_M",
-        "&calendar.APPLICATION_26": "S_M",
-        "&calendar.APPLICATION_27": "S_M",
-        "&calendar.LAMBDA_28": "S_M",
-        "&calendar.APPLICATION_29": "S_M",
-        "&calendar.APPLICATION_30": "S_M",
-        "&calendar.APPLICATION_31": "S_M",
-        "&calendar.APPLICATION_32": "S_M",
-        "&calendar.APPLICATION_33": "S_M",
-        "&calendar.APPLICATION_34": "S_M",
-        "&calendar.APPLICATION_35": "S_M",
-        "&calendar.APPLICATION_36": "S_M",
-        "&calendar.APPLICATION_37": "S_M",
-        "&calendar.APPLICATION_38": "S_M",
-        "&calendar.QUOTE_39": "S_M",
-        "&calendar.APPLICATION_40": "S_M",
-        "&calendar.APPLICATION_41": "S_M",
-        "&calendar.QUOTE_42": "S_M",
-        "&calendar.APPLICATION_43": "S_M",
-        "&calendar.LAMBDA_44": "S_M",
-        "&calendar.APPLICATION_45": "S_M",
-        "&calendar.APPLICATION_46": "S_M",
-        "&calendar.APPLICATION_47": "S_M",
-        "&calendar.LAMBDA_48": "S_M",
-        "&calendar.APPLICATION_49": "S_M",
-        "&calendar.APPLICATION_50": "S_M",
-        "&calendar.APPLICATION_51": "S_M",
-        "&calendar.APPLICATION_52": "S_M",
-        "&calendar.APPLICATION_53": "S_M",
-        "&calendar.APPLICATION_54": "S_M",
-        "&calendar.APPLICATION_55": "S_M",
-        "&calendar.APPLICATION_56": "S_M",
-        "&calendar.APPLICATION_57": "S_M",
-        "&calendar.APPLICATION_58": "S_M",
-        "&calendar.LAMBDA_59": "S_M",
-        "&calendar.APPLICATION_60": "S_M",
-        "&calendar.APPLICATION_61": "S_M",
-        "&calendar.APPLICATION_62": "S_M",
-        "&calendar.APPLICATION_63": "S_M",
-        "&calendar.APPLICATION_64": "S_M",
-        "&calendar.APPLICATION_65": "S_M",
-        "&calendar.APPLICATION_66": "S_M",
-        "&calendar.APPLICATION_67": "S_M",
-        "&calendar.APPLICATION_68": "S_M",
-        "&calendar.APPLICATION_69": "S_M",
-        "&calendar.APPLICATION_70": "S_M",
-        "&calendar.APPLICATION_71": "S_M",
-        "&calendar.APPLICATION_72": "S_M",
-        "&calendar.LAMBDA_73": "S_M",
-        "&calendar.APPLICATION_74": "S_M",
-        "&calendar.APPLICATION_75": "S_M",
-        "&calendar.APPLICATION_76": "S_M",
-        "&calendar.LAMBDA_77": "S_M",
-        "&calendar.APPLICATION_78": "S_M",
-        "&calendar.APPLICATION_79": "S_M",
-        "&calendar.APPLICATION_80": "S_M",
-        "&calendar.APPLICATION_81": "S_M",
-        "&calendar.APPLICATION_82": "S_M",
-        "&calendar.APPLICATION_83": "S_M",
-        "&calendar.APPLICATION_84": "S_M",
-        "&calendar.APPLICATION_85": "S_M",
-        "&calendar.APPLICATION_86": "S_M",
-        "&calendar.APPLICATION_87": "S_M",
-        "&calendar.APPLICATION_88": "S_M",
-        "&calendar.APPLICATION_89": "S_M",
-        "&calendar.STRING_90": "S_M",
-        "&calendar.APPLICATION_91": "S_M",
-        "&calendar.APPLICATION_92": "S_M",
-        "&calendar.APPLICATION_93": "S_M",
-        "&calendar.APPLICATION_94": "S_M",
-        "&calendar.APPLICATION_95": "S_M",
-        "&calendar.APPLICATION_96": "S_M",
-        "&calendar.APPLICATION_97": "S_M",
-        "&calendar.APPLICATION_98": "S_M",
-        "&calendar.APPLICATION_99": "S_M",
-        "&calendar.APPLICATION_100": "S_M",
-        "&calendar.APPLICATION_101": "S_M",
-        "&calendar.APPLICATION_102": "S_M",
-        "&calendar.STRING_103": "S_M",
-        "&calendar.APPLICATION_104": "S_M",
-        "&calendar.APPLICATION_105": "S_M",
-        "&calendar.APPLICATION_106": "S_M",
-        "&calendar.APPLICATION_107": "S_M",
-        "&calendar.APPLICATION_108": "S_M",
-        "&calendar.APPLICATION_109": "S_M",
-        "&calendar.APPLICATION_110": "S_M",
-        "&calendar.APPLICATION_111": "S_M",
-        "&calendar.APPLICATION_112": "S_M",
-        "&calendar.APPLICATION_113": "S_M",
-        "&calendar.APPLICATION_114": "S_M",
-        "&calendar.APPLICATION_115": "S_M",
-        "&calendar.APPLICATION_116": "S_M",
-        "&calendar.APPLICATION_117": "S_M",
-        "&calendar.APPLICATION_118": "S_M",
-        "&calendar.APPLICATION_119": "S_M",
-        "&calendar.APPLICATION_120": "S_M",
-        "&calendar.APPLICATION_121": "S_M",
-        "&calendar.APPLICATION_122": "S_M",
-        "&calendar.APPLICATION_123": "S_M",
-        "&calendar.APPLICATION_124": "S_M",
-        "&calendar.STRING_125": "S_M",
-        "&calendar.APPLICATION_126": "S_M",
-        "&calendar.APPLICATION_127": "S_M",
-        "&calendar.APPLICATION_128": "S_M",
-        "&calendar.LAMBDA_129": "S_M",
-        "&calendar.APPLICATION_130": "S_M",
-        "&calendar.APPLICATION_131": "S_M",
-        "&calendar.LAMBDA_132": "S_M",
-        "&calendar.APPLICATION_133": "S_M",
-        "&calendar.STRING_134": "S_M",
-        "&calendar.APPLICATION_135": "S_M",
-        "&calendar.APPLICATION_136": "S_M",
-        "&calendar.STRING_137": "S_M",
-        "&calendar.APPLICATION_138": "S_M",
-        "&calendar.APPLICATION_139": "S_M",
-        "&calendar.STRING_140": "S_M",
-        "&calendar.APPLICATION_141": "S_M",
-        "&calendar.APPLICATION_142": "S_M",
-        "&calendar.APPLICATION_143": "S_M",
-        "&calendar.STRING_144": "S_M",
-        "&calendar.APPLICATION_145": "S_M",
-        "&calendar.APPLICATION_146": "S_M",
-        "&calendar.STRING_147": "S_M",
-        "&calendar.APPLICATION_148": "S_M",
-        "&calendar.APPLICATION_149": "S_M",
-        "&calendar.STRING_150": "S_M",
-        "&calendar.APPLICATION_151": "S_M",
-        "&calendar.APPLICATION_152": "S_M",
-        "&calendar.STRING_153": "S_M",
-        "&calendar.APPLICATION_154": "S_M",
-        "&calendar.APPLICATION_155": "S_M",
-        "&calendar.STRING_156": "S_M",
-        "&calendar.APPLICATION_157": "S_M",
-        "&calendar.APPLICATION_158": "S_M",
-        "&calendar.APPLICATION_159": "S_M",
-        "&calendar.STRING_160": "S_M",
-        "&calendar.APPLICATION_161": "S_M",
-        "&calendar.APPLICATION_162": "S_M"
+        "&quasiquote.APPLICATION_0": "S_M",
+        "&quasiquote.LAMBDA_1": "S_M",
+        "&quasiquote.APPLICATION_2": "S_M",
+        "&quasiquote.LAMBDA_3": "S_M",
+        "&quasiquote.APPLICATION_4": "S_M",
+        "&quasiquote.APPLICATION_5": "S_M",
+        "&quasiquote.APPLICATION_6": "S_M",
+        "&quasiquote.APPLICATION_7": "S_M",
+        "&quasiquote.APPLICATION_8": "S_M",
+        "&quasiquote.APPLICATION_9": "S_M",
+        "&quasiquote.APPLICATION_10": "S_M",
+        "&quasiquote.APPLICATION_11": "S_M",
+        "&quasiquote.APPLICATION_12": "S_M",
+        "&quasiquote.APPLICATION_13": "S_M",
+        "&quasiquote.APPLICATION_14": "S_M",
+        "&quasiquote.APPLICATION_15": "S_M",
+        "&quasiquote.APPLICATION_16": "S_M",
+        "&quasiquote.APPLICATION_17": "S_M",
+        "&quasiquote.APPLICATION_18": "S_M",
+        "&quasiquote.QUASIQUOTE_19": "S_M",
+        "&quasiquote.STRING_20": "S_M",
+        "&quasiquote.UNQUOTE_21": "S_M",
+        "&quasiquote.QUASIQUOTE_22": "S_M",
+        "&quasiquote.QUASIQUOTE_23": "S_M",
+        "&quasiquote.UNQUOTE_24": "S_M",
+        "&quasiquote.UNQUOTE_25": "S_M",
+        "&quasiquote.STRING_26": "S_M",
+        "&quasiquote.APPLICATION_27": "S_M",
+        "&quasiquote.APPLICATION_28": "S_M",
+        "&quasiquote.APPLICATION_29": "S_M",
+        "&quasiquote.LAMBDA_30": "S_M",
+        "&quasiquote.APPLICATION_31": "S_M",
+        "&quasiquote.APPLICATION_32": "S_M",
+        "&quasiquote.APPLICATION_33": "S_M"
       },
-      "handleCounter": 163
+      "handleCounter": 34
     },
     "nodeIndexes": {
-      "&calendar.APPLICATION_0": 0,
-      "&calendar.LAMBDA_1": 1,
-      "&calendar.APPLICATION_2": 102,
-      "&calendar.LAMBDA_3": 127,
-      "&calendar.APPLICATION_4": 156,
-      "&calendar.APPLICATION_5": 160,
-      "&calendar.APPLICATION_6": 182,
-      "&calendar.APPLICATION_7": 201,
-      "&calendar.APPLICATION_8": 217,
-      "&calendar.APPLICATION_9": 230,
-      "&calendar.APPLICATION_10": 249,
-      "&calendar.LAMBDA_11": 269,
-      "&calendar.APPLICATION_12": 290,
-      "&calendar.APPLICATION_13": 319,
-      "&calendar.LAMBDA_14": 343,
-      "&calendar.APPLICATION_15": 362,
-      "&calendar.APPLICATION_16": 368,
-      "&calendar.APPLICATION_17": 369,
-      "&calendar.APPLICATION_18": 374,
-      "&calendar.APPLICATION_19": 377,
-      "&calendar.APPLICATION_20": 407,
-      "&calendar.APPLICATION_21": 412,
-      "&calendar.APPLICATION_22": 415,
-      "&calendar.APPLICATION_23": 458,
-      "&calendar.APPLICATION_24": 459,
-      "&calendar.APPLICATION_25": 462,
-      "&calendar.APPLICATION_26": 503,
-      "&calendar.APPLICATION_27": 528,
-      "&calendar.LAMBDA_28": 552,
-      "&calendar.APPLICATION_29": 577,
-      "&calendar.APPLICATION_30": 583,
-      "&calendar.APPLICATION_31": 584,
-      "&calendar.APPLICATION_32": 609,
-      "&calendar.APPLICATION_33": 610,
-      "&calendar.APPLICATION_34": 636,
-      "&calendar.APPLICATION_35": 642,
-      "&calendar.APPLICATION_36": 648,
-      "&calendar.APPLICATION_37": 649,
-      "&calendar.APPLICATION_38": 693,
-      "&calendar.QUOTE_39": 705,
-      "&calendar.APPLICATION_40": 775,
-      "&calendar.APPLICATION_41": 804,
-      "&calendar.QUOTE_42": 816,
-      "&calendar.APPLICATION_43": 870,
-      "&calendar.LAMBDA_44": 893,
-      "&calendar.APPLICATION_45": 912,
-      "&calendar.APPLICATION_46": 916,
-      "&calendar.APPLICATION_47": 979,
-      "&calendar.LAMBDA_48": 999,
-      "&calendar.APPLICATION_49": 1028,
-      "&calendar.APPLICATION_50": 1034,
-      "&calendar.APPLICATION_51": 1035,
-      "&calendar.APPLICATION_52": 1062,
-      "&calendar.APPLICATION_53": 1068,
-      "&calendar.APPLICATION_54": 1071,
-      "&calendar.APPLICATION_55": 1091,
-      "&calendar.APPLICATION_56": 1104,
-      "&calendar.APPLICATION_57": 1120,
-      "&calendar.APPLICATION_58": 1157,
-      "&calendar.LAMBDA_59": 1176,
-      "&calendar.APPLICATION_60": 1208,
-      "&calendar.APPLICATION_61": 1214,
-      "&calendar.APPLICATION_62": 1215,
-      "&calendar.APPLICATION_63": 1225,
-      "&calendar.APPLICATION_64": 1228,
-      "&calendar.APPLICATION_65": 1249,
-      "&calendar.APPLICATION_66": 1282,
-      "&calendar.APPLICATION_67": 1288,
-      "&calendar.APPLICATION_68": 1291,
-      "&calendar.APPLICATION_69": 1305,
-      "&calendar.APPLICATION_70": 1315,
-      "&calendar.APPLICATION_71": 1334,
-      "&calendar.APPLICATION_72": 1366,
-      "&calendar.LAMBDA_73": 1385,
-      "&calendar.APPLICATION_74": 1414,
-      "&calendar.APPLICATION_75": 1417,
-      "&calendar.APPLICATION_76": 1464,
-      "&calendar.LAMBDA_77": 1485,
-      "&calendar.APPLICATION_78": 1526,
-      "&calendar.APPLICATION_79": 1532,
-      "&calendar.APPLICATION_80": 1533,
-      "&calendar.APPLICATION_81": 1542,
-      "&calendar.APPLICATION_82": 1545,
-      "&calendar.APPLICATION_83": 1569,
-      "&calendar.APPLICATION_84": 1609,
-      "&calendar.APPLICATION_85": 1636,
-      "&calendar.APPLICATION_86": 1637,
-      "&calendar.APPLICATION_87": 1645,
-      "&calendar.APPLICATION_88": 1670,
-      "&calendar.APPLICATION_89": 1685,
-      "&calendar.STRING_90": 1694,
-      "&calendar.APPLICATION_91": 1714,
-      "&calendar.APPLICATION_92": 1737,
-      "&calendar.APPLICATION_93": 1778,
-      "&calendar.APPLICATION_94": 1797,
-      "&calendar.APPLICATION_95": 1803,
-      "&calendar.APPLICATION_96": 1804,
-      "&calendar.APPLICATION_97": 1809,
-      "&calendar.APPLICATION_98": 1812,
-      "&calendar.APPLICATION_99": 1820,
-      "&calendar.APPLICATION_100": 1848,
-      "&calendar.APPLICATION_101": 1866,
-      "&calendar.APPLICATION_102": 1890,
-      "&calendar.STRING_103": 1899,
-      "&calendar.APPLICATION_104": 1926,
-      "&calendar.APPLICATION_105": 1978,
-      "&calendar.APPLICATION_106": 2006,
-      "&calendar.APPLICATION_107": 2012,
-      "&calendar.APPLICATION_108": 2013,
-      "&calendar.APPLICATION_109": 2016,
-      "&calendar.APPLICATION_110": 2030,
-      "&calendar.APPLICATION_111": 2063,
-      "&calendar.APPLICATION_112": 2072,
-      "&calendar.APPLICATION_113": 2077,
-      "&calendar.APPLICATION_114": 2085,
-      "&calendar.APPLICATION_115": 2112,
-      "&calendar.APPLICATION_116": 2122,
-      "&calendar.APPLICATION_117": 2145,
-      "&calendar.APPLICATION_118": 2195,
-      "&calendar.APPLICATION_119": 2201,
-      "&calendar.APPLICATION_120": 2202,
-      "&calendar.APPLICATION_121": 2211,
-      "&calendar.APPLICATION_122": 2216,
-      "&calendar.APPLICATION_123": 2224,
-      "&calendar.APPLICATION_124": 2251,
-      "&calendar.STRING_125": 2260,
-      "&calendar.APPLICATION_126": 2265,
-      "&calendar.APPLICATION_127": 2288,
-      "&calendar.APPLICATION_128": 2312,
-      "&calendar.LAMBDA_129": 2337,
-      "&calendar.APPLICATION_130": 2362,
-      "&calendar.APPLICATION_131": 2393,
-      "&calendar.LAMBDA_132": 2412,
-      "&calendar.APPLICATION_133": 2437,
-      "&calendar.STRING_134": 2446,
-      "&calendar.APPLICATION_135": 2468,
-      "&calendar.APPLICATION_136": 2482,
-      "&calendar.STRING_137": 2491,
-      "&calendar.APPLICATION_138": 2511,
-      "&calendar.APPLICATION_139": 2525,
-      "&calendar.STRING_140": 2534,
-      "&calendar.APPLICATION_141": 2558,
-      "&calendar.APPLICATION_142": 2572,
-      "&calendar.APPLICATION_143": 2586,
-      "&calendar.STRING_144": 2595,
-      "&calendar.APPLICATION_145": 2599,
-      "&calendar.APPLICATION_146": 2614,
-      "&calendar.STRING_147": 2623,
-      "&calendar.APPLICATION_148": 2627,
-      "&calendar.APPLICATION_149": 2641,
-      "&calendar.STRING_150": 2650,
-      "&calendar.APPLICATION_151": 2673,
-      "&calendar.APPLICATION_152": 2687,
-      "&calendar.STRING_153": 2696,
-      "&calendar.APPLICATION_154": 2719,
-      "&calendar.APPLICATION_155": 2733,
-      "&calendar.STRING_156": 2742,
-      "&calendar.APPLICATION_157": 2765,
-      "&calendar.APPLICATION_158": 2779,
-      "&calendar.APPLICATION_159": 2811,
-      "&calendar.STRING_160": 2820,
-      "&calendar.APPLICATION_161": 2843,
-      "&calendar.APPLICATION_162": 2859
+      "&quasiquote.APPLICATION_0": 0,
+      "&quasiquote.LAMBDA_1": 1,
+      "&quasiquote.APPLICATION_2": 110,
+      "&quasiquote.LAMBDA_3": 127,
+      "&quasiquote.APPLICATION_4": 150,
+      "&quasiquote.APPLICATION_5": 156,
+      "&quasiquote.APPLICATION_6": 157,
+      "&quasiquote.APPLICATION_7": 188,
+      "&quasiquote.APPLICATION_8": 189,
+      "&quasiquote.APPLICATION_9": 194,
+      "&quasiquote.APPLICATION_10": 212,
+      "&quasiquote.APPLICATION_11": 242,
+      "&quasiquote.APPLICATION_12": 248,
+      "&quasiquote.APPLICATION_13": 264,
+      "&quasiquote.APPLICATION_14": 273,
+      "&quasiquote.APPLICATION_15": 303,
+      "&quasiquote.APPLICATION_16": 311,
+      "&quasiquote.APPLICATION_17": 344,
+      "&quasiquote.APPLICATION_18": 360,
+      "&quasiquote.QUASIQUOTE_19": 372,
+      "&quasiquote.STRING_20": 373,
+      "&quasiquote.UNQUOTE_21": 381,
+      "&quasiquote.QUASIQUOTE_22": 387,
+      "&quasiquote.QUASIQUOTE_23": 388,
+      "&quasiquote.UNQUOTE_24": 392,
+      "&quasiquote.UNQUOTE_25": 412,
+      "&quasiquote.STRING_26": 422,
+      "&quasiquote.APPLICATION_27": 429,
+      "&quasiquote.APPLICATION_28": 440,
+      "&quasiquote.APPLICATION_29": 481,
+      "&quasiquote.LAMBDA_30": 482,
+      "&quasiquote.APPLICATION_31": 498,
+      "&quasiquote.APPLICATION_32": 506,
+      "&quasiquote.APPLICATION_33": 520
     },
     "lambdaHandles": [
-      "&calendar.LAMBDA_1",
-      "&calendar.LAMBDA_3",
-      "&calendar.LAMBDA_11",
-      "&calendar.LAMBDA_14",
-      "&calendar.LAMBDA_28",
-      "&calendar.LAMBDA_44",
-      "&calendar.LAMBDA_48",
-      "&calendar.LAMBDA_59",
-      "&calendar.LAMBDA_73",
-      "&calendar.LAMBDA_77",
-      "&calendar.LAMBDA_129",
-      "&calendar.LAMBDA_132"
+      "&quasiquote.LAMBDA_1",
+      "&quasiquote.LAMBDA_3",
+      "&quasiquote.LAMBDA_30"
     ],
     "tailcall": [
-      "&calendar.APPLICATION_6",
-      "&calendar.APPLICATION_7",
-      "&calendar.APPLICATION_12",
-      "&calendar.APPLICATION_20",
-      "&calendar.APPLICATION_38",
-      "&calendar.APPLICATION_41",
-      "&calendar.APPLICATION_53",
-      "&calendar.APPLICATION_63",
-      "&calendar.APPLICATION_67",
-      "&calendar.APPLICATION_74",
-      "&calendar.APPLICATION_84",
-      "&calendar.APPLICATION_91",
-      "&calendar.APPLICATION_88",
-      "&calendar.APPLICATION_100",
-      "&calendar.APPLICATION_104",
-      "&calendar.APPLICATION_101",
-      "&calendar.APPLICATION_116",
-      "&calendar.APPLICATION_110",
-      "&calendar.APPLICATION_126",
-      "&calendar.APPLICATION_119",
-      "&calendar.APPLICATION_130",
-      "&calendar.APPLICATION_161",
-      "&calendar.APPLICATION_162",
-      "&calendar.APPLICATION_0"
+      "&quasiquote.APPLICATION_10",
+      "&quasiquote.APPLICATION_15",
+      "&quasiquote.APPLICATION_12",
+      "&quasiquote.APPLICATION_33",
+      "&quasiquote.APPLICATION_29",
+      "&quasiquote.APPLICATION_0"
     ],
     "variableMapping": {
-      "calendar.LAMBDA_1.get-value-iter": "get-value-iter",
-      "calendar.LAMBDA_3.list": "list",
-      "calendar.LAMBDA_3.i": "i",
-      "calendar.LAMBDA_3.counter": "counter",
-      "calendar.LAMBDA_1.get-value": "get-value",
-      "calendar.LAMBDA_11.list": "list",
-      "calendar.LAMBDA_11.i": "i",
-      "calendar.LAMBDA_1.is-leap-year?": "is-leap-year?",
-      "calendar.LAMBDA_14.year": "year",
-      "calendar.LAMBDA_1.days-of-month": "days-of-month",
-      "calendar.LAMBDA_28.year": "year",
-      "calendar.LAMBDA_28.month": "month",
-      "calendar.LAMBDA_1.days-of-year": "days-of-year",
-      "calendar.LAMBDA_44.year": "year",
-      "calendar.LAMBDA_1.day-count": "day-count",
-      "calendar.LAMBDA_48.year": "year",
-      "calendar.LAMBDA_48.month": "month",
-      "calendar.LAMBDA_48.day": "day",
-      "calendar.LAMBDA_1.day-diff": "day-diff",
-      "calendar.LAMBDA_59.y1": "y1",
-      "calendar.LAMBDA_59.m1": "m1",
-      "calendar.LAMBDA_59.d1": "d1",
-      "calendar.LAMBDA_59.y2": "y2",
-      "calendar.LAMBDA_59.m2": "m2",
-      "calendar.LAMBDA_59.d2": "d2",
-      "calendar.LAMBDA_1.get-week": "get-week",
-      "calendar.LAMBDA_73.year": "year",
-      "calendar.LAMBDA_73.month": "month",
-      "calendar.LAMBDA_73.day": "day",
-      "calendar.LAMBDA_1.print-iter": "print-iter",
-      "calendar.LAMBDA_77.year": "year",
-      "calendar.LAMBDA_77.month": "month",
-      "calendar.LAMBDA_77.iter": "iter",
-      "calendar.LAMBDA_77.blank-flag": "blank-flag",
-      "calendar.LAMBDA_1.print-calendar": "print-calendar",
-      "calendar.LAMBDA_129.year": "year",
-      "calendar.LAMBDA_129.month": "month",
-      "calendar.LAMBDA_1.Calendar": "Calendar",
-      "calendar.LAMBDA_132.year": "year",
-      "calendar.LAMBDA_132.month": "month"
+      "quasiquote.LAMBDA_1.printf": "printf",
+      "quasiquote.LAMBDA_3.template": "template",
+      "quasiquote.LAMBDA_1.a": "a",
+      "quasiquote.LAMBDA_1.qq": "qq",
+      "quasiquote.LAMBDA_30.a": "a"
     },
     "topVariables": {
-      "get-value-iter": "calendar.LAMBDA_1.get-value-iter",
-      "get-value": "calendar.LAMBDA_1.get-value",
-      "is-leap-year?": "calendar.LAMBDA_1.is-leap-year?",
-      "days-of-month": "calendar.LAMBDA_1.days-of-month",
-      "days-of-year": "calendar.LAMBDA_1.days-of-year",
-      "day-count": "calendar.LAMBDA_1.day-count",
-      "day-diff": "calendar.LAMBDA_1.day-diff",
-      "get-week": "calendar.LAMBDA_1.get-week",
-      "print-iter": "calendar.LAMBDA_1.print-iter",
-      "print-calendar": "calendar.LAMBDA_1.print-calendar",
-      "Calendar": "calendar.LAMBDA_1.Calendar"
+      "printf": "quasiquote.LAMBDA_1.printf",
+      "a": "quasiquote.LAMBDA_1.a",
+      "qq": "quasiquote.LAMBDA_1.qq"
     },
     "dependencies": {},
     "natives": {}
   },
   "ILCode": [
-    "call @&calendar.LAMBDA_1",
+    "call @&quasiquote.LAMBDA_1",
     "halt",
-    "@&calendar.LAMBDA_1",
-    "push @&calendar.LAMBDA_3",
-    "store calendar.LAMBDA_1.get-value-iter",
-    "push @&calendar.LAMBDA_11",
-    "store calendar.LAMBDA_1.get-value",
-    "push @&calendar.LAMBDA_14",
-    "store calendar.LAMBDA_1.is-leap-year?",
-    "push @&calendar.LAMBDA_28",
-    "store calendar.LAMBDA_1.days-of-month",
-    "push @&calendar.LAMBDA_44",
-    "store calendar.LAMBDA_1.days-of-year",
-    "push @&calendar.LAMBDA_48",
-    "store calendar.LAMBDA_1.day-count",
-    "push @&calendar.LAMBDA_59",
-    "store calendar.LAMBDA_1.day-diff",
-    "push @&calendar.LAMBDA_73",
-    "store calendar.LAMBDA_1.get-week",
-    "push @&calendar.LAMBDA_77",
-    "store calendar.LAMBDA_1.print-iter",
-    "push @&calendar.LAMBDA_129",
-    "store calendar.LAMBDA_1.print-calendar",
-    "push @&calendar.LAMBDA_132",
-    "store calendar.LAMBDA_1.Calendar",
-    "push 2019",
-    "push 9",
-    "tailcall calendar.LAMBDA_1.Calendar",
-    "return",
-    "@&calendar.LAMBDA_3",
-    "store calendar.LAMBDA_3.counter",
-    "store calendar.LAMBDA_3.i",
-    "store calendar.LAMBDA_3.list",
-    "load calendar.LAMBDA_3.counter",
-    "load calendar.LAMBDA_3.i",
-    "eqn",
-    "iftrue @IF_TRUE_calendar.ID0",
-    "load calendar.LAMBDA_3.list",
-    "cdr",
-    "load calendar.LAMBDA_3.i",
-    "load calendar.LAMBDA_3.counter",
-    "push 1",
-    "add",
-    "tailcall calendar.LAMBDA_1.get-value-iter",
-    "goto @IF_END_calendar.ID0",
-    "@IF_TRUE_calendar.ID0",
-    "load calendar.LAMBDA_3.list",
-    "car",
-    "@IF_END_calendar.ID0",
-    "return",
-    "@&calendar.LAMBDA_11",
-    "store calendar.LAMBDA_11.i",
-    "store calendar.LAMBDA_11.list",
-    "load calendar.LAMBDA_11.list",
-    "load calendar.LAMBDA_11.i",
-    "push 0",
-    "tailcall calendar.LAMBDA_1.get-value-iter",
-    "return",
-    "@&calendar.LAMBDA_14",
-    "store calendar.LAMBDA_14.year",
-    "@COND_BRANCH_calendar.ID1_1",
-    "load calendar.LAMBDA_14.year",
-    "push 4",
-    "mod",
-    "push 0",
-    "eqn",
-    "iffalse @AND_FALSE_calendar.ID2",
-    "load calendar.LAMBDA_14.year",
+    "@&quasiquote.LAMBDA_1",
+    "push @&quasiquote.LAMBDA_3",
+    "store quasiquote.LAMBDA_1.printf",
     "push 100",
-    "mod",
-    "push 0",
-    "eqn",
+    "store quasiquote.LAMBDA_1.a",
+    "load quasiquote.LAMBDA_1.a",
+    "push 2",
+    "mul",
+    "push 1",
+    "set-child! &quasiquote.QUASIQUOTE_23",
+    "load quasiquote.LAMBDA_1.a",
+    "push 2",
+    "set-child! &quasiquote.QUASIQUOTE_23",
+    "push &quasiquote.QUASIQUOTE_23",
+    "load quasiquote.LAMBDA_1.a",
+    "push 3",
+    "set-child! &quasiquote.QUASIQUOTE_22",
+    "load quasiquote.LAMBDA_1.a",
+    "load quasiquote.LAMBDA_1.a",
+    "mul",
+    "push 4",
+    "set-child! &quasiquote.QUASIQUOTE_22",
+    "push &quasiquote.QUASIQUOTE_22",
+    "car",
+    "push 1",
+    "set-child! &quasiquote.QUASIQUOTE_19",
+    "push &quasiquote.QUASIQUOTE_19",
+    "store quasiquote.LAMBDA_1.qq",
+    "load quasiquote.LAMBDA_1.qq",
+    "call quasiquote.LAMBDA_1.printf",
+    "newline",
+    "push 200",
+    "tailcall @&quasiquote.LAMBDA_30",
+    "return",
+    "@&quasiquote.LAMBDA_3",
+    "store quasiquote.LAMBDA_3.template",
+    "@COND_BRANCH_quasiquote.ID0_1",
+    "load quasiquote.LAMBDA_3.template",
+    "null?",
+    "iffalse @COND_BRANCH_quasiquote.ID0_2",
+    "push #f",
+    "goto @COND_END_quasiquote.ID0",
+    "@COND_BRANCH_quasiquote.ID0_2",
+    "load quasiquote.LAMBDA_3.template",
+    "list?",
     "not",
-    "iffalse @AND_FALSE_calendar.ID2",
-    "push #t",
-    "goto @AND_END_calendar.ID2",
-    "@AND_FALSE_calendar.ID2",
-    "push #f",
-    "@AND_END_calendar.ID2",
-    "iffalse @COND_BRANCH_calendar.ID1_2",
-    "push #t",
-    "goto @COND_END_calendar.ID1",
-    "@COND_BRANCH_calendar.ID1_2",
-    "load calendar.LAMBDA_14.year",
-    "push 400",
-    "mod",
-    "push 0",
-    "eqn",
-    "iffalse @COND_BRANCH_calendar.ID1_3",
-    "push #t",
-    "goto @COND_END_calendar.ID1",
-    "@COND_BRANCH_calendar.ID1_3",
-    "push #f",
-    "@COND_END_calendar.ID1",
+    "iffalse @COND_BRANCH_quasiquote.ID0_3",
+    "load quasiquote.LAMBDA_3.template",
+    "display",
+    "goto @COND_END_quasiquote.ID0",
+    "@COND_BRANCH_quasiquote.ID0_3",
+    "load quasiquote.LAMBDA_3.template",
+    "car",
+    "display",
+    "load quasiquote.LAMBDA_3.template",
+    "cdr",
+    "tailcall quasiquote.LAMBDA_1.printf",
+    "@COND_END_quasiquote.ID0",
     "return",
-    "@&calendar.LAMBDA_28",
-    "store calendar.LAMBDA_28.month",
-    "store calendar.LAMBDA_28.year",
-    "@COND_BRANCH_calendar.ID3_1",
-    "load calendar.LAMBDA_28.month",
-    "push 1",
-    "lt",
-    "iffalse @COND_BRANCH_calendar.ID3_2",
-    "push 0",
-    "goto @COND_END_calendar.ID3",
-    "@COND_BRANCH_calendar.ID3_2",
-    "load calendar.LAMBDA_28.month",
-    "push 12",
-    "gt",
-    "iffalse @COND_BRANCH_calendar.ID3_3",
-    "push 0",
-    "goto @COND_END_calendar.ID3",
-    "@COND_BRANCH_calendar.ID3_3",
-    "@COND_BRANCH_calendar.ID4_1",
-    "load calendar.LAMBDA_28.year",
-    "call calendar.LAMBDA_1.is-leap-year?",
-    "iffalse @COND_BRANCH_calendar.ID4_2",
-    "push &calendar.QUOTE_39",
-    "load calendar.LAMBDA_28.month",
-    "tailcall calendar.LAMBDA_1.get-value",
-    "goto @COND_END_calendar.ID4",
-    "@COND_BRANCH_calendar.ID4_2",
-    "push &calendar.QUOTE_42",
-    "load calendar.LAMBDA_28.month",
-    "tailcall calendar.LAMBDA_1.get-value",
-    "@COND_END_calendar.ID4",
-    "@COND_END_calendar.ID3",
-    "return",
-    "@&calendar.LAMBDA_44",
-    "store calendar.LAMBDA_44.year",
-    "load calendar.LAMBDA_44.year",
-    "call calendar.LAMBDA_1.is-leap-year?",
-    "iftrue @IF_TRUE_calendar.ID5",
-    "push 365",
-    "goto @IF_END_calendar.ID5",
-    "@IF_TRUE_calendar.ID5",
-    "push 366",
-    "@IF_END_calendar.ID5",
-    "return",
-    "@&calendar.LAMBDA_48",
-    "store calendar.LAMBDA_48.day",
-    "store calendar.LAMBDA_48.month",
-    "store calendar.LAMBDA_48.year",
-    "@COND_BRANCH_calendar.ID6_1",
-    "load calendar.LAMBDA_48.month",
-    "push 0",
-    "eqn",
-    "iffalse @COND_BRANCH_calendar.ID6_2",
-    "load calendar.LAMBDA_48.day",
-    "goto @COND_END_calendar.ID6",
-    "@COND_BRANCH_calendar.ID6_2",
-    "load calendar.LAMBDA_48.year",
-    "load calendar.LAMBDA_48.month",
-    "push 1",
-    "sub",
-    "call calendar.LAMBDA_1.days-of-month",
-    "load calendar.LAMBDA_48.year",
-    "load calendar.LAMBDA_48.month",
-    "push 1",
-    "sub",
-    "load calendar.LAMBDA_48.day",
-    "call calendar.LAMBDA_1.day-count",
-    "add",
-    "@COND_END_calendar.ID6",
-    "return",
-    "@&calendar.LAMBDA_59",
-    "store calendar.LAMBDA_59.d2",
-    "store calendar.LAMBDA_59.m2",
-    "store calendar.LAMBDA_59.y2",
-    "store calendar.LAMBDA_59.d1",
-    "store calendar.LAMBDA_59.m1",
-    "store calendar.LAMBDA_59.y1",
-    "@COND_BRANCH_calendar.ID7_1",
-    "load calendar.LAMBDA_59.y1",
-    "load calendar.LAMBDA_59.y2",
-    "eqn",
-    "iffalse @COND_BRANCH_calendar.ID7_2",
-    "load calendar.LAMBDA_59.y2",
-    "load calendar.LAMBDA_59.m2",
-    "load calendar.LAMBDA_59.d2",
-    "call calendar.LAMBDA_1.day-count",
-    "load calendar.LAMBDA_59.y1",
-    "load calendar.LAMBDA_59.m1",
-    "load calendar.LAMBDA_59.d1",
-    "call calendar.LAMBDA_1.day-count",
-    "sub",
-    "goto @COND_END_calendar.ID7",
-    "@COND_BRANCH_calendar.ID7_2",
-    "load calendar.LAMBDA_59.y2",
-    "push 1",
-    "sub",
-    "call calendar.LAMBDA_1.days-of-year",
-    "load calendar.LAMBDA_59.y1",
-    "load calendar.LAMBDA_59.m1",
-    "load calendar.LAMBDA_59.d1",
-    "load calendar.LAMBDA_59.y2",
-    "push 1",
-    "sub",
-    "load calendar.LAMBDA_59.m2",
-    "load calendar.LAMBDA_59.d2",
-    "call calendar.LAMBDA_1.day-diff",
-    "add",
-    "@COND_END_calendar.ID7",
-    "return",
-    "@&calendar.LAMBDA_73",
-    "store calendar.LAMBDA_73.day",
-    "store calendar.LAMBDA_73.month",
-    "store calendar.LAMBDA_73.year",
-    "push 2017",
-    "push 1",
-    "push 1",
-    "load calendar.LAMBDA_73.year",
-    "load calendar.LAMBDA_73.month",
-    "load calendar.LAMBDA_73.day",
-    "call calendar.LAMBDA_1.day-diff",
-    "push 7",
-    "mod",
-    "return",
-    "@&calendar.LAMBDA_77",
-    "store calendar.LAMBDA_77.blank-flag",
-    "store calendar.LAMBDA_77.iter",
-    "store calendar.LAMBDA_77.month",
-    "store calendar.LAMBDA_77.year",
-    "@COND_BRANCH_calendar.ID8_1",
-    "load calendar.LAMBDA_77.iter",
-    "load calendar.LAMBDA_77.year",
-    "load calendar.LAMBDA_77.month",
-    "push 1",
-    "call calendar.LAMBDA_1.get-week",
-    "load calendar.LAMBDA_77.year",
-    "load calendar.LAMBDA_77.month",
-    "call calendar.LAMBDA_1.days-of-month",
-    "add",
-    "ge",
-    "iffalse @COND_BRANCH_calendar.ID8_2",
-    "newline",
-    "goto @COND_END_calendar.ID8",
-    "@COND_BRANCH_calendar.ID8_2",
-    "load calendar.LAMBDA_77.iter",
-    "load calendar.LAMBDA_77.year",
-    "load calendar.LAMBDA_77.month",
-    "push 1",
-    "call calendar.LAMBDA_1.get-week",
-    "lt",
-    "iffalse @COND_BRANCH_calendar.ID8_3",
-    "push &calendar.STRING_90",
-    "display",
-    "load calendar.LAMBDA_77.year",
-    "load calendar.LAMBDA_77.month",
-    "load calendar.LAMBDA_77.iter",
-    "push 1",
-    "add",
-    "load calendar.LAMBDA_77.blank-flag",
-    "tailcall calendar.LAMBDA_1.print-iter",
-    "goto @COND_END_calendar.ID8",
-    "@COND_BRANCH_calendar.ID8_3",
-    "@COND_BRANCH_calendar.ID9_1",
-    "load calendar.LAMBDA_77.iter",
-    "load calendar.LAMBDA_77.year",
-    "load calendar.LAMBDA_77.month",
-    "push 1",
-    "call calendar.LAMBDA_1.get-week",
-    "sub",
-    "push 9",
-    "lt",
-    "iffalse @AND_FALSE_calendar.ID10",
-    "load calendar.LAMBDA_77.blank-flag",
-    "push 0",
-    "eqn",
-    "iffalse @AND_FALSE_calendar.ID10",
-    "push #t",
-    "goto @AND_END_calendar.ID10",
-    "@AND_FALSE_calendar.ID10",
-    "push #f",
-    "@AND_END_calendar.ID10",
-    "iffalse @COND_BRANCH_calendar.ID9_2",
-    "push &calendar.STRING_103",
-    "display",
-    "load calendar.LAMBDA_77.year",
-    "load calendar.LAMBDA_77.month",
-    "load calendar.LAMBDA_77.iter",
-    "push 1",
-    "tailcall calendar.LAMBDA_1.print-iter",
-    "goto @COND_END_calendar.ID9",
-    "@COND_BRANCH_calendar.ID9_2",
-    "@COND_BRANCH_calendar.ID11_1",
-    "load calendar.LAMBDA_77.iter",
-    "push 7",
-    "mod",
-    "push 6",
-    "eqn",
-    "iffalse @COND_BRANCH_calendar.ID11_2",
-    "push 1",
-    "load calendar.LAMBDA_77.iter",
-    "load calendar.LAMBDA_77.year",
-    "load calendar.LAMBDA_77.month",
-    "push 1",
-    "call calendar.LAMBDA_1.get-week",
-    "sub",
-    "add",
-    "display",
-    "newline",
-    "load calendar.LAMBDA_77.year",
-    "load calendar.LAMBDA_77.month",
-    "load calendar.LAMBDA_77.iter",
-    "push 1",
-    "add",
-    "push 0",
-    "tailcall calendar.LAMBDA_1.print-iter",
-    "goto @COND_END_calendar.ID11",
-    "@COND_BRANCH_calendar.ID11_2",
-    "push 1",
-    "load calendar.LAMBDA_77.iter",
-    "load calendar.LAMBDA_77.year",
-    "load calendar.LAMBDA_77.month",
-    "push 1",
-    "call calendar.LAMBDA_1.get-week",
-    "sub",
-    "add",
-    "display",
-    "push &calendar.STRING_125",
-    "display",
-    "load calendar.LAMBDA_77.year",
-    "load calendar.LAMBDA_77.month",
-    "load calendar.LAMBDA_77.iter",
-    "push 1",
-    "add",
-    "push 0",
-    "tailcall calendar.LAMBDA_1.print-iter",
-    "@COND_END_calendar.ID11",
-    "@COND_END_calendar.ID9",
-    "@COND_END_calendar.ID8",
-    "return",
-    "@&calendar.LAMBDA_129",
-    "store calendar.LAMBDA_129.month",
-    "store calendar.LAMBDA_129.year",
-    "load calendar.LAMBDA_129.year",
-    "load calendar.LAMBDA_129.month",
-    "push 0",
-    "push 0",
-    "tailcall calendar.LAMBDA_1.print-iter",
-    "return",
-    "@&calendar.LAMBDA_132",
-    "store calendar.LAMBDA_132.month",
-    "store calendar.LAMBDA_132.year",
-    "push &calendar.STRING_134",
-    "display",
-    "newline",
-    "push &calendar.STRING_137",
-    "display",
-    "newline",
-    "push &calendar.STRING_140",
-    "display",
-    "newline",
-    "load calendar.LAMBDA_132.year",
-    "display",
-    "push &calendar.STRING_144",
-    "display",
-    "load calendar.LAMBDA_132.month",
-    "display",
-    "push &calendar.STRING_147",
-    "display",
-    "newline",
-    "push &calendar.STRING_150",
-    "display",
-    "newline",
-    "push &calendar.STRING_153",
-    "display",
-    "newline",
-    "push &calendar.STRING_156",
-    "display",
-    "newline",
-    "load calendar.LAMBDA_132.year",
-    "load calendar.LAMBDA_132.month",
-    "call calendar.LAMBDA_1.print-calendar",
-    "push &calendar.STRING_160",
-    "display",
+    "@&quasiquote.LAMBDA_30",
+    "store quasiquote.LAMBDA_30.a",
+    "load quasiquote.LAMBDA_1.qq",
+    "cdr",
+    "call quasiquote.LAMBDA_1.printf",
     "newline",
     "return"
   ]

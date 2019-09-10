@@ -1055,6 +1055,18 @@ class Runtime {
         PROCESS.SetState(ProcessState.STOPPED);
     }
 
+    // set-child! handle 修改列表元素
+    public AIL_SETCHILD(argument: string, PROCESS: Process, RUNTIME: Runtime): void {
+        let index = PROCESS.PopOperand();
+        let value = PROCESS.PopOperand();
+        if(TypeOfToken(argument) === "HANDLE") {
+            PROCESS.heap.Get(argument).children[parseInt(index)] = value;
+            PROCESS.Step();
+        }
+        else {
+            throw `[Error] set-child!参数类型不正确`;
+        }
+    }
 
     // 执行（一条）中间语言指令
     // 执行的效果从宏观上看就是修改了进程内部和运行时环境的状态，并且使用运行时环境提供的接口和资源
@@ -1122,6 +1134,8 @@ class Runtime {
         else if(mnemonic === "nop")         { this.AIL_NOP(argument, PROCESS, RUNTIME); }
         else if(mnemonic === 'pause')       { this.AIL_PAUSE(argument, PROCESS, RUNTIME); }
         else if(mnemonic === 'halt')        { this.AIL_HALT(argument, PROCESS, RUNTIME); }
+
+        else if(mnemonic === 'set-child!')  { this.AIL_SETCHILD(argument, PROCESS, RUNTIME); }
     }
 
 }

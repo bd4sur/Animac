@@ -66,13 +66,16 @@ function Compile(ast: AST): Array<string> {
                 if(bodyObjType === "LAMBDA") {
                     AddInstruction(`loadclosure @${body}`);
                 }
-                else if(bodyObjType === "QUOTE" || bodyObjType === "QUASIQUOTE" || bodyObjType === "UNQUOTE") {
+                else if(bodyObjType === "QUOTE") {
                     AddInstruction(`push ${body}`);
+                }
+                else if(bodyObjType === "QUASIQUOTE") {
+                    CompileQuasiquote(body);
                 }
                 else if(bodyObjType === "STRING") {
                     AddInstruction(`push ${body}`);
                 }
-                else if(bodyObjType === "APPLICATION") {
+                else if(bodyObjType === "APPLICATION" || bodyObjType === "UNQUOTE") {
                     CompileApplication(body);
                 }
                 else {
@@ -154,13 +157,16 @@ function Compile(ast: AST): Array<string> {
             if(rightValueNode.type === "LAMBDA") {
                 AddInstruction(`push @${rightValue}`); // 注意：define并不对Lambda节点求值（即，生成闭包实例）
             }
-            else if(rightValueNode.type === "QUOTE" || rightValueNode.type === "QUASIQUOTE" || rightValueNode.type === "UNQUOTE") {
+            else if(rightValueNode.type === "QUOTE") {
                 AddInstruction(`push ${rightValue}`);
+            }
+            else if(rightValueNode.type === "QUASIQUOTE") {
+                CompileQuasiquote(rightValue);
             }
             else if(rightValueNode.type === "STRING") {
                 AddInstruction(`push ${rightValue}`);
             }
-            else if(rightValueNode.type === "APPLICATION") {
+            else if(rightValueNode.type === "APPLICATION" || rightValueNode.type === "UNQUOTE") {
                 CompileApplication(rightValue);
             }
             else {
@@ -205,13 +211,16 @@ function Compile(ast: AST): Array<string> {
             if(rightValueNode.type === "LAMBDA") {
                 AddInstruction(`loadclosure @${rightValue}`); // 注意：set!对Lambda节点求值（即，生成闭包实例）
             }
-            else if(rightValueNode.type === "QUOTE" || rightValueNode.type === "QUASIQUOTE" || rightValueNode.type === "UNQUOTE") {
+            else if(rightValueNode.type === "QUOTE") {
                 AddInstruction(`push ${rightValue}`);
+            }
+            else if(rightValueNode.type === "QUASIQUOTE") {
+                CompileQuasiquote(rightValue);
             }
             else if(rightValueNode.type === "STRING") {
                 AddInstruction(`push ${rightValue}`);
             }
-            else if(rightValueNode.type === "APPLICATION") {
+            else if(rightValueNode.type === "APPLICATION" || rightValueNode.type === "UNQUOTE") {
                 CompileApplication(rightValue);
             }
             else {
@@ -261,13 +270,16 @@ function Compile(ast: AST): Array<string> {
                 if(trueBranchNode.type === "LAMBDA") {
                     AddInstruction(`loadclosure @${child}`); // 返回闭包
                 }
-                else if(trueBranchNode.type === "QUOTE" || trueBranchNode.type === "QUASIQUOTE" || trueBranchNode.type === "UNQUOTE") {
+                else if(trueBranchNode.type === "QUOTE") {
                     AddInstruction(`push ${child}`);
+                }
+                else if(trueBranchNode.type === "QUASIQUOTE") {
+                    CompileQuasiquote(child);
                 }
                 else if(trueBranchNode.type === "STRING") {
                     AddInstruction(`push ${child}`);
                 }
-                else if(trueBranchNode.type === "APPLICATION") {
+                else if(trueBranchNode.type === "APPLICATION" || trueBranchNode.type === "UNQUOTE") {
                     CompileApplication(child);
                 }
                 else {
@@ -347,13 +359,16 @@ function Compile(ast: AST): Array<string> {
                 if(branchNode.type === "LAMBDA") {
                     AddInstruction(`loadclosure @${branch}`); // 返回闭包
                 }
-                else if(branchNode.type === "QUOTE" || branchNode.type === "QUASIQUOTE" || branchNode.type === "UNQUOTE") {
+                else if(branchNode.type === "QUOTE") {
                     AddInstruction(`push ${branch}`);
+                }
+                else if(branchNode.type === "QUASIQUOTE") {
+                    CompileQuasiquote(branch);
                 }
                 else if(branchNode.type === "STRING") {
                     AddInstruction(`push ${branch}`);
                 }
-                else if(branchNode.type === "APPLICATION") {
+                else if(branchNode.type === "APPLICATION" || branchNode.type === "UNQUOTE") {
                     CompileApplication(branch);
                 }
                 else {
@@ -429,13 +444,16 @@ function Compile(ast: AST): Array<string> {
             if(falseBranchNode.type === "LAMBDA") {
                 AddInstruction(`loadclosure @${falseBranch}`); // 返回闭包
             }
-            else if(falseBranchNode.type === "QUOTE" || falseBranchNode.type === "QUASIQUOTE" || falseBranchNode.type === "UNQUOTE") {
+            else if(falseBranchNode.type === "QUOTE") {
                 AddInstruction(`push ${falseBranch}`);
+            }
+            else if(falseBranchNode.type === "QUASIQUOTE") {
+                CompileQuasiquote(falseBranch);
             }
             else if(falseBranchNode.type === "STRING") {
                 AddInstruction(`push ${falseBranch}`);
             }
-            else if(falseBranchNode.type === "APPLICATION") {
+            else if(falseBranchNode.type === "APPLICATION" || falseBranchNode.type === "UNQUOTE") {
                 CompileApplication(falseBranch);
             }
             else {
@@ -467,13 +485,16 @@ function Compile(ast: AST): Array<string> {
             if(trueBranchNode.type === "LAMBDA") {
                 AddInstruction(`loadclosure @${trueBranch}`); // 返回闭包
             }
-            else if(trueBranchNode.type === "QUOTE" || trueBranchNode.type === "QUASIQUOTE" || trueBranchNode.type === "UNQUOTE") {
+            else if(trueBranchNode.type === "QUOTE") {
                 AddInstruction(`push ${trueBranch}`);
+            }
+            else if(trueBranchNode.type === "QUASIQUOTE") {
+                CompileQuasiquote(trueBranch);
             }
             else if(trueBranchNode.type === "STRING") {
                 AddInstruction(`push ${trueBranch}`);
             }
-            else if(trueBranchNode.type === "APPLICATION") {
+            else if(trueBranchNode.type === "APPLICATION" || trueBranchNode.type === "UNQUOTE") {
                 CompileApplication(trueBranch);
             }
             else {
@@ -518,13 +539,16 @@ function Compile(ast: AST): Array<string> {
                 if(trueBranchNode.type === "LAMBDA") {
                     AddInstruction(`loadclosure @${clause}`); // 返回闭包
                 }
-                else if(trueBranchNode.type === "QUOTE" || trueBranchNode.type === "QUASIQUOTE" || trueBranchNode.type === "UNQUOTE") {
+                else if(trueBranchNode.type === "QUOTE") {
                     AddInstruction(`push ${clause}`);
+                }
+                else if(trueBranchNode.type === "QUASIQUOTE") {
+                    CompileQuasiquote(clause);
                 }
                 else if(trueBranchNode.type === "STRING") {
                     AddInstruction(`push ${clause}`);
                 }
-                else if(trueBranchNode.type === "APPLICATION") {
+                else if(trueBranchNode.type === "APPLICATION" || trueBranchNode.type === "UNQUOTE") {
                     CompileApplication(clause);
                 }
                 else {
@@ -582,13 +606,16 @@ function Compile(ast: AST): Array<string> {
                 if(trueBranchNode.type === "LAMBDA") {
                     AddInstruction(`loadclosure @${clause}`); // 返回闭包
                 }
-                else if(trueBranchNode.type === "QUOTE" || trueBranchNode.type === "QUASIQUOTE" || trueBranchNode.type === "UNQUOTE") {
+                else if(trueBranchNode.type === "QUOTE") {
                     AddInstruction(`push ${clause}`);
+                }
+                else if(trueBranchNode.type === "QUASIQUOTE") {
+                    CompileQuasiquote(clause);
                 }
                 else if(trueBranchNode.type === "STRING") {
                     AddInstruction(`push ${clause}`);
                 }
-                else if(trueBranchNode.type === "APPLICATION") {
+                else if(trueBranchNode.type === "APPLICATION" || trueBranchNode.type === "UNQUOTE") {
                     CompileApplication(clause);
                 }
                 else {
@@ -623,6 +650,31 @@ function Compile(ast: AST): Array<string> {
 
         AddInstruction(`;; 🛑 OR “${nodeHandle}” END   `);
         AddInstruction(`;;`);
+    }
+
+    // 编译准引用节点
+    function CompileQuasiquote(nodeHandle: Handle): void {
+        let node: ApplicationObject = ast.GetNode(nodeHandle);
+        for(let i = 0; i < node.children.length; i++) {
+            let child = node.children[i];
+            if(TypeOfToken(child) === "HANDLE") {
+                let childObj = ast.GetNode(child);
+                if(childObj.type === "APPLICATION" || childObj.type === "UNQUOTE") {
+                    CompileApplication(child);
+                    AddInstruction(`push ${i}`);
+                    AddInstruction(`set-child! ${nodeHandle}`);
+                }
+                else if(childObj.type === "QUASIQUOTE") {
+                    CompileQuasiquote(child);
+                }
+            }
+            else if(TypeOfToken(child) === "VARIABLE") {
+                AddInstruction(`load ${child}`);
+                AddInstruction(`push ${i}`);
+                AddInstruction(`set-child! ${nodeHandle}`);
+            }
+        }
+        AddInstruction(`push ${nodeHandle}`);
     }
 
     // 编译复杂的Application节点（即首项为待求值的Application的Application，此时需要作η变换）
@@ -679,17 +731,20 @@ function Compile(ast: AST): Array<string> {
             let childType = TypeOfToken(child);
 
             if(childType === "HANDLE") {
-                let trueBranchNode = ast.GetNode(child);
-                if(trueBranchNode.type === "LAMBDA") {
+                let childNode = ast.GetNode(child);
+                if(childNode.type === "LAMBDA") {
                     AddInstruction(`loadclosure @${child}`); // 返回闭包
                 }
-                else if(trueBranchNode.type === "QUOTE" || trueBranchNode.type === "QUASIQUOTE" || trueBranchNode.type === "UNQUOTE") {
+                else if(childNode.type === "QUOTE") {
                     AddInstruction(`push ${child}`);
                 }
-                else if(trueBranchNode.type === "STRING") {
+                else if(childNode.type === "QUASIQUOTE") {
+                    CompileQuasiquote(child);
+                }
+                else if(childNode.type === "STRING") {
                     AddInstruction(`push ${child}`);
                 }
-                else if(trueBranchNode.type === "APPLICATION") {
+                else if(childNode.type === "APPLICATION" || childNode.type === "UNQUOTE") {
                     CompileApplication(child);
                 }
                 else {
@@ -760,17 +815,20 @@ function Compile(ast: AST): Array<string> {
                 let child = children[i];
                 let childType = TypeOfToken(child);
                 if(childType === "HANDLE") {
-                    let trueBranchNode = ast.GetNode(child);
-                    if(trueBranchNode.type === "LAMBDA") {
+                    let childNode = ast.GetNode(child);
+                    if(childNode.type === "LAMBDA") {
                         AddInstruction(`loadclosure @${child}`); // 返回闭包
                     }
-                    else if(trueBranchNode.type === "QUOTE" || trueBranchNode.type === "QUASIQUOTE" || trueBranchNode.type === "UNQUOTE") {
+                    else if(childNode.type === "QUOTE") {
                         AddInstruction(`push ${child}`);
                     }
-                    else if(trueBranchNode.type === "STRING") {
+                    else if(childNode.type === "QUASIQUOTE") {
+                        CompileQuasiquote(child);
+                    }
+                    else if(childNode.type === "STRING") {
                         AddInstruction(`push ${child}`);
                     }
-                    else if(trueBranchNode.type === "APPLICATION") {
+                    else if(childNode.type === "APPLICATION" || childNode.type === "UNQUOTE") {
                         CompileApplication(child);
                     }
                     else {
