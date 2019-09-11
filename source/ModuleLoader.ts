@@ -39,7 +39,7 @@ function LoadModule(path: string): Module {
 
         let moduleQualifiedName = PathUtils.GetModuleQualifiedName(path);
 
-        let currentAST = Parse(code, moduleQualifiedName);
+        let currentAST = Analyse(Parse(code, moduleQualifiedName));
         allASTs.set(moduleQualifiedName, currentAST);
 
         for(let alias in currentAST.dependencies) {
@@ -90,7 +90,7 @@ function LoadModule(path: string): Module {
     for(let i = sortedModuleNames.length - 1; i >= 0; i--) {
         let moduleName = sortedModuleNames[i];
         if(moduleName === mainModuleQualifiedName) continue;
-        mergedModule.AST.MergeAST(allASTs.get(moduleName));
+        mergedModule.AST.MergeAST(allASTs.get(moduleName), "top");
     }
     // 编译
     mergedModule.ILCode = Compile(mergedModule.AST);
@@ -163,7 +163,7 @@ function LoadModuleFromNode(ast: AST, nodeHandle: Handle): Module {
 
         let moduleQualifiedName = PathUtils.GetModuleQualifiedName(path);
 
-        let currentAST = Parse(code, moduleQualifiedName);
+        let currentAST = Analyse(Parse(code, moduleQualifiedName));
         allASTs.set(moduleQualifiedName, currentAST);
 
         for(let alias in currentAST.dependencies) {
@@ -213,7 +213,7 @@ function LoadModuleFromNode(ast: AST, nodeHandle: Handle): Module {
     for(let i = sortedModuleNames.length - 1; i >= 0; i--) {
         let moduleName = sortedModuleNames[i];
         if(moduleName === mainModuleQualifiedName) continue;
-        mergedModule.AST.MergeAST(allASTs.get(moduleName));
+        mergedModule.AST.MergeAST(allASTs.get(moduleName), "top");
     }
     // 编译
     mergedModule.ILCode = Compile(mergedModule.AST);

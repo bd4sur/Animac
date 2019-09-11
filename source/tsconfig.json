@@ -8,6 +8,7 @@
         "SchemeObject.ts",
         "Lexer.ts",
         "Parser.ts",
+        "Analyser.ts",
         "Compiler.ts",
         "ModuleLoader.ts",
         "Process.ts",

@@ -551,7 +551,7 @@ function Lexer(code) {
     return newTokens;
 }
 // Parser.ts
-// 词法分析
+// 语法分析：将代码解析成AST，但不加分析
 var NodeType;
 (function (NodeType) {
     NodeType["LAMBDA"] = "LAMBDA";
@@ -634,6 +634,9 @@ class AST {
         this.nodes.Set(handle, node);
         return handle;
     }
+    //////////////////////////
+    // 顶级节点操作
+    //////////////////////////
     // 查找最顶级Application的把柄（用于尾调用起始位置、AST融合等场合）
     TopApplicationNodeHandle() {
         let TopHandle = null;
@@ -644,6 +647,14 @@ class AST {
             }
         });
         return TopHandle;
+    }
+    // 查找顶级Lambda（全局作用域）节点的把柄
+    TopLambdaNodeHandle() {
+        return this.nodes.Get(this.TopApplicationNodeHandle()).children[0];
+    }
+    // 获取位于全局作用域的节点列表
+    GetGlobalNodes() {
+        return this.nodes.Get(this.TopLambdaNodeHandle()).getBodies();
     }
     // 将某个节点转换回Scheme代码
     // TODO 对于Quote列表的输出效果可以优化
@@ -711,7 +722,8 @@ class AST {
     }
     // 融合另一个AST（注意，把柄需完全不同，否则会冲突报错）
     // TODO 这里细节比较复杂，需要写一份文档描述
-    MergeAST(anotherAST) {
+    MergeAST(anotherAST, order) {
+        order = order || "top"; // 默认顺序为在顶部融合
         this.source += "\n";
         this.source += anotherAST.source;
         // 注意：为了维持词法作用域关系，不可以简单地将两个nodes并列起来，而应该将源AST的顶级Lambda节点追加到目标AST的顶级Lambda节点的bodie中
@@ -722,31 +734,34 @@ class AST {
             this.nodes.Set(hd, node); // TODO：建议深拷贝
         });
         // 2 重组
-        let sourceTopApplicationNodeHandle = anotherAST.TopApplicationNodeHandle();
-        let sourceTopLambdaNodeHandle = anotherAST.nodes.Get(sourceTopApplicationNodeHandle).children[0];
-        let sourceGlobalNodeHandles = anotherAST.nodes.Get(sourceTopLambdaNodeHandle).getBodies();
-        let targetTopLambdaNodeHandle = this.nodes.Get(this.TopApplicationNodeHandle()).children[0];
-        let targetGlobalNodeHandles = this.nodes.Get(targetTopLambdaNodeHandle).getBodies();
+        let sourceGlobalNodeHandles = anotherAST.GetGlobalNodes();
+        let targetTopLambdaNodeHandle = this.TopLambdaNodeHandle();
+        let targetGlobalNodeHandles = this.GetGlobalNodes();
         // 依赖（源）节点应挂载到前面
-        this.nodes.Get(targetTopLambdaNodeHandle).setBodies(sourceGlobalNodeHandles.concat(targetGlobalNodeHandles));
+        if (order === "top") {
+            this.nodes.Get(targetTopLambdaNodeHandle).setBodies(sourceGlobalNodeHandles.concat(targetGlobalNodeHandles));
+        }
+        else if (order === "bottom") {
+            this.nodes.Get(targetTopLambdaNodeHandle).setBodies(targetGlobalNodeHandles.concat(sourceGlobalNodeHandles));
+        }
         // 修改被挂载节点的parent字段
         for (let i = 0; i < sourceGlobalNodeHandles.length; i++) {
             this.nodes.Get(sourceGlobalNodeHandles[i]).parent = targetTopLambdaNodeHandle;
         }
         // 3、删除原来的顶级App节点和顶级Lambda节点
-        this.nodes.DeleteHandle(sourceTopLambdaNodeHandle);
-        this.nodes.DeleteHandle(sourceTopApplicationNodeHandle);
+        this.nodes.DeleteHandle(anotherAST.TopLambdaNodeHandle());
+        this.nodes.DeleteHandle(anotherAST.TopApplicationNodeHandle());
         for (let hd in anotherAST.nodeIndexes) {
             let oldValue = anotherAST.nodeIndexes.get(hd);
             this.nodeIndexes.set(hd, oldValue + this.source.length);
         }
         for (let hd of anotherAST.lambdaHandles) {
-            if (hd === sourceTopLambdaNodeHandle)
+            if (hd === anotherAST.TopLambdaNodeHandle())
                 continue; // 注意去掉已删除的顶级Lambda节点
             this.lambdaHandles.push(hd);
         }
         for (let hd of anotherAST.tailcall) {
-            if (hd === sourceTopApplicationNodeHandle)
+            if (hd === anotherAST.TopApplicationNodeHandle())
                 continue; // 注意去掉已删除的顶级Application节点
             this.tailcall.push(hd);
         }
@@ -793,7 +808,6 @@ class Scope {
 function Parse(code, moduleQualifiedName) {
     let ast = new AST(code, moduleQualifiedName);
     let tokens = Lexer(code);
-    let scopes = new HashMap();
     // 节点把柄栈
     let NODE_STACK = new Array();
     NODE_STACK.push(TOP_NODE_HANDLE);
@@ -1126,6 +1140,16 @@ function Parse(code, moduleQualifiedName) {
             }
         });
     }
+    // 递归下降语法分析
+    ParseTerm(tokens, 0);
+    // 预处理指令解析
+    PreprocessAnalysis();
+    return ast;
+}
+// Parser.ts
+// 作用域和尾调用分析：分析并处理AST
+function Analyse(ast) {
+    let scopes = new HashMap();
     ///////////////////////////////
     //  作用域解析，变量换名
     ///////////////////////////////
@@ -1336,10 +1360,6 @@ function Parse(code, moduleQualifiedName) {
             return;
         }
     }
-    // 递归下降语法分析
-    ParseTerm(tokens, 0);
-    // 预处理指令解析
-    PreprocessAnalysis();
     // 作用域解析
     ScopeAnalysis();
     // 尾调用分析
@@ -2219,7 +2239,7 @@ function LoadModule(path) {
         }
         code = `((lambda () ${code}))\n`;
         let moduleQualifiedName = PathUtils.GetModuleQualifiedName(path);
-        let currentAST = Parse(code, moduleQualifiedName);
+        let currentAST = Analyse(Parse(code, moduleQualifiedName));
         allASTs.set(moduleQualifiedName, currentAST);
         for (let alias in currentAST.dependencies) {
             let dependencyPath = currentAST.dependencies.get(alias);
@@ -2267,7 +2287,7 @@ function LoadModule(path) {
         let moduleName = sortedModuleNames[i];
         if (moduleName === mainModuleQualifiedName)
             continue;
-        mergedModule.AST.MergeAST(allASTs.get(moduleName));
+        mergedModule.AST.MergeAST(allASTs.get(moduleName), "top");
     }
     // 编译
     mergedModule.ILCode = Compile(mergedModule.AST);
@@ -2326,7 +2346,7 @@ function LoadModuleFromNode(ast, nodeHandle) {
         }
         code = `((lambda () ${code}))\n`;
         let moduleQualifiedName = PathUtils.GetModuleQualifiedName(path);
-        let currentAST = Parse(code, moduleQualifiedName);
+        let currentAST = Analyse(Parse(code, moduleQualifiedName));
         allASTs.set(moduleQualifiedName, currentAST);
         for (let alias in currentAST.dependencies) {
             let dependencyPath = currentAST.dependencies.get(alias);
@@ -2373,7 +2393,7 @@ function LoadModuleFromNode(ast, nodeHandle) {
         let moduleName = sortedModuleNames[i];
         if (moduleName === mainModuleQualifiedName)
             continue;
-        mergedModule.AST.MergeAST(allASTs.get(moduleName));
+        mergedModule.AST.MergeAST(allASTs.get(moduleName), "top");
     }
     // 编译
     mergedModule.ILCode = Compile(mergedModule.AST);
