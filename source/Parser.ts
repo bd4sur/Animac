@@ -127,6 +127,11 @@ class AST {
         return this.nodes.Get(this.TopLambdaNodeHandle()).getBodies();
     }
 
+    // 设置全局作用域的节点列表
+    public SetGlobalNodes(bodies: Array<any>): void {
+        this.nodes.Get(this.TopLambdaNodeHandle()).setBodies(bodies);
+    }
+
     // 将某个节点转换回Scheme代码
     // TODO 对于Quote列表的输出效果可以优化
     public NodeToString(nodeHandle: Handle): string {

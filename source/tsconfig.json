@@ -14,6 +14,7 @@
         "Process.ts",
         "Runtime.ts",
         "Instruction.ts",
+        "REPL.ts",
         "UT.ts"
     ]
 }

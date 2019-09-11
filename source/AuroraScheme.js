@@ -656,6 +656,10 @@ class AST {
     GetGlobalNodes() {
         return this.nodes.Get(this.TopLambdaNodeHandle()).getBodies();
     }
+    // 设置全局作用域的节点列表
+    SetGlobalNodes(bodies) {
+        this.nodes.Get(this.TopLambdaNodeHandle()).setBodies(bodies);
+    }
     // 将某个节点转换回Scheme代码
     // TODO 对于Quote列表的输出效果可以优化
     NodeToString(nodeHandle) {
@@ -2755,6 +2759,7 @@ class Runtime {
             this.processPool[p.PID] = p;
         }
         this.processQueue.push(p.PID); // 加入队尾
+        return p.PID;
     }
     //=================================================================
     //                       以下是进程调度器
@@ -2783,7 +2788,8 @@ class Runtime {
                 break;
             }
             else if (currentProcess.state === ProcessState.STOPPED) {
-                delete this.processPool[currentPID]; // 清理掉执行完的进程
+                // TODO REPL不能清理
+                // delete this.processPool[currentPID]; // 清理掉执行完的进程
                 break;
             }
         }
@@ -3947,6 +3953,49 @@ class Instruction {
         }
     }
 }
+// REPL.ts
+// Read-Eval-Print Loop
+function REPL() {
+    let init = true;
+    let pid = 0;
+    let allCode = new Array();
+    let RUNTIME = new Runtime();
+    process.stdin.on("data", (input) => {
+        input = input.toString();
+        try {
+            let code = `((lambda () ${allCode.join(" ")} ${input}))\n`;
+            let AST = Analyse(Parse(code, "REPL"));
+            // 删除除了最后一个节点之外的所有节点
+            let globalNodes = AST.GetGlobalNodes();
+            AST.SetGlobalNodes([Top(globalNodes)]);
+            // 编译并组建模块
+            let module = new Module();
+            module.AST = AST;
+            module.ILCode = Compile(AST);
+            // 创建VM
+            if (init === true) {
+                let PROCESS = new Process(module);
+                pid = RUNTIME.AddProcess(PROCESS);
+                init = false;
+            }
+            else {
+                RUNTIME.processPool[pid].AST = module.AST;
+                RUNTIME.processPool[pid].instructions = module.ILCode;
+                RUNTIME.processPool[pid].labelMapping = new HashMap();
+                RUNTIME.processPool[pid].PC = 0;
+                // 标签分析
+                RUNTIME.processPool[pid].LabelAnalysis();
+                console.log("RT=");
+                console.log(JSON.stringify(RUNTIME));
+            }
+            RUNTIME.StartClock();
+            allCode.push(input);
+        }
+        catch (e) {
+            process.stderr.write(e.toString());
+        }
+    });
+}
 ///////////////////////////////////////////////
 // UT.ts
 // 单元测试
@@ -3961,4 +4010,5 @@ function UT() {
     RUNTIME.AddProcess(PROCESS);
     RUNTIME.StartClock();
 }
-UT();
+// UT();
+REPL();

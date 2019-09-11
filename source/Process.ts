@@ -297,7 +297,7 @@ class Process {
     /* 反射相关 */
 
     // 中间语言指令序列的标签分析
-    private LabelAnalysis(): void {
+    public LabelAnalysis(): void {
         for(let i = 0; i < this.instructions.length; i++) {
             if((this.instructions[i].trim())[0] === "@") {
                 this.labelMapping.set(this.instructions[i].trim(), i);

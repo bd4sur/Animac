@@ -25,12 +25,13 @@ class Runtime {
         return this.processPool.length;
     }
 
-    public AddProcess(p: Process) {
+    public AddProcess(p: Process): PID {
         // 检查是否已存在此线程
         if(this.processPool[p.PID] === undefined) {
             this.processPool[p.PID] = p;
         }
         this.processQueue.push(p.PID); // 加入队尾
+        return p.PID;
     }
 
     //=================================================================
@@ -61,7 +62,8 @@ class Runtime {
                 break;
             }
             else if(currentProcess.state === ProcessState.STOPPED) {
-                delete this.processPool[currentPID]; // 清理掉执行完的进程
+                // TODO REPL不能清理
+                // delete this.processPool[currentPID]; // 清理掉执行完的进程
                 break;
             }
         }

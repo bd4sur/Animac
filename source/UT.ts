@@ -19,5 +19,6 @@ function UT() {
     RUNTIME.StartClock();
 }
 
-UT();
+// UT();
+REPL();
 
