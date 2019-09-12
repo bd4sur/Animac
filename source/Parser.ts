@@ -272,26 +272,6 @@ class AST {
     }
 }
 
-class Scope {
-    parent: Handle;
-    children: Array<any>;
-    boundVariables: Array<string>;
-
-    constructor(parent: Handle) {
-        this.parent = parent;
-        this.children = new Array();
-        this.boundVariables = new Array();
-    }
-    public addChild(child: any): void {
-        this.children.push(child);
-    }
-    public addParameter(param: string): void {
-        if(this.boundVariables.indexOf(param) < 0) { // 如果有同名的变量则不添加
-            this.boundVariables.push(param);
-        }
-    }
-}
-
 
 //////////////////////////////////////////////////
 //

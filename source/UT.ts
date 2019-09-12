@@ -16,7 +16,7 @@ function UT() {
     let RUNTIME = new Runtime();
 
     RUNTIME.AddProcess(PROCESS);
-    RUNTIME.StartClock();
+    RUNTIME.StartClock(()=>{});
 }
 
 // UT();

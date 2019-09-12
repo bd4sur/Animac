@@ -83,8 +83,7 @@ class Runtime {
         }
     }
 
-    public StartClock(stopCondition: (()=>boolean) | void) {
-        stopCondition = stopCondition || (()=>{return false;});
+    public StartClock(callback: ()=>any) {
         /* NOTE 【执行时钟设计说明】为什么要用setInterval？
             设想两个进程，其中一个是常驻的无限循环进程，另一个是需要执行某Node.js异步操作的进程。
             根据Node.js的事件循环特性，如果单纯使用while(1)实现，则异步操作永远得不到执行。
@@ -100,16 +99,24 @@ class Runtime {
         function Run() {
             let COMPUTATION_PHASE_LENGTH = 100; // TODO 这个值可以调整
             while(COMPUTATION_PHASE_LENGTH >= 0) {
-                let avmState = this.Tick(stopCondition);
+                let avmState = this.Tick();
                 COMPUTATION_PHASE_LENGTH--;
                 if(avmState === VMState.IDLE) {
+                    clearInterval(CLOCK);
+                    callback();
                     break;
                 }
             }
         }
 
-        setInterval(()=>{
-            Run.call(this);
+        let CLOCK = setInterval(()=>{
+            try {
+                Run.call(this);
+            }
+            catch(e) {
+                this.Error(e.toString());
+                this.Error(`\n`);
+            }
         }, 0);
     }
 
@@ -120,6 +127,10 @@ class Runtime {
 
     public Output(str: string): void {
         process.stdout.write(str);
+    }
+
+    public Error(str: string): void {
+        process.stderr.write(str);
     }
 
 

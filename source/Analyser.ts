@@ -2,6 +2,26 @@
 // Parser.ts
 // 作用域和尾调用分析：分析并处理AST
 
+class Scope {
+    parent: Handle;
+    children: Array<any>;
+    boundVariables: Array<string>;
+
+    constructor(parent: Handle) {
+        this.parent = parent;
+        this.children = new Array();
+        this.boundVariables = new Array();
+    }
+    public addChild(child: any): void {
+        this.children.push(child);
+    }
+    public addParameter(param: string): void {
+        if(this.boundVariables.indexOf(param) < 0) { // 如果有同名的变量则不添加
+            this.boundVariables.push(param);
+        }
+    }
+}
+
 function Analyse(ast: AST): AST{
 
     let scopes: HashMap<Handle, Scope> = new HashMap();
