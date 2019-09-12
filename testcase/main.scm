@@ -188,7 +188,7 @@
     (native Console)
     (native HTTPS)
     (define res #f)
-    (set! res (HTTPS.Request "https://mikukonai.com/feed.xml"))
+    (set! res (HTTPS.Request "https://www.baidu.com/"))
     (Utils.show res)
     (Utils.show "子进程2结束啦")(newline)
 })

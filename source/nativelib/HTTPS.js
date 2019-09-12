@@ -33,7 +33,7 @@ function Request(PROCESS, RUNTIME) {
             RUNTIME.AIL_RETURN(null, PROCESS, RUNTIME);
             // 唤醒
             RUNTIME.AddProcess(PROCESS);
-            RUNTIME.StartClock();
+            RUNTIME.StartClock(RUNTIME.asyncCallback);
         }
 
         // 响应数据

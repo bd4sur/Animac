@@ -56,15 +56,7 @@ function Read(PROCESS, RUNTIME) {
 
             // 进程重新加入进程队列，并重启时钟
             RUNTIME.AddProcess(PROCESS);
-            RUNTIME.StartClock(/*()=>{
-                if(PROCESS.PC === currentPC + 1) {
-                    console.warn(`进程 ${PROCESS.PID} 回调执行完毕。`);
-                    return true;
-                }
-                else {
-                    return false;
-                }
-            }*/);
+            RUNTIME.StartClock(RUNTIME.asyncCallback);
         });
     }
 }

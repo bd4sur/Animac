@@ -13,12 +13,15 @@ class Runtime {
     public processPool: Array<Process>;  // 进程池
     public processQueue: Array<PID>;     // 进程队列
 
-    public ports: HashMap<string, any>;            // 端口：对进程间共享资源的抽象 TODO 增加PortObject类
+    public ports: HashMap<string, any>;  // 端口：对进程间共享资源的抽象 TODO 增加PortObject类
+
+    public asyncCallback: ()=>any;       // 异步事件回调（主要是用于REPL中处理异步事件返回对控制台的刷新操作）
 
     constructor() {
         this.processPool = new Array();
         this.processQueue = new Array();
         this.ports = new HashMap();
+        this.asyncCallback = ()=>{};
     }
 
     public AllocatePID(): number {
