@@ -15,6 +15,9 @@ class Runtime {
 
     public ports: HashMap<string, any>;  // 端口：对进程间共享资源的抽象 TODO 增加PortObject类
 
+    public outputBuffer: string;
+    public errorBuffer: string;
+
     public asyncCallback: ()=>any;       // 异步事件回调（主要是用于REPL中处理异步事件返回对控制台的刷新操作）
 
     constructor() {
@@ -22,6 +25,8 @@ class Runtime {
         this.processQueue = new Array();
         this.ports = new HashMap();
         this.asyncCallback = ()=>{};
+        this.outputBuffer = "";
+        this.errorBuffer = "";
     }
 
     public AllocatePID(): number {
@@ -41,12 +46,10 @@ class Runtime {
     //                       以下是进程调度器
     //=================================================================
 
-    public Tick(stopCondition: (()=>boolean) | void) {
-        stopCondition = stopCondition || (()=>{return false;});
+    public Tick(timeslice: number) {
         if(this.processQueue.length <= 0) {
             return VMState.IDLE;
         }
-        let timeslice = 1000;
         // 取出队头线程
         let currentPID = this.processQueue.shift();
         let currentProcess = this.processPool[currentPID];
@@ -55,10 +58,7 @@ class Runtime {
         while(timeslice >= 0) {
             this.Execute(currentProcess, this);
             timeslice--;
-            if(stopCondition()) {
-                break;
-            }
-            else if(currentProcess.state === ProcessState.RUNNING) {
+            if(currentProcess.state === ProcessState.RUNNING) {
                 continue;
             }
             else if(currentProcess.state === ProcessState.SLEEPING) {
@@ -102,7 +102,7 @@ class Runtime {
         function Run() {
             let COMPUTATION_PHASE_LENGTH = 100; // TODO 这个值可以调整
             while(COMPUTATION_PHASE_LENGTH >= 0) {
-                let avmState = this.Tick();
+                let avmState = this.Tick(1000);
                 COMPUTATION_PHASE_LENGTH--;
                 if(avmState === VMState.IDLE) {
                     clearInterval(CLOCK);
@@ -130,10 +130,12 @@ class Runtime {
 
     public Output(str: string): void {
         process.stdout.write(str);
+        this.outputBuffer += str;
     }
 
     public Error(str: string): void {
         process.stderr.write(str);
+        this.errorBuffer += str;
     }
 
 

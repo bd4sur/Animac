@@ -110,6 +110,9 @@ pre {
 }
 
 .console {
+    max-height: 200px;
+    overflow-x: auto;
+    overflow-y: auto;
     line-height: 20px;
     background-color: #333333;
     color:#eeeeee;
@@ -145,7 +148,6 @@ p {
 table {
     font-size: 11px;
     border-collapse: collapse;
-    width: 100%;
     background-color: transparent;
     border-spacing: 0;
 }
@@ -154,7 +156,6 @@ td:first-child, th:first-child {
 }
 
 td, th {
-    min-width: 30px;
     border: none;
     border-left: 1px solid #f5f5f5;
     vertical-align: top;
@@ -171,25 +172,41 @@ th {
     vertical-align: middle;
     font-weight: bold;
 }
+
+.hidden {
+    display: none;
+}
+
 .closureTable {
+    width: 100%;
     border: 2px solid #dddddd;
     margin: 3px 0;
 }
 .closureTable td{
-    min-width: 20px;
-    padding: 1px 2px;
-    text-align: center;
+    padding: 2px 6px;
 }
-.envSymbol,.envValue{
-    background-color: lightskyblue;
-}
-.envSymbol{
+.field {
+    text-align: right;
     font-weight: bold;
 }
-.upvaluesSymbol,.upvaluesValue{
-    background-color:pink;
+.boundVar,.boundValue{
+    background-color: rgb(200, 234, 255);
 }
-.upvaluesSymbol{
+.boundValue{
+    text-align: left;
+}
+.boundVar{
+    text-align: right;
+    font-weight: bold;
+}
+.freeVar,.freeValue{
+    background-color:rgb(255, 232, 237);
+}
+.boundValue{
+    text-align: left;
+}
+.freeVar{
+    text-align: right;
     font-weight: bold;
 }
 hr {

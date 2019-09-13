@@ -11,7 +11,9 @@
 
 ## 可视化演示 / Visual demonstration
 
-[调试工具（尚未完善）](https://mikukonai.com/auroravm.html)
+请克隆仓库到本地，执行`node ./source/AuroraScheme.js`，使用浏览器访问`http://localhost:8088/`即可。 / Please clone this repo to your computer, run `node ./source/AuroraScheme.js`, and use your browser to visit `http://localhost:8088/`.
+
+![调试工具截图](./documentation/AVM-Debugger.png)
 
 ## 构建 / Building
 

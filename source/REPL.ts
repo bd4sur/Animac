@@ -90,27 +90,34 @@ function LoadModuleFromCode(code: string, REPLModuleQualifiedName: string): Modu
     return mergedModule;
 }
 
-function REPL() {
-    let allCode = new Array();
-    let RUNTIME = new Runtime();
+class REPL {
+    public allCode: Array<string>;
+    public RUNTIME: Runtime;
+    public inputBuffer: Array<string>;
 
-    function run(input: string, callback: ()=>any): void {
+    constructor() {
+        this.allCode = new Array();
+        this.RUNTIME = new Runtime();
+        this.inputBuffer = new Array();
+    }
+
+    public run(input: string, callback: ()=>any): void {
         try {
-            let code = `((lambda () ${allCode.join(" ")} (display ${input}) (newline) ))\n`;
+            let code = `((lambda () ${this.allCode.join(" ")} (display ${input}) (newline) ))\n`;
 
             let mod = LoadModuleFromCode(code, "REPL");
 
             let proc = new Process(mod);
             proc.PID = 0;
 
-            RUNTIME.asyncCallback = callback;  // NOTE 用于文件读写等异步操作结束之后执行
-            RUNTIME.processPool[0] = proc;
-            RUNTIME.AddProcess(proc);
-            RUNTIME.StartClock(callback);
+            this.RUNTIME.asyncCallback = callback;  // NOTE 用于文件读写等异步操作结束之后执行
+            this.RUNTIME.processPool[0] = proc;
+            this.RUNTIME.AddProcess(proc);
+            this.RUNTIME.StartClock(callback);
 
             // TODO 仅保留有副作用的语句
             if(/define|set!|native|import/gi.test(input)) {
-                allCode.push(input);
+                this.allCode.push(input);
             }
         }
         catch(e) {
@@ -119,7 +126,7 @@ function REPL() {
         }
     }
 
-    function CountBrackets(input: string): number {
+    public CountBrackets(input: string): number {
         let bcount = 0;
         for(let i = 0; i < input.length; i++) {
             if(input[i] === "(" || input[i] === "{") bcount++;
@@ -128,41 +135,42 @@ function REPL() {
         return bcount;
     }
 
-    let buffer: Array<string> = new Array();
-
-    function ReadEvalPrint(input: string): void {
+    public ReadEvalPrint(input: string): void {
         input = input.toString();
         if(input.trim() === ".help") {
-            RUNTIME.Output(`AuroraScheme\n`);
-            RUNTIME.Output(`Copyright (c) 2019 mikukonai@GitHub, Licenced under MIT.\n`);
-            RUNTIME.Output(`https://github.com/mikukonai/AuroraScheme\n`);
-            RUNTIME.Output(`\n`);
-            RUNTIME.Output(`REPL Command Reference:\n`);
-            RUNTIME.Output(`  .exit     exit the REPL.\n`);
-            RUNTIME.Output(`  .reset    reset the REPL to initial state.\n`);
-            RUNTIME.Output(`  .help     show usage and copyright information.\n`);
-            RUNTIME.Output(`\n`);
-            RUNTIME.Output(`> `);
+            this.RUNTIME.Output(`AuroraScheme\n`);
+            this.RUNTIME.Output(`Copyright (c) 2019 mikukonai@GitHub, Licenced under MIT.\n`);
+            this.RUNTIME.Output(`https://github.com/mikukonai/AuroraScheme\n`);
+            this.RUNTIME.Output(`\n`);
+            this.RUNTIME.Output(`REPL Command Reference:\n`);
+            this.RUNTIME.Output(`  .exit     exit the REPL.\n`);
+            this.RUNTIME.Output(`  .reset    reset the REPL to initial state.\n`);
+            this.RUNTIME.Output(`  .help     show usage and copyright information.\n`);
+            this.RUNTIME.Output(`\n`);
+            this.RUNTIME.Output(`> `);
             return;
         }
         else if(input.trim() === ".exit") {
             process.exit();
         }
         else if(input.trim() === ".reset") {
-            allCode = new Array();
-            RUNTIME.Output(`REPL已重置。\n`);
-            RUNTIME.Output(`> `);
+            this.allCode = new Array();
+            this.RUNTIME.Output(`REPL已重置。\n`);
+            this.RUNTIME.Output(`> `);
             return;
         }
 
-        buffer.push(input);
-        let code = buffer.join("");
-        let indentLevel = CountBrackets(code);
+        this.inputBuffer.push(input);
+        let code = this.inputBuffer.join("");
+        let indentLevel = this.CountBrackets(code);
         if(indentLevel === 0) {
-            buffer = new Array();
-            run(code, ()=> {
-                if(RUNTIME.processPool[0].state !== ProcessState.SLEEPING) {
-                    RUNTIME.Output("> ");
+            this.inputBuffer = new Array();
+            this.run(code, ()=> {
+                if(this.RUNTIME.processPool[0] !== undefined && this.RUNTIME.processPool[0].state === ProcessState.SLEEPING) {
+                    return;
+                }
+                else {
+                    this.RUNTIME.Output("> ");
                 }
             });
         }
@@ -173,18 +181,19 @@ function REPL() {
                 prompt += "..";
                 icount--;
             }
-            RUNTIME.Output(`${prompt} `);
+            this.RUNTIME.Output(`${prompt} `);
         }
         else {
-            buffer = new Array();
-            RUNTIME.Error(`[REPL Error] 括号不匹配\n`);
+            this.inputBuffer = new Array();
+            this.RUNTIME.Error(`[REPL Error] 括号不匹配\n`);
         }
     }
 
-    RUNTIME.Output(`AuroraScheme REPL\n`);
-    RUNTIME.Output(`Type ".help" for more information.\n`);
-    RUNTIME.Output(`> `);
+    public Start(): void {
+        this.RUNTIME.Output(`AuroraScheme REPL\n`);
+        this.RUNTIME.Output(`Type ".help" for more information.\n`);
+        this.RUNTIME.Output(`> `);
 
-    process.stdin.on("data", ReadEvalPrint);
-
+        process.stdin.on("data", (input)=>{this.ReadEvalPrint(input);});
+    }
 }

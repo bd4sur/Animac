@@ -12,7 +12,7 @@
     <!--标题-->
     <header>
         <div class="title">
-            <img src="../documentation/AuroraScheme-Logo-icon.png" style="float: left; position: relative; height: 55px; left: -8px;">
+            <img src="./AuroraScheme-Logo-icon.png" style="float: left; position: relative; height: 55px; left: -8px;">
             <div style="line-height: 55px;">
                 <span style="font-size: 25px; color:#666666;">AuroraVM</span> <span style="font-size: 25px; color:#dddddd;">Debugger</span>
                 <i style="color:#cccccc; font-size: 13px;">v0 alpha</i>
@@ -32,20 +32,18 @@
 
         <div style="margin: 15px 0;">
             <button id="execute" class="btn-start">▶ 启动</button>
-            <button id="reset" class="btn-stop">■ 停止</button>
-            <button id="onestep"  class="btn-common">▷ 步进</button>
-            <button id="stepbystep"  class="btn-common">|| 暂停</button>
+            <button id="reset"  class="btn-stop">↺ 复位</button>
+            <button id="step"  class="btn-common">▷ 步进(F10)</button>
+            <button id="stepbystep"  class="btn-common">▷ 连续步进</button>
         </div>
 
-        <!-- <div id="output" class="console">
-            <pre>Hello World
-123</pre>
-        </div> -->
+        <div class="console"><pre id="output">AuroraScheme Debugger
+</pre>
+        </div>
 
         <div class="table-container"><table style="width:100%;">
 
             <!--首行-->
-
             <tr>
                 <th>中间语言代码</th>
                 <th>函数调用栈</th>
@@ -54,49 +52,155 @@
             </tr>
 
             <!--调试信息-->
-
             <tr>
-
                 <!--ILCode-->
-
-                <td><code class="code" id="asm">
-                    <p class="asm" id="asm0" style="color:#000000;background-color:#ffffff;"><span class="lineNum">0</span>call @$1</p>
-                    <p class="asm" id="asm1" style="color:#000000;background-color:#ffffff;"><span class="lineNum">1</span>halt</p>
-                    <p class="asm" id="asm2" style="color:#000000;background-color:#ffffff;"><span class="lineNum">2</span>push "Hello"</p>
-                    <p class="asm" id="asm3" style="color:#ff0000;background-color:#cbeeff;"><span class="lineNum">3</span>display</p>
-                    <p class="asm" id="asm4" style="color:#000000;background-color:#ffffff;"><span class="lineNum">4</span>return</p>
-                </code></td>
+                <td><code class="code" id="ilcode"></code></td>
 
                 <!--FSTACK-->
-
-                <td id="fstack">
-                    <table class="closureTable">
-                        <tr><td>#</td><td>闭包</td><td>返回地址</td></tr>
-                        <tr><td>0</td><td>&amp;CLOSURE_0</td><td>1</td></tr>
-                    </table>
-
-                </td>
+                <td id="fstack"></td>
 
                 <!--OPSTACK-->
-
-                <td id="opstack">
-                    <span class="lineNum">1</span>9<br>
-                    <span class="lineNum">0</span>&amp;QUOTE_1<br>
-                </td>
+                <td id="opstack"></td>
 
                 <!--Heap-->
-
-                <td id="heap">
-                    <table class="closureTable">
-                        <tr><td>Handle</td><td>IL地址</td><td>上位闭包</td><td class="envSymbol">1</td></tr>
-                        <tr><td>3</td><td>15</td><td>^2</td><td class="envValue">9</td></tr>
-                    </table>
-
-                </td>
+                <td id="heap"></td>
             </tr>
         </table></div>
 
     </div>
+
+<script src="./jquery.min.js"></script>
+<script>
+
+function render(res) {
+    let process = res.process;
+    let heap = process.heap.data;
+    let FSTACK = process.FSTACK;
+    let OPSTACK = process.OPSTACK;
+    let instructions = process.instructions;
+
+    // Console
+    $("#output").html(res.outputBuffer);
+
+    // 渲染IL代码
+    let html = new Array();
+    for(let i = 0; i < instructions.length; i++) {
+        let color = "color:#000000;background-color:#ffffff;";
+        if(process.PC === i) color = "color:#ff0000;background-color:#cbeeff;";
+        html.push(`<p class="ilcode" id="ilcode${i}" style="${color}"><span class="lineNum">${i}</span>${instructions[i]}</p>`);
+    }
+    $('#ilcode').html(html.join(""));
+
+    // 渲染FSTACK
+    html = new Array();
+    for(let i = FSTACK.length - 1; i > 0; i--) {
+        html.push(`
+        <table class="closureTable">
+            <tr><td>#</td><td>闭包</td><td>返回地址</td></tr>
+            <tr><td>${i}</td><td>${FSTACK[i].closureHandle}</td><td>${FSTACK[i].returnTargetAddress}</td></tr>
+        </table>`);
+    }
+    $('#fstack').html(html.join(""));
+
+    // 渲染OPSTACK
+    html = new Array();
+    for(let i = OPSTACK.length - 1; i > 0; i--) {
+        html.push(`<span class="lineNum">${i}</span>${OPSTACK[i].replace("&", "&amp;")}<br>`);
+    }
+    $('#opstack').html(html.join(""));
+
+    // 渲染闭包
+    html = new Array();
+    for(let hd in heap) {
+        if(/^\&CLOSURE/gi.test(hd)) {
+            let variableLine = new Array();
+            for(let bound in heap[hd].boundVariables) {
+                // let boundVarFields = bound.split(".");
+                let color = "";
+                if((heap[hd].dirtyFlag)[bound] === true) color = ` style="color: red; font-weight: bold;"`;
+                variableLine.push(`<tr class="hidden"><td class="boundVar"${color}>${bound}</td><td class="boundValue"${color}>${(heap[hd].boundVariables)[bound]}</td></tr>`);
+            }
+            for(let free in heap[hd].freeVariables) {
+                // let freeVarFields = free.split(".");
+                variableLine.push(`<tr class="hidden"><td class="freeVar">${free}</td><td class="freeValue">${(heap[hd].freeVariables)[free]}</td></tr>`);
+            }
+
+            let currentClosureFlag = "";
+            if(hd === process.currentClosureHandle) {
+                currentClosureFlag = ` style="color: red; font-weight: bold;"`;
+            }
+            html.push(`<table class="closureTable">
+                <tr><td class="field"${currentClosureFlag}>把柄</td><td${currentClosureFlag}>${hd}</td></tr>
+                <tr><td class="field">上位闭包</td><td>${heap[hd].parent}</td></tr>
+                <tr class="hidden"><td class="field">指令地址</td><td>${heap[hd].instructionAddress}</td></tr>
+                ${variableLine.join("")}
+            </table>`);
+        }
+    }
+    $('#heap').html(html.join(""));
+}
+
+function SendDebugRequest(action) {
+    $.ajax({
+        type: "GET",
+        url: `./${action}`,
+        success: (data)=> {
+            render(data);
+            $(".closureTable").each((i,e)=>{
+                $(e).mousedown((event)=> {
+                    $(e).find(".hidden").toggle(200);
+                });
+            });
+        },
+        error: ()=> {
+            console.error(`failed`);
+        }
+    });
+}
+
+let clock = 0;
+let state = "paused";
+
+function pause() {
+    $("#stepbystep").html("▷ 连续步进");
+    state = "paused";
+    clearInterval(clock);
+}
+
+$("#execute").click(()=>{
+    pause();
+    SendDebugRequest("execute");
+});
+$("#step").click(()=>{
+    pause();
+    SendDebugRequest("step");
+});
+$("#stepbystep").click(()=>{
+    if(state === "paused") {
+        $("#stepbystep").html("|| 暂停");
+        state = "running";
+        clock = setInterval(()=>{
+            SendDebugRequest("step");
+        }, 0);
+    }
+    else if(state === "running") {
+        pause();
+    }
+});
+
+$("#reset").click(()=>{
+    pause();
+    SendDebugRequest("reset");
+});
+
+document.onkeydown = (event)=>{
+    if(event && event.keyCode === 121){ // F10
+        pause();
+        SendDebugRequest("step");
+    }
+}; 
+
+</script>
 
 </body>
 </html>

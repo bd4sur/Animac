@@ -2750,6 +2750,8 @@ class Runtime {
         this.processQueue = new Array();
         this.ports = new HashMap();
         this.asyncCallback = () => { };
+        this.outputBuffer = "";
+        this.errorBuffer = "";
     }
     AllocatePID() {
         return this.processPool.length;
@@ -2765,12 +2767,10 @@ class Runtime {
     //=================================================================
     //                       以下是进程调度器
     //=================================================================
-    Tick(stopCondition) {
-        stopCondition = stopCondition || (() => { return false; });
+    Tick(timeslice) {
         if (this.processQueue.length <= 0) {
             return VMState.IDLE;
         }
-        let timeslice = 1000;
         // 取出队头线程
         let currentPID = this.processQueue.shift();
         let currentProcess = this.processPool[currentPID];
@@ -2779,10 +2779,7 @@ class Runtime {
         while (timeslice >= 0) {
             this.Execute(currentProcess, this);
             timeslice--;
-            if (stopCondition()) {
-                break;
-            }
-            else if (currentProcess.state === ProcessState.RUNNING) {
+            if (currentProcess.state === ProcessState.RUNNING) {
                 continue;
             }
             else if (currentProcess.state === ProcessState.SLEEPING) {
@@ -2823,7 +2820,7 @@ class Runtime {
         function Run() {
             let COMPUTATION_PHASE_LENGTH = 100; // TODO 这个值可以调整
             while (COMPUTATION_PHASE_LENGTH >= 0) {
-                let avmState = this.Tick();
+                let avmState = this.Tick(1000);
                 COMPUTATION_PHASE_LENGTH--;
                 if (avmState === VMState.IDLE) {
                     clearInterval(CLOCK);
@@ -2847,9 +2844,11 @@ class Runtime {
     //=================================================================
     Output(str) {
         process.stdout.write(str);
+        this.outputBuffer += str;
     }
     Error(str) {
         process.stderr.write(str);
+        this.errorBuffer += str;
     }
     //=================================================================
     //                  以下是AIL指令实现（封装成函数）
@@ -4046,22 +4045,25 @@ function LoadModuleFromCode(code, REPLModuleQualifiedName) {
     mergedModule.ILCode = Compile(mergedModule.AST);
     return mergedModule;
 }
-function REPL() {
-    let allCode = new Array();
-    let RUNTIME = new Runtime();
-    function run(input, callback) {
+class REPL {
+    constructor() {
+        this.allCode = new Array();
+        this.RUNTIME = new Runtime();
+        this.inputBuffer = new Array();
+    }
+    run(input, callback) {
         try {
-            let code = `((lambda () ${allCode.join(" ")} (display ${input}) (newline) ))\n`;
+            let code = `((lambda () ${this.allCode.join(" ")} (display ${input}) (newline) ))\n`;
             let mod = LoadModuleFromCode(code, "REPL");
             let proc = new Process(mod);
             proc.PID = 0;
-            RUNTIME.asyncCallback = callback; // NOTE 用于文件读写等异步操作结束之后执行
-            RUNTIME.processPool[0] = proc;
-            RUNTIME.AddProcess(proc);
-            RUNTIME.StartClock(callback);
+            this.RUNTIME.asyncCallback = callback; // NOTE 用于文件读写等异步操作结束之后执行
+            this.RUNTIME.processPool[0] = proc;
+            this.RUNTIME.AddProcess(proc);
+            this.RUNTIME.StartClock(callback);
             // TODO 仅保留有副作用的语句
             if (/define|set!|native|import/gi.test(input)) {
-                allCode.push(input);
+                this.allCode.push(input);
             }
         }
         catch (e) {
@@ -4069,7 +4071,7 @@ function REPL() {
             callback();
         }
     }
-    function CountBrackets(input) {
+    CountBrackets(input) {
         let bcount = 0;
         for (let i = 0; i < input.length; i++) {
             if (input[i] === "(" || input[i] === "{")
@@ -4079,39 +4081,41 @@ function REPL() {
         }
         return bcount;
     }
-    let buffer = new Array();
-    function ReadEvalPrint(input) {
+    ReadEvalPrint(input) {
         input = input.toString();
         if (input.trim() === ".help") {
-            RUNTIME.Output(`AuroraScheme\n`);
-            RUNTIME.Output(`Copyright (c) 2019 mikukonai@GitHub, Licenced under MIT.\n`);
-            RUNTIME.Output(`https://github.com/mikukonai/AuroraScheme\n`);
-            RUNTIME.Output(`\n`);
-            RUNTIME.Output(`REPL Command Reference:\n`);
-            RUNTIME.Output(`  .exit     exit the REPL.\n`);
-            RUNTIME.Output(`  .reset    reset the REPL to initial state.\n`);
-            RUNTIME.Output(`  .help     show usage and copyright information.\n`);
-            RUNTIME.Output(`\n`);
-            RUNTIME.Output(`> `);
+            this.RUNTIME.Output(`AuroraScheme\n`);
+            this.RUNTIME.Output(`Copyright (c) 2019 mikukonai@GitHub, Licenced under MIT.\n`);
+            this.RUNTIME.Output(`https://github.com/mikukonai/AuroraScheme\n`);
+            this.RUNTIME.Output(`\n`);
+            this.RUNTIME.Output(`REPL Command Reference:\n`);
+            this.RUNTIME.Output(`  .exit     exit the REPL.\n`);
+            this.RUNTIME.Output(`  .reset    reset the REPL to initial state.\n`);
+            this.RUNTIME.Output(`  .help     show usage and copyright information.\n`);
+            this.RUNTIME.Output(`\n`);
+            this.RUNTIME.Output(`> `);
             return;
         }
         else if (input.trim() === ".exit") {
             process.exit();
         }
         else if (input.trim() === ".reset") {
-            allCode = new Array();
-            RUNTIME.Output(`REPL已重置。\n`);
-            RUNTIME.Output(`> `);
+            this.allCode = new Array();
+            this.RUNTIME.Output(`REPL已重置。\n`);
+            this.RUNTIME.Output(`> `);
             return;
         }
-        buffer.push(input);
-        let code = buffer.join("");
-        let indentLevel = CountBrackets(code);
+        this.inputBuffer.push(input);
+        let code = this.inputBuffer.join("");
+        let indentLevel = this.CountBrackets(code);
         if (indentLevel === 0) {
-            buffer = new Array();
-            run(code, () => {
-                if (RUNTIME.processPool[0].state !== ProcessState.SLEEPING) {
-                    RUNTIME.Output("> ");
+            this.inputBuffer = new Array();
+            this.run(code, () => {
+                if (this.RUNTIME.processPool[0] !== undefined && this.RUNTIME.processPool[0].state === ProcessState.SLEEPING) {
+                    return;
+                }
+                else {
+                    this.RUNTIME.Output("> ");
                 }
             });
         }
@@ -4122,17 +4126,173 @@ function REPL() {
                 prompt += "..";
                 icount--;
             }
-            RUNTIME.Output(`${prompt} `);
+            this.RUNTIME.Output(`${prompt} `);
         }
         else {
-            buffer = new Array();
-            RUNTIME.Error(`[REPL Error] 括号不匹配\n`);
+            this.inputBuffer = new Array();
+            this.RUNTIME.Error(`[REPL Error] 括号不匹配\n`);
         }
     }
-    RUNTIME.Output(`AuroraScheme REPL\n`);
-    RUNTIME.Output(`Type ".help" for more information.\n`);
-    RUNTIME.Output(`> `);
-    process.stdin.on("data", ReadEvalPrint);
+    Start() {
+        this.RUNTIME.Output(`AuroraScheme REPL\n`);
+        this.RUNTIME.Output(`Type ".help" for more information.\n`);
+        this.RUNTIME.Output(`> `);
+        process.stdin.on("data", (input) => { this.ReadEvalPrint(input); });
+    }
+}
+const DebugServerConfig = {
+    'portNumber': 8088,
+    'MIME': {
+        'css': 'text/css',
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'gif': 'image/gif',
+        'bmp': 'image/bmp',
+        'js': 'text/javascript',
+        'ico': 'image/vnd.microsoft.icon',
+        'mp3': 'audio/mpeg',
+        'woff': 'application/x-font-woff',
+        'woff2': 'font/woff2',
+        'ttf': 'application/x-font-truetype',
+        'otf': 'application/x-font-opentype',
+    },
+};
+// 启动调试服务器
+function StartDebugServer() {
+    const fs = require('fs');
+    const http = require('http');
+    const url = require('url');
+    let RUNTIME = new Runtime();
+    const moduleQN = "ADB";
+    const code = `((lambda ()
+
+(((lambda (x) (begin (display "@") x)) (call/cc (lambda (k) k)))
+ ((lambda (x) (begin (display "*") x)) (call/cc (lambda (k) k))))
+
+))\n`;
+    let mod = LoadModuleFromCode(code, moduleQN);
+    let proc = new Process(mod);
+    proc.PID = 0;
+    RUNTIME.asyncCallback = () => { };
+    RUNTIME.processPool[0] = proc;
+    RUNTIME.AddProcess(proc);
+    // 工具函数：用于判断某字符串是否以另一个字符串结尾
+    function IsEndWith(test, endPattern) {
+        let reg = new RegExp(endPattern + '$', 'i');
+        return reg.test(test);
+    }
+    http.createServer((request, response) => {
+        // 请求数据
+        let incomeData = '';
+        // 响应结构
+        let res = {
+            process: null,
+            outputBuffer: null
+        };
+        // 解析请求，包括文件名
+        let reqPath = url.parse(request.url).pathname.substr(1);
+        let filePath = "../debugger" + url.parse(request.url).pathname;
+        request.on('data', (chunk) => {
+            incomeData += chunk;
+        });
+        request.on('end', () => {
+            let now = new Date();
+            console.log(`${now.toLocaleDateString()} ${now.toLocaleTimeString()} 收到请求：${request.url}`);
+            // 默认主页
+            if (reqPath === '') {
+                readFileSystem(filePath + "index.html");
+            }
+            else if (reqPath === "execute") {
+                let mod = LoadModuleFromCode(code, moduleQN);
+                let proc = new Process(mod);
+                proc.PID = 0;
+                RUNTIME.outputBuffer = "";
+                RUNTIME.errorBuffer = "";
+                RUNTIME.processPool[0] = proc;
+                RUNTIME.AddProcess(proc);
+                RUNTIME.StartClock(() => {
+                    res.process = RUNTIME.processPool[0];
+                    res.outputBuffer = RUNTIME.outputBuffer;
+                    response.writeHead(200, { 'Content-Type': 'application/json' });
+                    response.write(JSON.stringify(res));
+                    response.end();
+                });
+            }
+            else if (reqPath === "step") {
+                RUNTIME.Tick(0);
+                res.process = RUNTIME.processPool[0];
+                res.outputBuffer = RUNTIME.outputBuffer;
+                response.writeHead(200, { 'Content-Type': 'application/json' });
+                response.write(JSON.stringify(res));
+                response.end();
+            }
+            else if (reqPath === "reset") {
+                let mod = LoadModuleFromCode(code, moduleQN);
+                let proc = new Process(mod);
+                proc.PID = 0;
+                RUNTIME.outputBuffer = "";
+                RUNTIME.errorBuffer = "";
+                RUNTIME.processPool[0] = proc;
+                RUNTIME.AddProcess(proc);
+                res.process = RUNTIME.processPool[0];
+                res.outputBuffer = RUNTIME.outputBuffer;
+                response.writeHead(200, { 'Content-Type': 'application/json' });
+                response.write(JSON.stringify(res));
+                response.end();
+            }
+            else {
+                readFileSystem(decodeURI(filePath));
+            }
+            // 从文件系统读取相应的数据，向客户端返回
+            function readFileSystem(reqPath) {
+                fs.readFile(reqPath, function (err, data) {
+                    // 处理404，返回预先设置好的404页
+                    if (err) {
+                        console.log("404 ERROR");
+                        fs.readFile('404.html', function (err, data) {
+                            // 如果连404页都找不到
+                            if (err) {
+                                response.writeHead(404, { 'Content-Type': 'text/html' });
+                                response.write('<head><meta charset="utf-8"/></head><h1>真·404</h1>');
+                            }
+                            else {
+                                response.writeHead(404, { 'Content-Type': 'text/html' });
+                                response.write(data.toString());
+                            }
+                            response.end(); // 响应
+                        });
+                        return;
+                    }
+                    else {
+                        // 默认MIME标记
+                        let defaultFlag = true;
+                        // 根据后缀，检查所有的已有的MIME类型（如果可以硬编码是不是好一点？可能要用到所谓的元编程了）
+                        for (let suffix in DebugServerConfig.MIME) {
+                            if (IsEndWith(reqPath, '.' + suffix)) {
+                                defaultFlag = false;
+                                let mimeType = DebugServerConfig.MIME[suffix];
+                                response.writeHead(200, { 'Content-Type': mimeType });
+                                if ((mimeType.split('/'))[0] === 'text') {
+                                    response.write(data.toString());
+                                }
+                                else {
+                                    response.write(data);
+                                }
+                            }
+                        }
+                        // 默认MIME类型：text
+                        if (defaultFlag === true) {
+                            response.writeHead(200, { 'Content-Type': 'text/html' });
+                            response.write(data.toString());
+                        }
+                    }
+                    response.end(); // 响应
+                });
+            }
+        });
+    }).listen(DebugServerConfig.portNumber);
+    console.log(`AuroraScheme调试服务器已启动，正在监听端口：${DebugServerConfig.portNumber}`);
 }
 ///////////////////////////////////////////////
 // UT.ts
@@ -4149,4 +4309,6 @@ function UT() {
     RUNTIME.StartClock(() => { });
 }
 // UT();
-REPL();
+// let repl = new REPL();
+// repl.Start();
+StartDebugServer();

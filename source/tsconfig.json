@@ -15,6 +15,7 @@
         "Runtime.ts",
         "Instruction.ts",
         "REPL.ts",
+        "DebugServer.ts",
         "UT.ts"
     ]
 }
