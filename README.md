@@ -9,6 +9,10 @@
 
 **AuroraScheme** is an implementation of [Scheme](https://en.wikipedia.org/wiki/Scheme_(programming_language)) programming language. It consists of two parts: a compiler and a virtual machine. The compiler compiles Scheme source code to intermediate language code, and the VM executes the compiled IL code. AuroraScheme is based on Node.js, so that you can write "native libraries" in JavaScript or TypeScript to extend the functionality of AuroraScheme.
 
+## 系统架构 / System Architecture
+
+![System Architecture](./documentation/AuroraScheme-Diagram.png)
+
 ## 可视化演示 / Visual demonstration
 
 请克隆仓库到本地，执行`node ./source/AuroraScheme.js`，使用浏览器访问`http://localhost:8088/`即可。 / Please clone this repo to your computer, run `node ./source/AuroraScheme.js`, and use your browser to visit `http://localhost:8088/`.
