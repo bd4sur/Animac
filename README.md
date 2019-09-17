@@ -11,7 +11,9 @@
 
 ## 系统架构 / System Architecture
 
-![System Architecture](./documentation/AuroraScheme-Diagram.png)
+[English version](./documentation/AuroraScheme-Diagram-en.png)
+
+![System Architecture](./documentation/AuroraScheme-Diagram-zh.png)
 
 ## 可视化演示 / Visual demonstration
 
