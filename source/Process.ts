@@ -199,11 +199,31 @@ class Process {
             }
         }
 
+        for(let f of this.FSTACK) {
+            let closure = this.heap.Get(f.closureHandle);
+            if(closure.type === "CLOSURE") {
+                let currentClosure = closure;
+                for(let bound in currentClosure.boundVariables) {
+                    let boundValue = currentClosure.GetBoundVariable(bound);
+                    if(TypeOfToken(boundValue) === "HANDLE") {
+                        gcroots.push(boundValue);
+                    }
+                }
+                for(let free in currentClosure.freeVariables) {
+                    let freeValue = currentClosure.GetFreeVariable(free);
+                    if(TypeOfToken(freeValue) === "HANDLE") {
+                        gcroots.push(freeValue);
+                    }
+                }
+            }
+        }
+
         // 仅标记列表和字符串，不处理闭包和续延。清除也是。
         let alives: HashMap<string, boolean> = new HashMap();
         let thisProcess = this;
         function GCMark(handle) {
             if(TypeOfToken(handle) !== "HANDLE") return;
+            else if(thisProcess.heap.HasHandle(handle) !== true) return; // 被清理掉的对象
             let obj = thisProcess.heap.Get(handle);
             if(obj.type === "QUOTE" || obj.type === "QUASIQUOTE" || obj.type === "UNQUOTE" || obj.type === "APPLICATION") {
                 alives.set(handle, true);
@@ -219,6 +239,19 @@ class Process {
         for(let root of gcroots) {
             GCMark(root);
         }
+
+        // 凡是上位节点存活的，标记为存活
+        this.heap.ForEach((hd)=> {
+            let obj = this.heap.Get(hd);
+            let isStatic = (this.heap.metadata.get(hd).charAt(0) === "S");
+            if(isStatic) return;
+            else if(obj.type === "QUOTE" || obj.type === "QUASIQUOTE" || obj.type === "UNQUOTE") {
+                if(alives.get(obj.parent) === true) {
+                    alives.set(hd, true);
+                }
+            }
+            else return;
+        });
 
         // 清理
         let gcount = 0;

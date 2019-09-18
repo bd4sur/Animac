@@ -666,6 +666,8 @@ function Compile(ast: AST): Array<string> {
                 }
                 else if(childObj.type === "QUASIQUOTE") {
                     CompileQuasiquote(child);
+                    // AddInstruction(`push ${i}`);
+                    // AddInstruction(`set-child! ${nodeHandle}`);
                 }
             }
             else if(TypeOfToken(child) === "VARIABLE") {
@@ -675,6 +677,7 @@ function Compile(ast: AST): Array<string> {
             }
         }
         AddInstruction(`push ${nodeHandle}`);
+        AddInstruction(`duplicate`);
     }
 
     // 编译复杂的Application节点（即首项为待求值的Application的Application，此时需要作η变换）

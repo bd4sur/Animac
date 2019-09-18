@@ -1086,6 +1086,42 @@ class Runtime {
         }
     }
 
+    // duplicate 递归复制对象，并分配把柄
+    public AIL_DUPLICATE(argument: string, PROCESS: Process, RUNTIME: Runtime): void {
+        // 堆对象深拷贝，并分配新的堆地址
+        function DeepCopy(sourceHandle: Handle, parentHandle: Handle): Handle {
+            if(TypeOfToken(sourceHandle) === "HANDLE") {
+                // 跳过已经被复制的对象（非静态对象）
+                // if(PROCESS.heap.HasHandle(handle) !== true || PROCESS.heap.IsStatic(sourceHandle) === false) {
+                //     return sourceHandle;
+                // }
+                let newObject = PROCESS.heap.Get(sourceHandle).Copy();
+                let newHandle = PROCESS.heap.AllocateHandle(newObject.type, false);
+                if(["QUOTE", "QUASIQUOTE", "UNQUOTE", "APPLICATION", "LAMBDA"].indexOf(newObject.type) >= 0) {
+                    newObject.parent = parentHandle;
+                    for(let i = 0; i < newObject.children.length; i++) {
+                        (newObject.children)[i] = DeepCopy((newObject.children)[i], newHandle);
+                    }
+                }
+                PROCESS.heap.Set(newHandle, newObject);
+                return newHandle;
+            }
+            else {
+                return sourceHandle;
+            }
+        }
+
+        let handle = PROCESS.PopOperand();
+        if(TypeOfToken(handle) !== "HANDLE") {
+            throw `[Error] duplicate参数类型不正确`;
+        }
+        else {
+            let parentHandle = PROCESS.heap.Get(handle).parent;
+            PROCESS.PushOperand(DeepCopy(handle, parentHandle));
+            PROCESS.Step();
+        }
+    }
+
     // 执行（一条）中间语言指令
     // 执行的效果从宏观上看就是修改了进程内部和运行时环境的状态，并且使用运行时环境提供的接口和资源
 
@@ -1154,6 +1190,7 @@ class Runtime {
         else if(mnemonic === 'halt')        { this.AIL_HALT(argument, PROCESS, RUNTIME); }
 
         else if(mnemonic === 'set-child!')  { this.AIL_SETCHILD(argument, PROCESS, RUNTIME); }
+        else if(mnemonic === 'duplicate')   { this.AIL_DUPLICATE(argument, PROCESS, RUNTIME); }
     }
 
 }

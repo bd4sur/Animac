@@ -123,6 +123,11 @@ class Memory {
         this.data.set(handle, value);
     }
 
+    // 是否静态
+    public IsStatic(handle: Handle): boolean {
+        return ((this.metadata.get(handle))[0] === "S");
+    }
+
     // 遍历
     // 注意：输入函数通过返回"break"来结束循环，通过返回其他任意值来中止一轮循环（continue）。
     public ForEach(f: (handle: Handle)=>any): void {

@@ -7,7 +7,7 @@ const fs = require("fs");
 
 function UT() {
     // TODO 相对路径处理
-    let sourcePath = "E:/Desktop/GitRepos/AuroraScheme/testcase/main.scm";
+    let sourcePath = "E:/Desktop/GitRepos/AuroraScheme/testcase/quasiquote.scm";
 
     let targetModule = LoadModule(sourcePath);
     fs.writeFileSync("E:/Desktop/GitRepos/AuroraScheme/testcase/Module.json", JSON.stringify(targetModule, null, 2), "utf-8");
@@ -19,9 +19,9 @@ function UT() {
     RUNTIME.StartClock(()=>{});
 }
 
-// UT();
+UT();
 
 // let repl = new REPL();
 // repl.Start();
 
-StartDebugServer();
+// StartDebugServer();

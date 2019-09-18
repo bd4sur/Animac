@@ -199,6 +199,10 @@ class Memory {
         this.metadata.set(handle, this.MetaString((metadata[0] === "S"), false, "modified"));
         this.data.set(handle, value);
     }
+    // 是否静态
+    IsStatic(handle) {
+        return ((this.metadata.get(handle))[0] === "S");
+    }
     // 遍历
     // 注意：输入函数通过返回"break"来结束循环，通过返回其他任意值来中止一轮循环（continue）。
     ForEach(f) {
@@ -1967,6 +1971,8 @@ function Compile(ast) {
                 }
                 else if (childObj.type === "QUASIQUOTE") {
                     CompileQuasiquote(child);
+                    // AddInstruction(`push ${i}`);
+                    // AddInstruction(`set-child! ${nodeHandle}`);
                 }
             }
             else if (TypeOfToken(child) === "VARIABLE") {
@@ -1976,6 +1982,7 @@ function Compile(ast) {
             }
         }
         AddInstruction(`push ${nodeHandle}`);
+        AddInstruction(`duplicate`);
     }
     // 编译复杂的Application节点（即首项为待求值的Application的Application，此时需要作η变换）
     // (A 1 2 ..) → ((lambda (F x y ..) (F x y ..)) A 1 2 ..)
@@ -2631,12 +2638,32 @@ class Process {
                 gcroots.push(r);
             }
         }
+        for (let f of this.FSTACK) {
+            let closure = this.heap.Get(f.closureHandle);
+            if (closure.type === "CLOSURE") {
+                let currentClosure = closure;
+                for (let bound in currentClosure.boundVariables) {
+                    let boundValue = currentClosure.GetBoundVariable(bound);
+                    if (TypeOfToken(boundValue) === "HANDLE") {
+                        gcroots.push(boundValue);
+                    }
+                }
+                for (let free in currentClosure.freeVariables) {
+                    let freeValue = currentClosure.GetFreeVariable(free);
+                    if (TypeOfToken(freeValue) === "HANDLE") {
+                        gcroots.push(freeValue);
+                    }
+                }
+            }
+        }
         // 仅标记列表和字符串，不处理闭包和续延。清除也是。
         let alives = new HashMap();
         let thisProcess = this;
         function GCMark(handle) {
             if (TypeOfToken(handle) !== "HANDLE")
                 return;
+            else if (thisProcess.heap.HasHandle(handle) !== true)
+                return; // 被清理掉的对象
             let obj = thisProcess.heap.Get(handle);
             if (obj.type === "QUOTE" || obj.type === "QUASIQUOTE" || obj.type === "UNQUOTE" || obj.type === "APPLICATION") {
                 alives.set(handle, true);
@@ -2651,6 +2678,20 @@ class Process {
         for (let root of gcroots) {
             GCMark(root);
         }
+        // 凡是上位节点存活的，标记为存活
+        this.heap.ForEach((hd) => {
+            let obj = this.heap.Get(hd);
+            let isStatic = (this.heap.metadata.get(hd).charAt(0) === "S");
+            if (isStatic)
+                return;
+            else if (obj.type === "QUOTE" || obj.type === "QUASIQUOTE" || obj.type === "UNQUOTE") {
+                if (alives.get(obj.parent) === true) {
+                    alives.set(hd, true);
+                }
+            }
+            else
+                return;
+        });
         // 清理
         let gcount = 0;
         let count = 0;
@@ -2778,6 +2819,7 @@ class Runtime {
         // 执行时间片
         while (timeslice >= 0) {
             this.Execute(currentProcess, this);
+            // currentProcess.GC();
             timeslice--;
             if (currentProcess.state === ProcessState.RUNNING) {
                 continue;
@@ -3732,6 +3774,40 @@ class Runtime {
             throw `[Error] set-child!参数类型不正确`;
         }
     }
+    // duplicate 递归复制对象，并分配把柄
+    AIL_DUPLICATE(argument, PROCESS, RUNTIME) {
+        // 堆对象深拷贝，并分配新的堆地址
+        function DeepCopy(sourceHandle, parentHandle) {
+            if (TypeOfToken(sourceHandle) === "HANDLE") {
+                // 跳过已经被复制的对象（非静态对象）
+                // if(PROCESS.heap.HasHandle(handle) !== true || PROCESS.heap.IsStatic(sourceHandle) === false) {
+                //     return sourceHandle;
+                // }
+                let newObject = PROCESS.heap.Get(sourceHandle).Copy();
+                let newHandle = PROCESS.heap.AllocateHandle(newObject.type, false);
+                if (["QUOTE", "QUASIQUOTE", "UNQUOTE", "APPLICATION", "LAMBDA"].indexOf(newObject.type) >= 0) {
+                    newObject.parent = parentHandle;
+                    for (let i = 0; i < newObject.children.length; i++) {
+                        (newObject.children)[i] = DeepCopy((newObject.children)[i], newHandle);
+                    }
+                }
+                PROCESS.heap.Set(newHandle, newObject);
+                return newHandle;
+            }
+            else {
+                return sourceHandle;
+            }
+        }
+        let handle = PROCESS.PopOperand();
+        if (TypeOfToken(handle) !== "HANDLE") {
+            throw `[Error] duplicate参数类型不正确`;
+        }
+        else {
+            let parentHandle = PROCESS.heap.Get(handle).parent;
+            PROCESS.PushOperand(DeepCopy(handle, parentHandle));
+            PROCESS.Step();
+        }
+    }
     // 执行（一条）中间语言指令
     // 执行的效果从宏观上看就是修改了进程内部和运行时环境的状态，并且使用运行时环境提供的接口和资源
     Execute(PROCESS, RUNTIME) {
@@ -3882,6 +3958,9 @@ class Runtime {
         }
         else if (mnemonic === 'set-child!') {
             this.AIL_SETCHILD(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'duplicate') {
+            this.AIL_DUPLICATE(argument, PROCESS, RUNTIME);
         }
     }
 }
@@ -4300,7 +4379,7 @@ function StartDebugServer() {
 const fs = require("fs");
 function UT() {
     // TODO 相对路径处理
-    let sourcePath = "E:/Desktop/GitRepos/AuroraScheme/testcase/main.scm";
+    let sourcePath = "E:/Desktop/GitRepos/AuroraScheme/testcase/quasiquote.scm";
     let targetModule = LoadModule(sourcePath);
     fs.writeFileSync("E:/Desktop/GitRepos/AuroraScheme/testcase/Module.json", JSON.stringify(targetModule, null, 2), "utf-8");
     let PROCESS = new Process(targetModule);
@@ -4308,7 +4387,7 @@ function UT() {
     RUNTIME.AddProcess(PROCESS);
     RUNTIME.StartClock(() => { });
 }
-// UT();
+UT();
 // let repl = new REPL();
 // repl.Start();
-StartDebugServer();
+// StartDebugServer();
