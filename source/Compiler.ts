@@ -661,23 +661,23 @@ function Compile(ast: AST): Array<string> {
                 let childObj = ast.GetNode(child);
                 if(childObj.type === "APPLICATION" || childObj.type === "UNQUOTE") {
                     CompileApplication(child);
-                    AddInstruction(`push ${i}`);
-                    AddInstruction(`set-child! ${nodeHandle}`);
                 }
                 else if(childObj.type === "QUASIQUOTE") {
                     CompileQuasiquote(child);
-                    // AddInstruction(`push ${i}`);
-                    // AddInstruction(`set-child! ${nodeHandle}`);
                 }
+                else {
+                    AddInstruction(`push ${child}`);
+                }
+            }
+            else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(TypeOfToken(child)) >= 0) {
+                AddInstruction(`push ${child}`);
             }
             else if(TypeOfToken(child) === "VARIABLE") {
                 AddInstruction(`load ${child}`);
-                AddInstruction(`push ${i}`);
-                AddInstruction(`set-child! ${nodeHandle}`);
             }
         }
-        AddInstruction(`push ${nodeHandle}`);
-        AddInstruction(`duplicate`);
+        AddInstruction(`push ${node.children.length}`);
+        AddInstruction(`concat`);
     }
 
     // 编译复杂的Application节点（即首项为待求值的Application的Application，此时需要作η变换）

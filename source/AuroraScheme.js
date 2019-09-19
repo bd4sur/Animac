@@ -1966,23 +1966,23 @@ function Compile(ast) {
                 let childObj = ast.GetNode(child);
                 if (childObj.type === "APPLICATION" || childObj.type === "UNQUOTE") {
                     CompileApplication(child);
-                    AddInstruction(`push ${i}`);
-                    AddInstruction(`set-child! ${nodeHandle}`);
                 }
                 else if (childObj.type === "QUASIQUOTE") {
                     CompileQuasiquote(child);
-                    // AddInstruction(`push ${i}`);
-                    // AddInstruction(`set-child! ${nodeHandle}`);
                 }
+                else {
+                    AddInstruction(`push ${child}`);
+                }
+            }
+            else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(TypeOfToken(child)) >= 0) {
+                AddInstruction(`push ${child}`);
             }
             else if (TypeOfToken(child) === "VARIABLE") {
                 AddInstruction(`load ${child}`);
-                AddInstruction(`push ${i}`);
-                AddInstruction(`set-child! ${nodeHandle}`);
             }
         }
-        AddInstruction(`push ${nodeHandle}`);
-        AddInstruction(`duplicate`);
+        AddInstruction(`push ${node.children.length}`);
+        AddInstruction(`concat`);
     }
     // 编译复杂的Application节点（即首项为待求值的Application的Application，此时需要作η变换）
     // (A 1 2 ..) → ((lambda (F x y ..) (F x y ..)) A 1 2 ..)
@@ -2679,19 +2679,17 @@ class Process {
             GCMark(root);
         }
         // 凡是上位节点存活的，标记为存活
-        this.heap.ForEach((hd) => {
-            let obj = this.heap.Get(hd);
-            let isStatic = (this.heap.metadata.get(hd).charAt(0) === "S");
-            if (isStatic)
-                return;
-            else if (obj.type === "QUOTE" || obj.type === "QUASIQUOTE" || obj.type === "UNQUOTE") {
-                if (alives.get(obj.parent) === true) {
-                    alives.set(hd, true);
-                }
-            }
-            else
-                return;
-        });
+        // this.heap.ForEach((hd)=> {
+        //     let obj = this.heap.Get(hd);
+        //     let isStatic = (this.heap.metadata.get(hd).charAt(0) === "S");
+        //     if(isStatic) return;
+        //     else if(obj.type === "QUOTE" || obj.type === "QUASIQUOTE" || obj.type === "UNQUOTE") {
+        //         if(alives.get(obj.parent) === true) {
+        //             alives.set(hd, true);
+        //         }
+        //     }
+        //     else return;
+        // });
         // 清理
         let gcount = 0;
         let count = 0;
@@ -2710,7 +2708,9 @@ class Process {
             else
                 return;
         });
-        console.info(`[GC] 已回收 ${gcount} / ${count} 个对象。`);
+        if (gcount > 0) {
+            console.info(`[GC] 已回收 ${gcount} / ${count} 个对象。`);
+        }
     }
     /* 程序流程控制 */
     // 获取并解析当前指令
@@ -2819,7 +2819,6 @@ class Runtime {
         // 执行时间片
         while (timeslice >= 0) {
             this.Execute(currentProcess, this);
-            // currentProcess.GC();
             timeslice--;
             if (currentProcess.state === ProcessState.RUNNING) {
                 continue;
@@ -2836,7 +2835,7 @@ class Runtime {
         // 后处理
         if (currentProcess.state === ProcessState.RUNNING) {
             // 仍在运行的进程加入队尾
-            // currentProcess.GC(); // TODO 垃圾回收仍然不完善
+            currentProcess.GC(); // TODO 垃圾回收仍然不完善
             currentProcess.state = ProcessState.READY;
             this.processQueue.push(currentPID);
         }
@@ -3774,6 +3773,30 @@ class Runtime {
             throw `[Error] set-child!参数类型不正确`;
         }
     }
+    // concat 将若干元素连接为新列表，同时修改各子列表的parent字段为自身把柄
+    // 栈参数：child1 child2 ... n
+    AIL_CONCAT(argument, PROCESS, RUNTIME) {
+        let length = parseInt(PROCESS.PopOperand());
+        let children = new Array();
+        for (let i = length - 1; i >= 0; i--) {
+            children[i] = PROCESS.PopOperand();
+        }
+        let newListHandle = PROCESS.heap.AllocateHandle("QUOTE", false);
+        let newList = new QuoteObject(TOP_NODE_HANDLE);
+        for (let i = 0; i < length; i++) {
+            newList.children[i] = children[i];
+            // 设置子节点的parent字段
+            if (TypeOfToken(children[i]) === "HANDLE") {
+                let childObj = PROCESS.heap.Get(children[i]);
+                if (childObj.type === "QUOTE" || childObj.type === "QUASIQUOTE" || childObj.type === "UNQUOTE" || childObj.type === "APPLICATION") {
+                    PROCESS.heap.Get(children[i]).parent = newListHandle;
+                }
+            }
+        }
+        PROCESS.heap.Set(newListHandle, newList);
+        PROCESS.PushOperand(newListHandle);
+        PROCESS.Step();
+    }
     // duplicate 递归复制对象，并分配把柄
     AIL_DUPLICATE(argument, PROCESS, RUNTIME) {
         // 堆对象深拷贝，并分配新的堆地址
@@ -3958,6 +3981,9 @@ class Runtime {
         }
         else if (mnemonic === 'set-child!') {
             this.AIL_SETCHILD(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'concat') {
+            this.AIL_CONCAT(argument, PROCESS, RUNTIME);
         }
         else if (mnemonic === 'duplicate') {
             this.AIL_DUPLICATE(argument, PROCESS, RUNTIME);

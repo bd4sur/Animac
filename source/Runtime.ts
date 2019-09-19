@@ -1086,6 +1086,34 @@ class Runtime {
         }
     }
 
+    // concat 将若干元素连接为新列表，同时修改各子列表的parent字段为自身把柄
+    // 栈参数：child1 child2 ... n
+    public AIL_CONCAT(argument: string, PROCESS: Process, RUNTIME: Runtime): void {
+        let length = parseInt(PROCESS.PopOperand());
+        let children = new Array();
+        for(let i = length - 1; i >= 0; i--) {
+            children[i] = PROCESS.PopOperand();
+        }
+
+        let newListHandle = PROCESS.heap.AllocateHandle("QUOTE", false);
+        let newList = new QuoteObject(TOP_NODE_HANDLE);
+
+        for(let i = 0; i < length ; i++) {
+            newList.children[i] = children[i];
+            // 设置子节点的parent字段
+            if(TypeOfToken(children[i]) === "HANDLE") {
+                let childObj = PROCESS.heap.Get(children[i]);
+                if(childObj.type === "QUOTE" || childObj.type === "QUASIQUOTE" || childObj.type === "UNQUOTE" || childObj.type === "APPLICATION") {
+                    PROCESS.heap.Get(children[i]).parent = newListHandle;
+                }
+            }
+        }
+
+        PROCESS.heap.Set(newListHandle, newList);
+        PROCESS.PushOperand(newListHandle);
+        PROCESS.Step();
+    }
+
     // duplicate 递归复制对象，并分配把柄
     public AIL_DUPLICATE(argument: string, PROCESS: Process, RUNTIME: Runtime): void {
         // 堆对象深拷贝，并分配新的堆地址
@@ -1190,6 +1218,7 @@ class Runtime {
         else if(mnemonic === 'halt')        { this.AIL_HALT(argument, PROCESS, RUNTIME); }
 
         else if(mnemonic === 'set-child!')  { this.AIL_SETCHILD(argument, PROCESS, RUNTIME); }
+        else if(mnemonic === 'concat')      { this.AIL_CONCAT(argument, PROCESS, RUNTIME); }
         else if(mnemonic === 'duplicate')   { this.AIL_DUPLICATE(argument, PROCESS, RUNTIME); }
     }
 

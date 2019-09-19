@@ -1,6 +1,6 @@
 {
   "AST": {
-    "source": "((lambda () ;;;;;;;;;;;;;;;;;;;;;;;;;\n;; AuroraScheme测试用例 ;;\n;;;;;;;;;;;;;;;;;;;;;;;;;\n\n;; 准引用列表（quasiquote）\n\n(define printf\n  (lambda (template)\n    (cond ((null? template) #f)\n          ((not (list? template)) (display template))\n          (else {\n              (display (car template))\n              (printf (cdr template))\n          }))))\n\n(define a 100)\n\n(define qq `(\"a=${\" ,(car `((a ,(* a 2) ,a) 1 a ,a ,(* a a))) \"}\"))\n\n;; 直接输出\n;; 期望输出：a=${(a 200 100)}\n(printf qq)(newline)\n\n;; 准引用列表里面的unquote也应该是词法作用域的。\n;; 期望输出：a=${(a 200 100)}\n((lambda (a) (printf qq) (newline)) 200)\n))\n",
+    "source": "((lambda () ;;;;;;;;;;;;;;;;;;;;;;;;;\n;; AuroraScheme测试用例 ;;\n;;;;;;;;;;;;;;;;;;;;;;;;;\n\n;; 准引用列表（quasiquote）\n\n(define printf\n  (lambda (template)\n    (cond ((null? template) #f)\n          ((not (list? template)) (display template))\n          (else {\n              (display (car template))\n              (printf (cdr template))\n          }))))\n\n(define a 100)\n\n(define qq `(\"a=${\" ,(car `((a ,(* a 2) ,a) 1 a ,a ,(* a a))) \"}\"))\n\n;; 直接输出\n;; 期望输出：a=${(a 200 100)}\n(printf qq)(newline)\n\n;; 准引用列表里面的unquote也应该是词法作用域的。\n;; 期望输出：a=${(a 200 100)}\n((lambda (a) (printf qq) (newline)) 200)\n\n;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;\n;; 以下是故障单#16的测试用例\n\n(define foo (lambda (a lst) (cons `(,a) lst)))\n(define lst '())\n\n(set! lst (foo 100 lst))\n;; 期望输出((100))\n(display lst)(newline)\n\n(set! lst (foo 200 lst))\n;; 期望输出((200) (100))\n(display lst)(newline)\n))\n",
     "moduleQualifiedName": "quasiquote",
     "nodes": {
       "data": {
@@ -22,7 +22,15 @@
             "&quasiquote.APPLICATION_18",
             "&quasiquote.APPLICATION_27",
             "&quasiquote.APPLICATION_28",
-            "&quasiquote.APPLICATION_29"
+            "&quasiquote.APPLICATION_29",
+            "&quasiquote.APPLICATION_33",
+            "&quasiquote.APPLICATION_37",
+            "&quasiquote.APPLICATION_39",
+            "&quasiquote.APPLICATION_41",
+            "&quasiquote.APPLICATION_42",
+            "&quasiquote.APPLICATION_43",
+            "&quasiquote.APPLICATION_45",
+            "&quasiquote.APPLICATION_46"
           ]
         },
         "&quasiquote.APPLICATION_2": {
@@ -282,6 +290,123 @@
           "children": [
             "newline"
           ]
+        },
+        "&quasiquote.APPLICATION_33": {
+          "type": "APPLICATION",
+          "parent": "&quasiquote.LAMBDA_1",
+          "children": [
+            "define",
+            "quasiquote.LAMBDA_1.foo",
+            "&quasiquote.LAMBDA_34"
+          ]
+        },
+        "&quasiquote.LAMBDA_34": {
+          "type": "LAMBDA",
+          "parent": "&quasiquote.APPLICATION_33",
+          "children": [
+            "lambda",
+            [
+              "quasiquote.LAMBDA_34.a",
+              "quasiquote.LAMBDA_34.lst"
+            ],
+            "&quasiquote.APPLICATION_35"
+          ]
+        },
+        "&quasiquote.APPLICATION_35": {
+          "type": "APPLICATION",
+          "parent": "&quasiquote.LAMBDA_34",
+          "children": [
+            "cons",
+            "&quasiquote.QUASIQUOTE_36",
+            "quasiquote.LAMBDA_34.lst"
+          ]
+        },
+        "&quasiquote.QUASIQUOTE_36": {
+          "type": "QUASIQUOTE",
+          "parent": "&quasiquote.APPLICATION_35",
+          "children": [
+            "quasiquote.LAMBDA_34.a"
+          ]
+        },
+        "&quasiquote.APPLICATION_37": {
+          "type": "APPLICATION",
+          "parent": "&quasiquote.LAMBDA_1",
+          "children": [
+            "define",
+            "quasiquote.LAMBDA_1.lst",
+            "&quasiquote.QUOTE_38"
+          ]
+        },
+        "&quasiquote.QUOTE_38": {
+          "type": "QUOTE",
+          "parent": "&quasiquote.APPLICATION_37",
+          "children": []
+        },
+        "&quasiquote.APPLICATION_39": {
+          "type": "APPLICATION",
+          "parent": "&quasiquote.LAMBDA_1",
+          "children": [
+            "set!",
+            "quasiquote.LAMBDA_1.lst",
+            "&quasiquote.APPLICATION_40"
+          ]
+        },
+        "&quasiquote.APPLICATION_40": {
+          "type": "APPLICATION",
+          "parent": "&quasiquote.APPLICATION_39",
+          "children": [
+            "quasiquote.LAMBDA_1.foo",
+            100,
+            "quasiquote.LAMBDA_1.lst"
+          ]
+        },
+        "&quasiquote.APPLICATION_41": {
+          "type": "APPLICATION",
+          "parent": "&quasiquote.LAMBDA_1",
+          "children": [
+            "display",
+            "quasiquote.LAMBDA_1.lst"
+          ]
+        },
+        "&quasiquote.APPLICATION_42": {
+          "type": "APPLICATION",
+          "parent": "&quasiquote.LAMBDA_1",
+          "children": [
+            "newline"
+          ]
+        },
+        "&quasiquote.APPLICATION_43": {
+          "type": "APPLICATION",
+          "parent": "&quasiquote.LAMBDA_1",
+          "children": [
+            "set!",
+            "quasiquote.LAMBDA_1.lst",
+            "&quasiquote.APPLICATION_44"
+          ]
+        },
+        "&quasiquote.APPLICATION_44": {
+          "type": "APPLICATION",
+          "parent": "&quasiquote.APPLICATION_43",
+          "children": [
+            "quasiquote.LAMBDA_1.foo",
+            200,
+            "quasiquote.LAMBDA_1.lst"
+          ]
+        },
+        "&quasiquote.APPLICATION_45": {
+          "type": "APPLICATION",
+          "parent": "&quasiquote.LAMBDA_1",
+          "children": [
+            "display",
+            "quasiquote.LAMBDA_1.lst"
+          ]
+        },
+        "&quasiquote.APPLICATION_46": {
+          "type": "APPLICATION",
+          "parent": "&quasiquote.LAMBDA_1",
+          "children": [
+            "newline"
+          ]
         }
       },
       "metadata": {
@@ -317,9 +442,23 @@
         "&quasiquote.APPLICATION_29": "S_M",
         "&quasiquote.LAMBDA_30": "S_M",
         "&quasiquote.APPLICATION_31": "S_M",
-        "&quasiquote.APPLICATION_32": "S_M"
+        "&quasiquote.APPLICATION_32": "S_M",
+        "&quasiquote.APPLICATION_33": "S_M",
+        "&quasiquote.LAMBDA_34": "S_M",
+        "&quasiquote.APPLICATION_35": "S_M",
+        "&quasiquote.QUASIQUOTE_36": "S_M",
+        "&quasiquote.APPLICATION_37": "S_M",
+        "&quasiquote.QUOTE_38": "S_M",
+        "&quasiquote.APPLICATION_39": "S_M",
+        "&quasiquote.APPLICATION_40": "S_M",
+        "&quasiquote.APPLICATION_41": "S_M",
+        "&quasiquote.APPLICATION_42": "S_M",
+        "&quasiquote.APPLICATION_43": "S_M",
+        "&quasiquote.APPLICATION_44": "S_M",
+        "&quasiquote.APPLICATION_45": "S_M",
+        "&quasiquote.APPLICATION_46": "S_M"
       },
-      "handleCounter": 33
+      "handleCounter": 47
     },
     "nodeIndexes": {
       "&quasiquote.APPLICATION_0": 0,
@@ -354,19 +493,35 @@
       "&quasiquote.APPLICATION_29": 539,
       "&quasiquote.LAMBDA_30": 540,
       "&quasiquote.APPLICATION_31": 552,
-      "&quasiquote.APPLICATION_32": 564
+      "&quasiquote.APPLICATION_32": 564,
+      "&quasiquote.APPLICATION_33": 633,
+      "&quasiquote.LAMBDA_34": 645,
+      "&quasiquote.APPLICATION_35": 661,
+      "&quasiquote.QUASIQUOTE_36": 668,
+      "&quasiquote.APPLICATION_37": 680,
+      "&quasiquote.QUOTE_38": 693,
+      "&quasiquote.APPLICATION_39": 698,
+      "&quasiquote.APPLICATION_40": 708,
+      "&quasiquote.APPLICATION_41": 738,
+      "&quasiquote.APPLICATION_42": 751,
+      "&quasiquote.APPLICATION_43": 762,
+      "&quasiquote.APPLICATION_44": 772,
+      "&quasiquote.APPLICATION_45": 808,
+      "&quasiquote.APPLICATION_46": 821
     },
     "lambdaHandles": [
       "&quasiquote.LAMBDA_1",
       "&quasiquote.LAMBDA_3",
-      "&quasiquote.LAMBDA_30"
+      "&quasiquote.LAMBDA_30",
+      "&quasiquote.LAMBDA_34"
     ],
     "tailcall": [
       "&quasiquote.APPLICATION_10",
       "&quasiquote.APPLICATION_15",
       "&quasiquote.APPLICATION_12",
       "&quasiquote.APPLICATION_32",
-      "&quasiquote.APPLICATION_29",
+      "&quasiquote.APPLICATION_35",
+      "&quasiquote.APPLICATION_46",
       "&quasiquote.APPLICATION_0"
     ],
     "variableMapping": {
@@ -374,12 +529,18 @@
       "quasiquote.LAMBDA_3.template": "template",
       "quasiquote.LAMBDA_1.a": "a",
       "quasiquote.LAMBDA_1.qq": "qq",
-      "quasiquote.LAMBDA_30.a": "a"
+      "quasiquote.LAMBDA_30.a": "a",
+      "quasiquote.LAMBDA_1.foo": "foo",
+      "quasiquote.LAMBDA_34.a": "a",
+      "quasiquote.LAMBDA_34.lst": "lst",
+      "quasiquote.LAMBDA_1.lst": "lst"
     },
     "topVariables": {
       "printf": "quasiquote.LAMBDA_1.printf",
       "a": "quasiquote.LAMBDA_1.a",
-      "qq": "quasiquote.LAMBDA_1.qq"
+      "qq": "quasiquote.LAMBDA_1.qq",
+      "foo": "quasiquote.LAMBDA_1.foo",
+      "lst": "quasiquote.LAMBDA_1.lst"
     },
     "dependencies": {},
     "natives": {}
@@ -392,37 +553,50 @@
     "store quasiquote.LAMBDA_1.printf",
     "push 100",
     "store quasiquote.LAMBDA_1.a",
+    "push &quasiquote.STRING_20",
+    "push 'a",
     "load quasiquote.LAMBDA_1.a",
     "push 2",
     "mul",
-    "push 1",
-    "set-child! &quasiquote.QUASIQUOTE_23",
-    "load quasiquote.LAMBDA_1.a",
-    "push 2",
-    "set-child! &quasiquote.QUASIQUOTE_23",
-    "push &quasiquote.QUASIQUOTE_23",
-    "duplicate",
     "load quasiquote.LAMBDA_1.a",
     "push 3",
-    "set-child! &quasiquote.QUASIQUOTE_22",
+    "concat",
+    "push 1",
+    "push 'a",
+    "load quasiquote.LAMBDA_1.a",
     "load quasiquote.LAMBDA_1.a",
     "load quasiquote.LAMBDA_1.a",
     "mul",
-    "push 4",
-    "set-child! &quasiquote.QUASIQUOTE_22",
-    "push &quasiquote.QUASIQUOTE_22",
-    "duplicate",
+    "push 5",
+    "concat",
     "car",
-    "push 1",
-    "set-child! &quasiquote.QUASIQUOTE_19",
-    "push &quasiquote.QUASIQUOTE_19",
-    "duplicate",
+    "push &quasiquote.STRING_26",
+    "push 3",
+    "concat",
     "store quasiquote.LAMBDA_1.qq",
     "load quasiquote.LAMBDA_1.qq",
     "call quasiquote.LAMBDA_1.printf",
     "newline",
     "push 200",
-    "tailcall @&quasiquote.LAMBDA_30",
+    "call @&quasiquote.LAMBDA_30",
+    "push @&quasiquote.LAMBDA_34",
+    "store quasiquote.LAMBDA_1.foo",
+    "push &quasiquote.QUOTE_38",
+    "store quasiquote.LAMBDA_1.lst",
+    "push 100",
+    "load quasiquote.LAMBDA_1.lst",
+    "call quasiquote.LAMBDA_1.foo",
+    "set quasiquote.LAMBDA_1.lst",
+    "load quasiquote.LAMBDA_1.lst",
+    "display",
+    "newline",
+    "push 200",
+    "load quasiquote.LAMBDA_1.lst",
+    "call quasiquote.LAMBDA_1.foo",
+    "set quasiquote.LAMBDA_1.lst",
+    "load quasiquote.LAMBDA_1.lst",
+    "display",
+    "newline",
     "return",
     "@&quasiquote.LAMBDA_3",
     "store quasiquote.LAMBDA_3.template",
@@ -454,6 +628,15 @@
     "load quasiquote.LAMBDA_1.qq",
     "call quasiquote.LAMBDA_1.printf",
     "newline",
+    "return",
+    "@&quasiquote.LAMBDA_34",
+    "store quasiquote.LAMBDA_34.lst",
+    "store quasiquote.LAMBDA_34.a",
+    "load quasiquote.LAMBDA_34.a",
+    "push 1",
+    "concat",
+    "load quasiquote.LAMBDA_34.lst",
+    "cons",
     "return"
   ]
 }

@@ -241,17 +241,17 @@ class Process {
         }
 
         // 凡是上位节点存活的，标记为存活
-        this.heap.ForEach((hd)=> {
-            let obj = this.heap.Get(hd);
-            let isStatic = (this.heap.metadata.get(hd).charAt(0) === "S");
-            if(isStatic) return;
-            else if(obj.type === "QUOTE" || obj.type === "QUASIQUOTE" || obj.type === "UNQUOTE") {
-                if(alives.get(obj.parent) === true) {
-                    alives.set(hd, true);
-                }
-            }
-            else return;
-        });
+        // this.heap.ForEach((hd)=> {
+        //     let obj = this.heap.Get(hd);
+        //     let isStatic = (this.heap.metadata.get(hd).charAt(0) === "S");
+        //     if(isStatic) return;
+        //     else if(obj.type === "QUOTE" || obj.type === "QUASIQUOTE" || obj.type === "UNQUOTE") {
+        //         if(alives.get(obj.parent) === true) {
+        //             alives.set(hd, true);
+        //         }
+        //     }
+        //     else return;
+        // });
 
         // 清理
         let gcount = 0;
@@ -269,8 +269,9 @@ class Process {
             }
             else return;
         });
-
-        console.info(`[GC] 已回收 ${gcount} / ${count} 个对象。`);
+        if(gcount > 0) {
+            console.info(`[GC] 已回收 ${gcount} / ${count} 个对象。`);
+        }
     }
 
     /* 程序流程控制 */
