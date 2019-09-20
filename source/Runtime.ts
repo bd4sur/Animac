@@ -386,11 +386,11 @@ class Runtime {
                         PROCESS.Goto(targetAddress);
                     }
                     else {
-                        throw `[Error] call指令的参数必须是标签、闭包或续延1`;
+                        throw `[Error] call指令的参数必须是标签、闭包或续延`;
                     }
                 }
                 else {
-                    throw `[Error] ${variable} ${value} call指令的参数必须是标签、闭包或续延2`;
+                    throw `[Error] call指令的参数必须是标签、闭包或续延`;
                 }
             } // Native判断结束
         } // Variable分支结束

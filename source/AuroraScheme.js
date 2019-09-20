@@ -4187,6 +4187,10 @@ class REPL {
         }
         catch (e) {
             process.stderr.write(`${e.toString()}\n`);
+            // 即便报错也要保留define语句
+            if (/define/gi.test(input)) {
+                this.allCode.push(input);
+            }
             callback();
         }
     }
@@ -4203,7 +4207,7 @@ class REPL {
     ReadEvalPrint(input) {
         input = input.toString();
         if (input.trim() === ".help") {
-            this.RUNTIME.Output(`AuroraScheme\n`);
+            this.RUNTIME.Output(`AuroraScheme v0.1.0-alpha\n`);
             this.RUNTIME.Output(`Copyright (c) 2019 mikukonai@GitHub, Licenced under MIT.\n`);
             this.RUNTIME.Output(`https://github.com/mikukonai/AuroraScheme\n`);
             this.RUNTIME.Output(`\n`);
@@ -4253,7 +4257,7 @@ class REPL {
         }
     }
     Start() {
-        this.RUNTIME.Output(`AuroraScheme REPL\n`);
+        this.RUNTIME.Output(`AuroraScheme REPL v0.1.0-alpha\n`);
         this.RUNTIME.Output(`Type ".help" for more information.\n`);
         this.RUNTIME.Output(`> `);
         process.stdin.on("data", (input) => { this.ReadEvalPrint(input); });
