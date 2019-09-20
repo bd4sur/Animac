@@ -593,6 +593,11 @@ class AST {
         copy.natives = this.natives.Copy();
         return copy;
     }
+    // 判断某变量是否使用了某Native模块（通过读取natives得知）
+    IsNativeCall(variable) {
+        let varPrefix = variable.split(".")[0];
+        return this.natives.has(varPrefix);
+    }
     // 取出某节点
     GetNode(handle) {
         return this.nodes.Get(handle);
@@ -1445,11 +1450,11 @@ function Compile(ast) {
                     throw `[Error] 意外的函数体节点类型。`;
                 }
             }
+            else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(bodyType) >= 0 || ast.IsNativeCall(body)) {
+                AddInstruction(`push ${body}`);
+            }
             else if (bodyType === "VARIABLE") {
                 AddInstruction(`load ${body}`);
-            }
-            else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(bodyType) >= 0) {
-                AddInstruction(`push ${body}`);
             }
             else {
                 throw `[Error] 意外的函数体类型。`;
@@ -1524,11 +1529,11 @@ function Compile(ast) {
                 throw `[Error] 意外的set!右值。`;
             }
         }
+        else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(rightValueType) >= 0 || ast.IsNativeCall(rightValue)) {
+            AddInstruction(`push ${rightValue}`);
+        }
         else if (rightValueType === "VARIABLE") {
             AddInstruction(`load ${rightValue}`);
-        }
-        else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(rightValueType) >= 0) {
-            AddInstruction(`push ${rightValue}`);
         }
         else {
             throw `[Error] 意外的define右值。`;
@@ -1574,11 +1579,11 @@ function Compile(ast) {
                 throw `[Error] 意外的set!右值。`;
             }
         }
+        else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(rightValueType) >= 0 || ast.IsNativeCall(rightValue)) {
+            AddInstruction(`push ${rightValue}`);
+        }
         else if (rightValueType === "VARIABLE") {
             AddInstruction(`load ${rightValue}`);
-        }
-        else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(rightValueType) >= 0) {
-            AddInstruction(`push ${rightValue}`);
         }
         else {
             throw `[Error] 意外的define右值。`;
@@ -1630,11 +1635,11 @@ function Compile(ast) {
                     throw `[Error] 意外的 child。`;
                 }
             }
+            else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(childType) >= 0 || ast.IsNativeCall(child)) {
+                AddInstruction(`push ${child}`);
+            }
             else if(childType === "VARIABLE") {
                 AddInstruction(`load ${child}`);
-            }
-            else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(childType) >= 0) {
-                AddInstruction(`push ${child}`);
             }
             else {
                 throw `[Error] 意外的 child。`;
@@ -1676,12 +1681,12 @@ function Compile(ast) {
                         AddInstruction(`push ${predicate}`);
                     }
                 }
+                // TODO 此处可以作优化
+                else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(predicateType) >= 0 || ast.IsNativeCall(predicate)) {
+                    AddInstruction(`push ${predicate}`);
+                }
                 else if (predicateType === "VARIABLE") {
                     AddInstruction(`load ${predicate}`);
-                }
-                // TODO 此处可以作优化
-                else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(predicateType) >= 0) {
-                    AddInstruction(`push ${predicate}`);
                 }
                 else {
                     throw `[Error] 意外的cond分支条件。`;
@@ -1713,11 +1718,11 @@ function Compile(ast) {
                     throw `[Error] 意外的if-true分支。`;
                 }
             }
+            else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(branchType) >= 0 || ast.IsNativeCall(branch)) {
+                AddInstruction(`push ${branch}`);
+            }
             else if (branchType === "VARIABLE") {
                 AddInstruction(`load ${branch}`);
-            }
-            else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(branchType) >= 0) {
-                AddInstruction(`push ${branch}`);
             }
             else {
                 throw `[Error] 意外的if-true分支。`;
@@ -1751,12 +1756,12 @@ function Compile(ast) {
                 AddInstruction(`push ${predicate}`);
             }
         }
+        // TODO 此处可以作优化
+        else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(predicateType) >= 0 || ast.IsNativeCall(predicate)) {
+            AddInstruction(`push ${predicate}`);
+        }
         else if (predicateType === "VARIABLE") {
             AddInstruction(`load ${predicate}`);
-        }
-        // TODO 此处可以作优化
-        else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(predicateType) >= 0) {
-            AddInstruction(`push ${predicate}`);
         }
         else {
             throw `[Error] 意外的if分支条件。`;
@@ -1790,11 +1795,11 @@ function Compile(ast) {
                 throw `[Error] 意外的if-false分支。`;
             }
         }
+        else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(falseBranchType) >= 0 || ast.IsNativeCall(falseBranch)) {
+            AddInstruction(`push ${falseBranch}`);
+        }
         else if (falseBranchType === "VARIABLE") {
             AddInstruction(`load ${falseBranch}`);
-        }
-        else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(falseBranchType) >= 0) {
-            AddInstruction(`push ${falseBranch}`);
         }
         else {
             throw `[Error] 意外的if-false分支。`;
@@ -1827,11 +1832,11 @@ function Compile(ast) {
                 throw `[Error] 意外的if-true分支。`;
             }
         }
+        else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(trueBranchType) >= 0 || ast.IsNativeCall(trueBranch)) {
+            AddInstruction(`push ${trueBranch}`);
+        }
         else if (trueBranchType === "VARIABLE") {
             AddInstruction(`load ${trueBranch}`);
-        }
-        else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(trueBranchType) >= 0) {
-            AddInstruction(`push ${trueBranch}`);
         }
         else {
             throw `[Error] 意外的if-true分支。`;
@@ -1875,12 +1880,12 @@ function Compile(ast) {
                     throw `[Error] 意外的and clause。`;
                 }
             }
+            // TODO 此处可以作优化（短路）
+            else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(clauseType) >= 0 || ast.IsNativeCall(clause)) {
+                AddInstruction(`push ${clause}`);
+            }
             else if (clauseType === "VARIABLE") {
                 AddInstruction(`load ${clause}`);
-            }
-            // TODO 此处可以作优化（短路）
-            else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(clauseType) >= 0) {
-                AddInstruction(`push ${clause}`);
             }
             else {
                 throw `[Error] 意外的and clause。`;
@@ -1933,12 +1938,12 @@ function Compile(ast) {
                     throw `[Error] 意外的 or clause。`;
                 }
             }
+            // TODO 此处可以作优化（短路）
+            else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(clauseType) >= 0 || ast.IsNativeCall(clause)) {
+                AddInstruction(`push ${clause}`);
+            }
             else if (clauseType === "VARIABLE") {
                 AddInstruction(`load ${clause}`);
-            }
-            // TODO 此处可以作优化（短路）
-            else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(clauseType) >= 0) {
-                AddInstruction(`push ${clause}`);
             }
             else {
                 throw `[Error] 意外的 or clause。`;
@@ -1974,7 +1979,7 @@ function Compile(ast) {
                     AddInstruction(`push ${child}`);
                 }
             }
-            else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(TypeOfToken(child)) >= 0) {
+            else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(TypeOfToken(child)) >= 0 || ast.IsNativeCall(child)) {
                 AddInstruction(`push ${child}`);
             }
             else if (TypeOfToken(child) === "VARIABLE") {
@@ -2046,11 +2051,11 @@ function Compile(ast) {
                     throw `[Error] 意外的 child。`;
                 }
             }
+            else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(childType) >= 0 || ast.IsNativeCall(child)) {
+                AddInstruction(`push ${child}`);
+            }
             else if (childType === "VARIABLE") {
                 AddInstruction(`load ${child}`);
-            }
-            else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(childType) >= 0) {
-                AddInstruction(`push ${child}`);
             }
             else {
                 throw `[Error] 意外的 child。`;
@@ -2143,11 +2148,11 @@ function Compile(ast) {
                         throw `[Error] 意外的 child。`;
                     }
                 }
+                else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(childType) >= 0 || ast.IsNativeCall(child)) {
+                    AddInstruction(`push ${child}`);
+                }
                 else if (childType === "VARIABLE") {
                     AddInstruction(`load ${child}`);
-                }
-                else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(childType) >= 0) {
-                    AddInstruction(`push ${child}`);
                 }
                 else {
                     throw `[Error] 意外的 child。`;
@@ -2767,11 +2772,6 @@ class Process {
             }
         }
     }
-    // 判断某变量是否使用了某Native模块（通过读取this.ast.natives得知）
-    IsUseNative(variable) {
-        let varPrefix = variable.split(".")[0];
-        return this.AST.natives.has(varPrefix);
-    }
     /* 进程状态控制 */
     // 设置进程状态
     SetState(pstate) {
@@ -2835,7 +2835,7 @@ class Runtime {
         // 后处理
         if (currentProcess.state === ProcessState.RUNNING) {
             // 仍在运行的进程加入队尾
-            currentProcess.GC(); // TODO 垃圾回收仍然不完善
+            // currentProcess.GC(); // TODO 垃圾回收仍然不完善
             currentProcess.state = ProcessState.READY;
             this.processQueue.push(currentPID);
         }
@@ -3056,20 +3056,27 @@ class Runtime {
             }
         }
         else if (argType === 'VARIABLE') {
-            // 首先判断是否为Native调用
-            let variable = argument;
-            if (PROCESS.IsUseNative(variable)) {
-                let nativeModuleName = variable.split(".")[0];
-                let nativeFunctionName = variable.split(".").slice(1).join("");
+            // TODO 可复用
+            function CallNative(id) {
+                let nativeModuleName = id.split(".")[0];
+                let nativeFunctionName = id.split(".").slice(1).join("");
                 // 引入Native模块
                 let nativeModule = require(`./nativelib/${nativeModuleName}.js`);
                 // 调用Native模块内部的函数
                 (nativeModule[nativeFunctionName])(PROCESS, RUNTIME);
             }
+            // 首先判断是否为Native调用
+            let variable = argument;
+            if (PROCESS.AST.IsNativeCall(variable)) {
+                CallNative(variable);
+            }
             else {
                 let value = PROCESS.Dereference(variable);
                 let valueType = TypeOfToken(value);
-                if (valueType === 'KEYWORD') {
+                if (PROCESS.AST.IsNativeCall(value)) {
+                    CallNative(value);
+                }
+                else if (valueType === 'KEYWORD') {
                     // NOTE primitive不压栈帧
                     PROCESS.PopStackFrame();
                     let mnemonic = PrimitiveInstruction[value] || value;
@@ -3112,11 +3119,11 @@ class Runtime {
                         PROCESS.Goto(targetAddress);
                     }
                     else {
-                        throw `[Error] call指令的参数必须是标签、闭包或续延`;
+                        throw `[Error] call指令的参数必须是标签、闭包或续延1`;
                     }
                 }
                 else {
-                    throw `[Error] call指令的参数必须是标签、闭包或续延`;
+                    throw `[Error] ${variable} ${value} call指令的参数必须是标签、闭包或续延2`;
                 }
             } // Native判断结束
         } // Variable分支结束
@@ -3164,24 +3171,31 @@ class Runtime {
                 PROCESS.Goto(targetAddress);
             }
             else {
-                throw `[Error] call指令的参数必须是标签、闭包或续延`;
+                throw `[Error] tailcall指令的参数必须是标签、闭包或续延`;
             }
         }
         else if (argType === 'VARIABLE') {
-            // 首先判断是否为Native调用
-            let variable = argument;
-            if (PROCESS.IsUseNative(variable)) {
-                let nativeModuleName = variable.split(".")[0];
-                let nativeFunctionName = variable.split(".").slice(1).join("");
+            // TODO 可复用
+            function CallNative(id) {
+                let nativeModuleName = id.split(".")[0];
+                let nativeFunctionName = id.split(".").slice(1).join("");
                 // 引入Native模块
                 let nativeModule = require(`./nativelib/${nativeModuleName}.js`);
                 // 调用Native模块内部的函数
                 (nativeModule[nativeFunctionName])(PROCESS, RUNTIME);
             }
+            // 首先判断是否为Native调用
+            let variable = argument;
+            if (PROCESS.AST.IsNativeCall(variable)) {
+                CallNative(variable);
+            }
             else {
                 let value = PROCESS.Dereference(variable);
                 let valueType = TypeOfToken(value);
-                if (valueType === 'KEYWORD') {
+                if (PROCESS.AST.IsNativeCall(value)) {
+                    CallNative(value);
+                }
+                else if (valueType === 'KEYWORD') {
                     let mnemonic = PrimitiveInstruction[value] || value;
                     this.ExecuteOneInst(mnemonic, argument, PROCESS, RUNTIME);
                 }
@@ -3224,11 +3238,11 @@ class Runtime {
                         PROCESS.Goto(targetAddress);
                     }
                     else {
-                        throw `[Error] call指令的参数必须是标签、闭包或续延`;
+                        throw `[Error] tailcall指令的参数必须是标签、闭包或续延`;
                     }
                 }
                 else {
-                    throw `[Error] call指令的参数必须是标签、闭包或续延`;
+                    throw `[Error] tailcall指令的参数必须是标签、闭包或续延`;
                 }
             } // Native判断结束
         } // Variable分支结束
@@ -3682,7 +3696,7 @@ class Runtime {
                 RUNTIME.AddProcess(newProcess);
             }
             else if (node.type === "STRING") {
-                let modulePath = node.content;
+                let modulePath = TrimQuotes(node.content);
                 let forkedModule = LoadModule(modulePath);
                 // 构造新进程，并分配PID
                 let newProcess = new Process(forkedModule);
@@ -4405,15 +4419,28 @@ function StartDebugServer() {
 const fs = require("fs");
 function UT() {
     // TODO 相对路径处理
-    let sourcePath = "E:/Desktop/GitRepos/AuroraScheme/testcase/quasiquote.scm";
+    let sourcePath = "E:/Desktop/GitRepos/AuroraScheme/testcase/main.scm";
     let targetModule = LoadModule(sourcePath);
-    fs.writeFileSync("E:/Desktop/GitRepos/AuroraScheme/testcase/Module.json", JSON.stringify(targetModule, null, 2), "utf-8");
+    // fs.writeFileSync("E:/Desktop/GitRepos/AuroraScheme/testcase/Module.json", JSON.stringify(targetModule, null, 2), "utf-8");
     let PROCESS = new Process(targetModule);
     let RUNTIME = new Runtime();
     RUNTIME.AddProcess(PROCESS);
     RUNTIME.StartClock(() => { });
 }
-UT();
-// let repl = new REPL();
-// repl.Start();
-// StartDebugServer();
+let argv = process.argv.slice(2);
+let option = argv[0] || "";
+option = option.trim().toLowerCase();
+switch (option) {
+    case "repl":
+        let repl = new REPL();
+        repl.Start();
+        break;
+    case "debug":
+        StartDebugServer();
+        break;
+    case "run":
+        UT();
+        break;
+    default:
+        process.stdout.write("Bad argument(s)");
+}

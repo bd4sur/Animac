@@ -319,21 +319,28 @@ class Runtime {
             }
         }
         else if(argType === 'VARIABLE') {
-            // 首先判断是否为Native调用
-            let variable: string = argument;
-            if(PROCESS.IsUseNative(variable)) {
-                let nativeModuleName = variable.split(".")[0];
-                let nativeFunctionName = variable.split(".").slice(1).join("");
+            // TODO 可复用
+            function CallNative(id) {
+                let nativeModuleName = id.split(".")[0];
+                let nativeFunctionName = id.split(".").slice(1).join("");
                 // 引入Native模块
                 let nativeModule = require(`./nativelib/${nativeModuleName}.js`);
                 // 调用Native模块内部的函数
                 (nativeModule[nativeFunctionName])(PROCESS, RUNTIME);
             }
+            // 首先判断是否为Native调用
+            let variable: string = argument;
+            if(PROCESS.AST.IsNativeCall(variable)) {
+                CallNative(variable);
+            }
             else {
                 let value = PROCESS.Dereference(variable);
                 let valueType = TypeOfToken(value);
 
-                if(valueType === 'KEYWORD') {
+                if(PROCESS.AST.IsNativeCall(value)) {
+                    CallNative(value);
+                }
+                else if(valueType === 'KEYWORD') {
                     // NOTE primitive不压栈帧
                     PROCESS.PopStackFrame();
                     let mnemonic = PrimitiveInstruction[value] || value;
@@ -379,11 +386,11 @@ class Runtime {
                         PROCESS.Goto(targetAddress);
                     }
                     else {
-                        throw `[Error] call指令的参数必须是标签、闭包或续延`;
+                        throw `[Error] call指令的参数必须是标签、闭包或续延1`;
                     }
                 }
                 else {
-                    throw `[Error] call指令的参数必须是标签、闭包或续延`;
+                    throw `[Error] ${variable} ${value} call指令的参数必须是标签、闭包或续延2`;
                 }
             } // Native判断结束
         } // Variable分支结束
@@ -436,25 +443,32 @@ class Runtime {
                 PROCESS.Goto(targetAddress);
             }
             else {
-                throw `[Error] call指令的参数必须是标签、闭包或续延`;
+                throw `[Error] tailcall指令的参数必须是标签、闭包或续延`;
             }
         }
         else if(argType === 'VARIABLE') {
-            // 首先判断是否为Native调用
-            let variable: string = argument;
-            if(PROCESS.IsUseNative(variable)) {
-                let nativeModuleName = variable.split(".")[0];
-                let nativeFunctionName = variable.split(".").slice(1).join("");
+            // TODO 可复用
+            function CallNative(id) {
+                let nativeModuleName = id.split(".")[0];
+                let nativeFunctionName = id.split(".").slice(1).join("");
                 // 引入Native模块
                 let nativeModule = require(`./nativelib/${nativeModuleName}.js`);
                 // 调用Native模块内部的函数
                 (nativeModule[nativeFunctionName])(PROCESS, RUNTIME);
             }
+            // 首先判断是否为Native调用
+            let variable: string = argument;
+            if(PROCESS.AST.IsNativeCall(variable)) {
+                CallNative(variable);
+            }
             else {
                 let value = PROCESS.Dereference(variable);
                 let valueType = TypeOfToken(value);
 
-                if(valueType === 'KEYWORD') {
+                if(PROCESS.AST.IsNativeCall(value)) {
+                    CallNative(value);
+                }
+                else if(valueType === 'KEYWORD') {
                     let mnemonic = PrimitiveInstruction[value] || value;
                     this.ExecuteOneInst(mnemonic, argument, PROCESS, RUNTIME);
                 }
@@ -500,11 +514,11 @@ class Runtime {
                         PROCESS.Goto(targetAddress);
                     }
                     else {
-                        throw `[Error] call指令的参数必须是标签、闭包或续延`;
+                        throw `[Error] tailcall指令的参数必须是标签、闭包或续延`;
                     }
                 }
                 else {
-                    throw `[Error] call指令的参数必须是标签、闭包或续延`;
+                    throw `[Error] tailcall指令的参数必须是标签、闭包或续延`;
                 }
             } // Native判断结束
         } // Variable分支结束
@@ -986,7 +1000,7 @@ class Runtime {
                 RUNTIME.AddProcess(newProcess);
             }
             else if(node.type === "STRING"){
-                let modulePath = node.content;
+                let modulePath = TrimQuotes(node.content);
                 let forkedModule = LoadModule(modulePath);
                 // 构造新进程，并分配PID
                 let newProcess = new Process(forkedModule);

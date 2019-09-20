@@ -339,12 +339,6 @@ class Process {
         }
     }
 
-    // 判断某变量是否使用了某Native模块（通过读取this.ast.natives得知）
-    public IsUseNative(variable: string): boolean {
-        let varPrefix = variable.split(".")[0];
-        return this.AST.natives.has(varPrefix);
-    }
-
     /* 进程状态控制 */
 
     // 设置进程状态

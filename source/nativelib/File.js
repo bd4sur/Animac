@@ -31,6 +31,7 @@ function Read(PROCESS, RUNTIME) {
                 // console.warn(`进程 ${PROCESS.PID} 恢复。`);
                 PROCESS.SetState("RUNNING");
                 PROCESS.Step();
+                return;
             }
             // 恢复进程状态
             // /console.warn(`进程 ${PROCESS.PID} 恢复。`);

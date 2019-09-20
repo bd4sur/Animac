@@ -73,6 +73,7 @@ function Request(PROCESS, RUNTIME) {
             PROCESS.OPSTACK.push(strHandle);
 
             callback();
+            return;
         });
         req.end();
     }

@@ -52,6 +52,12 @@ class AST {
         return copy;
     }
 
+    // 判断某变量是否使用了某Native模块（通过读取natives得知）
+    public IsNativeCall(variable: string): boolean {
+        let varPrefix = variable.split(".")[0];
+        return this.natives.has(varPrefix);
+    }
+
     // 取出某节点
     public GetNode(handle: Handle): any {
         return this.nodes.Get(handle);

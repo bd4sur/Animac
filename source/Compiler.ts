@@ -82,11 +82,11 @@ function Compile(ast: AST): Array<string> {
                     throw `[Error] 意外的函数体节点类型。`;
                 }
             }
+            else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(bodyType) >= 0 || ast.IsNativeCall(body)) {
+                AddInstruction(`push ${body}`);
+            }
             else if(bodyType === "VARIABLE") {
                 AddInstruction(`load ${body}`);
-            }
-            else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(bodyType) >= 0) {
-                AddInstruction(`push ${body}`);
             }
             else {
                 throw `[Error] 意外的函数体类型。`;
@@ -173,11 +173,11 @@ function Compile(ast: AST): Array<string> {
                 throw `[Error] 意外的set!右值。`;
             }
         }
+        else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(rightValueType) >= 0 || ast.IsNativeCall(rightValue)) {
+            AddInstruction(`push ${rightValue}`);
+        }
         else if(rightValueType === "VARIABLE") {
             AddInstruction(`load ${rightValue}`);
-        }
-        else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(rightValueType) >= 0) {
-            AddInstruction(`push ${rightValue}`);
         }
         else {
             throw `[Error] 意外的define右值。`;
@@ -227,11 +227,11 @@ function Compile(ast: AST): Array<string> {
                 throw `[Error] 意外的set!右值。`;
             }
         }
+        else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(rightValueType) >= 0 || ast.IsNativeCall(rightValue)) {
+            AddInstruction(`push ${rightValue}`);
+        }
         else if(rightValueType === "VARIABLE") {
             AddInstruction(`load ${rightValue}`);
-        }
-        else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(rightValueType) >= 0) {
-            AddInstruction(`push ${rightValue}`);
         }
         else {
             throw `[Error] 意外的define右值。`;
@@ -286,11 +286,11 @@ function Compile(ast: AST): Array<string> {
                     throw `[Error] 意外的 child。`;
                 }
             }
+            else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(childType) >= 0 || ast.IsNativeCall(child)) {
+                AddInstruction(`push ${child}`);
+            }
             else if(childType === "VARIABLE") {
                 AddInstruction(`load ${child}`);
-            }
-            else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(childType) >= 0) {
-                AddInstruction(`push ${child}`);
             }
             else {
                 throw `[Error] 意外的 child。`;
@@ -337,12 +337,12 @@ function Compile(ast: AST): Array<string> {
                         AddInstruction(`push ${predicate}`);
                     }
                 }
+                // TODO 此处可以作优化
+                else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(predicateType) >= 0 || ast.IsNativeCall(predicate)) {
+                    AddInstruction(`push ${predicate}`);
+                }
                 else if(predicateType === "VARIABLE") {
                     AddInstruction(`load ${predicate}`);
-                }
-                // TODO 此处可以作优化
-                else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(predicateType) >= 0) {
-                    AddInstruction(`push ${predicate}`);
                 }
                 else {
                     throw `[Error] 意外的cond分支条件。`;
@@ -375,11 +375,11 @@ function Compile(ast: AST): Array<string> {
                     throw `[Error] 意外的if-true分支。`;
                 }
             }
+            else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(branchType) >= 0 || ast.IsNativeCall(branch)) {
+                AddInstruction(`push ${branch}`);
+            }
             else if(branchType === "VARIABLE") {
                 AddInstruction(`load ${branch}`);
-            }
-            else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(branchType) >= 0) {
-                AddInstruction(`push ${branch}`);
             }
             else {
                 throw `[Error] 意外的if-true分支。`;
@@ -418,12 +418,12 @@ function Compile(ast: AST): Array<string> {
                 AddInstruction(`push ${predicate}`);
             }
         }
+        // TODO 此处可以作优化
+        else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(predicateType) >= 0 || ast.IsNativeCall(predicate)) {
+            AddInstruction(`push ${predicate}`);
+        }
         else if(predicateType === "VARIABLE") {
             AddInstruction(`load ${predicate}`);
-        }
-        // TODO 此处可以作优化
-        else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(predicateType) >= 0) {
-            AddInstruction(`push ${predicate}`);
         }
         else {
             throw `[Error] 意外的if分支条件。`;
@@ -460,11 +460,11 @@ function Compile(ast: AST): Array<string> {
                 throw `[Error] 意外的if-false分支。`;
             }
         }
+        else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(falseBranchType) >= 0 || ast.IsNativeCall(falseBranch)) {
+            AddInstruction(`push ${falseBranch}`);
+        }
         else if(falseBranchType === "VARIABLE") {
             AddInstruction(`load ${falseBranch}`);
-        }
-        else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(falseBranchType) >= 0) {
-            AddInstruction(`push ${falseBranch}`);
         }
         else {
             throw `[Error] 意外的if-false分支。`;
@@ -501,11 +501,11 @@ function Compile(ast: AST): Array<string> {
                 throw `[Error] 意外的if-true分支。`;
             }
         }
+        else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(trueBranchType) >= 0 || ast.IsNativeCall(trueBranch)) {
+            AddInstruction(`push ${trueBranch}`);
+        }
         else if(trueBranchType === "VARIABLE") {
             AddInstruction(`load ${trueBranch}`);
-        }
-        else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(trueBranchType) >= 0) {
-            AddInstruction(`push ${trueBranch}`);
         }
         else {
             throw `[Error] 意外的if-true分支。`;
@@ -555,12 +555,12 @@ function Compile(ast: AST): Array<string> {
                     throw `[Error] 意外的and clause。`;
                 }
             }
+            // TODO 此处可以作优化（短路）
+            else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(clauseType) >= 0 || ast.IsNativeCall(clause)) {
+                AddInstruction(`push ${clause}`);
+            }
             else if(clauseType === "VARIABLE") {
                 AddInstruction(`load ${clause}`);
-            }
-            // TODO 此处可以作优化（短路）
-            else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(clauseType) >= 0) {
-                AddInstruction(`push ${clause}`);
             }
             else {
                 throw `[Error] 意外的and clause。`;
@@ -622,12 +622,12 @@ function Compile(ast: AST): Array<string> {
                     throw `[Error] 意外的 or clause。`;
                 }
             }
+            // TODO 此处可以作优化（短路）
+            else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(clauseType) >= 0 || ast.IsNativeCall(clause)) {
+                AddInstruction(`push ${clause}`);
+            }
             else if(clauseType === "VARIABLE") {
                 AddInstruction(`load ${clause}`);
-            }
-            // TODO 此处可以作优化（短路）
-            else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(clauseType) >= 0) {
-                AddInstruction(`push ${clause}`);
             }
             else {
                 throw `[Error] 意外的 or clause。`;
@@ -669,7 +669,7 @@ function Compile(ast: AST): Array<string> {
                     AddInstruction(`push ${child}`);
                 }
             }
-            else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(TypeOfToken(child)) >= 0) {
+            else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(TypeOfToken(child)) >= 0 || ast.IsNativeCall(child)) {
                 AddInstruction(`push ${child}`);
             }
             else if(TypeOfToken(child) === "VARIABLE") {
@@ -754,11 +754,11 @@ function Compile(ast: AST): Array<string> {
                     throw `[Error] 意外的 child。`;
                 }
             }
+            else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(childType) >= 0 || ast.IsNativeCall(child)) {
+                AddInstruction(`push ${child}`);
+            }
             else if(childType === "VARIABLE") {
                 AddInstruction(`load ${child}`);
-            }
-            else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(childType) >= 0) {
-                AddInstruction(`push ${child}`);
             }
             else {
                 throw `[Error] 意外的 child。`;
@@ -838,11 +838,11 @@ function Compile(ast: AST): Array<string> {
                         throw `[Error] 意外的 child。`;
                     }
                 }
+                else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(childType) >= 0 || ast.IsNativeCall(child)) {
+                    AddInstruction(`push ${child}`);
+                }
                 else if(childType === "VARIABLE") {
                     AddInstruction(`load ${child}`);
-                }
-                else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(childType) >= 0) {
-                    AddInstruction(`push ${child}`);
                 }
                 else {
                     throw `[Error] 意外的 child。`;
