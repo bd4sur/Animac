@@ -4,35 +4,36 @@
 
 ![GitHub top language](https://img.shields.io/github/languages/top/mikukonai/AuroraScheme) ![GitHub](https://img.shields.io/github/license/mikukonai/AuroraScheme.svg?label=Licence)
 
+版本 / Version 0.1.0
 
 **AuroraScheme**是一款[Scheme](https://zh.wikipedia.org/wiki/Scheme)语言实现，能够将Scheme编译为中间语言代码，并且在虚拟机上执行中间语言代码。AuroraScheme基于Node.js开发，你可以使用JavaScript或者TypeScript编写“本地函数库”，以扩展AuroraScheme的功能。
 
 **AuroraScheme** is an implementation of [Scheme](https://en.wikipedia.org/wiki/Scheme_(programming_language)) programming language. It consists of two parts: a compiler and a virtual machine. The compiler compiles Scheme source code to intermediate language code, and the VM executes the compiled IL code. AuroraScheme is based on Node.js, so that you can write "native libraries" in JavaScript or TypeScript to extend the functionality of AuroraScheme.
+
+## 使用方法 / Usage
+
+依赖项 / Dependencies：
+
+- Node.js v10+
+
+执行以下命令，以启动AuroraScheme。 / Run the command below to start AuroraScheme.
+
+```
+node ./source/AuroraScheme.js [Options] [Path]
+```
+
+启动选项 / Options：
+
+- `repl`或留空：REPL（交互式解释器）
+- `run [Path]`：执行`[Path]`处的Scheme源代码。
+- `test`：执行测试用例。
+- `debug`：启动调试服务器。
 
 ## 系统架构 / System Architecture
 
 [English version](./documentation/AuroraScheme-Diagram-en.png)
 
 ![System Architecture](./documentation/AuroraScheme-Diagram-zh.png)
-
-## 可视化演示 / Visual demonstration
-
-请克隆仓库到本地，执行`node ./source/AuroraScheme.js`，使用浏览器访问`http://localhost:8088/`即可。 / Please clone this repo to your computer, run `node ./source/AuroraScheme.js`, and use your browser to visit `http://localhost:8088/`.
-
-![调试工具截图](./documentation/AVM-Debugger.png)
-
-## 构建 / Building
-
-依赖项 / Dependencies：
-
-- Node.js v10+
-- TypeScript 3+
-
-```
-cd ./source
-tsc --out AuroraScheme.js
-node AuroraScheme.js
-```
 
 ## 特性 / Features
 
