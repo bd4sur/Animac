@@ -40,6 +40,7 @@ function Top(arr: Array<any>): any {
 
 // 去掉生字符串两端的双引号
 function TrimQuotes(str: string): string {
+    if(str === undefined) return "";
     if(str[0] === '"' && str[str.length-1] === '"') {
         return str.substring(1, str.length-1);
     }

@@ -5,9 +5,9 @@
 
 const fs = require("fs");
 
-function UT() {
+function UT(sourcePath: string | void) {
     // TODO 相对路径处理
-    let sourcePath = "E:/Desktop/GitRepos/AuroraScheme/testcase/main.scm";
+    sourcePath = sourcePath || "E:/Desktop/GitRepos/AuroraScheme/testcase/main.scm";
 
     let targetModule = LoadModule(sourcePath);
     // fs.writeFileSync("E:/Desktop/GitRepos/AuroraScheme/testcase/Module.json", JSON.stringify(targetModule, null, 2), "utf-8");
@@ -23,18 +23,21 @@ function UT() {
 let argv = process.argv.slice(2);
 let option = argv[0] || "";
 option = option.trim().toLowerCase();
+let sourcePath = TrimQuotes(argv[1]);
 
 switch(option) {
-    case "repl":
-        let repl = new REPL();
-        repl.Start();
-        break;
     case "debug":
         StartDebugServer();
         break;
     case "run":
+        UT(sourcePath);
+        break;
+    case "test":
         UT();
         break;
     default:
-        process.stdout.write("Bad argument(s)");
+    case "repl":
+        let repl = new REPL();
+        repl.Start();
+        break;
 }

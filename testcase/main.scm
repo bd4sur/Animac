@@ -68,7 +68,7 @@
 
 (Utils.show "测试：快速排序")(newline)
 (Utils.show "此用例用来测试列表操作。")(newline)
-(Utils.show "期望结果：'(0 1 2 3 4 5 5 6 6 6 7 8 9)")(newline)
+(Utils.show "期望结果：(0 1 2 3 4 5 5 6 6 6 7 8 9)")(newline)
 (Utils.show "实际结果：")
 (Utils.show (Sort.quicksort '(6 5 9 6 1 7 5 3 0 4 6 8 2)))
 (newline)
@@ -147,7 +147,7 @@
 
 (Utils.show "测试：使用call/cc模拟其他高级语言的生成器。")(newline)
 (Utils.show "此用例用来测试call/cc。")(newline)
-(Utils.show "期望结果：输出1~10")(newline)
+(Utils.show "期望结果：1 2 3 4 5 6 7 8 9 10")(newline)
 (Utils.show "实际结果：")
 (Utils.show (Generator.g))
 (Utils.show " ")
@@ -158,13 +158,17 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(Utils.show "测试：快速求幂算法。")(newline)
+(Utils.show "此用例用来测试cond语句。")(newline)
+(Utils.show "期望结果：1073741824")(newline)
+(Utils.show "实际结果：")
 (define power
   (lambda (base exp init)
     (cond ((= exp 0) init)
           ((= 0 (% exp 2)) (power (* base base) (/ exp 2) init))
           (else (power base (- exp 1) (* base init))))))
 
-(display (power 2 10 1))
+(display (power 2 30 1))
 (newline)
 (newline)
 

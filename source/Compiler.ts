@@ -347,8 +347,13 @@ function Compile(ast: AST): Array<string> {
                 else {
                     throw `[Error] 意外的cond分支条件。`;
                 }
-                // 跳转到下一条件
-                AddInstruction(`iffalse @COND_BRANCH_${uqStr}_${(i+1)}`);
+                // 如果不是最后一个分支，则跳转到下一条件；如果是最后一个分支，则跳转到结束标签
+                if(i === node.children.length - 1) {
+                    AddInstruction(`iffalse @COND_END_${uqStr}`);
+                }
+                else {
+                    AddInstruction(`iffalse @COND_BRANCH_${uqStr}_${(i+1)}`);
+                }
             }
 
             // 处理分支主体
@@ -386,11 +391,12 @@ function Compile(ast: AST): Array<string> {
             }
 
             // 插入收尾语句（区分else分支和非else分支）
-            if(predicate !== "else") {
-                AddInstruction(`goto @COND_END_${uqStr}`);
+            if(predicate === "else" || i === node.children.length - 1) {
+                AddInstruction(`@COND_END_${uqStr}`);
+                break; // 忽略else后面的所有分支
             }
             else {
-                AddInstruction(`@COND_END_${uqStr}`);
+                AddInstruction(`goto @COND_END_${uqStr}`);
             }
 
         } // 分支遍历结束

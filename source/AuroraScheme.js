@@ -30,6 +30,8 @@ function Top(arr) {
 }
 // 去掉生字符串两端的双引号
 function TrimQuotes(str) {
+    if (str === undefined)
+        return "";
     if (str[0] === '"' && str[str.length - 1] === '"') {
         return str.substring(1, str.length - 1);
     }
@@ -1691,8 +1693,13 @@ function Compile(ast) {
                 else {
                     throw `[Error] 意外的cond分支条件。`;
                 }
-                // 跳转到下一条件
-                AddInstruction(`iffalse @COND_BRANCH_${uqStr}_${(i + 1)}`);
+                // 如果不是最后一个分支，则跳转到下一条件；如果是最后一个分支，则跳转到结束标签
+                if (i === node.children.length - 1) {
+                    AddInstruction(`iffalse @COND_END_${uqStr}`);
+                }
+                else {
+                    AddInstruction(`iffalse @COND_BRANCH_${uqStr}_${(i + 1)}`);
+                }
             }
             // 处理分支主体
             let branch = clauseNode.children[1];
@@ -1728,11 +1735,12 @@ function Compile(ast) {
                 throw `[Error] 意外的if-true分支。`;
             }
             // 插入收尾语句（区分else分支和非else分支）
-            if (predicate !== "else") {
-                AddInstruction(`goto @COND_END_${uqStr}`);
+            if (predicate === "else" || i === node.children.length - 1) {
+                AddInstruction(`@COND_END_${uqStr}`);
+                break; // 忽略else后面的所有分支
             }
             else {
-                AddInstruction(`@COND_END_${uqStr}`);
+                AddInstruction(`goto @COND_END_${uqStr}`);
             }
         } // 分支遍历结束
         AddInstruction(`;; 🛑 COND “${nodeHandle}” END   `);
@@ -3119,11 +3127,11 @@ class Runtime {
                         PROCESS.Goto(targetAddress);
                     }
                     else {
-                        throw `[Error] call指令的参数必须是标签、闭包或续延1`;
+                        throw `[Error] call指令的参数必须是标签、闭包或续延`;
                     }
                 }
                 else {
-                    throw `[Error] ${variable} ${value} call指令的参数必须是标签、闭包或续延2`;
+                    throw `[Error] call指令的参数必须是标签、闭包或续延`;
                 }
             } // Native判断结束
         } // Variable分支结束
@@ -4421,9 +4429,9 @@ function StartDebugServer() {
 // UT.ts
 // 单元测试
 const fs = require("fs");
-function UT() {
+function UT(sourcePath) {
     // TODO 相对路径处理
-    let sourcePath = "E:/Desktop/GitRepos/AuroraScheme/testcase/main.scm";
+    sourcePath = sourcePath || "E:/Desktop/GitRepos/AuroraScheme/testcase/main.scm";
     let targetModule = LoadModule(sourcePath);
     // fs.writeFileSync("E:/Desktop/GitRepos/AuroraScheme/testcase/Module.json", JSON.stringify(targetModule, null, 2), "utf-8");
     let PROCESS = new Process(targetModule);
@@ -4434,17 +4442,20 @@ function UT() {
 let argv = process.argv.slice(2);
 let option = argv[0] || "";
 option = option.trim().toLowerCase();
+let sourcePath = TrimQuotes(argv[1]);
 switch (option) {
-    case "repl":
-        let repl = new REPL();
-        repl.Start();
-        break;
     case "debug":
         StartDebugServer();
         break;
     case "run":
+        UT(sourcePath);
+        break;
+    case "test":
         UT();
         break;
     default:
-        process.stdout.write("Bad argument(s)");
+    case "repl":
+        let repl = new REPL();
+        repl.Start();
+        break;
 }
