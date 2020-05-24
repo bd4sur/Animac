@@ -20,7 +20,7 @@ box-shadow: 0 0px #e5e5e5, 0 0 15px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.05)
 font-family: 'UD Digi Kyokasho NP-B', 'consolas', Courier, monospace;
 font-size: 80px;
 text-align: center;
-"><span style="color:#66ccff;">(Aurora</span><span style="color:#cccccc;">.</span><span style="color:#ff75a6;">Scheme)</span></div>
+"><span style="color:#cccccc;">Animach</span></div>
 
 <div style="
 margin-top: 20px;
@@ -54,10 +54,12 @@ const d = `${S3},${10*n}`;
 const e = `${S5},${8*n}`;
 const f = `${S5},${4*n}`;
 
+// 蓝色部分
 let outer = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
 outer.setAttribute("points", `${A} ${B} ${C} ${c} ${b} ${a} ${f} ${F}`);
 outer.setAttribute("style", "fill:#66ccff;stroke:none;");
 
+// 红色部分
 let inner = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
 inner.setAttribute("points", `${F} ${E} ${D} ${C} ${c} ${d} ${e} ${f}`);
 inner.setAttribute("style", "fill:#ff75a6;stroke:none;");
