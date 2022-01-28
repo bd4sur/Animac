@@ -4,8 +4,8 @@
 ; A simple Brainfuck interpreter
 ; 简单的Brainfuck解释器
 ;
-; 2017.11.14 Mikukonai
-; https://github.com/mikukonai
+; 2017.11.14 BD4SUR
+; https://github.com/bd4sur
 
 ; 应用序的Y不动点组合子（可以不需要）
 (define Y

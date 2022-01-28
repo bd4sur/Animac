@@ -2,8 +2,6 @@
 
 <h1 align="center">Animach / 灵机</h1>
 
-![GitHub top language](https://img.shields.io/github/languages/top/mikukonai/Animach) ![GitHub](https://img.shields.io/github/license/mikukonai/Animach.svg?label=Licence)
-
 版本 0.1.0
 
 **Animach**是一款[Scheme](https://zh.wikipedia.org/wiki/Scheme)语言实现，能够将Scheme编译为中间语言代码，并且在虚拟机上执行中间语言代码。Animach基于Node.js开发，你可以使用JavaScript或者TypeScript编写“本地函数库”，以扩展Animach的功能。
@@ -17,7 +15,7 @@
 执行以下命令，以启动Animach。
 
 ```
-node ./source/AuroraScheme.js [Options] [Path]
+node ./source/animach.js [Options] [Path]
 ```
 
 启动选项：
@@ -132,7 +130,7 @@ node ./source/AuroraScheme.js [Options] [Path]
 ; @*@**@***@**** ...
 ```
 
-更多测试用例，请参考[`/testcase`](https://github.com/mikukonai/Animach/tree/master/testcase)。
+更多测试用例，请参考[`/testcase`](https://github.com/bd4sur/Animach/tree/master/testcase)。
 
 ## 形式语法（BNF表示）
 
@@ -157,18 +155,13 @@ node ./source/AuroraScheme.js [Options] [Path]
         <Symbol> ::= SYMBOL
 ```
 
-## 文档
-
-- [设计笔记 / Design Notes](https://mikukonai.com/template.html?id=Animach%E8%AE%BE%E8%AE%A1%E7%AC%94%E8%AE%B0)
-- [开发规约 / Development Regulation](https://github.com/mikukonai/Animach/blob/master/CONTRIBUTING.md)
-
 ## 关于名称
 
 **Animach**，是自创的合成词，由拉丁语词汇Anima“灵魂”和Machina“机器”缩合而成，寓意“有灵魂的机器”。汉语名称为“**灵机**”，从“灵机一动”而来，也暗示本系统与图**灵机**的计算能力等价。
 
 ## 权利声明 / Licence
 
-版权所有 &copy; 2019 Mikukonai@GitHub，保留所有权利。
+版权所有 &copy; 2019~2022 BD4SUR，保留所有权利。
 
 采用MIT协议授权。
 
