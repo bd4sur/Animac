@@ -1,14 +1,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;
-;; AuroraScheme测试用例 ;;
+;; Animach测试用例 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(import Utils      "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.utils.scm")
-(import ManOrBoy   "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.MoB.scm")
-(import PureCPS    "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.purecps.scm")
-(import CallCC     "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.callcc-test.scm")
-(import Sort       "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.sort.scm")
-(import Church     "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.church-encoding.scm")
-(import Generator  "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.generator.scm")
+(import Utils      "E:/Desktop/GitRepos/Animach/testcase/aurora.test.utils.scm")
+(import ManOrBoy   "E:/Desktop/GitRepos/Animach/testcase/aurora.test.MoB.scm")
+(import PureCPS    "E:/Desktop/GitRepos/Animach/testcase/aurora.test.purecps.scm")
+(import CallCC     "E:/Desktop/GitRepos/Animach/testcase/aurora.test.callcc-test.scm")
+(import Sort       "E:/Desktop/GitRepos/Animach/testcase/aurora.test.sort.scm")
+(import Church     "E:/Desktop/GitRepos/Animach/testcase/aurora.test.church-encoding.scm")
+(import Generator  "E:/Desktop/GitRepos/Animach/testcase/aurora.test.generator.scm")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

@@ -1,5 +1,5 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;
-;; AuroraScheme测试用例 ;;
+;; Animach测试用例 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; 打印某年某月的日历
@@ -79,7 +79,7 @@
 
 (define Calendar
   (lambda (year month)
-    (display "AuroraScheme测试用例：日历")(newline)
+    (display "Animach测试用例：日历")(newline)
     (display "2012.6      C语言编写")(newline)
     (display "2017.8.26   改写为Scheme")(newline)
     (display year)(display "年")(display month)(display "月")(newline)

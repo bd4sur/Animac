@@ -1,7 +1,7 @@
 ;; 丘奇编码
 ;; https://en.wikipedia.org/wiki/Church_encoding
 
-(import Utils "E:/Desktop/GitRepos/AuroraScheme/testcase/aurora.test.utils.scm")
+(import Utils "E:/Desktop/GitRepos/Animach/testcase/aurora.test.utils.scm")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; 布尔值
@@ -199,7 +199,7 @@
 ; 列表（二叉树）
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; TODO NOTE 【注意】这里体现了AuroraScheme的define与标准define的不同之处。Aurora的被define的项是不求值的，因此如果想使用它的值，就需要把它封装成一个thunk，使用的时候调用之。
+;; TODO NOTE 【注意】这里体现了Animach的define与标准define的不同之处。Aurora的被define的项是不求值的，因此如果想使用它的值，就需要把它封装成一个thunk，使用的时候调用之。
 (define NULL_LIST
   (lambda ()
     (PAIR TRUE TRUE)))

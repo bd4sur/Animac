@@ -142,9 +142,9 @@ class REPL {
     public ReadEvalPrint(input: string): void {
         input = input.toString();
         if(input.trim() === ".help") {
-            this.RUNTIME.Output(`AuroraScheme v0.1.0-alpha\n`);
+            this.RUNTIME.Output(`Animach v0.1.0-alpha\n`);
             this.RUNTIME.Output(`Copyright (c) 2019~2022 BD4SUR, Licenced under MIT.\n`);
-            this.RUNTIME.Output(`https://github.com/bd4sur/AuroraScheme\n`);
+            this.RUNTIME.Output(`https://github.com/bd4sur/Animach\n`);
             this.RUNTIME.Output(`\n`);
             this.RUNTIME.Output(`REPL Command Reference:\n`);
             this.RUNTIME.Output(`  .exit     exit the REPL.\n`);
@@ -194,7 +194,7 @@ class REPL {
     }
 
     public Start(): void {
-        this.RUNTIME.Output(`AuroraScheme REPL v0.1.0-alpha\n`);
+        this.RUNTIME.Output(`Animach REPL v0.1.0-alpha\n`);
         this.RUNTIME.Output(`Type ".help" for more information.\n`);
         this.RUNTIME.Output(`> `);
 

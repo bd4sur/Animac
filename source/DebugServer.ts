@@ -161,5 +161,5 @@ function StartDebugServer() {
 
     }).listen(DebugServerConfig.portNumber);
 
-    console.log(`AuroraScheme调试服务器已启动，正在监听端口：${DebugServerConfig.portNumber}`);
+    console.log(`Animach调试服务器已启动，正在监听端口：${DebugServerConfig.portNumber}`);
 }
