@@ -85,24 +85,23 @@ function WriteString(PROCESS, RUNTIME) {
                 console.error(error);
                 // console.warn(`进程 ${PROCESS.PID} 恢复。`);
                 PROCESS.SetState("RUNNING");
-                PROCESS.Step();
-                return;
             }
+            else {
+                // 恢复进程状态
+                // /console.warn(`进程 ${PROCESS.PID} 恢复。`);
+                PROCESS.SetState("RUNNING");
 
-            // 恢复进程状态
-            // /console.warn(`进程 ${PROCESS.PID} 恢复。`);
-            PROCESS.SetState("RUNNING");
+                // 首先构造字符串对象
+                // TODO ANI所需的接口应当采用恰当的方式暴露给Native库
+                let strHandle = PROCESS.heap.AllocateHandle("STRING", false);
+                let strObject = {
+                    type: "STRING",
+                    content: JSON.stringify(error)
+                };
+                PROCESS.heap.Set(strHandle, strObject);
 
-            // 首先构造字符串对象
-            // TODO ANI所需的接口应当采用恰当的方式暴露给Native库
-            let strHandle = PROCESS.heap.AllocateHandle("STRING", false);
-            let strObject = {
-                type: "STRING",
-                content: JSON.stringify(error)
-            };
-            PROCESS.heap.Set(strHandle, strObject);
-
-            PROCESS.OPSTACK.push(strHandle);
+                PROCESS.OPSTACK.push(strHandle);
+            }
 
             PROCESS.Step();
             RUNTIME.AIL_RETURN(null, PROCESS, RUNTIME);
