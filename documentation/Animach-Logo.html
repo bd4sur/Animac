@@ -12,101 +12,128 @@ height: 480px;
 border-radius: 90px;
 box-shadow: 0 0px #e5e5e5, 0 0 15px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.05);
 ">
-    <svg id="aslogo" width="312px" height="360px" version="1.1" xmlns="http://www.w3.org/2000/svg" style="margin: auto; margin-top: 60px;">
-</svg>
+    <svg id="aslogo" width="347px" height="400px" version="1.1" xmlns="http://www.w3.org/2000/svg" style="margin: auto; margin-top: 40px;">
+        <defs>
+            <linearGradient id="g_A" x1="0%" y1="0%" x2="30%" y2="100%">
+                <stop offset="30%" stop-color="#6cf3"></stop>
+                <stop offset="100%" stop-color="#66ccff"></stop>
+            </linearGradient>
+
+            <linearGradient id="g_B" x1="0%" y1="100%" x2="70%" y2="0%">
+                <stop offset="10%" stop-color="#66ccff"></stop>
+                <stop offset="90%" stop-color="#6cf3"></stop>
+            </linearGradient>
+
+            <linearGradient id="g_C" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="10%" stop-color="#66ccff"></stop>
+                <stop offset="85%" stop-color="#6cf3"></stop>
+            </linearGradient>
+
+            <linearGradient id="g_D" x1="0%" y1="0%" x2="30%" y2="100%">
+                <stop offset="20%" stop-color="#ff75a6"></stop>
+                <stop offset="90%" stop-color="#ff75a633"></stop>
+            </linearGradient>
+
+            <linearGradient id="g_E" x1="70%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#ff75a6"></stop>
+                <stop offset="80%" stop-color="#ff75a633"></stop>
+            </linearGradient>
+
+            <linearGradient id="g_F" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="20%" stop-color="#ff75a633"></stop>
+                <stop offset="85%" stop-color="#ff75a6"></stop>
+            </linearGradient>
+        </defs>
+    </svg>
 </div>
 
 <div style="
 font-family: 'UD Digi Kyokasho NP-B', 'consolas', Courier, monospace;
 font-size: 80px;
 text-align: center;
-"><span style="color:#cccccc;">Animach</span></div>
+"><span style="color:#aaaaaa;">Animach</span></div>
 
 <div style="
 margin-top: 20px;
 font-family: 'UD Digi Kyokasho NP-B', 'consolas', Courier, monospace;
 font-size: 32px;
 text-align: center;
-"><span style="color:#cccccc;">Scheme Compiler and Virtual Machine</div>
+"><span style="color:#cccccc;">Scheme Runtime Environment</div>
+
+<div style="
+margin-top: 40px;
+font-size: 20px;
+text-align: center;
+"><span style="color:#cccccc;">Copyright &copy; 2019~2022 BD4SUR</div>
 
 <script>
-const n = 30;
-const w = 0.24 * n;
-const S = Math.sqrt(3);
-const S1 = S * n;
-const S2 = 2 * S1;
-const S3 = 3 * S1;
-const S4 = 4 * S1;
-const S5 = 5 * S1;
-const S6 = 6 * S1;
 
-const A = `${S3},${0}`;
-const B = `${0},${3*n}`;
-const C = `${0},${9*n}`;
-const D = `${S3},${12*n}`;
-const E = `${S6},${9*n}`;
-const F = `${S6},${3*n}`;
+const a = 100;
+const t = 45;
+const w = 1;
+const R3 = Math.sqrt(3);
 
-const a = `${S3},${2*n}`;
-const b = `${S1},${4*n}`;
-const c = `${S1},${8*n}`;
-const d = `${S3},${10*n}`;
-const e = `${S5},${8*n}`;
-const f = `${S5},${4*n}`;
+let A1 = [R3 * t , a + t + 2 * w];
+let A2 = [R3 * t , 3 * a - t - w];
+let A3 = [0 , 3 * a - w];
+let A4 = [0 , a + 2 * t + 2 * w];
 
-// 蓝色部分
-let outer = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-outer.setAttribute("points", `${A} ${B} ${C} ${c} ${b} ${a} ${f} ${F}`);
-outer.setAttribute("style", "fill:#66ccff;stroke:none;");
+let B1 = [R3 * a - R3 * t - R3 * w , t + w];
+let B2 = [R3 * a - R3 * w , 2 * t + w];
+let B3 = [0 , a + 2 * t];
+let B4 = [0 , a];
 
-// 红色部分
-let inner = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-inner.setAttribute("points", `${F} ${E} ${D} ${C} ${c} ${d} ${e} ${f}`);
-inner.setAttribute("style", "fill:#ff75a6;stroke:none;");
+let C1 = [R3 * a , 0];
+let C2 = [2 * R3 * a - 0.5 * R3 * w , a - 0.5 * w];
+let C3 = [2 * R3 * a - R3 * t - 0.5 * w , a + t - 0.5 * w];
+let C4 = [R3 * a - R3 * t , t];
 
-let line1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-line1.setAttribute("x1", `${0}`);
-line1.setAttribute("y1", `${9*n}`);
-line1.setAttribute("x2", `${S6}`);
-line1.setAttribute("y2", `${3*n}`);
-line1.setAttribute("style", `stroke:#ffffff;stroke-width:${w};`);
+let D1 = [2 * R3 * a , a + w];
+let D2 = [2 * R3 * a , 3 * a - 2 * t - 2 * w];
+let D3 = [2 * R3 * a - R3 * t , 3 * a - t - 2 * w];
+let D4 = [2 * R3 * a - R3 * t , a + t + w];
 
-let line2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-line2.setAttribute("x1", `${0 - S * w}`);
-line2.setAttribute("y1", `${5*n + w / 1.7 + w}`);
-line2.setAttribute("x2", `${S1 + S * w}`);
-line2.setAttribute("y2", `${4*n + w / 1.7 - w}`);
-line2.setAttribute("style", `stroke:#ffffff;stroke-width:${w};`);
+let E1 = [2 * R3 * a , 3 * a - 2 * t];
+let E2 = [2 * R3 * a , 3 * a];
+let E3 = [R3 * a + R3 * t + R3 * w , 4 * a - t - w];
+let E4 = [R3 * a + R3 * w , 4 * a - 2 * t - w];
 
-let line3 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-line3.setAttribute("x1", `${S5 - S * w}`);
-line3.setAttribute("y1", `${8*n - w / 1.7 + w}`);
-line3.setAttribute("x2", `${S6 + S * w}`);
-line3.setAttribute("y2", `${7*n - w / 1.7 - w}`);
-line3.setAttribute("style", `stroke:#ffffff;stroke-width:${w};`);
+let F1 = [R3 * a + R3 * t , 4 * a - t];
+let F2 = [R3 * a , 4 * a];
+let F3 = [0.5 * R3 * w , 3 * a + 0.5 * w];
+let F4 = [R3 * t + 0.5 * R3 * w , 3 * a - t + 0.5 * w];
 
-let line4 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-line4.setAttribute("x1", `${S2 - S * w}`);
-line4.setAttribute("y1", `${n + w / 1.7 - w}`);
-line4.setAttribute("x2", `${S3}`);
-line4.setAttribute("y2", `${2*n + w / 1.7}`);
-line4.setAttribute("style", `stroke:#ffffff;stroke-width:${w};`);
+let Polygon_A = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+Polygon_A.setAttribute("points", `${A1[0]},${A1[1]} ${A2[0]},${A2[1]} ${A3[0]},${A3[1]} ${A4[0]},${A4[1]}`);
+Polygon_A.setAttribute("style", "fill:url(#g_A);stroke:none;");
 
-let line5 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-line5.setAttribute("x1", `${S3}`);
-line5.setAttribute("y1", `${n*10 - w / 1.7}`);
-line5.setAttribute("x2", `${S4 + S * w}`);
-line5.setAttribute("y2", `${11*n - w / 1.7 + w}`);
-line5.setAttribute("style", `stroke:#ffffff;stroke-width:${w};`);
+let Polygon_B = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+Polygon_B.setAttribute("points", `${B1[0]},${B1[1]} ${B2[0]},${B2[1]} ${B3[0]},${B3[1]} ${B4[0]},${B4[1]}`);
+Polygon_B.setAttribute("style", "fill:url(#g_B);stroke:none;");
 
+let Polygon_C = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+Polygon_C.setAttribute("points", `${C1[0]},${C1[1]} ${C2[0]},${C2[1]} ${C3[0]},${C3[1]} ${C4[0]},${C4[1]}`);
+Polygon_C.setAttribute("style", "fill:url(#g_C);stroke:none;");
 
-document.getElementById("aslogo").appendChild(outer);
-document.getElementById("aslogo").appendChild(inner);
-document.getElementById("aslogo").appendChild(line1);
-document.getElementById("aslogo").appendChild(line2);
-document.getElementById("aslogo").appendChild(line3);
-document.getElementById("aslogo").appendChild(line4);
-document.getElementById("aslogo").appendChild(line5);
+let Polygon_D = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+Polygon_D.setAttribute("points", `${D1[0]},${D1[1]} ${D2[0]},${D2[1]} ${D3[0]},${D3[1]} ${D4[0]},${D4[1]}`);
+Polygon_D.setAttribute("style", "fill:url(#g_D);stroke:none;");
+
+let Polygon_E = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+Polygon_E.setAttribute("points", `${E1[0]},${E1[1]} ${E2[0]},${E2[1]} ${E3[0]},${E3[1]} ${E4[0]},${E4[1]}`);
+Polygon_E.setAttribute("style", "fill:url(#g_E);stroke:none;");
+
+let Polygon_F = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+Polygon_F.setAttribute("points", `${F1[0]},${F1[1]} ${F2[0]},${F2[1]} ${F3[0]},${F3[1]} ${F4[0]},${F4[1]}`);
+Polygon_F.setAttribute("style", "fill:url(#g_F);stroke:none;");
+
+document.getElementById("aslogo").appendChild(Polygon_A);
+document.getElementById("aslogo").appendChild(Polygon_B);
+document.getElementById("aslogo").appendChild(Polygon_C);
+document.getElementById("aslogo").appendChild(Polygon_D);
+document.getElementById("aslogo").appendChild(Polygon_E);
+document.getElementById("aslogo").appendChild(Polygon_F);
+
 </script>
 
 </body>
