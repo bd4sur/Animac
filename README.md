@@ -27,7 +27,7 @@ node ./source/animach.js [Options] [Path]
 
 ## 系统架构
 
-![System Architecture](./documentation/Animach-Diagram-zh.png)
+![System Architecture](./documentation/Animach-Sys-Arch.png)
 
 ## 特性
 
