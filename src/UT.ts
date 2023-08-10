@@ -4,16 +4,21 @@
 // 单元测试
 
 const fs = require("fs");
+const path = require("path");
 
-function UT(sourcePath: string | void) {
-    // TODO 相对路径处理
-    sourcePath = sourcePath || "E:/Desktop/GitRepos/Animac/testcase/main.scm";
+function UT(sourcePath: string) {
+    // 处理相对路径
+    if(path.isAbsolute(sourcePath) === false) {
+        sourcePath = path.join(process.cwd(), sourcePath);
+    }
+    // 以代码所在路径为工作路径
+    let workingDir = path.dirname(sourcePath);
 
-    let targetModule = LoadModule(sourcePath);
-    // fs.writeFileSync("E:/Desktop/GitRepos/Animac/testcase/Module.json", JSON.stringify(targetModule, null, 2), "utf-8");
+    let linkedModule = LoadModule(sourcePath, workingDir);
+    // fs.writeFileSync("module.json", JSON.stringify(linkedModule, null, 2), "utf-8");
 
-    let PROCESS = new Process(targetModule);
-    let RUNTIME = new Runtime();
+    let PROCESS = new Process(linkedModule);
+    let RUNTIME = new Runtime(workingDir);
 
     RUNTIME.AddProcess(PROCESS);
     RUNTIME.StartClock(()=>{});
@@ -31,9 +36,6 @@ switch(option) {
         break;
     case "run":
         UT(sourcePath);
-        break;
-    case "test":
-        UT();
         break;
     default:
     case "repl":

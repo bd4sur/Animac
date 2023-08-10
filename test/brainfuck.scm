@@ -1,5 +1,5 @@
 (native String)
-(import "../../../source/applib/list.scm" List)
+(import "std.list.scm" List)
 
 ; A simple Brainfuck interpreter
 ; 简单的Brainfuck解释器

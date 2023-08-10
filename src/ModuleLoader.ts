@@ -13,7 +13,7 @@ class Module {
 
 // 载入模块：本质上是静态链接
 
-function LoadModule(path: string): Module {
+function LoadModule(modulePath: string, workingDir: string): Module {
     // 所有互相依赖的AST
     let allASTs: HashMap<string, AST> = new HashMap();
 
@@ -24,20 +24,26 @@ function LoadModule(path: string): Module {
     let sortedModuleNames: Array<string> = new Array();
 
     const fs = require("fs");
+    const path = require("path");
 
     // 递归地引入所有依赖文件，并检测循环依赖
-    (function importModule(path: string): void {
+    (function importModule(modulePath: string): void {
+        // 首先处理模块路径
+        if(path.isAbsolute(modulePath) === false) {
+            modulePath = path.join(workingDir, modulePath);
+        }
+
         let code: string;
         try {
-            code = fs.readFileSync(path, "utf-8");
+            code = fs.readFileSync(modulePath, "utf-8");
         }
         catch {
-            throw `[Error] 模块“${path}”未找到。`
+            throw `[Error] 模块“${modulePath}”未找到。`
         }
 
         code = `((lambda () ${code}))\n`;
 
-        let moduleQualifiedName = PathUtils.GetModuleQualifiedName(path);
+        let moduleQualifiedName = PathUtils.GetModuleQualifiedName(modulePath);
 
         let currentAST = Analyse(Parse(code, moduleQualifiedName));
         allASTs.set(moduleQualifiedName, currentAST);
@@ -55,7 +61,7 @@ function LoadModule(path: string): Module {
             }
             importModule(dependencyPath);
         }
-    })(path);
+    })(modulePath);
 
     // 对每个AST中使用的 外部模块引用 作换名处理
     for(let moduleName in allASTs) {
@@ -83,7 +89,7 @@ function LoadModule(path: string): Module {
 
     // 将AST融合起来，编译为单一模块
     let mergedModule: Module = new Module();
-    let mainModuleQualifiedName = PathUtils.GetModuleQualifiedName(path);
+    let mainModuleQualifiedName = PathUtils.GetModuleQualifiedName(modulePath);
     mergedModule.AST = allASTs.get(mainModuleQualifiedName);
     // 按照依赖关系图的拓扑排序进行融合
     // NOTE 由于AST融合是将被融合（依赖）的部分放在前面，所以这里需要逆序进行
@@ -102,7 +108,7 @@ function LoadModule(path: string): Module {
 
 // 用于fork指令：从某个Application节点开始，构建模块
 // TODO 这个函数实现不够优雅，待改进
-function LoadModuleFromNode(ast: AST, nodeHandle: Handle): Module {
+function LoadModuleFromNode(ast: AST, nodeHandle: Handle, workingDir: string): Module {
     const fs = require("fs");
     // 所有互相依赖的AST
     let allASTs: HashMap<string, AST> = new HashMap();
@@ -150,18 +156,23 @@ function LoadModuleFromNode(ast: AST, nodeHandle: Handle): Module {
     }
 
     // 递归地引入所有依赖文件，并检测循环依赖
-    function importModule(path: string): void {
+    function importModule(modulePath: string): void {
+        // 首先处理模块路径
+        if(path.isAbsolute(modulePath) === false) {
+            modulePath = path.join(workingDir, modulePath);
+        }
+
         let code: string;
         try {
-            code = fs.readFileSync(path, "utf-8");
+            code = fs.readFileSync(modulePath, "utf-8");
         }
         catch {
-            throw `[Error] 模块“${path}”未找到。`
+            throw `[Error] 模块“${modulePath}”未找到。`
         }
 
         code = `((lambda () ${code}))\n`;
 
-        let moduleQualifiedName = PathUtils.GetModuleQualifiedName(path);
+        let moduleQualifiedName = PathUtils.GetModuleQualifiedName(modulePath);
 
         let currentAST = Analyse(Parse(code, moduleQualifiedName));
         allASTs.set(moduleQualifiedName, currentAST);

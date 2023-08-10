@@ -1,7 +1,7 @@
 ;; 丘奇编码
 ;; https://en.wikipedia.org/wiki/Church_encoding
 
-(import Utils "E:/Desktop/GitRepos/Animac/testcase/aurora.test.utils.scm")
+(import Utils "utils.scm")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; 布尔值

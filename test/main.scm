@@ -2,13 +2,13 @@
 ;; Animac测试用例 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(import Utils      "E:/Desktop/GitRepos/Animac/testcase/aurora.test.utils.scm")
-(import ManOrBoy   "E:/Desktop/GitRepos/Animac/testcase/aurora.test.MoB.scm")
-(import PureCPS    "E:/Desktop/GitRepos/Animac/testcase/aurora.test.purecps.scm")
-(import CallCC     "E:/Desktop/GitRepos/Animac/testcase/aurora.test.callcc-test.scm")
-(import Sort       "E:/Desktop/GitRepos/Animac/testcase/aurora.test.sort.scm")
-(import Church     "E:/Desktop/GitRepos/Animac/testcase/aurora.test.church-encoding.scm")
-(import Generator  "E:/Desktop/GitRepos/Animac/testcase/aurora.test.generator.scm")
+(import Utils      "utils.scm")
+(import ManOrBoy   "man_or_boy.scm")
+(import FacCPS    "fac_cps.scm")
+(import CallCC     "yinyang_callcc.scm")
+(import Sort       "sort.scm")
+(import Church     "church_encoding.scm")
+(import Generator  "generator.scm")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -26,7 +26,7 @@
 (Utils.show "此用例用来测试系统能否正确处理复杂嵌套的匿名函数及其调用。")(newline)
 (Utils.show "期望结果：3628800")(newline)
 (Utils.show "实际结果：")
-(((PureCPS.fac-cps (lambda (x) x)) 10) (lambda (x) (display x)))
+(((FacCPS.fac_cps (lambda (x) x)) 10) (lambda (x) (display x)))
 (newline)
 (newline)
 
@@ -201,7 +201,7 @@
     (Utils.show "子进程3开始啦")(newline)
     (native File)
     (define res #f)
-    (set! res (File.Read "E:/text.txt"))
+    (set! res (File.Read "README.md"))
     (Utils.show res)
     (newline)
     (define foo

@@ -24,7 +24,7 @@ function StartDebugServer() {
     const http = require('http');
     const url = require('url');
 
-    let RUNTIME = new Runtime();
+    let RUNTIME = new Runtime(process.cwd());
     const moduleQN = "ADB";
     const code = `((lambda ()
 

@@ -18,7 +18,6 @@ node build/animac.js [option] [path]
 
 - `repl`或留空：REPL（交互式解释器）
 - `run [path]`：执行`[path]`处的Scheme代码。
-- `test`：执行测试用例。
 - `debug`：启动调试服务器。
 
 构建：

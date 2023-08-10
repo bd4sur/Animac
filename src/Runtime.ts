@@ -18,15 +18,18 @@ class Runtime {
     public outputBuffer: string;
     public errorBuffer: string;
 
+    public workingDir: string;           // 系统当前的工作目录（用于模块相对路径的定位）
+
     public asyncCallback: ()=>any;       // 异步事件回调（主要是用于REPL中处理异步事件返回对控制台的刷新操作）
 
-    constructor() {
+    constructor(workingDir: string) {
         this.processPool = new Array();
         this.processQueue = new Array();
         this.ports = new HashMap();
         this.asyncCallback = ()=>{};
         this.outputBuffer = "";
         this.errorBuffer = "";
+        this.workingDir = workingDir;
     }
 
     public AllocatePID(): number {
@@ -324,7 +327,8 @@ class Runtime {
                 let nativeModuleName = id.split(".")[0];
                 let nativeFunctionName = id.split(".").slice(1).join("");
                 // 引入Native模块
-                let nativeModule = require(`./lib/${nativeModuleName}.js`);
+                let nativeModulePath = path.join(process.cwd(), `lib/${nativeModuleName}.js`);
+                let nativeModule = require(nativeModulePath);
                 // 调用Native模块内部的函数
                 (nativeModule[nativeFunctionName])(PROCESS, RUNTIME);
             }
@@ -991,7 +995,7 @@ class Runtime {
         if(argType === "HANDLE") {
             let node = PROCESS.heap.Get(argument);
             if(node.type === "APPLICATION") {
-                let modul = LoadModuleFromNode(PROCESS.AST, argument);
+                let modul = LoadModuleFromNode(PROCESS.AST, argument, this.workingDir);
                 let newProcess = new Process(modul);
                 // 分配新的PID
                 newProcess.PID = RUNTIME.AllocatePID();
@@ -1001,7 +1005,7 @@ class Runtime {
             }
             else if(node.type === "STRING"){
                 let modulePath = TrimQuotes(node.content);
-                let forkedModule = LoadModule(modulePath);
+                let forkedModule = LoadModule(modulePath, this.workingDir);
                 // 构造新进程，并分配PID
                 let newProcess = new Process(forkedModule);
                 newProcess.PID = RUNTIME.AllocatePID();

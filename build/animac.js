@@ -2244,7 +2244,7 @@ class Module {
 }
 Module.AVM_Version = "V0"; // 指示可用的AVM版本
 // 载入模块：本质上是静态链接
-function LoadModule(path) {
+function LoadModule(modulePath, workingDir) {
     // 所有互相依赖的AST
     let allASTs = new HashMap();
     // 依赖关系图：[[模块名, 依赖模块名], ...]
@@ -2252,17 +2252,22 @@ function LoadModule(path) {
     // 经拓扑排序后的依赖模块序列
     let sortedModuleNames = new Array();
     const fs = require("fs");
+    const path = require("path");
     // 递归地引入所有依赖文件，并检测循环依赖
-    (function importModule(path) {
+    (function importModule(modulePath) {
+        // 首先处理模块路径
+        if (path.isAbsolute(modulePath) === false) {
+            modulePath = path.join(workingDir, modulePath);
+        }
         let code;
         try {
-            code = fs.readFileSync(path, "utf-8");
+            code = fs.readFileSync(modulePath, "utf-8");
         }
         catch (_a) {
-            throw `[Error] 模块“${path}”未找到。`;
+            throw `[Error] 模块“${modulePath}”未找到。`;
         }
         code = `((lambda () ${code}))\n`;
-        let moduleQualifiedName = PathUtils.GetModuleQualifiedName(path);
+        let moduleQualifiedName = PathUtils.GetModuleQualifiedName(modulePath);
         let currentAST = Analyse(Parse(code, moduleQualifiedName));
         allASTs.set(moduleQualifiedName, currentAST);
         for (let alias in currentAST.dependencies) {
@@ -2278,7 +2283,7 @@ function LoadModule(path) {
             }
             importModule(dependencyPath);
         }
-    })(path);
+    })(modulePath);
     // 对每个AST中使用的 外部模块引用 作换名处理
     for (let moduleName in allASTs) {
         let currentAST = allASTs.get(moduleName);
@@ -2303,7 +2308,7 @@ function LoadModule(path) {
     }
     // 将AST融合起来，编译为单一模块
     let mergedModule = new Module();
-    let mainModuleQualifiedName = PathUtils.GetModuleQualifiedName(path);
+    let mainModuleQualifiedName = PathUtils.GetModuleQualifiedName(modulePath);
     mergedModule.AST = allASTs.get(mainModuleQualifiedName);
     // 按照依赖关系图的拓扑排序进行融合
     // NOTE 由于AST融合是将被融合（依赖）的部分放在前面，所以这里需要逆序进行
@@ -2320,7 +2325,7 @@ function LoadModule(path) {
 }
 // 用于fork指令：从某个Application节点开始，构建模块
 // TODO 这个函数实现不够优雅，待改进
-function LoadModuleFromNode(ast, nodeHandle) {
+function LoadModuleFromNode(ast, nodeHandle, workingDir) {
     const fs = require("fs");
     // 所有互相依赖的AST
     let allASTs = new HashMap();
@@ -2360,16 +2365,20 @@ function LoadModuleFromNode(ast, nodeHandle) {
         importModule(dependencyPath);
     }
     // 递归地引入所有依赖文件，并检测循环依赖
-    function importModule(path) {
+    function importModule(modulePath) {
+        // 首先处理模块路径
+        if (path.isAbsolute(modulePath) === false) {
+            modulePath = path.join(workingDir, modulePath);
+        }
         let code;
         try {
-            code = fs.readFileSync(path, "utf-8");
+            code = fs.readFileSync(modulePath, "utf-8");
         }
         catch (_a) {
-            throw `[Error] 模块“${path}”未找到。`;
+            throw `[Error] 模块“${modulePath}”未找到。`;
         }
         code = `((lambda () ${code}))\n`;
-        let moduleQualifiedName = PathUtils.GetModuleQualifiedName(path);
+        let moduleQualifiedName = PathUtils.GetModuleQualifiedName(modulePath);
         let currentAST = Analyse(Parse(code, moduleQualifiedName));
         allASTs.set(moduleQualifiedName, currentAST);
         for (let alias in currentAST.dependencies) {
@@ -2794,13 +2803,14 @@ var VMState;
     VMState["RUNNING"] = "RUNNING";
 })(VMState || (VMState = {}));
 class Runtime {
-    constructor() {
+    constructor(workingDir) {
         this.processPool = new Array();
         this.processQueue = new Array();
         this.ports = new HashMap();
         this.asyncCallback = () => { };
         this.outputBuffer = "";
         this.errorBuffer = "";
+        this.workingDir = workingDir;
     }
     AllocatePID() {
         return this.processPool.length;
@@ -3069,7 +3079,8 @@ class Runtime {
                 let nativeModuleName = id.split(".")[0];
                 let nativeFunctionName = id.split(".").slice(1).join("");
                 // 引入Native模块
-                let nativeModule = require(`./lib/${nativeModuleName}.js`);
+                let nativeModulePath = path.join(process.cwd(), `lib/${nativeModuleName}.js`);
+                let nativeModule = require(nativeModulePath);
                 // 调用Native模块内部的函数
                 (nativeModule[nativeFunctionName])(PROCESS, RUNTIME);
             }
@@ -3695,7 +3706,7 @@ class Runtime {
         if (argType === "HANDLE") {
             let node = PROCESS.heap.Get(argument);
             if (node.type === "APPLICATION") {
-                let modul = LoadModuleFromNode(PROCESS.AST, argument);
+                let modul = LoadModuleFromNode(PROCESS.AST, argument, this.workingDir);
                 let newProcess = new Process(modul);
                 // 分配新的PID
                 newProcess.PID = RUNTIME.AllocatePID();
@@ -3705,7 +3716,7 @@ class Runtime {
             }
             else if (node.type === "STRING") {
                 let modulePath = TrimQuotes(node.content);
-                let forkedModule = LoadModule(modulePath);
+                let forkedModule = LoadModule(modulePath, this.workingDir);
                 // 构造新进程，并分配PID
                 let newProcess = new Process(forkedModule);
                 newProcess.PID = RUNTIME.AllocatePID();
@@ -4175,7 +4186,7 @@ function LoadModuleFromCode(code, REPLModuleQualifiedName) {
 class REPL {
     constructor() {
         this.allCode = new Array();
-        this.RUNTIME = new Runtime();
+        this.RUNTIME = new Runtime(process.cwd());
         this.inputBuffer = new Array();
     }
     run(input, callback) {
@@ -4294,7 +4305,7 @@ function StartDebugServer() {
     const fs = require('fs');
     const http = require('http');
     const url = require('url');
-    let RUNTIME = new Runtime();
+    let RUNTIME = new Runtime(process.cwd());
     const moduleQN = "ADB";
     const code = `((lambda ()
 
@@ -4429,13 +4440,18 @@ function StartDebugServer() {
 // UT.ts
 // 单元测试
 const fs = require("fs");
+const path = require("path");
 function UT(sourcePath) {
-    // TODO 相对路径处理
-    sourcePath = sourcePath || "E:/Desktop/GitRepos/Animac/testcase/main.scm";
-    let targetModule = LoadModule(sourcePath);
-    // fs.writeFileSync("E:/Desktop/GitRepos/Animac/testcase/Module.json", JSON.stringify(targetModule, null, 2), "utf-8");
-    let PROCESS = new Process(targetModule);
-    let RUNTIME = new Runtime();
+    // 处理相对路径
+    if (path.isAbsolute(sourcePath) === false) {
+        sourcePath = path.join(process.cwd(), sourcePath);
+    }
+    // 以代码所在路径为工作路径
+    let workingDir = path.dirname(sourcePath);
+    let linkedModule = LoadModule(sourcePath, workingDir);
+    // fs.writeFileSync("module.json", JSON.stringify(linkedModule, null, 2), "utf-8");
+    let PROCESS = new Process(linkedModule);
+    let RUNTIME = new Runtime(workingDir);
     RUNTIME.AddProcess(PROCESS);
     RUNTIME.StartClock(() => { });
 }
@@ -4449,9 +4465,6 @@ switch (option) {
         break;
     case "run":
         UT(sourcePath);
-        break;
-    case "test":
-        UT();
         break;
     default:
     case "repl":

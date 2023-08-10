@@ -97,7 +97,7 @@ class REPL {
 
     constructor() {
         this.allCode = new Array();
-        this.RUNTIME = new Runtime();
+        this.RUNTIME = new Runtime(process.cwd());
         this.inputBuffer = new Array();
     }
 
