@@ -1,8 +1,7 @@
 body {
-    width: 60%;
-    min-width: 800px;
-    margin: 10px auto;
-    font-family: -apple-system, BlinkMacSystemFont, Microsoft YaHei, "宋体", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    margin: 0px;
+    padding: 0px;
+    width: 100%;
 }
 
 * {
@@ -10,15 +9,8 @@ body {
 }
 
 .mainbox {
-    max-width: 1000px;
-    margin: 20px auto 20px auto;
-    padding: 0;
-    font-family: -apple-system, BlinkMacSystemFont, Microsoft YaHei, "宋体", "Helvetica Neue", Helvetica, Arial, sans-serif;
     font-size: 13px;
     color: #353535;
-    border: 1px solid #dddddd;
-    border-radius: 10px;
-    box-shadow: 0 0px #e5e5e5, 0 0 15px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.05);
     overflow: hidden;
 }
 
@@ -52,58 +44,37 @@ a:hover {
 }
 
 button {
-    font-family: 'consolas', Courier, monospace;
-    line-height:0px;
-    height:30px;
-    font-size: 14px;
-    border-radius: 5px;
+    background: linear-gradient(0deg, #cdcdcd, #fff);
     padding: 3px 10px 3px 10px;
+    border: 1px solid #50505a33;
+    border-bottom-color: #50505a59;
+    border-radius: 3px;
+    font-size: 14px;
+    display: inline-block;
+    outline: none;
+    color: #333;
+    text-shadow: 0 1px 0 #fff;
+    text-decoration: none;
+    font-weight: bold;
+    box-shadow: 0 1px 0 #42424d1a;
+    cursor: pointer;
+}
+
+button:hover {
+    border: 1px solid #50505a55;
+}
+
+button:active {
+    background: linear-gradient(0deg, #b9b9b9, #e0e0e0);
 }
 
 .btn-stop {
-    color: #ff5888;
-    border: 1px solid #ffefef;
-    background-color: #ffefef;
+    color: #8d0028;
 }
-.btn-stop:hover {
-    color: #ff5888;
-    border: 1px solid #ff5888;
-}
-.btn-stop:active {
-    color: #ffffff;
-    background-color: #ff5888;
-    border: 1px solid #ff5888;
-}
-
-.btn-common {
-    color: #33bbff;
-    border: 1px solid #e1f5ff;
-    background-color: #e1f5ff;
-}
-.btn-common:hover {
-    color: #33bbff;
-    border: 1px solid #40bfff;
-}
-.btn-common:active {
-    color: #ffffff;
-    background-color: #40bfff;
-    border: 1px solid #40bfff;
-}
-
 .btn-start {
-    color: #60c700;
-    border: 1px solid #e7ffd0;
-    background-color: #e7ffd0;
+    color: #3f8300;
 }
-.btn-start:hover {
-    color: #60c700;
-    border: 1px solid #60c700;
-}
-.btn-start:active {
-    color: #ffffff;
-    background-color: #60c700;
-    border: 1px solid #60c700;
-}
+
 
 pre {
     margin: 0;
@@ -142,8 +113,7 @@ p {
 }
 .table-container {
     overflow-x: auto;
-    border-radius: 8px;
-    box-shadow: 0 1px 1px 0 rgba(64,64,64,0.08), 0 1px 3px 1px rgba(64,64,64,0.16);
+    border: 1px solid #e2e5e8;
 }
 table {
     font-size: 11px;
@@ -157,7 +127,7 @@ td:first-child, th:first-child {
 
 td, th {
     border: none;
-    border-left: 1px solid #f5f5f5;
+    border-left: 1px solid #e2e5e8;
     vertical-align: top;
     font-family: monospace;
     text-align: left;
@@ -168,7 +138,7 @@ td {
 th {
     padding: 5px 8px;
     height: 30px;
-    background-color: #f5f5f5;
+    background-color: #e2e5e8;
     vertical-align: middle;
     font-weight: bold;
 }
@@ -179,7 +149,7 @@ th {
 
 .closureTable {
     width: 100%;
-    border: 2px solid #dddddd;
+    border: 2px solid #e2e5e8;
     margin: 3px 0;
 }
 .closureTable td{
@@ -190,7 +160,7 @@ th {
     font-weight: bold;
 }
 .boundVar,.boundValue{
-    background-color: rgb(200, 234, 255);
+    background-color: #c8eaff;
 }
 .boundValue{
     text-align: left;
@@ -200,7 +170,7 @@ th {
     font-weight: bold;
 }
 .freeVar,.freeValue{
-    background-color:rgb(255, 232, 237);
+    background-color:#ffe8ed;
 }
 .boundValue{
     text-align: left;
@@ -211,5 +181,5 @@ th {
 }
 hr {
     border: none;
-    border-top: 2px solid #b9e8ff;
+    border-top: 2px solid #e8eced;
 }

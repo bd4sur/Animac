@@ -166,13 +166,17 @@ class AST {
                 /*if(type === "QUOTE") str = "'(";
                 else if(type === "QUASIQUOTE") str = "`(";
                 else if(type === "UNQUOTE") str = ",(";
-                else */str = "(";
+                else str = "(";*/
                 if(node.children.length > 0) {
+                    str = "(";
                     for(let i = 0; i < node.children.length-1; i++) {
                         str += this.NodeToString(node.children[i]);
                         str += " ";
                     }
                     str += this.NodeToString(node.children[node.children.length-1]);
+                }
+                else if(node.children.length === 0) {
+                    str = "'(";
                 }
                 str += ')';
             }

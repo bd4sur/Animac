@@ -1,5 +1,5 @@
 (native String)
-(import "std.list.scm" List)
+(import List "std.list.scm")
 
 ; A simple Brainfuck interpreter
 ; 简单的Brainfuck解释器
@@ -70,10 +70,9 @@
 ; 调试输出
 (define BF_DEBUG
   (lambda (env)
-    (display "== BrainFUCK DEBUG ===================================================")(newline)
+    (display "== Brainfuck DEBUG ===================================================")(newline)
     (display " DP = ")(display (car env))(newline)
     (display " CP = ")(display (car (cdr env)))(newline)
-    (display " LA : 0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF")(newline)
     (display "MEM = ")
     (printstr (cdr (cdr env)))(newline)
     (display "======================================================================")(newline)
@@ -291,15 +290,21 @@
         )))
 
 ; 设置环境
-(define env #f)
-(set! env (ENV_INIT 0 20 "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++. "))
 
 ; (set! env (ENV_INIT 0 20 "[->+<] "))
 ; (set! env (MEM_SET env 0 10))
 ; (set! env (MEM_SET env 1 20))
 
 ; 开始解释执行
-(display "此用例是Brainfuck的Scheme实现。")(newline)
-(display "当时出于学习目的，所有的递归全部使用Y组合子实现，因此性能极其低下。")(newline)
-(display "Hello World 程序运行需要986个时钟。视机器性能，可能需要十分钟或者更长的时间。")(newline)
-(bf_interpreter env 0)
+(define run
+  (lambda () {
+    (display "本测试用例是Brainfuck的Scheme实现。")(newline)
+    (display "出于学习研究目的，所有递归全部使用Y组合子实现，可能需要数十秒或者更长的时间才能执行完毕。")(newline)
+    (display "预期输出：Hello World!")(newline)
+    (define env #f)
+    (set! env (ENV_INIT 0 20 "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++. "))
+    (bf_interpreter env 0)
+    (newline)
+    (newline)
+  })
+)

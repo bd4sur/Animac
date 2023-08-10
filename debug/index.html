@@ -21,9 +21,6 @@
                 </div>
             </div>
         </div>
-        
-        <div class="subtitle"></div>
-        <div class="copyright">Copyright &copy; 2019 <a href="https://bd4sur.com/" target="_blank">BD4SUR.com</a> / Licenced under the <a href="https://github.com/bd4sur/Animac/blob/master/LICENSE" target="_blank">MIT</a>.</div>
     </header>
 
     <hr>
@@ -148,7 +145,7 @@ function SendDebugRequest(action) {
             render(data);
             $(".closureTable").each((i,e)=>{
                 $(e).mousedown((event)=> {
-                    $(e).find(".hidden").toggle(200);
+                    $(e).find(".hidden").toggle(0);
                 });
             });
         },

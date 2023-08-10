@@ -24,4 +24,14 @@
            (/ (value (car aexp)) (value (car (cdr (cdr aexp))))))
           (else (display "Unexpected operator")))))
 
-(display (value '((1 / 3) - (1 / 4))))
+(define run
+  (lambda () {
+    (display "简单的中缀表达式解析：")(newline)
+    (display "预期输出：0.08333333333333331")(newline)
+    (display "(1 / 3) - (1 / 4) = ")
+    (display (value '((1 / 3) - (1 / 4))))
+
+    (newline)
+    (newline)
+  })
+)

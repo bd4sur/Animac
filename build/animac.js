@@ -699,13 +699,17 @@ class AST {
                 /*if(type === "QUOTE") str = "'(";
                 else if(type === "QUASIQUOTE") str = "`(";
                 else if(type === "UNQUOTE") str = ",(";
-                else */ str = "(";
+                else str = "(";*/
                 if (node.children.length > 0) {
+                    str = "(";
                     for (let i = 0; i < node.children.length - 1; i++) {
                         str += this.NodeToString(node.children[i]);
                         str += " ";
                     }
                     str += this.NodeToString(node.children[node.children.length - 1]);
+                }
+                else if (node.children.length === 0) {
+                    str = "'(";
                 }
                 str += ')';
             }
@@ -4309,8 +4313,12 @@ function StartDebugServer() {
     const moduleQN = "ADB";
     const code = `((lambda ()
 
-(((lambda (x) (begin (display "@") x)) (call/cc (lambda (k) k)))
- ((lambda (x) (begin (display "*") x)) (call/cc (lambda (k) k))))
+(define eval
+  (lambda (f a b)
+    (f a b)))
+
+(display (eval * 30 40)) ; 1200
+(display (eval (lambda (x y) (/ (+ x y) 2)) 30 40)) ; 35
 
 ))\n`;
     let mod = LoadModuleFromCode(code, moduleQN);
@@ -4334,7 +4342,7 @@ function StartDebugServer() {
         };
         // 解析请求，包括文件名
         let reqPath = url.parse(request.url).pathname.substr(1);
-        let filePath = "../debugger" + url.parse(request.url).pathname;
+        let filePath = path.join(process.cwd(), "debug", url.parse(request.url).pathname);
         request.on('data', (chunk) => {
             incomeData += chunk;
         });

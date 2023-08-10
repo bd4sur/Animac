@@ -90,4 +90,10 @@
     (display "====================")(newline)
   ))
 
-(Calendar 2019 9)
+(define run
+  (lambda () {
+    (Calendar 2019 9)
+    (newline)
+    (newline)
+  })
+)

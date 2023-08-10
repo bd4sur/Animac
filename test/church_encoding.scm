@@ -1,8 +1,6 @@
 ;; 丘奇编码
 ;; https://en.wikipedia.org/wiki/Church_encoding
 
-(import Utils "utils.scm")
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; 布尔值
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -45,12 +43,12 @@
 (define NUM_TO_LAMBDA
   (lambda (number)
     (if (= number 0)
-        <0>
+        NUM_0
         (INC (NUM_TO_LAMBDA (- number 1))))))
 
-(define <0> (lambda (f a) a))
+(define NUM_0 (lambda (f a) a))
 
-(define <1> (lambda (f a) (f a)))
+(define NUM_1 (lambda (f a) (f a)))
 
 (define INC
   (lambda (n)
@@ -62,38 +60,38 @@
     (m INC n)))
 
 ;Curried-ADD - for function MUL
-(define ADD-c
+(define ADD_c
   (lambda (m)
     (lambda (n)
       (m INC n))))
 
 (define MUL
   (lambda (m n)
-    (n (ADD-c m) <0>)))
+    (n (ADD_c m) NUM_0)))
 
 ;Curried-MUL - for function POW
-(define MUL-c
+(define MUL_c
   (lambda (m)
     (lambda (n)
-      (n (ADD-c m) <0>))))
+      (n (ADD_c m) NUM_0))))
 
 (define POW
   (lambda (m n)
-    (n (MUL-c m) <1>)))
+    (n (MUL_c m) NUM_1)))
 
 ;some paticular numbers
-(define <2> (lambda (f a) (f (f a))))
-(define <3> (lambda (f a) (f (f (f a)))))
-(define <4> (lambda (f a) (f (f (f (f a))))))
-(define <5> (lambda (f a) (f (f (f (f (f a)))))))
-(define <6> (lambda (f a) (f (f (f (f (f (f a))))))))
-(define <7> (lambda (f a) (f (f (f (f (f (f (f a)))))))))
-(define <8> (lambda (f a) (f (f (f (f (f (f (f (f a))))))))))
-(define <9> (lambda (f a) (f (f (f (f (f (f (f (f (f a)))))))))))
-(define <10> (lambda (f a) (f (f (f (f (f (f (f (f (f (f a))))))))))))
-(define <11> (lambda (f a) (f (f (f (f (f (f (f (f (f (f (f a)))))))))))))
-(define <12> (lambda (f a) (f (f (f (f (f (f (f (f (f (f (f (f a))))))))))))))
-(define <13> (lambda (f a) (f (f (f (f (f (f (f (f (f (f (f (f (f a)))))))))))))))
+(define NUM_2 (lambda (f a) (f (f a))))
+(define NUM_3 (lambda (f a) (f (f (f a)))))
+(define NUM_4 (lambda (f a) (f (f (f (f a))))))
+(define NUM_5 (lambda (f a) (f (f (f (f (f a)))))))
+(define NUM_6 (lambda (f a) (f (f (f (f (f (f a))))))))
+(define NUM_7 (lambda (f a) (f (f (f (f (f (f (f a)))))))))
+(define NUM_8 (lambda (f a) (f (f (f (f (f (f (f (f a))))))))))
+(define NUM_9 (lambda (f a) (f (f (f (f (f (f (f (f (f a)))))))))))
+(define NUM_10 (lambda (f a) (f (f (f (f (f (f (f (f (f (f a))))))))))))
+(define NUM_11 (lambda (f a) (f (f (f (f (f (f (f (f (f (f (f a)))))))))))))
+(define NUM_12 (lambda (f a) (f (f (f (f (f (f (f (f (f (f (f (f a))))))))))))))
+(define NUM_13 (lambda (f a) (f (f (f (f (f (f (f (f (f (f (f (f (f a)))))))))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; 有序对和减法
@@ -119,7 +117,7 @@
 
 (define DEC
   (lambda (n)
-    (LEFT (n SLIDE (PAIR <0> <0>)))))
+    (LEFT (n SLIDE (PAIR NUM_0 NUM_0)))))
 
 (define SUB
   (lambda (m n)
@@ -154,7 +152,7 @@
     (PAIR neg pos)))
 
 (define INT_ZREO
-  (PAIR <0> <0>))
+  (PAIR NUM_0 NUM_0))
 
 (define INT_IS_ZERO
   (lambda (int)
@@ -165,8 +163,8 @@
 (define INT_NORMALIZE
   (lambda (int)
     (IF (IS_LE (LEFT int) (RIGHT int))
-        (INT <0> (SUB (RIGHT int) (LEFT int)))
-        (INT (SUB (LEFT int) (RIGHT int)) <0>))))
+        (INT NUM_0 (SUB (RIGHT int) (LEFT int)))
+        (INT (SUB (LEFT int) (RIGHT int)) NUM_0))))
 
 (define INT_ABS
   (lambda (int)
@@ -182,8 +180,8 @@
 (define SHOWINT
   (lambda (int)
     (if (SHOWBOOL (INT_SGN int))
-        {(Utils.show "+") (SHOWNUM (INT_ABS int))}
-        {(Utils.show "-") (SHOWNUM (INT_ABS int))})))
+        {(display "+") (SHOWNUM (INT_ABS int))}
+        {(display "-") (SHOWNUM (INT_ABS int))})))
 
 (define INT_ADD
   (lambda (i j)
@@ -228,16 +226,16 @@
                 (lambda (x y) ((INC (f (CDR list)))
                                x
                                y))
-                <0>))))
+                NUM_0))))
      l)))
 
 (define SHOWLIST
   (lambda (list)
     (if (SHOWBOOL (IS_NULLLIST list))
-        (Utils.show "N)")
+        (display "N)")
         {
-            (Utils.show (SHOWNUM (CAR list)))
-            ;(Utils.show ",")
+            (display (SHOWNUM (CAR list)))
+            ;(display ",")
             (SHOWLIST (CDR list))
         }
     )))
@@ -289,4 +287,54 @@
                   (IF (IS_EQUAL i j)
                       (CAR l)
                       (lambda (x y) ((((f (CDR l)) i) (INC j)) x y))
-                   ))))))list)index)<0>)))
+                   ))))))list)index)NUM_0)))
+
+(define run
+  (lambda () {
+
+    (display "Church编码：测试Scheme语言核心")
+    (newline)
+
+    (display "6!=")
+    (display
+    (SHOWNUM 
+    ((Y (lambda (f)
+        (lambda (n)
+          (IF (IS_EQUAL n NUM_0)
+              NUM_1
+              (lambda (x y) ((MUL n (f (DEC n)))
+                              x
+                              y))
+          ))))
+    NUM_6)))
+    (newline)
+
+    (display "Count(1,2,3,3,3)=")
+    (display (SHOWNUM (COUNT (CONS NUM_1 (CONS NUM_2 (CONS NUM_3 (CONS NUM_3 (CONS NUM_3 (NULL_LIST)))))))))
+    (newline)
+
+    (display "List=(")
+    (SHOWLIST (CONS NUM_1 (CONS NUM_2 (CONS NUM_3 (CONS NUM_4 (CONS NUM_5 (NULL_LIST)))))))
+    (newline)
+
+    (display "Range(2,7)=(")
+    (SHOWLIST (RANGE NUM_2 NUM_7))
+    (newline)
+
+    (display "Fold(1:10,0,ADD)=")
+    (display (SHOWNUM (FOLD (RANGE NUM_1 NUM_10) NUM_0 ADD)))
+    (newline)
+
+    (display "MAP(1:9,0,INC)=(")
+    (SHOWLIST (MAP (RANGE NUM_1 NUM_9) INC))
+    (newline)
+
+    (display "Proj(2:10,5)=")
+    (display (SHOWNUM (PROJ (MAP (RANGE NUM_1 NUM_9) INC) NUM_5)))
+    (newline)
+
+    (newline)
+
+  })
+)
+

@@ -1,4 +1,4 @@
-;; 快速排序，用于验证一等函数、列表操作、if、and/or等特殊结构
+(import Utils "utils.scm")
 
 (define filter
   (lambda (f lst)
@@ -31,3 +31,14 @@
         }
     )
 ))
+
+(define run
+  (lambda () {
+    (Utils.show "快速排序：测试验证列表操作、if、and/or等特殊结构")(newline)
+    (Utils.show "期望结果：(-3 -3 -2 -1 0 1 2 3 4 5 5 6 6 6 7 8 9)")(newline)
+    (Utils.show "实际结果：")
+    (Utils.show (quicksort '(6 -3 5 9 -2 6 1 7 -3 5 3 0 4 -1 6 8 2)))
+    (newline)
+    (newline)
+  })
+)

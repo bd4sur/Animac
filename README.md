@@ -36,18 +36,17 @@ npx tsc
 
 - 支持Scheme核心子集，包括作为值的函数、词法作用域和列表操作。
 - 支持作为值的续体（continuation）和`call/cc`。
-- 支持模块化开发，可检测并管理模块间依赖关系。
+- 具备模块机制，可检测并管理模块间依赖关系。
 
 ### 运行时系统
 
-- Scheme代码将被编译为中间语言代码，在基于栈的虚拟机上运行。
-- 支持虚拟机层次上的多进程。支持“端口”机制以实现进程间通信。
+- 基于栈的虚拟机，执行Scheme代码编译成的中间语言代码。
+- 支持虚拟机层次上的多线程。支持“端口”机制以实现线程间通信。
 
-### 标准库和可扩展性
+### 宿主接口和可扩展性
 
-- 通过模块机制，提供基本的函数库，称为标准库。
-- 提供类似于JNI的本地接口机制，可以使用TypeScript/JavaScript编写供Scheme代码调用的Native库，实现Animac与宿主环境（Node.js）的互操作，例如文件读写、网络收发等。
-- 并**不打算完全严格遵守R<sup>5</sup>RS标准**，将按个人需要实现若干标准库函数。
+- 提供宿主接口机制，称为“Native接口”，类似于JNI，实现Animac与宿主环境（Node.js）的互操作，例如文件读写、网络收发等。通过Native接口的二次开发，可以灵活扩展Animac的功能，无需修改Animac核心。
+- **不打算严格遵守R<sup>5</sup>RS标准**。
 
 ## 计划实现的特性和功能
 
@@ -74,6 +73,16 @@ npx tsc
 
 ## 示例
 
+执行测试用例：
+
+```
+node build/animac.js test/test_1.scm
+node build/animac.js test/test_2.scm
+node build/animac.js test/test_3.scm
+node build/animac.js test/test_deadlock.scm
+node build/animac.js test/test_tls.scm
+```
+
 ### 词法作用域
 
 ```scheme
@@ -86,8 +95,7 @@ npx tsc
   (lambda (free)
     (foo)))
 
-(display (bar 200))
-;; 输出100，而不是200
+(display (bar 200)) ;; 输出100，而不是200
 ```
 
 ### 函数作为一等公民
@@ -101,21 +109,10 @@ npx tsc
 (display (eval (lambda (x y) (/ (+ x y) 2)) 30 40)) ; 35
 ```
 
-### 列表操作
+### Quine（自己输出自己的程序）
 
 ```scheme
-(define hello '(hello aurora scheme))
-
-(define iterate
-  (lambda (lst)
-    (if (null? lst)
-        #f
-        {
-            (display (car lst))
-            (iterate (cdr lst))
-        })))
-
-(iterate hello) ; hello aurora scheme
+((lambda (x) (cons x (cons (cons quote (cons x '())) '()))) (quote (lambda (x) (cons x (cons (cons quote (cons x '())) '())))))
 ```
 
 ### 续延和`call/cc`
@@ -130,7 +127,7 @@ npx tsc
 ; @*@**@***@**** ...
 ```
 
-更多测试用例，请参考[`/testcase`](https://github.com/bd4sur/Animac/tree/master/test)。
+全部测试用例位于[`/test`](https://github.com/bd4sur/Animac/tree/master/test)。
 
 ## 形式语法（BNF表示）
 

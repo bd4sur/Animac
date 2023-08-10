@@ -199,15 +199,24 @@
              (extend-table (new-entry (formals-of closure) vals)
                            (table-of closure)))))
 
-(display "((lambda (x) (add1 x)) 30)=")
-(display (value '((lambda (x) (add1 x)) 30))) (newline)
+(define run
+  (lambda () {
+    (display "The Little Schemer 书中给出的Scheme解释器：")(newline)
 
-(display "30!=")
-(display (value '(((lambda (S)
-                     ((lambda (x) (S (lambda (y) ((x x) y))))
-                      (lambda (x) (S (lambda (y) ((x x) y))))))
-                   (lambda (f)
-                     (lambda (n)
-                       (cond ((= n 0) 1)
-                             (else (* n (f (- n 1)))))))) 30)))
+    (display "期望输出：31") (newline)
+    (display "((lambda (x) (add1 x)) 30)=")
+    (display (value '((lambda (x) (add1 x)) 30))) (newline)
 
+    (display "10!（期望输出3628000）=")
+    (display (value '(((lambda (S)
+                        ((lambda (x) (S (lambda (y) ((x x) y))))
+                          (lambda (x) (S (lambda (y) ((x x) y))))))
+                      (lambda (f)
+                        (lambda (n)
+                          (cond ((= n 0) 1)
+                                (else (* n (f (- n 1)))))))) 10)))
+
+    (newline)
+    (newline)
+  })
+)
