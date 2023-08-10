@@ -7,10 +7,10 @@ const fs = require("fs");
 
 function UT(sourcePath: string | void) {
     // TODO 相对路径处理
-    sourcePath = sourcePath || "E:/Desktop/GitRepos/Animach/testcase/main.scm";
+    sourcePath = sourcePath || "E:/Desktop/GitRepos/Animac/testcase/main.scm";
 
     let targetModule = LoadModule(sourcePath);
-    // fs.writeFileSync("E:/Desktop/GitRepos/Animach/testcase/Module.json", JSON.stringify(targetModule, null, 2), "utf-8");
+    // fs.writeFileSync("E:/Desktop/GitRepos/Animac/testcase/Module.json", JSON.stringify(targetModule, null, 2), "utf-8");
 
     let PROCESS = new Process(targetModule);
     let RUNTIME = new Runtime();

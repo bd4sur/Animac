@@ -1,53 +1,53 @@
-<p align="center"><img src="./documentation/Animach-Logo.png" width="400"></p>
+<p align="center"><img src="./doc/logo.png" width="400"></p>
 
-<h1 align="center">Animach / 灵机</h1>
+<h1 align="center">Animac / 灵机</h1>
 
 版本 0.1.0
 
-**Animach**是一款[Scheme](https://zh.wikipedia.org/wiki/Scheme)语言实现，能够将Scheme编译为中间语言代码，并且在虚拟机上执行中间语言代码。Animach基于Node.js开发，你可以使用JavaScript或者TypeScript编写“本地函数库”，以扩展Animach的功能。
+**Animac**是[Scheme](https://zh.wikipedia.org/wiki/Scheme)语言的一个实现，能够将Scheme代码编译为中间语言代码，并且在虚拟机上执行中间语言代码。目前，Animac使用TypeScript开发，基于Node.js实现。
 
-## 使用方法
+## 开始使用
 
-依赖项：
-
-- Node.js v10+
-
-执行以下命令，以启动Animach。
+请先安装Node.js，建议使用 V18.17.1 LTS。然后执行以下命令，以启动Animac：
 
 ```
-node ./source/animach.js [Options] [Path]
+node build/animac.js [option] [path]
 ```
 
-启动选项：
+选项`[option]`：
 
 - `repl`或留空：REPL（交互式解释器）
-- `run [Path]`：执行`[Path]`处的Scheme源代码。
+- `run [path]`：执行`[path]`处的Scheme代码。
 - `test`：执行测试用例。
 - `debug`：启动调试服务器。
 
-## 系统架构
+构建：
 
-![System Architecture](./documentation/Animach-Sys-Arch.png)
+```
+npx tsc
+```
+
+## 系统框图
+
+![System Architecture](./doc/sysarch.png)
 
 ## 特性
 
 ### Scheme语言特性
 
 - 支持Scheme核心子集，包括作为值的函数、词法作用域和列表操作。
-- 支持一等续延（continuation）和`call/cc`。
-- 暂不支持卫生宏和模式匹配。
+- 支持作为值的续体（continuation）和`call/cc`。
 - 支持模块化开发，可检测并管理模块间依赖关系。
 
 ### 运行时系统
 
 - Scheme代码将被编译为中间语言代码，在基于栈的虚拟机上运行。
-- 基于标记-清除算法的垃圾回收。
 - 支持虚拟机层次上的多进程。支持“端口”机制以实现进程间通信。
 
 ### 标准库和可扩展性
 
 - 通过模块机制，提供基本的函数库，称为标准库。
-- 提供类似于JNI的本地接口机制，可以使用TypeScript/JavaScript编写供Scheme代码调用的Native库，实现Animach与宿主环境（Node.js）的互操作，例如文件读写、网络收发等。
+- 提供类似于JNI的本地接口机制，可以使用TypeScript/JavaScript编写供Scheme代码调用的Native库，实现Animac与宿主环境（Node.js）的互操作，例如文件读写、网络收发等。
 - 并**不打算完全严格遵守R<sup>5</sup>RS标准**，将按个人需要实现若干标准库函数。
 
 ## 计划实现的特性和功能
@@ -55,6 +55,7 @@ node ./source/animach.js [Options] [Path]
 |Features|Priority|Status|
 |----|-----|----|
 |可视化调试工具|★★★|开发中|
+|垃圾回收|★★★|研究中|
 |卫生宏和模式匹配|★★★|研究中|
 |字符串模板和正则表达式|★★★|开发中|
 |完善设计文档和用户手册|★★☆|开发中|
@@ -130,7 +131,7 @@ node ./source/animach.js [Options] [Path]
 ; @*@**@***@**** ...
 ```
 
-更多测试用例，请参考[`/testcase`](https://github.com/bd4sur/Animach/tree/master/testcase)。
+更多测试用例，请参考[`/testcase`](https://github.com/bd4sur/Animac/tree/master/test)。
 
 ## 形式语法（BNF表示）
 
@@ -157,11 +158,11 @@ node ./source/animach.js [Options] [Path]
 
 ## 关于名称
 
-**Animach**，是自创的合成词，由拉丁语词汇Anima“灵魂”和Machina“机器”缩合而成，寓意“有灵魂的机器”。汉语名称为“**灵机**”，从“灵机一动”而来，也暗示本系统与图**灵机**的计算能力等价。
+**Animac**，是自创的合成词，由拉丁语词汇Anima“灵魂”和Machina“机器”缩合而成，寓意“有灵魂的机器”。汉语名称为“**灵机**”，从“灵机一动”而来，也暗示本系统与图**灵机**的计算能力等价。
 
 ## 权利声明 / Licence
 
-版权所有 &copy; 2019~2022 BD4SUR，保留所有权利。
+版权所有 &copy; 2019~2023 BD4SUR，保留所有权利。
 
 采用MIT协议授权。
 

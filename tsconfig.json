@@ -1,0 +1,24 @@
+{
+    "compilerOptions": {
+        "target": "ES6",
+        "module": "amd",
+        "rootDir": ".",
+        "outFile": "./build/animac.js",
+        "outDir": "./build"
+    },
+    "files": [
+        "src/Utility.ts",
+        "src/SchemeObject.ts",
+        "src/Lexer.ts",
+        "src/Parser.ts",
+        "src/Analyser.ts",
+        "src/Compiler.ts",
+        "src/ModuleLoader.ts",
+        "src/Process.ts",
+        "src/Runtime.ts",
+        "src/Instruction.ts",
+        "src/REPL.ts",
+        "src/DebugServer.ts",
+        "src/UT.ts"
+    ]
+}

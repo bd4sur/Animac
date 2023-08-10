@@ -3069,7 +3069,7 @@ class Runtime {
                 let nativeModuleName = id.split(".")[0];
                 let nativeFunctionName = id.split(".").slice(1).join("");
                 // 引入Native模块
-                let nativeModule = require(`./nativelib/${nativeModuleName}.js`);
+                let nativeModule = require(`./lib/${nativeModuleName}.js`);
                 // 调用Native模块内部的函数
                 (nativeModule[nativeFunctionName])(PROCESS, RUNTIME);
             }
@@ -4215,9 +4215,9 @@ class REPL {
     ReadEvalPrint(input) {
         input = input.toString();
         if (input.trim() === ".help") {
-            this.RUNTIME.Output(`Animach v0.1.0-alpha\n`);
+            this.RUNTIME.Output(`Animac v0.1.0-alpha\n`);
             this.RUNTIME.Output(`Copyright (c) 2019~2022 BD4SUR, Licenced under MIT.\n`);
-            this.RUNTIME.Output(`https://github.com/bd4sur/Animach\n`);
+            this.RUNTIME.Output(`https://github.com/bd4sur/Animac\n`);
             this.RUNTIME.Output(`\n`);
             this.RUNTIME.Output(`REPL Command Reference:\n`);
             this.RUNTIME.Output(`  .exit     exit the REPL.\n`);
@@ -4265,7 +4265,7 @@ class REPL {
         }
     }
     Start() {
-        this.RUNTIME.Output(`Animach REPL v0.1.0-alpha\n`);
+        this.RUNTIME.Output(`Animac REPL v0.1.0-alpha\n`);
         this.RUNTIME.Output(`Type ".help" for more information.\n`);
         this.RUNTIME.Output(`> `);
         process.stdin.on("data", (input) => { this.ReadEvalPrint(input); });
@@ -4423,7 +4423,7 @@ function StartDebugServer() {
             }
         });
     }).listen(DebugServerConfig.portNumber);
-    console.log(`Animach调试服务器已启动，正在监听端口：${DebugServerConfig.portNumber}`);
+    console.log(`Animac调试服务器已启动，正在监听端口：${DebugServerConfig.portNumber}`);
 }
 ///////////////////////////////////////////////
 // UT.ts
@@ -4431,9 +4431,9 @@ function StartDebugServer() {
 const fs = require("fs");
 function UT(sourcePath) {
     // TODO 相对路径处理
-    sourcePath = sourcePath || "E:/Desktop/GitRepos/Animach/testcase/main.scm";
+    sourcePath = sourcePath || "E:/Desktop/GitRepos/Animac/testcase/main.scm";
     let targetModule = LoadModule(sourcePath);
-    // fs.writeFileSync("E:/Desktop/GitRepos/Animach/testcase/Module.json", JSON.stringify(targetModule, null, 2), "utf-8");
+    // fs.writeFileSync("E:/Desktop/GitRepos/Animac/testcase/Module.json", JSON.stringify(targetModule, null, 2), "utf-8");
     let PROCESS = new Process(targetModule);
     let RUNTIME = new Runtime();
     RUNTIME.AddProcess(PROCESS);

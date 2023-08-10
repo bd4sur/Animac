@@ -324,7 +324,7 @@ class Runtime {
                 let nativeModuleName = id.split(".")[0];
                 let nativeFunctionName = id.split(".").slice(1).join("");
                 // 引入Native模块
-                let nativeModule = require(`./nativelib/${nativeModuleName}.js`);
+                let nativeModule = require(`./lib/${nativeModuleName}.js`);
                 // 调用Native模块内部的函数
                 (nativeModule[nativeFunctionName])(PROCESS, RUNTIME);
             }

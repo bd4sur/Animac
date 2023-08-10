@@ -1,4 +1,4 @@
-(import Utils "E:/Desktop/GitRepos/Animach/testcase/aurora.test.utils.scm")
+(import Utils "E:/Desktop/GitRepos/Animac/testcase/aurora.test.utils.scm")
 
 (define A
   (lambda (k x1 x2 x3 x4 x5)
