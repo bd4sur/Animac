@@ -27,9 +27,9 @@
       (display (ToStr (% counter 2)))
       (set! counter (+ counter 1))
       (if (= (% counter 2) 0)
-          { (Delay 10)   (Blink) }
-          { (Delay 2000) (Blink) }) ;; 此处这样写，是为了规避现有实现中关于尾位置分析的错误
-      ;(Blink)
+          (Delay 10)
+          (Delay 2000))
+      (Blink)
   }))
 
 (display "Start blinking...") (newline)

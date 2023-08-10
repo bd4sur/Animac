@@ -1,7 +1,8 @@
 {
     "compilerOptions": {
         "target": "ES6",
-        "module": "amd"
+        "module": "amd",
+        "outFile": "animach.js"
     },
     "files": [
         "Utility.ts",

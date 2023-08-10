@@ -1333,26 +1333,26 @@ function Analyse(ast) {
                 // if 特殊构造
                 if (first === "if") {
                     TailCallAnalysis(node.children[1], false);
-                    TailCallAnalysis(node.children[2], true);
-                    TailCallAnalysis(node.children[3], true);
+                    TailCallAnalysis(node.children[2], isTail);
+                    TailCallAnalysis(node.children[3], isTail);
                 }
                 // cond 特殊构造
                 else if (first === "cond") {
                     for (let i = 1; i < node.children.length; i++) {
                         let clauseNode = ast.GetNode(node.children[i]);
                         TailCallAnalysis(clauseNode.children[0], false);
-                        TailCallAnalysis(clauseNode.children[1], true);
+                        TailCallAnalysis(clauseNode.children[1], isTail);
                     }
                 }
                 // 其他构造，含and、or，这些形式的尾位置是一样的
                 else {
                     for (let i = 0; i < node.children.length; i++) {
-                        let istail = false;
+                        let _istail = false;
                         if ((i === node.children.length - 1) &&
                             (node.children[0] === 'begin' || node.children[0] === 'and' || node.children[0] === 'or')) {
-                            istail = true;
+                            _istail = isTail;
                         }
-                        TailCallAnalysis(node.children[i], istail);
+                        TailCallAnalysis(node.children[i], _istail);
                     }
                     if (isTail) {
                         ast.tailcall.push(item); // 标记为尾（调用）位置
