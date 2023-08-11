@@ -3032,15 +3032,47 @@ class Runtime {
     ///////////////////////////////////////
     // 第二类：分支跳转指令
     ///////////////////////////////////////
+    // 辅助函数：本地宿主函数调用
+    CallNative(target, PROCESS, RUNTIME) {
+        // NOTE native不压栈帧
+        let nativeModuleName = target.split(".")[0];
+        let nativeFunctionName = target.split(".").slice(1).join("");
+        // 引入Native模块
+        let nativeModulePath = path.join(process.cwd(), `lib/${nativeModuleName}.js`);
+        let nativeModule = require(nativeModulePath);
+        // 调用Native模块内部的函数
+        (nativeModule[nativeFunctionName])(PROCESS, RUNTIME);
+    }
     //call arg 函数调用（包括continuation、native函数）
     AIL_CALL(argument, PROCESS, RUNTIME) {
-        let argType = TypeOfToken(argument);
-        // 新的栈帧入栈
-        PROCESS.PushStackFrame(PROCESS.currentClosureHandle, PROCESS.PC + 1);
-        // 判断参数类型
-        if (argType === 'LABEL') {
-            let label = argument;
-            let instructionAddress = PROCESS.GetLabelAddress(label);
+        let target;
+        if (TypeOfToken(argument) === "VARIABLE") {
+            // 首先判断是否为Native调用
+            let variable = argument;
+            if (PROCESS.AST.IsNativeCall(variable)) {
+                this.CallNative(variable, PROCESS, RUNTIME);
+                return;
+            }
+            else {
+                target = PROCESS.Dereference(variable);
+            }
+        }
+        else {
+            target = argument;
+        }
+        let targetType = TypeOfToken(target);
+        if (PROCESS.AST.IsNativeCall(target)) {
+            this.CallNative(target, PROCESS, RUNTIME);
+            return;
+        }
+        else if (targetType === "KEYWORD") {
+            // NOTE primitive不压栈帧
+            let mnemonic = PrimitiveInstruction[target] || target;
+            this.ExecuteOneInst(mnemonic, argument, PROCESS, RUNTIME);
+        }
+        else if (targetType === "LABEL") {
+            PROCESS.PushStackFrame(PROCESS.currentClosureHandle, PROCESS.PC + 1); // 新的栈帧入栈
+            let instructionAddress = PROCESS.GetLabelAddress(target);
             let newClosureHandle = PROCESS.NewClosure(instructionAddress, PROCESS.currentClosureHandle);
             let currentClosure = PROCESS.GetCurrentClosure();
             for (let v in currentClosure.freeVariables) {
@@ -3054,18 +3086,20 @@ class Runtime {
             PROCESS.SetCurrentClosure(newClosureHandle);
             PROCESS.Goto(instructionAddress);
         }
-        else if (argType === 'HANDLE') { // 闭包或续延（用于回调参数的情况）
-            let handle = argument;
+        else if (targetType === "HANDLE") {
+            let handle = target;
             let obj = PROCESS.heap.Get(handle);
             let objType = obj.type;
-            // 闭包：已定义的函数实例
+            // 闭包：函数实例
             if (objType === SchemeObjectType.CLOSURE) {
+                PROCESS.PushStackFrame(PROCESS.currentClosureHandle, PROCESS.PC + 1); // 新的栈帧入栈
                 let targetClosure = obj;
                 PROCESS.SetCurrentClosure(handle);
                 PROCESS.Goto(targetClosure.instructionAddress);
             }
             // 续延：调用continuation必须带一个参数，在栈顶。TODO 这个检查在编译时完成
             else if (objType === SchemeObjectType.CONTINUATION) {
+                PROCESS.PushStackFrame(PROCESS.currentClosureHandle, PROCESS.PC + 1); // 新的栈帧入栈
                 let top = PROCESS.PopOperand();
                 let returnTargetLabel = PROCESS.LoadContinuation(handle);
                 PROCESS.PushOperand(top);
@@ -3074,91 +3108,43 @@ class Runtime {
                 PROCESS.Goto(targetAddress);
             }
             else {
-                throw `[Error] call指令的参数必须是标签、闭包或续延`;
+                throw `[Error] call指令的参数必须是标签、闭包或Continuation`;
             }
         }
-        else if (argType === 'VARIABLE') {
-            // TODO 可复用
-            function CallNative(id) {
-                let nativeModuleName = id.split(".")[0];
-                let nativeFunctionName = id.split(".").slice(1).join("");
-                // 引入Native模块
-                let nativeModulePath = path.join(process.cwd(), `lib/${nativeModuleName}.js`);
-                let nativeModule = require(nativeModulePath);
-                // 调用Native模块内部的函数
-                (nativeModule[nativeFunctionName])(PROCESS, RUNTIME);
-            }
-            // 首先判断是否为Native调用
-            let variable = argument;
-            if (PROCESS.AST.IsNativeCall(variable)) {
-                CallNative(variable);
-            }
-            else {
-                let value = PROCESS.Dereference(variable);
-                let valueType = TypeOfToken(value);
-                if (PROCESS.AST.IsNativeCall(value)) {
-                    CallNative(value);
-                }
-                else if (valueType === 'KEYWORD') {
-                    // NOTE primitive不压栈帧
-                    PROCESS.PopStackFrame();
-                    let mnemonic = PrimitiveInstruction[value] || value;
-                    this.ExecuteOneInst(mnemonic, argument, PROCESS, RUNTIME);
-                }
-                else if (valueType === 'LABEL') {
-                    let label = value;
-                    let instructionAddress = PROCESS.GetLabelAddress(label);
-                    let newClosureHandle = PROCESS.NewClosure(instructionAddress, PROCESS.currentClosureHandle);
-                    let currentClosure = PROCESS.GetCurrentClosure();
-                    for (let v in currentClosure.freeVariables) {
-                        let value = currentClosure.GetFreeVariable(v);
-                        PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
-                    }
-                    for (let v in currentClosure.boundVariables) {
-                        let value = currentClosure.GetBoundVariable(v);
-                        PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
-                    }
-                    PROCESS.SetCurrentClosure(newClosureHandle);
-                    PROCESS.Goto(instructionAddress);
-                }
-                // 值为把柄：可能是闭包、continuation或其他
-                else if (valueType === "HANDLE") {
-                    let handle = value;
-                    let obj = PROCESS.heap.Get(handle);
-                    let objType = obj.type;
-                    // 闭包：已定义的函数实例
-                    if (objType === SchemeObjectType.CLOSURE) {
-                        let targetClosure = obj;
-                        PROCESS.SetCurrentClosure(handle);
-                        PROCESS.Goto(targetClosure.instructionAddress);
-                    }
-                    // 续延：调用continuation必须带一个参数，在栈顶。TODO 这个检查在编译时完成
-                    else if (objType === SchemeObjectType.CONTINUATION) {
-                        let top = PROCESS.PopOperand();
-                        let returnTargetLabel = PROCESS.LoadContinuation(handle);
-                        PROCESS.PushOperand(top);
-                        // console.info(`[Info] Continuation已恢复，返回标签：${returnTargetLabel}`);
-                        let targetAddress = PROCESS.GetLabelAddress(returnTargetLabel);
-                        PROCESS.Goto(targetAddress);
-                    }
-                    else {
-                        throw `[Error] call指令的参数必须是标签、闭包或续延`;
-                    }
-                }
-                else {
-                    throw `[Error] call指令的参数必须是标签、闭包或续延`;
-                }
-            } // Native判断结束
-        } // Variable分支结束
+        else {
+            throw `[Error] call指令的参数必须是标签、闭包或Continuation`;
+        }
     }
     //tailcall arg 函数尾调用
     AIL_TAILCALL(argument, PROCESS, RUNTIME) {
-        let argType = TypeOfToken(argument);
         // 与call唯一的不同就是调用前不压栈帧，所以下面这坨代码是可以整体复用的
-        // 判断参数类型
-        if (argType === 'LABEL') {
-            let label = argument;
-            let instructionAddress = PROCESS.GetLabelAddress(label);
+        let target;
+        if (TypeOfToken(argument) === "VARIABLE") {
+            // 首先判断是否为Native调用
+            let variable = argument;
+            if (PROCESS.AST.IsNativeCall(variable)) {
+                this.CallNative(variable, PROCESS, RUNTIME);
+                return;
+            }
+            else {
+                target = PROCESS.Dereference(variable);
+            }
+        }
+        else {
+            target = argument;
+        }
+        let targetType = TypeOfToken(target);
+        if (PROCESS.AST.IsNativeCall(target)) {
+            this.CallNative(target, PROCESS, RUNTIME);
+            return;
+        }
+        else if (targetType === "KEYWORD") {
+            // NOTE primitive不压栈帧
+            let mnemonic = PrimitiveInstruction[target] || target;
+            this.ExecuteOneInst(mnemonic, argument, PROCESS, RUNTIME);
+        }
+        else if (targetType === "LABEL") {
+            let instructionAddress = PROCESS.GetLabelAddress(target);
             let currentClosure = PROCESS.GetCurrentClosure();
             if (currentClosure.instructionAddress !== instructionAddress) {
                 let newClosureHandle = PROCESS.NewClosure(instructionAddress, PROCESS.currentClosureHandle);
@@ -3174,11 +3160,11 @@ class Runtime {
             }
             PROCESS.Goto(instructionAddress);
         }
-        else if (argType === 'HANDLE') { // 闭包或续延（用于回调参数的情况）
-            let handle = argument;
+        else if (targetType === "HANDLE") {
+            let handle = target;
             let obj = PROCESS.heap.Get(handle);
             let objType = obj.type;
-            // 闭包：已定义的函数实例
+            // 闭包：函数实例
             if (objType === SchemeObjectType.CLOSURE) {
                 let targetClosure = obj;
                 PROCESS.SetCurrentClosure(handle);
@@ -3194,81 +3180,12 @@ class Runtime {
                 PROCESS.Goto(targetAddress);
             }
             else {
-                throw `[Error] tailcall指令的参数必须是标签、闭包或续延`;
+                throw `[Error] call指令的参数必须是标签、闭包或Continuation`;
             }
         }
-        else if (argType === 'VARIABLE') {
-            // TODO 可复用
-            function CallNative(id) {
-                let nativeModuleName = id.split(".")[0];
-                let nativeFunctionName = id.split(".").slice(1).join("");
-                // 引入Native模块
-                let nativeModule = require(`./nativelib/${nativeModuleName}.js`);
-                // 调用Native模块内部的函数
-                (nativeModule[nativeFunctionName])(PROCESS, RUNTIME);
-            }
-            // 首先判断是否为Native调用
-            let variable = argument;
-            if (PROCESS.AST.IsNativeCall(variable)) {
-                CallNative(variable);
-            }
-            else {
-                let value = PROCESS.Dereference(variable);
-                let valueType = TypeOfToken(value);
-                if (PROCESS.AST.IsNativeCall(value)) {
-                    CallNative(value);
-                }
-                else if (valueType === 'KEYWORD') {
-                    let mnemonic = PrimitiveInstruction[value] || value;
-                    this.ExecuteOneInst(mnemonic, argument, PROCESS, RUNTIME);
-                }
-                else if (valueType === 'LABEL') {
-                    let label = value;
-                    let instructionAddress = PROCESS.GetLabelAddress(label);
-                    let currentClosure = PROCESS.GetCurrentClosure();
-                    if (currentClosure.instructionAddress !== instructionAddress) {
-                        let newClosureHandle = PROCESS.NewClosure(instructionAddress, PROCESS.currentClosureHandle);
-                        for (let v in currentClosure.freeVariables) {
-                            let value = currentClosure.GetFreeVariable(v);
-                            PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
-                        }
-                        for (let v in currentClosure.boundVariables) {
-                            let value = currentClosure.GetBoundVariable(v);
-                            PROCESS.GetClosure(newClosureHandle).InitFreeVariable(v, value);
-                        }
-                        PROCESS.SetCurrentClosure(newClosureHandle);
-                    }
-                    PROCESS.Goto(instructionAddress);
-                }
-                // 值为把柄：可能是闭包、continuation或其他
-                else if (valueType === "HANDLE") {
-                    let handle = value;
-                    let obj = PROCESS.heap.Get(handle);
-                    let objType = obj.type;
-                    // 闭包：已定义的函数实例
-                    if (objType === SchemeObjectType.CLOSURE) {
-                        let targetClosure = obj;
-                        PROCESS.SetCurrentClosure(handle);
-                        PROCESS.Goto(targetClosure.instructionAddress);
-                    }
-                    // 续延：调用continuation必须带一个参数，在栈顶。TODO 这个检查在编译时完成
-                    else if (objType === SchemeObjectType.CONTINUATION) {
-                        let top = PROCESS.PopOperand();
-                        let returnTargetLabel = PROCESS.LoadContinuation(handle);
-                        PROCESS.PushOperand(top);
-                        // console.info(`[Info] Continuation已恢复，返回标签：${returnTargetLabel}`);
-                        let targetAddress = PROCESS.GetLabelAddress(returnTargetLabel);
-                        PROCESS.Goto(targetAddress);
-                    }
-                    else {
-                        throw `[Error] tailcall指令的参数必须是标签、闭包或续延`;
-                    }
-                }
-                else {
-                    throw `[Error] tailcall指令的参数必须是标签、闭包或续延`;
-                }
-            } // Native判断结束
-        } // Variable分支结束
+        else {
+            throw `[Error] call指令的参数必须是标签、闭包或Continuation`;
+        }
     }
     //return 函数返回
     AIL_RETURN(argument, PROCESS, RUNTIME) {
