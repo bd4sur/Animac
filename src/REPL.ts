@@ -143,7 +143,7 @@ class REPL {
         input = input.toString();
         if(input.trim() === ".help") {
             this.RUNTIME.Output(`Animac v0.1.0-alpha\n`);
-            this.RUNTIME.Output(`Copyright (c) 2019~2022 BD4SUR, Licenced under MIT.\n`);
+            this.RUNTIME.Output(`Copyright (c) 2019~2023 BD4SUR, Licenced under MIT.\n`);
             this.RUNTIME.Output(`https://github.com/bd4sur/Animac\n`);
             this.RUNTIME.Output(`\n`);
             this.RUNTIME.Output(`REPL Command Reference:\n`);
@@ -194,7 +194,8 @@ class REPL {
     }
 
     public Start(): void {
-        this.RUNTIME.Output(`Animac REPL v0.1.0-alpha\n`);
+        this.RUNTIME.Output(`Animac Scheme Implementation V2023-alpha\n`);
+        this.RUNTIME.Output(`Copyright (c) 2019~2023 BD4SUR\n`);
         this.RUNTIME.Output(`Type ".help" for more information.\n`);
         this.RUNTIME.Output(`> `);
 
