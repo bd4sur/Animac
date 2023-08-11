@@ -30,3 +30,23 @@
             (car l)
             (iter (cdr l) (+ 1 count)))))
     (iter lst 0)))
+
+;; 向列表尾部追加一项
+(define append
+  (lambda (x lst)
+    (define append_cps
+      (lambda (x lst cont)
+        (if (null? lst)
+            (cont (cons x lst))
+            (append_cps x (cdr lst)
+              (lambda (res)
+                (cont (cons (car lst) res)))))))
+  (append_cps x lst (lambda (x) x))))
+
+;; 连接两个列表
+(define concat
+  (lambda (a b)
+    (if (null? b)
+        a
+        (concat (append (car b) a) (cdr b)))))
+

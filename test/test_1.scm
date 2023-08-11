@@ -8,6 +8,7 @@
 (import TLS_Intp   "interpreter.scm")
 (import Calculator "calculator.scm")
 (import Generator  "generator.scm")
+(import FFT        "fft.scm")
 
 ;; 内存占用比较小的测试用例
 (Calendar.run)
@@ -19,3 +20,4 @@
 (TLS_Intp.run)
 (Calculator.run)
 (Generator.run)
+(FFT.run)

@@ -1,16 +1,16 @@
 <p align="center"><img src="./doc/logo.png" width="400"></p>
 
-<h1 align="center">Animac / 灵机</h1>
+<h1 align="center">Animac · 灵机</h1>
 
-版本 0.1.0
-
-**Animac**是[Scheme](https://zh.wikipedia.org/wiki/Scheme)语言的一个实现，能够将Scheme代码编译为中间语言代码，并且在虚拟机上执行中间语言代码。目前，Animac使用TypeScript开发，基于Node.js实现。
+**灵机 · Animac**是一款[Scheme](https://zh.wikipedia.org/wiki/Scheme)解释器，是Scheme语言的一个实现。Animac能够将Scheme代码编译为中间语言代码，并且在虚拟机上执行中间语言代码。目前，Animac使用TypeScript开发，基于Node.js实现。
 
 ## 开始使用
 
 请先安装Node.js，建议使用 V18.17.1 LTS。然后执行以下命令，以启动Animac：
 
 ```
+git clone https://github.com/bd4sur/Animac.git
+cd Animac
 node build/animac.js [option] [path]
 ```
 
@@ -20,11 +20,7 @@ node build/animac.js [option] [path]
 - `run [path]`：执行`[path]`处的Scheme代码。
 - `debug`：启动调试服务器。
 
-构建：
-
-```
-npx tsc
-```
+构建：`npx tsc`
 
 ## 系统框图
 
@@ -48,40 +44,36 @@ npx tsc
 - 提供宿主接口机制，称为“Native接口”，类似于JNI，实现Animac与宿主环境（Node.js）的互操作，例如文件读写、网络收发等。通过Native接口的二次开发，可以灵活扩展Animac的功能，无需修改Animac核心。
 - **不打算严格遵守R<sup>5</sup>RS标准**。
 
-## 计划实现的特性和功能
+## 用例
 
-|Features|Priority|Status|
-|----|-----|----|
-|可视化调试工具|★★★|开发中|
-|垃圾回收|★★★|研究中|
-|卫生宏和模式匹配|★★★|研究中|
-|字符串模板和正则表达式|★★★|开发中|
-|完善设计文档和用户手册|★★☆|开发中|
-|数值类型塔（数学库）|★★☆|计划中|
-|Canvas/SVG图形库|★★☆|计划中|
-|R<sup>n</sup>RS尽量兼容|★☆☆|研究中|
-|持续集成和自动化测试|★☆☆|计划中|
-|较高级的编译优化|★☆☆|计划中|
-|用C语言重构VM|★☆☆|开发中|
-|自动CPST&自动柯里化|★☆☆|计划中|
-|类型系统|★☆☆|计划中|
+全部测试用例位于 [`test`](https://github.com/bd4sur/Animac/tree/master/test) 目录，主要包括3个用例集合和两个较大规模的单独的测试用例，详情如下。
 
-### 开发目标
+用例集1 `test/test_1.scm` 包括：
 
-- 通过持续改进，打造成一套个人自用的脚本工具。
-- 学习研究目的。
+- 格式化输出日历
+- Man or Boy test ([Wikipedia](https://en.wikipedia.org/wiki/Man_or_boy_test))
+- 使用CPS风格实现的复杂的阶乘
+- 快速排序
+- Quine（自己输出自己的程序）
+- 准引用列表
+- *The Little Schemer* 书中给出的简单解释器
+- 中缀表达式解析器
+- 生成器
+- 快速傅里叶变换
 
-## 示例
+用例集2 `test/test_2.scm` 包括：
 
-执行测试用例：
+- Church encoding ([Wikipedia](https://en.wikipedia.org/wiki/Church_encoding))
+- Brainfuck解释器
 
-```
-node build/animac.js test/test_1.scm
-node build/animac.js test/test_2.scm
-node build/animac.js test/test_3.scm
-node build/animac.js test/test_deadlock.scm
-node build/animac.js test/test_tls.scm
-```
+用例集3 `test/test_3.scm` 包括：
+
+- 线程和本地库（文件、HTTPS）测试
+- Yin-yang puzzle ([Wikipedia](https://en.wikipedia.org/wiki/Call-with-current-continuation#Examples))
+
+用例 `test/test_deadlock.scm` 实现了一个死锁现象的案例，旨在测试线程机制和端口操作。
+
+用例 `test/test_tls.scm` 实现了 *The Little Schemer* 书中的部分示例代码。
 
 ### 词法作用域
 
@@ -127,7 +119,23 @@ node build/animac.js test/test_tls.scm
 ; @*@**@***@**** ...
 ```
 
-全部测试用例位于[`/test`](https://github.com/bd4sur/Animac/tree/master/test)。
+## 特性规划
+
+|Features|Priority|Status|
+|----|-----|----|
+|可视化调试工具|★★★|开发中|
+|垃圾回收|★★★|研究中|
+|卫生宏和模式匹配|★★★|研究中|
+|字符串模板和正则表达式|★★★|开发中|
+|完善设计文档和用户手册|★★☆|开发中|
+|数值类型塔（数学库）|★★☆|计划中|
+|Canvas/SVG图形库|★★☆|计划中|
+|R<sup>n</sup>RS尽量兼容|★☆☆|研究中|
+|持续集成和自动化测试|★☆☆|计划中|
+|较高级的编译优化|★☆☆|计划中|
+|用C语言重构VM|★☆☆|开发中|
+|自动CPST&自动柯里化|★☆☆|计划中|
+|类型系统|★☆☆|计划中|
 
 ## 形式语法（BNF表示）
 
@@ -156,10 +164,8 @@ node build/animac.js test/test_tls.scm
 
 **Animac**，是自创的合成词，由拉丁语词汇Anima“灵魂”和Machina“机器”缩合而成，寓意“有灵魂的机器”。汉语名称为“**灵机**”，从“灵机一动”而来，也暗示本系统与图**灵机**的计算能力等价。
 
-## 权利声明 / Licence
+## 权利声明
 
 版权所有 &copy; 2019~2023 BD4SUR，保留所有权利。
 
-采用MIT协议授权。
-
-本系统为个人以学习和自用目的所创作的作品。作者不对此系统的质量作任何承诺，不保证提供任何形式的解释、维护或支持，也不为任何人使用此系统所造成的任何正面的或负面的后果负责。
+本系统“按原样”提供，采用MIT协议授权。本系统为作者个人以学习和自用目的所创作的作品。作者不对本系统的质量作任何承诺。作者不保证提供有关本系统的任何形式的解释、维护或支持。作者不为任何人使用此系统所造成的任何正面的或负面的后果负责。
