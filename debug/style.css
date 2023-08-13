@@ -111,74 +111,80 @@ pre {
 p {
     margin: 2px 0;
 }
-.table-container {
-    overflow-x: auto;
-    border: 1px solid #e2e5e8;
-}
-table {
-    font-size: 11px;
-    border-collapse: collapse;
-    background-color: transparent;
-    border-spacing: 0;
-}
-td:first-child, th:first-child {
-    border: none;
-}
 
-td, th {
-    border: none;
-    border-left: 1px solid #e2e5e8;
-    vertical-align: top;
+.col_container {
     font-family: monospace;
-    text-align: left;
+    width: 100%;
+    font-size: 11px;
+    display: flex;
+    align-items: flex-start;
 }
-td {
-    padding: 5px 0;
-}
-th {
-    padding: 5px 8px;
-    height: 30px;
+.col_header {
     background-color: #e2e5e8;
-    vertical-align: middle;
     font-weight: bold;
+}
+.ilcode_column {
+    min-width: 300px;
+}
+.fstack_column {
+    min-width: 200px;
+}
+.opstack_column {
+    min-width: 200px;
 }
 
 .hidden {
     display: none;
 }
 
-.closureTable {
-    width: 100%;
-    border: 2px solid #e2e5e8;
-    margin: 3px 0;
+.fstack_number {
+    color: #777d81;
+    padding-right: 5px;
 }
-.closureTable td{
+.fstack_closure {
+    color: #222;
+    padding-left: 5px; padding-right: 5px;
+}
+.fstack_retaddr {
+    font-weight: bold; color: #256b8f;
+    padding-left: 5px; padding-right: 5px;
+}
+.closure_box {
+    width: 100px;
+    height: 50px;
+    border: 1px solid #e2e5e8;
+    /* background: #e2e5e8; */
+    /* margin: 3px 0; */
+    display: inline-block;
+    overflow: hidden;
+}
+/* .closure_box_header {
+    display: flex;
+} */
+.closure_handle {
+    font-weight: bold;
+}
+
+.closure_var_table {
+    width: 100%;
+    font-size: 11px;
+}
+.closure_var_table td{
     padding: 2px 6px;
 }
-.field {
-    text-align: right;
-    font-weight: bold;
+.bound_var {
+    background-color: #d9f1ff;
 }
-.boundVar,.boundValue{
-    background-color: #c8eaff;
+.free_var {
+    background-color:#fff1f7;
 }
-.boundValue{
+.var_value{
     text-align: left;
 }
-.boundVar{
+.var_name{
     text-align: right;
-    font-weight: bold;
 }
-.freeVar,.freeValue{
-    background-color:#ffe8ed;
-}
-.boundValue{
-    text-align: left;
-}
-.freeVar{
-    text-align: right;
-    font-weight: bold;
-}
+
 hr {
     border: none;
     border-top: 2px solid #e8eced;

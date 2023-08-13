@@ -38,31 +38,24 @@
 </pre>
         </div>
 
-        <div class="table-container"><table style="width:100%;">
-
-            <!--首行-->
-            <tr>
-                <th>中间语言代码</th>
-                <th>函数调用栈</th>
-                <th>操作数栈</th>
-                <th>存储(<span style="color:#00dddd;">池</span>/<span style="color:#dddd00;">堆</span>)</th>
-            </tr>
-
-            <!--调试信息-->
-            <tr>
-                <!--ILCode-->
-                <td><code class="code" id="ilcode"></code></td>
-
-                <!--FSTACK-->
-                <td id="fstack"></td>
-
-                <!--OPSTACK-->
-                <td id="opstack"></td>
-
-                <!--Heap-->
-                <td id="heap"></td>
-            </tr>
-        </table></div>
+        <div class="col_container">
+            <div class="ilcode_column">
+                <div class="col_header">中间语言代码</div>
+                <div id="ilcode"></div>
+            </div>
+            <div class="fstack_column">
+                <div class="col_header">函数调用栈</div>
+                <div id="fstack"></div>
+            </div>
+            <div class="opstack_column">
+                <div class="col_header">操作数栈</div>
+                <div id="opstack"></div>
+            </div>
+            <div class="heap_column">
+                <div class="col_header">存储(<span style="color:#00dddd;">池</span>/<span style="color:#dddd00;">堆</span>)</div>
+                <div id="heap"></div>
+            </div>
+        </div>
 
     </div>
 
@@ -75,6 +68,10 @@ function render(res) {
     let FSTACK = process.FSTACK;
     let OPSTACK = process.OPSTACK;
     let instructions = process.instructions;
+
+    function esc(s) {
+        return String(s).replace("&", "&amp;");
+    }
 
     // Console
     $("#output").html(res.outputBuffer);
@@ -92,17 +89,14 @@ function render(res) {
     html = new Array();
     for(let i = FSTACK.length - 1; i > 0; i--) {
         html.push(`
-        <table class="closureTable">
-            <tr><td>#</td><td>闭包</td><td>返回地址</td></tr>
-            <tr><td>${i}</td><td>${FSTACK[i].closureHandle}</td><td>${FSTACK[i].returnTargetAddress}</td></tr>
-        </table>`);
+        <span class="lineNum">${i}</span><span class="fstack_closure">${esc(FSTACK[i].closureHandle)}</span><span class="fstack_retaddr">${FSTACK[i].returnTargetAddress}</span><br>`);
     }
     $('#fstack').html(html.join(""));
 
     // 渲染OPSTACK
     html = new Array();
     for(let i = OPSTACK.length - 1; i > 0; i--) {
-        html.push(`<span class="lineNum">${i}</span>${OPSTACK[i].replace("&", "&amp;")}<br>`);
+        html.push(`<span class="lineNum">${i}</span>${esc(OPSTACK[i])}<br>`);
     }
     $('#opstack').html(html.join(""));
 
@@ -115,23 +109,29 @@ function render(res) {
                 // let boundVarFields = bound.split(".");
                 let color = "";
                 if((heap[hd].dirtyFlag)[bound] === true) color = ` style="color: red; font-weight: bold;"`;
-                variableLine.push(`<tr class="hidden"><td class="boundVar"${color}>${bound}</td><td class="boundValue"${color}>${(heap[hd].boundVariables)[bound]}</td></tr>`);
+                variableLine.push(`<tr class="hidden bound_var"><td class="var_name"${color}>${esc(bound)}</td><td class="var_value"${color}>${esc((heap[hd].boundVariables)[bound])}</td></tr>`);
             }
             for(let free in heap[hd].freeVariables) {
                 // let freeVarFields = free.split(".");
-                variableLine.push(`<tr class="hidden"><td class="freeVar">${free}</td><td class="freeValue">${(heap[hd].freeVariables)[free]}</td></tr>`);
+                variableLine.push(`<tr class="hidden free_var"><td class="var_name">${esc(free)}</td><td class="var_value">${esc((heap[hd].freeVariables)[free])}</td></tr>`);
             }
 
             let currentClosureFlag = "";
             if(hd === process.currentClosureHandle) {
                 currentClosureFlag = ` style="color: red; font-weight: bold;"`;
             }
-            html.push(`<table class="closureTable">
-                <tr><td class="field"${currentClosureFlag}>把柄</td><td${currentClosureFlag}>${hd}</td></tr>
-                <tr><td class="field">上位闭包</td><td>${heap[hd].parent}</td></tr>
-                <tr class="hidden"><td class="field">指令地址</td><td>${heap[hd].instructionAddress}</td></tr>
-                ${variableLine.join("")}
-            </table>`);
+            html.push(`<div class="closure_box">
+                <div class="closure_box_header">
+                    <span class="closure_handle"${currentClosureFlag}>${esc(hd)}</span> (<span class="closure_iaddr">${heap[hd].instructionAddress}</span>)
+                    <span class="closure_parent_handle">上位闭包：${esc(heap[hd].parent)}</span>
+                </div>
+                <table class="closure_var_table">${variableLine.join("")}</table>
+            </div>`);
+        }
+        else {
+            html.push(`<div class="closure_box">${esc(hd)}
+                <div class="hidden">${esc(JSON.stringify(heap[hd]))}</div>
+                </div>`);
         }
     }
     $('#heap').html(html.join(""));
@@ -143,7 +143,7 @@ function SendDebugRequest(action) {
         url: `./${action}`,
         success: (data)=> {
             render(data);
-            $(".closureTable").each((i,e)=>{
+            $(".closure_box").each((i,e)=>{
                 $(e).mousedown((event)=> {
                     $(e).find(".hidden").toggle(0);
                 });

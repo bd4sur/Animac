@@ -10,12 +10,12 @@
     (define even
       (lambda (input even_items odd_items)
         (if (null? input)
-            (cons even_items (cons odd_items '()))
+            `(,even_items ,odd_items)
             (odd (cdr input) (List.append (car input) even_items) odd_items))))
     (define odd
       (lambda (input even_items odd_items)
         (if (null? input)
-            (cons even_items (cons odd_items '()))
+            `(,even_items ,odd_items)
             (even (cdr input) even_items (List.append (car input) odd_items)))))
     (even x '() '())))
 
@@ -23,23 +23,23 @@
   (lambda (x y)
     (define a (car x)) (define b (car (cdr x)))
     (define c (car y)) (define d (car (cdr y)))
-    (cons (- (* a c) (* b d)) (cons (+ (* b c) (* a d)) '()))))
+    `(,(- (* a c) (* b d)) ,(+ (* b c) (* a d)))))
 
-(define complex_add (lambda (x y) (cons (+ (car x) (car y)) (cons (+ (car (cdr x)) (car (cdr y))) '()))))
+(define complex_add (lambda (x y) `(,(+ (car x) (car y)) ,(+ (car (cdr x)) (car (cdr y))))))
 
-(define complex_sub (lambda (x y) (cons (- (car x) (car y)) (cons (- (car (cdr x)) (car (cdr y))) '()))))
+(define complex_sub (lambda (x y) `(,(- (car x) (car y)) ,(- (car (cdr x)) (car (cdr y))))))
 
 (define list_pointwise
   (lambda (op x y)
-    (if (null? x)
+    (if (or (null? x) (null? y))
         '()
         (cons (op (car x) (car y))
               (list_pointwise op (cdr x) (cdr y))))))
 
 (define W_nk
   (lambda (N k)
-    (cons (Math.cos (/ (* -2 (* (Math.PI) k)) N))
-    (cons (Math.sin (/ (* -2 (* (Math.PI) k)) N)) '()))))
+    `(,(Math.cos (/ (* -2 (* (Math.PI) k)) N))
+      ,(Math.sin (/ (* -2 (* (Math.PI) k)) N)))))
 
 (define twiddle_factors
   (lambda (N iter)
