@@ -30,7 +30,7 @@
         <div style="margin: 15px 0;">
             <button id="execute" class="btn-start">▶ 启动</button>
             <button id="reset"  class="btn-stop">↺ 复位</button>
-            <button id="step"  class="btn-common">▷ 步进(F10)</button>
+            <button id="step"  class="btn-common">▷ 步进(F8)</button>
             <button id="stepbystep"  class="btn-common">▷ 连续步进</button>
         </div>
 
@@ -40,7 +40,7 @@
 
         <div class="col_container">
             <div class="ilcode_column">
-                <div class="col_header">中间语言代码</div>
+                <div class="col_header">中间语言指令序列</div>
                 <div id="ilcode"></div>
             </div>
             <div class="fstack_column">
@@ -52,8 +52,9 @@
                 <div id="opstack"></div>
             </div>
             <div class="heap_column">
-                <div class="col_header">存储(<span style="color:#00dddd;">池</span>/<span style="color:#dddd00;">堆</span>)</div>
-                <div id="heap"></div>
+                <div class="col_header">存储（堆）</div>
+                <div id="heap_map"></div>
+                <div id="heap_obj_info"></div>
             </div>
         </div>
 
@@ -62,16 +63,16 @@
 <script src="./jquery.min.js"></script>
 <script>
 
+function esc(s) {
+    return String(s).replace(/&/gi, "&amp;");
+}
+
 function render(res) {
     let process = res.process;
-    let heap = process.heap.data;
+    let heap_data = process.heap.data;
     let FSTACK = process.FSTACK;
     let OPSTACK = process.OPSTACK;
     let instructions = process.instructions;
-
-    function esc(s) {
-        return String(s).replace("&", "&amp;");
-    }
 
     // Console
     $("#output").html(res.outputBuffer);
@@ -87,7 +88,7 @@ function render(res) {
 
     // 渲染FSTACK
     html = new Array();
-    for(let i = FSTACK.length - 1; i > 0; i--) {
+    for(let i = FSTACK.length - 1; i >= 0; i--) {
         html.push(`
         <span class="lineNum">${i}</span><span class="fstack_closure">${esc(FSTACK[i].closureHandle)}</span><span class="fstack_retaddr">${FSTACK[i].returnTargetAddress}</span><br>`);
     }
@@ -95,46 +96,68 @@ function render(res) {
 
     // 渲染OPSTACK
     html = new Array();
-    for(let i = OPSTACK.length - 1; i > 0; i--) {
+    for(let i = OPSTACK.length - 1; i >= 0; i--) {
         html.push(`<span class="lineNum">${i}</span>${esc(OPSTACK[i])}<br>`);
     }
     $('#opstack').html(html.join(""));
 
     // 渲染闭包
     html = new Array();
-    for(let hd in heap) {
-        if(/^\&CLOSURE/gi.test(hd)) {
-            let variableLine = new Array();
-            for(let bound in heap[hd].boundVariables) {
-                // let boundVarFields = bound.split(".");
-                let color = "";
-                if((heap[hd].dirtyFlag)[bound] === true) color = ` style="color: red; font-weight: bold;"`;
-                variableLine.push(`<tr class="hidden bound_var"><td class="var_name"${color}>${esc(bound)}</td><td class="var_value"${color}>${esc((heap[hd].boundVariables)[bound])}</td></tr>`);
+    for(let hd in heap_data) {
+        let property = "";
+        if((process.heap.metadata[hd])[0] === "S") {
+            property = ` heap_obj_static`;
+        }
+        else if(heap_data[hd].type === "CLOSURE") {
+            if(process.currentClosureHandle === hd) {
+                property = ` heap_obj_closure heap_obj_closure_current`;
+                renderHeapObjectInfo(hd, heap_data[hd]);
             }
-            for(let free in heap[hd].freeVariables) {
-                // let freeVarFields = free.split(".");
-                variableLine.push(`<tr class="hidden free_var"><td class="var_name">${esc(free)}</td><td class="var_value">${esc((heap[hd].freeVariables)[free])}</td></tr>`);
+            else {
+                property = ` heap_obj_closure`;
             }
+        }
+        else if(process.heap.data[hd].type === "QUOTE") {
+            property = ` heap_obj_quote`;
+        }
+        else if(process.heap.data[hd].type === "CONTINUATION") {
+            property = ` heap_obj_continuation`;
+        }
 
-            let currentClosureFlag = "";
-            if(hd === process.currentClosureHandle) {
-                currentClosureFlag = ` style="color: red; font-weight: bold;"`;
-            }
-            html.push(`<div class="closure_box">
-                <div class="closure_box_header">
-                    <span class="closure_handle"${currentClosureFlag}>${esc(hd)}</span> (<span class="closure_iaddr">${heap[hd].instructionAddress}</span>)
-                    <span class="closure_parent_handle">上位闭包：${esc(heap[hd].parent)}</span>
-                </div>
-                <table class="closure_var_table">${variableLine.join("")}</table>
-            </div>`);
-        }
-        else {
-            html.push(`<div class="closure_box">${esc(hd)}
-                <div class="hidden">${esc(JSON.stringify(heap[hd]))}</div>
-                </div>`);
-        }
+        html.push(`<div class="heap_obj_box${property}" data-hd="${esc(hd)}">${esc(JSON.stringify(heap_data[hd]))}</div>`);
     }
-    $('#heap').html(html.join(""));
+    $('#heap_map').html(html.join(""));
+}
+
+function renderHeapObjectInfo(hd, info) {
+    if(info.type === "CLOSURE") {
+        let variableLine = new Array();
+        for(let bound in info.boundVariables) {
+            let color = "";
+            if((info.dirtyFlag)[bound] === true) color = ` style="color: red; font-weight: bold;"`;
+            variableLine.push(`<tr class="bound_var"><td class="var_name"${color}>${esc(bound)}</td><td class="var_value"${color}>${esc((info.boundVariables)[bound])}</td></tr>`);
+        }
+        for(let free in info.freeVariables) {
+            variableLine.push(`<tr class="free_var"><td class="var_name">${esc(free)}</td><td class="var_value">${esc((info.freeVariables)[free])}</td></tr>`);
+        }
+
+        $("#heap_obj_info").html(`
+        <div>${esc(hd)}(${info.instructionAddress})</div>
+        <div>Parent: ${esc(info.parent)}</div>
+        <table class="closure_var_table">${variableLine.join("")}</table>`);
+    }
+    else if(info.type === "QUOTE") {
+        $("#heap_obj_info").html(`
+        <div>${esc(hd)}</div>
+        <div>Parent: ${esc(info.parent)}</div>
+        <div>${esc(info.children)}</div>`);
+    }
+    else if(info.type === "CONTINUATION") {
+        $("#heap_obj_info").html(`
+        <div>${esc(hd)}</div>
+        <div>partialEnvironmentJson: ${esc(info.partialEnvironmentJson)}</div>
+        <div>contReturnTargetLable: ${esc(info.contReturnTargetLable)}</div>`);
+    }
 }
 
 function SendDebugRequest(action) {
@@ -143,9 +166,11 @@ function SendDebugRequest(action) {
         url: `./${action}`,
         success: (data)=> {
             render(data);
-            $(".closure_box").each((i,e)=>{
-                $(e).mousedown((event)=> {
-                    $(e).find(".hidden").toggle(0);
+            $(".heap_obj_box").each((i,e)=>{
+                $(e).click((event)=> {
+                    let hd = $(e).attr("data-hd");
+                    let info = JSON.parse($(e).text());
+                    renderHeapObjectInfo(hd, info);
                 });
             });
         },
@@ -191,7 +216,7 @@ $("#reset").click(()=>{
 });
 
 document.onkeydown = (event)=>{
-    if(event && event.keyCode === 121){ // F10
+    if(event && event.keyCode === 119){ // F8
         pause();
         SendDebugRequest("step");
     }

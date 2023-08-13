@@ -4236,39 +4236,24 @@ function StartDebugServer() {
     const moduleQN = "ADB";
     const code = `((lambda ()
 
-(define filter
-  (lambda (f lst)
-    (if (null? lst)
-        '()
-        (if (f (car lst))
-            (cons (car lst) (filter f (cdr lst)))
-            (filter f (cdr lst))))))
+(define res_list '())
+(define count 0)
+(define generator #f)
+(define g
+  (lambda ()
+    ((lambda (init)
+      (call/cc (lambda (Kont)
+                 (set! generator Kont)))
+      (set! init (+ init 1))
+      (set! res_list (cons init res_list))
+      (set! count init)
+      res_list) 0)))
 
-(define concat
-  (lambda (a b)
-    (if (null? a)
-        b
-        (cons (car a) (concat (cdr a) b)))))
-
-(define partition
-  (lambda (op pivot array)
-    (filter (lambda (x) (if (op x pivot) #t #f)) array)))
-
-(define quicksort
-  (lambda (array)
-    (define pivot #f)
-    (if (or (null? array) (null? (cdr array)))
-        array
-        {
-          (set! pivot (car array))
-          (concat (quicksort (partition < pivot array))
-                  (concat (partition = pivot array)
-                          (quicksort (partition > pivot array))))
-        }
-    )
-))
-
-(display (quicksort '(6 -3 5 9 -2 6 1 7 -3 5 3 0 4 -1 6 8 2)))
+(display (g))
+(newline)
+(if (>= count 10)
+    (newline)
+    (display (generator 666)))
 
 ))\n`;
     let mod = LoadModuleFromCode(code, moduleQN);

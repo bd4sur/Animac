@@ -122,6 +122,7 @@ p {
 .col_header {
     background-color: #e2e5e8;
     font-weight: bold;
+    line-height: 2;
 }
 .ilcode_column {
     min-width: 300px;
@@ -149,6 +150,36 @@ p {
     font-weight: bold; color: #256b8f;
     padding-left: 5px; padding-right: 5px;
 }
+
+.heap_obj_box {
+    width: 16px;
+    height: 16px;
+    display: inline-block;
+    overflow: hidden;
+    margin: 0px;
+    border: 1px solid #fff;
+    border-radius: 3px;
+    cursor: pointer;
+    color: transparent;
+}
+.heap_obj_box:hover {
+    border: 1px solid #f00;
+}
+.heap_obj_static {
+    background: #d8dfe6;
+}
+.heap_obj_quote {
+    background: #a2e0ff;
+}
+.heap_obj_continuation {
+    background: #ffb0d0;
+}
+.heap_obj_closure {
+    background: #ffe39d;
+}
+.heap_obj_closure_current {
+    background: #ffbb66;
+}
 .closure_box {
     width: 100px;
     height: 50px;
@@ -166,7 +197,7 @@ p {
 }
 
 .closure_var_table {
-    width: 100%;
+    /* width: 100%; */
     font-size: 11px;
 }
 .closure_var_table td{
