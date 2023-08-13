@@ -27,7 +27,9 @@ function Lexer(code: string): Array<Token> {
             continue;
         }
         // 括号等定界符
-        else if(code[i] === '(' || code[i] === ')' || code[i] === '[' || code[i] === ']' || code[i] === '{' || code[i] === '}' || code[i] === '\''  || code[i] === ','  || code[i] === '`' || code[i] === '"') {
+        else if (code[i-1] !== '\\' && 
+                (code[i] === '(' || code[i] === ')' || code[i] === '[' || code[i] === ']' ||
+                 code[i] === '{' || code[i] === '}' || code[i] === '\'' || code[i] === ',' || code[i] === '`' || code[i] === '"')) {
             if(token_temp.length > 0) {
                 let new_token = token_temp.join('');
                 tokens.push({
@@ -37,7 +39,7 @@ function Lexer(code: string): Array<Token> {
                 token_temp = [];
             }
             if(code[i] === '"') {
-                let string_lit = code.substring(i).match(/\"[^\"]*?\"/gi);
+                let string_lit = code.substring(i).match(/".*?(?<!\\)"/gi);
                 if(string_lit !== null) {
                     tokens.push({
                         string: string_lit[0],

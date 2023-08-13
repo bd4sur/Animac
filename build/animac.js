@@ -33,9 +33,12 @@ function TrimQuotes(str) {
     if (str === undefined)
         return "";
     if (str[0] === '"' && str[str.length - 1] === '"') {
-        return str.substring(1, str.length - 1);
+        str = str.substring(1, str.length - 1);
+        str = str.replace(/\\n/gi, "\n").replace(/\\r/gi, "\r").replace(/\\"/gi, '"').replace(/\\t/gi, '\t');
+        return str;
     }
     else {
+        str = str.replace(/\\n/gi, "\n").replace(/\\r/gi, "\r").replace(/\\"/gi, '"').replace(/\\t/gi, '\t');
         return str;
     }
 }
@@ -440,7 +443,9 @@ function Lexer(code) {
             continue;
         }
         // 括号等定界符
-        else if (code[i] === '(' || code[i] === ')' || code[i] === '[' || code[i] === ']' || code[i] === '{' || code[i] === '}' || code[i] === '\'' || code[i] === ',' || code[i] === '`' || code[i] === '"') {
+        else if (code[i - 1] !== '\\' &&
+            (code[i] === '(' || code[i] === ')' || code[i] === '[' || code[i] === ']' ||
+                code[i] === '{' || code[i] === '}' || code[i] === '\'' || code[i] === ',' || code[i] === '`' || code[i] === '"')) {
             if (token_temp.length > 0) {
                 let new_token = token_temp.join('');
                 tokens.push({
@@ -450,7 +455,7 @@ function Lexer(code) {
                 token_temp = [];
             }
             if (code[i] === '"') {
-                let string_lit = code.substring(i).match(/\"[^\"]*?\"/gi);
+                let string_lit = code.substring(i).match(/".*?(?<!\\)"/gi);
                 if (string_lit !== null) {
                     tokens.push({
                         string: string_lit[0],
