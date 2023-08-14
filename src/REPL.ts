@@ -10,8 +10,6 @@ function LoadModuleFromCode(code: string, REPLModuleQualifiedName: string): Modu
     // 经拓扑排序后的依赖模块序列
     let sortedModuleNames: Array<string> = new Array();
 
-    const fs = require("fs");
-
     // 递归地引入所有依赖文件，并检测循环依赖
     function importModule(pathOrCode: string, isPath: boolean): void {
         let code: string;

@@ -2,6 +2,11 @@
 // Utility.ts
 // 工具函数
 
+const fs = require("fs");
+const path = require("path");
+const http = require('http');
+const url = require('url');
+
 // 状态常量
 const SUCCEED = 0;
 

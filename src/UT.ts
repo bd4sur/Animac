@@ -3,9 +3,6 @@
 // UT.ts
 // 单元测试
 
-const fs = require("fs");
-const path = require("path");
-
 function UT(sourcePath: string) {
     // 处理相对路径
     if(path.isAbsolute(sourcePath) === false) {

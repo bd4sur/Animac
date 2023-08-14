@@ -2,7 +2,6 @@
 // ModuleLoader.ts
 // 模块加载器
 
-
 // 模块
 class Module {
     static AVM_Version: string = "V0";   // 指示可用的AVM版本
@@ -22,9 +21,6 @@ function LoadModule(modulePath: string, workingDir: string): Module {
 
     // 经拓扑排序后的依赖模块序列
     let sortedModuleNames: Array<string> = new Array();
-
-    const fs = require("fs");
-    const path = require("path");
 
     // 递归地引入所有依赖文件，并检测循环依赖
     (function importModule(modulePath: string): void {
@@ -109,7 +105,7 @@ function LoadModule(modulePath: string, workingDir: string): Module {
 // 用于fork指令：从某个Application节点开始，构建模块
 // TODO 这个函数实现不够优雅，待改进
 function LoadModuleFromNode(ast: AST, nodeHandle: Handle, workingDir: string): Module {
-    const fs = require("fs");
+
     // 所有互相依赖的AST
     let allASTs: HashMap<string, AST> = new HashMap();
 

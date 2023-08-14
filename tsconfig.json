@@ -8,7 +8,7 @@
     },
     "files": [
         "src/Utility.ts",
-        "src/SchemeObject.ts",
+        "src/Memory.ts",
         "src/Lexer.ts",
         "src/Parser.ts",
         "src/Analyser.ts",

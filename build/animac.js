@@ -1,5 +1,9 @@
 // Utility.ts
 // 工具函数
+const fs = require("fs");
+const path = require("path");
+const http = require('http');
+const url = require('url');
 // 状态常量
 const SUCCEED = 0;
 // 顶级词法节点、顶级作用域和顶级闭包的parent字段
@@ -96,7 +100,7 @@ class PathUtils {
         return moduleFileName.replace(/\.[^.]*$/gi, "");
     }
 }
-// SchemeObjects.ts
+// Memory.ts
 // 内存管理和对象定义
 class HashMap extends Object {
     set(handle, value) {
@@ -2260,8 +2264,6 @@ function LoadModule(modulePath, workingDir) {
     let dependencyGraph = new Array();
     // 经拓扑排序后的依赖模块序列
     let sortedModuleNames = new Array();
-    const fs = require("fs");
-    const path = require("path");
     // 递归地引入所有依赖文件，并检测循环依赖
     (function importModule(modulePath) {
         // 首先处理模块路径
@@ -2335,7 +2337,6 @@ function LoadModule(modulePath, workingDir) {
 // 用于fork指令：从某个Application节点开始，构建模块
 // TODO 这个函数实现不够优雅，待改进
 function LoadModuleFromNode(ast, nodeHandle, workingDir) {
-    const fs = require("fs");
     // 所有互相依赖的AST
     let allASTs = new HashMap();
     // 依赖关系图：[[模块名, 依赖模块名], ...]
@@ -4036,7 +4037,6 @@ function LoadModuleFromCode(code, REPLModuleQualifiedName) {
     let dependencyGraph = new Array();
     // 经拓扑排序后的依赖模块序列
     let sortedModuleNames = new Array();
-    const fs = require("fs");
     // 递归地引入所有依赖文件，并检测循环依赖
     function importModule(pathOrCode, isPath) {
         let code;
@@ -4229,9 +4229,6 @@ const DebugServerConfig = {
 };
 // 启动调试服务器
 function StartDebugServer() {
-    const fs = require('fs');
-    const http = require('http');
-    const url = require('url');
     let RUNTIME = new Runtime(process.cwd());
     const moduleQN = "ADB";
     const code = `((lambda ()
@@ -4382,8 +4379,6 @@ function StartDebugServer() {
 ///////////////////////////////////////////////
 // UT.ts
 // 单元测试
-const fs = require("fs");
-const path = require("path");
 function UT(sourcePath) {
     // 处理相对路径
     if (path.isAbsolute(sourcePath) === false) {

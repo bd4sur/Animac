@@ -20,9 +20,6 @@ const DebugServerConfig = {
 
 // 启动调试服务器
 function StartDebugServer() {
-    const fs = require('fs');
-    const http = require('http');
-    const url = require('url');
 
     let RUNTIME = new Runtime(process.cwd());
     const moduleQN = "ADB";
