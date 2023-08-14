@@ -13,20 +13,20 @@ class Module {
 // 载入模块：本质上是静态链接
 
 function LoadModule(modulePath: string, workingDir: string): Module {
-    // 所有互相依赖的AST
+    // 所有互相依赖的AST：{moduleID -> AST}
     let allASTs: HashMap<string, AST> = new HashMap();
 
     // 依赖关系图：[[模块名, 依赖模块名], ...]
     let dependencyGraph: Array<Array<string>> = new Array();
 
     // 经拓扑排序后的依赖模块序列
-    let sortedModuleNames: Array<string> = new Array();
+    let sortedModuleIDs: Array<string> = new Array();
 
     // 递归地引入所有依赖文件，并检测循环依赖
-    (function importModule(modulePath: string): void {
-        // 首先处理模块路径
+    (function importModule(modulePath: string, basePath: string): void {
+        // 将相对路径拼接为绝对路径
         if(path.isAbsolute(modulePath) === false) {
-            modulePath = path.join(workingDir, modulePath);
+            modulePath = path.join(basePath, modulePath);
         }
 
         let code: string;
@@ -39,25 +39,27 @@ function LoadModule(modulePath: string, workingDir: string): Module {
 
         code = `((lambda () ${code}))\n`;
 
-        let moduleQualifiedName = PathUtils.GetModuleQualifiedName(modulePath);
+        let currentAST = Analyse(Parse(code, modulePath));
+        let moduleID = PathUtils.PathToModuleID(modulePath);
 
-        let currentAST = Analyse(Parse(code, moduleQualifiedName));
-        allASTs.set(moduleQualifiedName, currentAST);
+        allASTs.set(moduleID, currentAST);
 
         for(let alias in currentAST.dependencies) {
             let dependencyPath = currentAST.dependencies.get(alias);
             dependencyGraph.push([
-                moduleQualifiedName,
-                PathUtils.GetModuleQualifiedName(dependencyPath)
+                moduleID,
+                PathUtils.PathToModuleID(dependencyPath)
             ]);
             // 检测是否有循环依赖
-            sortedModuleNames = TopologicSort(dependencyGraph);
-            if(sortedModuleNames === undefined) {
+            sortedModuleIDs = TopologicSort(dependencyGraph);
+            if(sortedModuleIDs === undefined) {
                 throw `[Error] 模块之间存在循环依赖，无法载入模块。`;
             }
-            importModule(dependencyPath);
+            // 递归引入下一层依赖，其中基准路径为当前遍历的模块的dirname
+            let currentBasePath = path.dirname(dependencyPath);
+            importModule(dependencyPath, currentBasePath);
         }
-    })(modulePath);
+    })(modulePath, workingDir);
 
     // 对每个AST中使用的 外部模块引用 作换名处理
     for(let moduleName in allASTs) {
@@ -73,7 +75,7 @@ function LoadModule(modulePath: string, workingDir: string): Module {
                         let suffix = token.split(".").slice(1).join("");
                         if(prefix in currentAST.dependencies) {
                             // 在相应的依赖模块中查找原名，并替换
-                            let targetModuleName = PathUtils.GetModuleQualifiedName(currentAST.dependencies.get(prefix));
+                            let targetModuleName = PathUtils.PathToModuleID(currentAST.dependencies.get(prefix));
                             let targetVarName = (allASTs.get(targetModuleName).topVariables).get(suffix);
                             node.children[i] = targetVarName;
                         }
@@ -85,19 +87,19 @@ function LoadModule(modulePath: string, workingDir: string): Module {
 
     // 将AST融合起来，编译为单一模块
     let mergedModule: Module = new Module();
-    let mainModuleQualifiedName = PathUtils.GetModuleQualifiedName(modulePath);
-    mergedModule.AST = allASTs.get(mainModuleQualifiedName);
+    let mainModuleID = PathUtils.PathToModuleID(modulePath);
+    mergedModule.AST = allASTs.get(mainModuleID);
     // 按照依赖关系图的拓扑排序进行融合
     // NOTE 由于AST融合是将被融合（依赖）的部分放在前面，所以这里需要逆序进行
-    for(let i = sortedModuleNames.length - 1; i >= 0; i--) {
-        let moduleName = sortedModuleNames[i];
-        if(moduleName === mainModuleQualifiedName) continue;
-        mergedModule.AST.MergeAST(allASTs.get(moduleName), "top");
+    for(let i = sortedModuleIDs.length - 1; i >= 0; i--) {
+        let mdID = sortedModuleIDs[i];
+        if(mdID === mainModuleID) continue;
+        mergedModule.AST.MergeAST(allASTs.get(mdID), "top");
     }
     // 编译
     mergedModule.ILCode = Compile(mergedModule.AST);
 
-    // mergedModule.Components = sortedModuleNames;
+    // mergedModule.Components = sortedModuleIDs;
 
     return mergedModule;
 }
@@ -113,9 +115,9 @@ function LoadModuleFromNode(ast: AST, nodeHandle: Handle, workingDir: string): M
     let dependencyGraph: Array<Array<string>> = new Array();
 
     // 经拓扑排序后的依赖模块序列
-    let sortedModuleNames: Array<string> = new Array();
+    let sortedModuleIDs: Array<string> = new Array();
 
-    let mainModuleQualifiedName = `${ast.moduleQualifiedName}.forked`;
+    let mainModuleID = `${ast.moduleID}.forked`;
 
     let currentAST = ast.Copy();
     // 将目标节点移到顶级作用域
@@ -135,25 +137,25 @@ function LoadModuleFromNode(ast: AST, nodeHandle: Handle, workingDir: string): M
     temp2.push(nodeHandle);
 
     currentAST.GetNode(topLambdaNodeHandle).children = temp.slice(0,2).concat(temp2);
-    allASTs.set(mainModuleQualifiedName, currentAST);
+    allASTs.set(mainModuleID, currentAST);
 
     for(let alias in currentAST.dependencies) {
         let dependencyPath = currentAST.dependencies.get(alias);
         dependencyGraph.push([
-            mainModuleQualifiedName,
-            PathUtils.GetModuleQualifiedName(dependencyPath)
+            mainModuleID,
+            PathUtils.PathToModuleID(dependencyPath)
         ]);
         // 检测是否有循环依赖
-        sortedModuleNames = TopologicSort(dependencyGraph);
-        if(sortedModuleNames === undefined) {
+        sortedModuleIDs = TopologicSort(dependencyGraph);
+        if(sortedModuleIDs === undefined) {
             throw `[Error] 模块之间存在循环依赖，无法载入模块。`;
         }
-        importModule(dependencyPath);
+        importModule(dependencyPath, workingDir);
     }
 
     // 递归地引入所有依赖文件，并检测循环依赖
-    function importModule(modulePath: string): void {
-        // 首先处理模块路径
+    function importModule(modulePath: string, basePath: string): void {
+        // 将相对路径拼接为绝对路径
         if(path.isAbsolute(modulePath) === false) {
             modulePath = path.join(workingDir, modulePath);
         }
@@ -168,23 +170,25 @@ function LoadModuleFromNode(ast: AST, nodeHandle: Handle, workingDir: string): M
 
         code = `((lambda () ${code}))\n`;
 
-        let moduleQualifiedName = PathUtils.GetModuleQualifiedName(modulePath);
+        let currentAST = Analyse(Parse(code, modulePath));
+        let moduleID = PathUtils.PathToModuleID(modulePath);
 
-        let currentAST = Analyse(Parse(code, moduleQualifiedName));
-        allASTs.set(moduleQualifiedName, currentAST);
+        allASTs.set(moduleID, currentAST);
 
         for(let alias in currentAST.dependencies) {
             let dependencyPath = currentAST.dependencies.get(alias);
             dependencyGraph.push([
-                moduleQualifiedName,
-                PathUtils.GetModuleQualifiedName(dependencyPath)
+                moduleID,
+                PathUtils.PathToModuleID(dependencyPath)
             ]);
             // 检测是否有循环依赖
-            sortedModuleNames = TopologicSort(dependencyGraph);
-            if(sortedModuleNames === undefined) {
+            sortedModuleIDs = TopologicSort(dependencyGraph);
+            if(sortedModuleIDs === undefined) {
                 throw `[Error] 模块之间存在循环依赖，无法载入模块。`;
             }
-            importModule(dependencyPath);
+            // 递归引入下一层依赖，其中基准路径为当前遍历的模块的dirname
+            let currentBasePath = path.dirname(dependencyPath);
+            importModule(dependencyPath, currentBasePath);
         }
     }
 
@@ -202,7 +206,7 @@ function LoadModuleFromNode(ast: AST, nodeHandle: Handle, workingDir: string): M
                         let suffix = token.split(".").slice(1).join("");
                         if(prefix in currentAST.dependencies) {
                             // 在相应的依赖模块中查找原名，并替换
-                            let targetModuleName = PathUtils.GetModuleQualifiedName(currentAST.dependencies.get(prefix));
+                            let targetModuleName = PathUtils.PathToModuleID(currentAST.dependencies.get(prefix));
                             let targetVarName = (allASTs.get(targetModuleName).topVariables).get(suffix);
                             node.children[i] = targetVarName;
                         }
@@ -214,18 +218,18 @@ function LoadModuleFromNode(ast: AST, nodeHandle: Handle, workingDir: string): M
 
     // 将AST融合起来，编译为单一模块
     let mergedModule: Module = new Module();
-    mergedModule.AST = allASTs.get(mainModuleQualifiedName);
+    mergedModule.AST = allASTs.get(mainModuleID);
     // 按照依赖关系图的拓扑排序进行融合
     // NOTE 由于AST融合是将被融合（依赖）的部分放在前面，所以这里需要逆序进行
-    for(let i = sortedModuleNames.length - 1; i >= 0; i--) {
-        let moduleName = sortedModuleNames[i];
-        if(moduleName === mainModuleQualifiedName) continue;
-        mergedModule.AST.MergeAST(allASTs.get(moduleName), "top");
+    for(let i = sortedModuleIDs.length - 1; i >= 0; i--) {
+        let mdID = sortedModuleIDs[i];
+        if(mdID === mainModuleID) continue;
+        mergedModule.AST.MergeAST(allASTs.get(mdID), "top");
     }
     // 编译
     mergedModule.ILCode = Compile(mergedModule.AST);
 
-    // mergedModule.Components = sortedModuleNames;
+    // mergedModule.Components = sortedModuleIDs;
 
     return mergedModule;
 }

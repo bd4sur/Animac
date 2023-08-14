@@ -22,7 +22,7 @@ const DebugServerConfig = {
 function StartDebugServer() {
 
     let RUNTIME = new Runtime(process.cwd());
-    const moduleQN = "ADB";
+    const moduleID = "ADB";
     const code = `((lambda ()
 
 (define res_list '())
@@ -45,7 +45,7 @@ function StartDebugServer() {
     (display (generator 666)))
 
 ))\n`;
-    let mod = LoadModuleFromCode(code, moduleQN);
+    let mod = LoadModuleFromCode(code, moduleID);
     let proc = new Process(mod);
     proc.PID = 0;
     RUNTIME.asyncCallback = ()=>{};
@@ -82,7 +82,7 @@ function StartDebugServer() {
                 readFileSystem(filePath + "index.html");
             }
             else if(reqPath === "execute") {
-                let mod = LoadModuleFromCode(code, moduleQN);
+                let mod = LoadModuleFromCode(code, moduleID);
                 let proc = new Process(mod);
                 proc.PID = 0;
                 RUNTIME.outputBuffer = "";
@@ -106,7 +106,7 @@ function StartDebugServer() {
                 response.end();
             }
             else if(reqPath === "reset") {
-                let mod = LoadModuleFromCode(code, moduleQN);
+                let mod = LoadModuleFromCode(code, moduleID);
                 let proc = new Process(mod);
                 proc.PID = 0;
                 RUNTIME.outputBuffer = "";

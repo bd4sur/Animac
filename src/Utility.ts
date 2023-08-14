@@ -107,9 +107,11 @@ function isVariable(token: string): boolean {
 
 // 路径处理
 class PathUtils {
-    static GetModuleQualifiedName(path: string): string {
-        let fields = path.split(/[\/\\]/gi);
-        let moduleFileName = Top(fields);
-        return moduleFileName.replace(/\.[^.]*$/gi, "");
+    static PathToModuleID(absolutePath: string): string {
+        return absolutePath.trim()
+                           .replace(/[\\\/]/gi, ".")
+                           .replace(/\s/gi, "_")
+                           .replace(/[\:]/gi, "")
+                           .replace(/\.scm$/gi, "");
     }
 }

@@ -94,10 +94,12 @@ function isVariable(token) {
 }
 // 路径处理
 class PathUtils {
-    static GetModuleQualifiedName(path) {
-        let fields = path.split(/[\/\\]/gi);
-        let moduleFileName = Top(fields);
-        return moduleFileName.replace(/\.[^.]*$/gi, "");
+    static PathToModuleID(absolutePath) {
+        return absolutePath.trim()
+            .replace(/[\\\/]/gi, ".")
+            .replace(/\s/gi, "_")
+            .replace(/[\:]/gi, "")
+            .replace(/\.scm$/gi, "");
     }
 }
 // Memory.ts
@@ -579,9 +581,10 @@ var NodeType;
     NodeType["BOOLEAN"] = "BOOLEAN";
 })(NodeType || (NodeType = {}));
 class AST {
-    constructor(source, moduleQualifiedName) {
+    constructor(source, absolutePath) {
+        this.absolutePath = absolutePath;
+        this.moduleID = PathUtils.PathToModuleID(absolutePath);
         this.source = source;
-        this.moduleQualifiedName = moduleQualifiedName;
         this.nodes = new Memory();
         this.nodeIndexes = new HashMap();
         this.lambdaHandles = new Array();
@@ -593,7 +596,7 @@ class AST {
     }
     // 深拷贝
     Copy() {
-        let copy = new AST(this.source, this.moduleQualifiedName);
+        let copy = new AST(this.source, this.absolutePath);
         copy.nodes = this.nodes.Copy();
         copy.nodeIndexes = this.nodeIndexes.Copy();
         copy.lambdaHandles = this.lambdaHandles.slice();
@@ -615,8 +618,8 @@ class AST {
     }
     // 创建一个Lambda节点，保存，并返回其把柄
     MakeLambdaNode(parentHandle) {
-        // NOTE 每个节点把柄都带有模块全限定名，这样做的目的是：不必在AST融合过程中调整每个AST的把柄。下同。
-        let handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.LAMBDA`, true);
+        // NOTE 每个节点把柄都带有模块ID，这样做的目的是：不必在AST融合过程中调整每个AST的把柄。下同。
+        let handle = this.nodes.AllocateHandle(`${this.moduleID}.LAMBDA`, true);
         let lambdaObject = new LambdaObject(parentHandle);
         this.nodes.Set(handle, lambdaObject);
         this.lambdaHandles.push(handle);
@@ -628,19 +631,19 @@ class AST {
         let node;
         switch (quoteType) {
             case "QUOTE":
-                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.QUOTE`, true);
+                handle = this.nodes.AllocateHandle(`${this.moduleID}.QUOTE`, true);
                 node = new QuoteObject(parentHandle);
                 break;
             case "QUASIQUOTE":
-                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.QUASIQUOTE`, true);
+                handle = this.nodes.AllocateHandle(`${this.moduleID}.QUASIQUOTE`, true);
                 node = new QuasiquoteObject(parentHandle);
                 break;
             case "UNQUOTE":
-                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.UNQUOTE`, true);
+                handle = this.nodes.AllocateHandle(`${this.moduleID}.UNQUOTE`, true);
                 node = new UnquoteObject(parentHandle);
                 break;
             default:
-                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.APPLICATION`, true);
+                handle = this.nodes.AllocateHandle(`${this.moduleID}.APPLICATION`, true);
                 node = new ApplicationObject(parentHandle);
                 break;
         }
@@ -649,7 +652,7 @@ class AST {
     }
     // 创建一个字符串对象节点，保存，并返回其把柄
     MakeStringNode(str) {
-        let handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.STRING`, true);
+        let handle = this.nodes.AllocateHandle(`${this.moduleID}.STRING`, true);
         let node = new StringObject(str);
         this.nodes.Set(handle, node);
         return handle;
@@ -818,8 +821,8 @@ class AST {
 //  注意：输入代码必须是`((lambda () <code>))`格式
 //
 //////////////////////////////////////////////////
-function Parse(code, moduleQualifiedName) {
-    let ast = new AST(code, moduleQualifiedName);
+function Parse(code, absolutePath) {
+    let ast = new AST(code, absolutePath);
     let tokens = Lexer(code);
     // 节点把柄栈
     let NODE_STACK = new Array();
@@ -1143,13 +1146,18 @@ function Parse(code, moduleQualifiedName) {
                 if (pathStringObject.type !== "STRING") {
                     throw `[预处理] import的来源路径必须写成字符串`;
                 }
-                let path = TrimQuotes(pathStringObject.content);
-                ast.dependencies.set(moduleAlias, path);
+                // 将相对路径扩展为绝对路径
+                let modulePath = TrimQuotes(pathStringObject.content);
+                if (path.isAbsolute(modulePath) === false) {
+                    let basePath = path.dirname(absolutePath); // 当前模块所在的目录
+                    modulePath = path.join(basePath, modulePath); // 将依赖模块的路径拼接为绝对路径
+                }
+                ast.dependencies.set(moduleAlias, modulePath);
             }
             // (native <NativeLibName>)
             else if (nodeType === "APPLICATION" && node.children[0] === "native") {
-                let native = node.children[1];
-                ast.natives.set(native, "enabled"); // TODO: 这里可以写native库的路径。更多断言，例如重复判断、native库存在性判断等
+                let nativeLibName = node.children[1];
+                ast.natives.set(nativeLibName, "enabled"); // TODO: 这里可以写native库的路径。更多断言，例如重复判断、native库存在性判断等
             }
         });
     }
@@ -1409,7 +1417,7 @@ function Compile(ast) {
     // 生成不重复的字符串
     let uniqueStringCounter = 0;
     function UniqueString() {
-        let uniqueString = `${ast.moduleQualifiedName}.ID${uniqueStringCounter.toString()}`;
+        let uniqueString = `${ast.moduleID}.ID${uniqueStringCounter.toString()}`;
         uniqueStringCounter++;
         return uniqueString;
     }
@@ -2230,7 +2238,7 @@ function Compile(ast) {
         // 注释
         AddInstruction(`;;`);
         AddInstruction(`;; Aurora Intermediate Language (AIL) Code`);
-        AddInstruction(`;;   Module: ${ast.moduleQualifiedName}`);
+        AddInstruction(`;;   Module: ${ast.moduleID}`);
         AddInstruction(`;;   Generated by ASCompiler V0`); // TODO 编译器版本号
         AddInstruction(`;;`);
         // 程序入口（顶级Lambda）
@@ -2258,17 +2266,17 @@ class Module {
 Module.AVM_Version = "V0"; // 指示可用的AVM版本
 // 载入模块：本质上是静态链接
 function LoadModule(modulePath, workingDir) {
-    // 所有互相依赖的AST
+    // 所有互相依赖的AST：{moduleID -> AST}
     let allASTs = new HashMap();
     // 依赖关系图：[[模块名, 依赖模块名], ...]
     let dependencyGraph = new Array();
     // 经拓扑排序后的依赖模块序列
-    let sortedModuleNames = new Array();
+    let sortedModuleIDs = new Array();
     // 递归地引入所有依赖文件，并检测循环依赖
-    (function importModule(modulePath) {
-        // 首先处理模块路径
+    (function importModule(modulePath, basePath) {
+        // 将相对路径拼接为绝对路径
         if (path.isAbsolute(modulePath) === false) {
-            modulePath = path.join(workingDir, modulePath);
+            modulePath = path.join(basePath, modulePath);
         }
         let code;
         try {
@@ -2278,23 +2286,25 @@ function LoadModule(modulePath, workingDir) {
             throw `[Error] 模块“${modulePath}”未找到。`;
         }
         code = `((lambda () ${code}))\n`;
-        let moduleQualifiedName = PathUtils.GetModuleQualifiedName(modulePath);
-        let currentAST = Analyse(Parse(code, moduleQualifiedName));
-        allASTs.set(moduleQualifiedName, currentAST);
+        let currentAST = Analyse(Parse(code, modulePath));
+        let moduleID = PathUtils.PathToModuleID(modulePath);
+        allASTs.set(moduleID, currentAST);
         for (let alias in currentAST.dependencies) {
             let dependencyPath = currentAST.dependencies.get(alias);
             dependencyGraph.push([
-                moduleQualifiedName,
-                PathUtils.GetModuleQualifiedName(dependencyPath)
+                moduleID,
+                PathUtils.PathToModuleID(dependencyPath)
             ]);
             // 检测是否有循环依赖
-            sortedModuleNames = TopologicSort(dependencyGraph);
-            if (sortedModuleNames === undefined) {
+            sortedModuleIDs = TopologicSort(dependencyGraph);
+            if (sortedModuleIDs === undefined) {
                 throw `[Error] 模块之间存在循环依赖，无法载入模块。`;
             }
-            importModule(dependencyPath);
+            // 递归引入下一层依赖，其中基准路径为当前遍历的模块的dirname
+            let currentBasePath = path.dirname(dependencyPath);
+            importModule(dependencyPath, currentBasePath);
         }
-    })(modulePath);
+    })(modulePath, workingDir);
     // 对每个AST中使用的 外部模块引用 作换名处理
     for (let moduleName in allASTs) {
         let currentAST = allASTs.get(moduleName);
@@ -2308,7 +2318,7 @@ function LoadModule(modulePath, workingDir) {
                         let suffix = token.split(".").slice(1).join("");
                         if (prefix in currentAST.dependencies) {
                             // 在相应的依赖模块中查找原名，并替换
-                            let targetModuleName = PathUtils.GetModuleQualifiedName(currentAST.dependencies.get(prefix));
+                            let targetModuleName = PathUtils.PathToModuleID(currentAST.dependencies.get(prefix));
                             let targetVarName = (allASTs.get(targetModuleName).topVariables).get(suffix);
                             node.children[i] = targetVarName;
                         }
@@ -2319,19 +2329,19 @@ function LoadModule(modulePath, workingDir) {
     }
     // 将AST融合起来，编译为单一模块
     let mergedModule = new Module();
-    let mainModuleQualifiedName = PathUtils.GetModuleQualifiedName(modulePath);
-    mergedModule.AST = allASTs.get(mainModuleQualifiedName);
+    let mainModuleID = PathUtils.PathToModuleID(modulePath);
+    mergedModule.AST = allASTs.get(mainModuleID);
     // 按照依赖关系图的拓扑排序进行融合
     // NOTE 由于AST融合是将被融合（依赖）的部分放在前面，所以这里需要逆序进行
-    for (let i = sortedModuleNames.length - 1; i >= 0; i--) {
-        let moduleName = sortedModuleNames[i];
-        if (moduleName === mainModuleQualifiedName)
+    for (let i = sortedModuleIDs.length - 1; i >= 0; i--) {
+        let mdID = sortedModuleIDs[i];
+        if (mdID === mainModuleID)
             continue;
-        mergedModule.AST.MergeAST(allASTs.get(moduleName), "top");
+        mergedModule.AST.MergeAST(allASTs.get(mdID), "top");
     }
     // 编译
     mergedModule.ILCode = Compile(mergedModule.AST);
-    // mergedModule.Components = sortedModuleNames;
+    // mergedModule.Components = sortedModuleIDs;
     return mergedModule;
 }
 // 用于fork指令：从某个Application节点开始，构建模块
@@ -2342,8 +2352,8 @@ function LoadModuleFromNode(ast, nodeHandle, workingDir) {
     // 依赖关系图：[[模块名, 依赖模块名], ...]
     let dependencyGraph = new Array();
     // 经拓扑排序后的依赖模块序列
-    let sortedModuleNames = new Array();
-    let mainModuleQualifiedName = `${ast.moduleQualifiedName}.forked`;
+    let sortedModuleIDs = new Array();
+    let mainModuleID = `${ast.moduleID}.forked`;
     let currentAST = ast.Copy();
     // 将目标节点移到顶级作用域
     let topLambdaNodeHandle = currentAST.GetNode(currentAST.TopApplicationNodeHandle()).children[0];
@@ -2360,23 +2370,23 @@ function LoadModuleFromNode(ast, nodeHandle, workingDir) {
     }
     temp2.push(nodeHandle);
     currentAST.GetNode(topLambdaNodeHandle).children = temp.slice(0, 2).concat(temp2);
-    allASTs.set(mainModuleQualifiedName, currentAST);
+    allASTs.set(mainModuleID, currentAST);
     for (let alias in currentAST.dependencies) {
         let dependencyPath = currentAST.dependencies.get(alias);
         dependencyGraph.push([
-            mainModuleQualifiedName,
-            PathUtils.GetModuleQualifiedName(dependencyPath)
+            mainModuleID,
+            PathUtils.PathToModuleID(dependencyPath)
         ]);
         // 检测是否有循环依赖
-        sortedModuleNames = TopologicSort(dependencyGraph);
-        if (sortedModuleNames === undefined) {
+        sortedModuleIDs = TopologicSort(dependencyGraph);
+        if (sortedModuleIDs === undefined) {
             throw `[Error] 模块之间存在循环依赖，无法载入模块。`;
         }
-        importModule(dependencyPath);
+        importModule(dependencyPath, workingDir);
     }
     // 递归地引入所有依赖文件，并检测循环依赖
-    function importModule(modulePath) {
-        // 首先处理模块路径
+    function importModule(modulePath, basePath) {
+        // 将相对路径拼接为绝对路径
         if (path.isAbsolute(modulePath) === false) {
             modulePath = path.join(workingDir, modulePath);
         }
@@ -2388,21 +2398,23 @@ function LoadModuleFromNode(ast, nodeHandle, workingDir) {
             throw `[Error] 模块“${modulePath}”未找到。`;
         }
         code = `((lambda () ${code}))\n`;
-        let moduleQualifiedName = PathUtils.GetModuleQualifiedName(modulePath);
-        let currentAST = Analyse(Parse(code, moduleQualifiedName));
-        allASTs.set(moduleQualifiedName, currentAST);
+        let currentAST = Analyse(Parse(code, modulePath));
+        let moduleID = PathUtils.PathToModuleID(modulePath);
+        allASTs.set(moduleID, currentAST);
         for (let alias in currentAST.dependencies) {
             let dependencyPath = currentAST.dependencies.get(alias);
             dependencyGraph.push([
-                moduleQualifiedName,
-                PathUtils.GetModuleQualifiedName(dependencyPath)
+                moduleID,
+                PathUtils.PathToModuleID(dependencyPath)
             ]);
             // 检测是否有循环依赖
-            sortedModuleNames = TopologicSort(dependencyGraph);
-            if (sortedModuleNames === undefined) {
+            sortedModuleIDs = TopologicSort(dependencyGraph);
+            if (sortedModuleIDs === undefined) {
                 throw `[Error] 模块之间存在循环依赖，无法载入模块。`;
             }
-            importModule(dependencyPath);
+            // 递归引入下一层依赖，其中基准路径为当前遍历的模块的dirname
+            let currentBasePath = path.dirname(dependencyPath);
+            importModule(dependencyPath, currentBasePath);
         }
     }
     // 对每个AST中使用的 外部模块引用 作换名处理
@@ -2418,7 +2430,7 @@ function LoadModuleFromNode(ast, nodeHandle, workingDir) {
                         let suffix = token.split(".").slice(1).join("");
                         if (prefix in currentAST.dependencies) {
                             // 在相应的依赖模块中查找原名，并替换
-                            let targetModuleName = PathUtils.GetModuleQualifiedName(currentAST.dependencies.get(prefix));
+                            let targetModuleName = PathUtils.PathToModuleID(currentAST.dependencies.get(prefix));
                             let targetVarName = (allASTs.get(targetModuleName).topVariables).get(suffix);
                             node.children[i] = targetVarName;
                         }
@@ -2429,18 +2441,18 @@ function LoadModuleFromNode(ast, nodeHandle, workingDir) {
     }
     // 将AST融合起来，编译为单一模块
     let mergedModule = new Module();
-    mergedModule.AST = allASTs.get(mainModuleQualifiedName);
+    mergedModule.AST = allASTs.get(mainModuleID);
     // 按照依赖关系图的拓扑排序进行融合
     // NOTE 由于AST融合是将被融合（依赖）的部分放在前面，所以这里需要逆序进行
-    for (let i = sortedModuleNames.length - 1; i >= 0; i--) {
-        let moduleName = sortedModuleNames[i];
-        if (moduleName === mainModuleQualifiedName)
+    for (let i = sortedModuleIDs.length - 1; i >= 0; i--) {
+        let mdID = sortedModuleIDs[i];
+        if (mdID === mainModuleID)
             continue;
-        mergedModule.AST.MergeAST(allASTs.get(moduleName), "top");
+        mergedModule.AST.MergeAST(allASTs.get(mdID), "top");
     }
     // 编译
     mergedModule.ILCode = Compile(mergedModule.AST);
-    // mergedModule.Components = sortedModuleNames;
+    // mergedModule.Components = sortedModuleIDs;
     return mergedModule;
 }
 // 对依赖关系图作拓扑排序，进而检测是否存在环路
@@ -3633,7 +3645,8 @@ class Runtime {
         if (argType === "HANDLE") {
             let node = PROCESS.heap.Get(argument);
             if (node.type === "APPLICATION") {
-                let modul = LoadModuleFromNode(PROCESS.AST, argument, this.workingDir);
+                let basePath = path.dirname(PROCESS.AST.absolutePath);
+                let modul = LoadModuleFromNode(PROCESS.AST, argument, basePath);
                 let newProcess = new Process(modul);
                 // 分配新的PID
                 newProcess.PID = RUNTIME.AllocatePID();
@@ -3643,7 +3656,12 @@ class Runtime {
             }
             else if (node.type === "STRING") {
                 let modulePath = TrimQuotes(node.content);
-                let forkedModule = LoadModule(modulePath, this.workingDir);
+                // 将相对路径拼接为绝对路径
+                let basePath = path.dirname(PROCESS.AST.absolutePath);
+                if (path.isAbsolute(modulePath) === false) {
+                    modulePath = path.join(basePath, modulePath);
+                }
+                let forkedModule = LoadModule(modulePath, basePath);
                 // 构造新进程，并分配PID
                 let newProcess = new Process(forkedModule);
                 newProcess.PID = RUNTIME.AllocatePID();
@@ -4030,48 +4048,56 @@ class Instruction {
 }
 // REPL.ts
 // Read-Eval-Print Loop
-function LoadModuleFromCode(code, REPLModuleQualifiedName) {
+function LoadModuleFromCode(code, replTempDir) {
     // 所有互相依赖的AST
     let allASTs = new HashMap();
     // 依赖关系图：[[模块名, 依赖模块名], ...]
     let dependencyGraph = new Array();
     // 经拓扑排序后的依赖模块序列
-    let sortedModuleNames = new Array();
+    let sortedModuleIDs = new Array();
     // 递归地引入所有依赖文件，并检测循环依赖
-    function importModule(pathOrCode, isPath) {
+    function importModule(pathOrCode, isPath, basePath) {
         let code;
-        let moduleQualifiedName;
+        let moduleID;
+        let modulePath;
         if (isPath) {
             try {
-                code = fs.readFileSync(pathOrCode, "utf-8");
+                // 将相对路径拼接为绝对路径
+                modulePath = pathOrCode;
+                if (path.isAbsolute(modulePath) === false) {
+                    modulePath = path.join(basePath, modulePath);
+                }
+                code = fs.readFileSync(modulePath, "utf-8");
                 code = `((lambda () ${code}))\n`;
-                moduleQualifiedName = PathUtils.GetModuleQualifiedName(pathOrCode);
             }
             catch (_a) {
-                throw `[Error] 模块“${pathOrCode}”未找到。`;
+                throw `[Error] 模块“${modulePath}”未找到。`;
             }
         }
         else {
+            modulePath = replTempDir;
             code = pathOrCode;
-            moduleQualifiedName = REPLModuleQualifiedName;
         }
-        let currentAST = Analyse(Parse(code, moduleQualifiedName));
-        allASTs.set(moduleQualifiedName, currentAST);
+        moduleID = PathUtils.PathToModuleID(modulePath);
+        let currentAST = Analyse(Parse(code, modulePath));
+        allASTs.set(moduleID, currentAST);
         for (let alias in currentAST.dependencies) {
             let dependencyPath = currentAST.dependencies.get(alias);
             dependencyGraph.push([
-                moduleQualifiedName,
-                PathUtils.GetModuleQualifiedName(dependencyPath)
+                moduleID,
+                PathUtils.PathToModuleID(dependencyPath)
             ]);
             // 检测是否有循环依赖
-            sortedModuleNames = TopologicSort(dependencyGraph);
-            if (sortedModuleNames === undefined) {
+            sortedModuleIDs = TopologicSort(dependencyGraph);
+            if (sortedModuleIDs === undefined) {
                 throw `[Error] 模块之间存在循环依赖，无法载入模块。`;
             }
-            importModule(dependencyPath, true);
+            // 递归引入下一层依赖，其中基准路径为当前遍历的模块的dirname
+            let currentBasePath = path.dirname(dependencyPath);
+            importModule(dependencyPath, true, currentBasePath);
         }
     }
-    importModule(code, false);
+    importModule(code, false, replTempDir);
     // 对每个AST中使用的 外部模块引用 作换名处理
     for (let moduleName in allASTs) {
         let currentAST = allASTs.get(moduleName);
@@ -4085,7 +4111,7 @@ function LoadModuleFromCode(code, REPLModuleQualifiedName) {
                         let suffix = token.split(".").slice(1).join("");
                         if (prefix in currentAST.dependencies) {
                             // 在相应的依赖模块中查找原名，并替换
-                            let targetModuleName = PathUtils.GetModuleQualifiedName(currentAST.dependencies.get(prefix));
+                            let targetModuleName = PathUtils.PathToModuleID(currentAST.dependencies.get(prefix));
                             let targetVarName = (allASTs.get(targetModuleName).topVariables).get(suffix);
                             node.children[i] = targetVarName;
                         }
@@ -4096,14 +4122,15 @@ function LoadModuleFromCode(code, REPLModuleQualifiedName) {
     }
     // 将AST融合起来，编译为单一模块
     let mergedModule = new Module();
-    mergedModule.AST = allASTs.get(REPLModuleQualifiedName);
+    let replModuleID = PathUtils.PathToModuleID(replTempDir);
+    mergedModule.AST = allASTs.get(replModuleID);
     // 按照依赖关系图的拓扑排序进行融合
     // NOTE 由于AST融合是将被融合（依赖）的部分放在前面，所以这里需要逆序进行
-    for (let i = sortedModuleNames.length - 1; i >= 0; i--) {
-        let moduleName = sortedModuleNames[i];
-        if (moduleName === REPLModuleQualifiedName)
+    for (let i = sortedModuleIDs.length - 1; i >= 0; i--) {
+        let mdID = sortedModuleIDs[i];
+        if (mdID === replModuleID)
             continue;
-        mergedModule.AST.MergeAST(allASTs.get(moduleName), "top");
+        mergedModule.AST.MergeAST(allASTs.get(mdID), "top");
     }
     // 编译
     mergedModule.ILCode = Compile(mergedModule.AST);
@@ -4118,7 +4145,7 @@ class REPL {
     run(input, callback) {
         try {
             let code = `((lambda () ${this.allCode.join(" ")} (display ${input}) (newline) ))\n`;
-            let mod = LoadModuleFromCode(code, "REPL");
+            let mod = LoadModuleFromCode(code, path.join(this.RUNTIME.workingDir, "repl.scm"));
             let proc = new Process(mod);
             proc.PID = 0;
             this.RUNTIME.asyncCallback = callback; // NOTE 用于文件读写等异步操作结束之后执行
@@ -4230,7 +4257,7 @@ const DebugServerConfig = {
 // 启动调试服务器
 function StartDebugServer() {
     let RUNTIME = new Runtime(process.cwd());
-    const moduleQN = "ADB";
+    const moduleID = "ADB";
     const code = `((lambda ()
 
 (define res_list '())
@@ -4253,7 +4280,7 @@ function StartDebugServer() {
     (display (generator 666)))
 
 ))\n`;
-    let mod = LoadModuleFromCode(code, moduleQN);
+    let mod = LoadModuleFromCode(code, moduleID);
     let proc = new Process(mod);
     proc.PID = 0;
     RUNTIME.asyncCallback = () => { };
@@ -4286,7 +4313,7 @@ function StartDebugServer() {
                 readFileSystem(filePath + "index.html");
             }
             else if (reqPath === "execute") {
-                let mod = LoadModuleFromCode(code, moduleQN);
+                let mod = LoadModuleFromCode(code, moduleID);
                 let proc = new Process(mod);
                 proc.PID = 0;
                 RUNTIME.outputBuffer = "";
@@ -4310,7 +4337,7 @@ function StartDebugServer() {
                 response.end();
             }
             else if (reqPath === "reset") {
-                let mod = LoadModuleFromCode(code, moduleQN);
+                let mod = LoadModuleFromCode(code, moduleID);
                 let proc = new Process(mod);
                 proc.PID = 0;
                 RUNTIME.outputBuffer = "";

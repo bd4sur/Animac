@@ -904,7 +904,8 @@ class Runtime {
         if(argType === "HANDLE") {
             let node = PROCESS.heap.Get(argument);
             if(node.type === "APPLICATION") {
-                let modul = LoadModuleFromNode(PROCESS.AST, argument, this.workingDir);
+                let basePath = path.dirname(PROCESS.AST.absolutePath);
+                let modul = LoadModuleFromNode(PROCESS.AST, argument, basePath);
                 let newProcess = new Process(modul);
                 // 分配新的PID
                 newProcess.PID = RUNTIME.AllocatePID();
@@ -914,7 +915,12 @@ class Runtime {
             }
             else if(node.type === "STRING"){
                 let modulePath = TrimQuotes(node.content);
-                let forkedModule = LoadModule(modulePath, this.workingDir);
+                // 将相对路径拼接为绝对路径
+                let basePath = path.dirname(PROCESS.AST.absolutePath);
+                if(path.isAbsolute(modulePath) === false) {
+                    modulePath = path.join(basePath, modulePath);
+                }
+                let forkedModule = LoadModule(modulePath, basePath);
                 // 构造新进程，并分配PID
                 let newProcess = new Process(forkedModule);
                 newProcess.PID = RUNTIME.AllocatePID();

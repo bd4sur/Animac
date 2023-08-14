@@ -14,7 +14,8 @@ enum NodeType {
 }
 
 class AST {
-    public moduleQualifiedName: string;              // 模块全限定名
+    public absolutePath: string;                     // 模块代码所在绝对路径
+    public moduleID: string;                         // 模块ID
     public source: string;                           // Scheme源码
     public nodes: Memory;                            // 词法节点
     public nodeIndexes: HashMap<Handle, number>;     // 词法节点到源码位置的映射
@@ -25,9 +26,10 @@ class AST {
     public dependencies: HashMap<string, string>;    // 外部依赖模块：模块别名→模块路径
     public natives: HashMap<string, string>;         // Native模块名→（TODO 可能是模块的路径）
 
-    constructor(source: string, moduleQualifiedName: string) {
+    constructor(source: string, absolutePath: string) {
+        this.absolutePath = absolutePath;
+        this.moduleID = PathUtils.PathToModuleID(absolutePath);
         this.source = source;
-        this.moduleQualifiedName = moduleQualifiedName;
         this.nodes = new Memory();
         this.nodeIndexes = new HashMap();
         this.lambdaHandles = new Array();
@@ -40,7 +42,7 @@ class AST {
 
     // 深拷贝
     public Copy(): AST {
-        let copy = new AST(this.source, this.moduleQualifiedName);
+        let copy = new AST(this.source, this.absolutePath);
         copy.nodes = this.nodes.Copy();
         copy.nodeIndexes = this.nodeIndexes.Copy();
         copy.lambdaHandles = this.lambdaHandles.slice();
@@ -65,8 +67,8 @@ class AST {
 
     // 创建一个Lambda节点，保存，并返回其把柄
     public MakeLambdaNode(parentHandle: Handle): Handle {
-        // NOTE 每个节点把柄都带有模块全限定名，这样做的目的是：不必在AST融合过程中调整每个AST的把柄。下同。
-        let handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.LAMBDA`, true);
+        // NOTE 每个节点把柄都带有模块ID，这样做的目的是：不必在AST融合过程中调整每个AST的把柄。下同。
+        let handle = this.nodes.AllocateHandle(`${this.moduleID}.LAMBDA`, true);
         let lambdaObject = new LambdaObject(parentHandle);
         this.nodes.Set(handle, lambdaObject);
         this.lambdaHandles.push(handle);
@@ -79,19 +81,19 @@ class AST {
         let node: any;
         switch(quoteType) {
             case "QUOTE":
-                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.QUOTE`, true);
+                handle = this.nodes.AllocateHandle(`${this.moduleID}.QUOTE`, true);
                 node = new QuoteObject(parentHandle);
                 break;
             case "QUASIQUOTE":
-                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.QUASIQUOTE`, true);
+                handle = this.nodes.AllocateHandle(`${this.moduleID}.QUASIQUOTE`, true);
                 node = new QuasiquoteObject(parentHandle);
                 break;
             case "UNQUOTE":
-                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.UNQUOTE`, true);
+                handle = this.nodes.AllocateHandle(`${this.moduleID}.UNQUOTE`, true);
                 node = new UnquoteObject(parentHandle);
                 break;
             default:
-                handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.APPLICATION`, true);
+                handle = this.nodes.AllocateHandle(`${this.moduleID}.APPLICATION`, true);
                 node = new ApplicationObject(parentHandle);
                 break;
         }
@@ -101,7 +103,7 @@ class AST {
 
     // 创建一个字符串对象节点，保存，并返回其把柄
     public MakeStringNode(str: string): Handle {
-        let handle = this.nodes.AllocateHandle(`${this.moduleQualifiedName}.STRING`, true);
+        let handle = this.nodes.AllocateHandle(`${this.moduleID}.STRING`, true);
         let node = new StringObject(str);
         this.nodes.Set(handle, node);
         return handle;
@@ -291,8 +293,8 @@ class AST {
 //
 //////////////////////////////////////////////////
 
-function Parse(code: string, moduleQualifiedName: string): AST {
-    let ast = new AST(code, moduleQualifiedName);
+function Parse(code: string, absolutePath: string): AST {
+    let ast = new AST(code, absolutePath);
     let tokens = Lexer(code);
 
     // 节点把柄栈
@@ -630,13 +632,18 @@ function Parse(code: string, moduleQualifiedName: string): AST {
                 if(pathStringObject.type !== "STRING") {
                     throw `[预处理] import的来源路径必须写成字符串`;
                 }
-                let path = TrimQuotes(pathStringObject.content);
-                ast.dependencies.set(moduleAlias, path);
+                // 将相对路径扩展为绝对路径
+                let modulePath = TrimQuotes(pathStringObject.content);
+                if(path.isAbsolute(modulePath) === false) {
+                    let basePath = path.dirname(absolutePath);    // 当前模块所在的目录
+                    modulePath = path.join(basePath, modulePath); // 将依赖模块的路径拼接为绝对路径
+                }
+                ast.dependencies.set(moduleAlias, modulePath);
             }
             // (native <NativeLibName>)
             else if(nodeType === "APPLICATION" && node.children[0] === "native") {
-                let native:string = node.children[1];
-                ast.natives.set(native, "enabled"); // TODO: 这里可以写native库的路径。更多断言，例如重复判断、native库存在性判断等
+                let nativeLibName: string = node.children[1];
+                ast.natives.set(nativeLibName, "enabled"); // TODO: 这里可以写native库的路径。更多断言，例如重复判断、native库存在性判断等
             }
         });
     }
