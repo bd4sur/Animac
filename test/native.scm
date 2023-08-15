@@ -18,10 +18,10 @@
 (fork {
     (Utils.show "子进程2：读取文件")(newline)
     (native File)
-    (define res #f)
-    (set! res (File.Read "LICENSE"))
-    (Utils.show res)
-    (newline)
+    (File.read "../LICENSE" (lambda (s)
+      (Utils.show (File.readSync "../.gitignore"))
+      (Utils.show s)(newline)
+      (File.read "../.gitignore" (lambda (s) (display s) (newline)))))
     (define foo
     (lambda (n)
         (if (= n 0)
