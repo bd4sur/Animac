@@ -9,6 +9,7 @@
 (import Calculator "calculator.scm")
 (import Generator  "generator.scm")
 (import FFT        "fft.scm")
+(import BigInt     "big_int.scm")
 
 ;; 内存占用比较小的测试用例
 (Calendar.run)
@@ -21,3 +22,4 @@
 (Calculator.run)
 (Generator.run)
 (FFT.run)
+(BigInt.run)

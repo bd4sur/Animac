@@ -61,12 +61,31 @@
                        (list_pointwise complex_sub even_dft (list_pointwise complex_mul odd_dft tf)))
         })))
 
+(define ifft
+  (lambda (input N)
+    ;; 复数列表逐个取共轭
+    (define cv_conj
+      (lambda (cv)
+        (List.map cv (lambda (c) `(,(car c) ,(- 0 (car (cdr c))))))))
+    (List.map (cv_conj (fft (cv_conj input) N))
+              (lambda (x) `(,(/ (car x) N) ,(/ (car (cdr x)) N))))))
+
+
+
 (define run
   (lambda () {
     (display "快速傅里叶变换：用于测试数学本地库和列表操作")(newline)
-    (display "期望结果：((8 1) (0 1) (0 1) (0 1) (0 1) (0 1) (0 1) (0 1))")(newline)
-    (display "实际结果：")
-    (display (fft '((1 1) (1 0) (1 0) (1 0) (1 0) (1 0) (1 0) (1 0)) 8))
+    (display "FFT期望结果：((8 1) (0 1) (0 1) (0 1) (0 1) (0 1) (0 1) (0 1))")(newline)
+    (define N 8)
+    (define x '((1 1) (1 0) (1 0) (1 0) (1 0) (1 0) (1 0) (1 0)))
+    (define xx (fft x N))
+    (define x2 (ifft xx N))
+    (display "FFT实际结果：")
+    (display xx)
+    (newline)
+    (display "IFFT期望结果：((1 1) (1 0) (1 0) (1 0) (1 0) (1 0) (1 0) (1 0))")(newline)
+    (display "IFFT实际结果：")
+    (display x2)
     (newline)
     (newline)
   })
