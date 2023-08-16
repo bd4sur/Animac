@@ -235,6 +235,105 @@ function LoadModuleFromNode(ast: AST, nodeHandle: Handle, workingDir: string): M
 }
 
 
+// 直接从代码构建模块：用于REPL、eval(code)、直接解释小段代码等场合
+// 其中virtualDir用于确定模块的ID
+function LoadModuleFromCode(code: string, virtualDir: string): Module {
+    // 所有互相依赖的AST
+    let allASTs: HashMap<string, AST> = new HashMap();
+    // 依赖关系图：[[模块名, 依赖模块名], ...]
+    let dependencyGraph: Array<Array<string>> = new Array();
+    // 经拓扑排序后的依赖模块序列
+    let sortedModuleIDs: Array<string> = new Array();
+
+    // 递归地引入所有依赖文件，并检测循环依赖
+    function importModule(pathOrCode: string, isPath: boolean, basePath: string): void {
+        let code: string;
+        let moduleID: string;
+        let modulePath: string;
+        if(isPath) {
+            try {
+                // 将相对路径拼接为绝对路径
+                modulePath = pathOrCode;
+                if(path.isAbsolute(modulePath) === false) {
+                    modulePath = path.join(basePath, modulePath);
+                }
+                code = fs.readFileSync(modulePath, "utf-8");
+                code = `((lambda () ${code}))\n`;
+            }
+            catch {
+                throw `[Error] 模块“${modulePath}”未找到。`
+            }
+        }
+        else {
+            modulePath = virtualDir;
+            code = pathOrCode;
+        }
+
+        moduleID = PathUtils.PathToModuleID(modulePath);
+        let currentAST = Analyse(Parse(code, modulePath));
+
+        allASTs.set(moduleID, currentAST);
+
+        for(let alias in currentAST.dependencies) {
+            let dependencyPath = currentAST.dependencies.get(alias);
+            dependencyGraph.push([
+                moduleID,
+                PathUtils.PathToModuleID(dependencyPath)
+            ]);
+            // 检测是否有循环依赖
+            sortedModuleIDs = TopologicSort(dependencyGraph);
+            if(sortedModuleIDs === undefined) {
+                throw `[Error] 模块之间存在循环依赖，无法载入模块。`;
+            }
+            // 递归引入下一层依赖，其中基准路径为当前遍历的模块的dirname
+            let currentBasePath = path.dirname(dependencyPath);
+            importModule(dependencyPath, true, currentBasePath);
+        }
+    }
+
+    importModule(code, false, virtualDir);
+
+    // 对每个AST中使用的 外部模块引用 作换名处理
+    for(let moduleName in allASTs) {
+        let currentAST = allASTs.get(moduleName);
+
+        currentAST.nodes.ForEach((nodeHandle)=> {
+            let node = currentAST.nodes.Get(nodeHandle);
+            if(node.type === "LAMBDA" || node.type === "APPLICATION") {
+                for(let i = 0; i < node.children.length; i++) {
+                    let token = node.children[i];
+                    if(isVariable(token) && node.children[0] !== "import") {
+                        let prefix = token.split(".")[0];
+                        let suffix = token.split(".").slice(1).join("");
+                        if(prefix in currentAST.dependencies) {
+                            // 在相应的依赖模块中查找原名，并替换
+                            let targetModuleName = PathUtils.PathToModuleID(currentAST.dependencies.get(prefix));
+                            let targetVarName = (allASTs.get(targetModuleName).topVariables).get(suffix);
+                            node.children[i] = targetVarName;
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // 将AST融合起来，编译为单一模块
+    let mergedModule: Module = new Module();
+    let replModuleID = PathUtils.PathToModuleID(virtualDir);
+    mergedModule.AST = allASTs.get(replModuleID);
+    // 按照依赖关系图的拓扑排序进行融合
+    // NOTE 由于AST融合是将被融合（依赖）的部分放在前面，所以这里需要逆序进行
+    for(let i = sortedModuleIDs.length - 1; i >= 0; i--) {
+        let mdID = sortedModuleIDs[i];
+        if(mdID === replModuleID) continue;
+        mergedModule.AST.MergeAST(allASTs.get(mdID), "top");
+    }
+    // 编译
+    mergedModule.ILCode = Compile(mergedModule.AST);
+    return mergedModule;
+}
+
+
 // 对依赖关系图作拓扑排序，进而检测是否存在环路
 function TopologicSort(dependencyGraph: Array<Array<string>>): Array<string> {
     // 建立邻接表和模块名称表

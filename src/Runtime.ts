@@ -953,7 +953,12 @@ class Runtime {
             }
         }
         else {
-            RUNTIME.Output(`${String(content)}`);
+            if(content === undefined) {
+                RUNTIME.Output(`#undefined`);
+            }
+            else {
+                RUNTIME.Output(`${String(content)}`);
+            }
         }
         PROCESS.Step();
     }

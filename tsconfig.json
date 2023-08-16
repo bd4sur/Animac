@@ -7,7 +7,7 @@
         "outDir": "./build"
     },
     "files": [
-        "src/Utility.ts",
+        "src/Common.ts",
         "src/Memory.ts",
         "src/Lexer.ts",
         "src/Parser.ts",
@@ -19,6 +19,6 @@
         "src/Instruction.ts",
         "src/REPL.ts",
         "src/DebugServer.ts",
-        "src/UT.ts"
+        "src/Main.ts"
     ]
 }

@@ -4,6 +4,26 @@ const fs = require("fs");
 const path = require("path");
 const http = require('http');
 const url = require('url');
+const ANIMAC_VERSION = "V2023-alpha";
+const ANIMAC_HELP = `Animac Scheme Implementation ${ANIMAC_VERSION}
+Copyright (c) 2019~2023 BD4SUR
+https://github.com/bd4sur/Animac
+
+Usage: node animac.js [option] <input> <output>
+
+Options:
+  (no option)       read and run Scheme code from file <input>.
+                      if no <input> argument provided, start interactive REPL.
+  -                 read and run Scheme code from stdin.
+  -c, --compile     compile Scheme code file <input> to Animac VM executable file <output>.
+                      will not execute the compiled executable.
+                      default <output> is in the curent working directory.
+  -d, --debug       activate built-in debugger.
+  -e, --eval        evaluate code string <input>
+  -h, --help        print help and copyright information.
+  -i, --intp        interpret Animac VM executable file <input>.
+  -r, --repl        start interactive REPL (read-eval-print-loop).
+  -v, --version     print Animac version number.`;
 // 状态常量
 const SUCCEED = 0;
 // 顶级词法节点、顶级作用域和顶级闭包的parent字段
@@ -2455,6 +2475,96 @@ function LoadModuleFromNode(ast, nodeHandle, workingDir) {
     // mergedModule.Components = sortedModuleIDs;
     return mergedModule;
 }
+// 直接从代码构建模块：用于REPL、eval(code)、直接解释小段代码等场合
+// 其中virtualDir用于确定模块的ID
+function LoadModuleFromCode(code, virtualDir) {
+    // 所有互相依赖的AST
+    let allASTs = new HashMap();
+    // 依赖关系图：[[模块名, 依赖模块名], ...]
+    let dependencyGraph = new Array();
+    // 经拓扑排序后的依赖模块序列
+    let sortedModuleIDs = new Array();
+    // 递归地引入所有依赖文件，并检测循环依赖
+    function importModule(pathOrCode, isPath, basePath) {
+        let code;
+        let moduleID;
+        let modulePath;
+        if (isPath) {
+            try {
+                // 将相对路径拼接为绝对路径
+                modulePath = pathOrCode;
+                if (path.isAbsolute(modulePath) === false) {
+                    modulePath = path.join(basePath, modulePath);
+                }
+                code = fs.readFileSync(modulePath, "utf-8");
+                code = `((lambda () ${code}))\n`;
+            }
+            catch (_a) {
+                throw `[Error] 模块“${modulePath}”未找到。`;
+            }
+        }
+        else {
+            modulePath = virtualDir;
+            code = pathOrCode;
+        }
+        moduleID = PathUtils.PathToModuleID(modulePath);
+        let currentAST = Analyse(Parse(code, modulePath));
+        allASTs.set(moduleID, currentAST);
+        for (let alias in currentAST.dependencies) {
+            let dependencyPath = currentAST.dependencies.get(alias);
+            dependencyGraph.push([
+                moduleID,
+                PathUtils.PathToModuleID(dependencyPath)
+            ]);
+            // 检测是否有循环依赖
+            sortedModuleIDs = TopologicSort(dependencyGraph);
+            if (sortedModuleIDs === undefined) {
+                throw `[Error] 模块之间存在循环依赖，无法载入模块。`;
+            }
+            // 递归引入下一层依赖，其中基准路径为当前遍历的模块的dirname
+            let currentBasePath = path.dirname(dependencyPath);
+            importModule(dependencyPath, true, currentBasePath);
+        }
+    }
+    importModule(code, false, virtualDir);
+    // 对每个AST中使用的 外部模块引用 作换名处理
+    for (let moduleName in allASTs) {
+        let currentAST = allASTs.get(moduleName);
+        currentAST.nodes.ForEach((nodeHandle) => {
+            let node = currentAST.nodes.Get(nodeHandle);
+            if (node.type === "LAMBDA" || node.type === "APPLICATION") {
+                for (let i = 0; i < node.children.length; i++) {
+                    let token = node.children[i];
+                    if (isVariable(token) && node.children[0] !== "import") {
+                        let prefix = token.split(".")[0];
+                        let suffix = token.split(".").slice(1).join("");
+                        if (prefix in currentAST.dependencies) {
+                            // 在相应的依赖模块中查找原名，并替换
+                            let targetModuleName = PathUtils.PathToModuleID(currentAST.dependencies.get(prefix));
+                            let targetVarName = (allASTs.get(targetModuleName).topVariables).get(suffix);
+                            node.children[i] = targetVarName;
+                        }
+                    }
+                }
+            }
+        });
+    }
+    // 将AST融合起来，编译为单一模块
+    let mergedModule = new Module();
+    let replModuleID = PathUtils.PathToModuleID(virtualDir);
+    mergedModule.AST = allASTs.get(replModuleID);
+    // 按照依赖关系图的拓扑排序进行融合
+    // NOTE 由于AST融合是将被融合（依赖）的部分放在前面，所以这里需要逆序进行
+    for (let i = sortedModuleIDs.length - 1; i >= 0; i--) {
+        let mdID = sortedModuleIDs[i];
+        if (mdID === replModuleID)
+            continue;
+        mergedModule.AST.MergeAST(allASTs.get(mdID), "top");
+    }
+    // 编译
+    mergedModule.ILCode = Compile(mergedModule.AST);
+    return mergedModule;
+}
 // 对依赖关系图作拓扑排序，进而检测是否存在环路
 function TopologicSort(dependencyGraph) {
     // 建立邻接表和模块名称表
@@ -3693,7 +3803,12 @@ class Runtime {
             }
         }
         else {
-            RUNTIME.Output(`${String(content)}`);
+            if (content === undefined) {
+                RUNTIME.Output(`#undefined`);
+            }
+            else {
+                RUNTIME.Output(`${String(content)}`);
+            }
         }
         PROCESS.Step();
     }
@@ -4048,94 +4163,6 @@ class Instruction {
 }
 // REPL.ts
 // Read-Eval-Print Loop
-function LoadModuleFromCode(code, replTempDir) {
-    // 所有互相依赖的AST
-    let allASTs = new HashMap();
-    // 依赖关系图：[[模块名, 依赖模块名], ...]
-    let dependencyGraph = new Array();
-    // 经拓扑排序后的依赖模块序列
-    let sortedModuleIDs = new Array();
-    // 递归地引入所有依赖文件，并检测循环依赖
-    function importModule(pathOrCode, isPath, basePath) {
-        let code;
-        let moduleID;
-        let modulePath;
-        if (isPath) {
-            try {
-                // 将相对路径拼接为绝对路径
-                modulePath = pathOrCode;
-                if (path.isAbsolute(modulePath) === false) {
-                    modulePath = path.join(basePath, modulePath);
-                }
-                code = fs.readFileSync(modulePath, "utf-8");
-                code = `((lambda () ${code}))\n`;
-            }
-            catch (_a) {
-                throw `[Error] 模块“${modulePath}”未找到。`;
-            }
-        }
-        else {
-            modulePath = replTempDir;
-            code = pathOrCode;
-        }
-        moduleID = PathUtils.PathToModuleID(modulePath);
-        let currentAST = Analyse(Parse(code, modulePath));
-        allASTs.set(moduleID, currentAST);
-        for (let alias in currentAST.dependencies) {
-            let dependencyPath = currentAST.dependencies.get(alias);
-            dependencyGraph.push([
-                moduleID,
-                PathUtils.PathToModuleID(dependencyPath)
-            ]);
-            // 检测是否有循环依赖
-            sortedModuleIDs = TopologicSort(dependencyGraph);
-            if (sortedModuleIDs === undefined) {
-                throw `[Error] 模块之间存在循环依赖，无法载入模块。`;
-            }
-            // 递归引入下一层依赖，其中基准路径为当前遍历的模块的dirname
-            let currentBasePath = path.dirname(dependencyPath);
-            importModule(dependencyPath, true, currentBasePath);
-        }
-    }
-    importModule(code, false, replTempDir);
-    // 对每个AST中使用的 外部模块引用 作换名处理
-    for (let moduleName in allASTs) {
-        let currentAST = allASTs.get(moduleName);
-        currentAST.nodes.ForEach((nodeHandle) => {
-            let node = currentAST.nodes.Get(nodeHandle);
-            if (node.type === "LAMBDA" || node.type === "APPLICATION") {
-                for (let i = 0; i < node.children.length; i++) {
-                    let token = node.children[i];
-                    if (isVariable(token) && node.children[0] !== "import") {
-                        let prefix = token.split(".")[0];
-                        let suffix = token.split(".").slice(1).join("");
-                        if (prefix in currentAST.dependencies) {
-                            // 在相应的依赖模块中查找原名，并替换
-                            let targetModuleName = PathUtils.PathToModuleID(currentAST.dependencies.get(prefix));
-                            let targetVarName = (allASTs.get(targetModuleName).topVariables).get(suffix);
-                            node.children[i] = targetVarName;
-                        }
-                    }
-                }
-            }
-        });
-    }
-    // 将AST融合起来，编译为单一模块
-    let mergedModule = new Module();
-    let replModuleID = PathUtils.PathToModuleID(replTempDir);
-    mergedModule.AST = allASTs.get(replModuleID);
-    // 按照依赖关系图的拓扑排序进行融合
-    // NOTE 由于AST融合是将被融合（依赖）的部分放在前面，所以这里需要逆序进行
-    for (let i = sortedModuleIDs.length - 1; i >= 0; i--) {
-        let mdID = sortedModuleIDs[i];
-        if (mdID === replModuleID)
-            continue;
-        mergedModule.AST.MergeAST(allASTs.get(mdID), "top");
-    }
-    // 编译
-    mergedModule.ILCode = Compile(mergedModule.AST);
-    return mergedModule;
-}
 class REPL {
     constructor() {
         this.allCode = new Array();
@@ -4179,8 +4206,8 @@ class REPL {
     ReadEvalPrint(input) {
         input = input.toString();
         if (input.trim() === ".help") {
-            this.RUNTIME.Output(`Animac v0.1.0-alpha\n`);
-            this.RUNTIME.Output(`Copyright (c) 2019~2023 BD4SUR, Licenced under MIT.\n`);
+            this.RUNTIME.Output(`Animac Scheme Implementation V2023-alpha\n`);
+            this.RUNTIME.Output(`Copyright (c) 2019~2023 BD4SUR\n`);
             this.RUNTIME.Output(`https://github.com/bd4sur/Animac\n`);
             this.RUNTIME.Output(`\n`);
             this.RUNTIME.Output(`REPL Command Reference:\n`);
@@ -4404,36 +4431,117 @@ function StartDebugServer() {
     console.log(`Animac调试服务器已启动，正在监听端口：${DebugServerConfig.portNumber}`);
 }
 ///////////////////////////////////////////////
-// UT.ts
-// 单元测试
-function UT(sourcePath) {
-    // 处理相对路径
-    if (path.isAbsolute(sourcePath) === false) {
-        sourcePath = path.join(process.cwd(), sourcePath);
-    }
+// Main.ts
+// 系统入口（外壳）
+// 将Scheme代码文件编译为可执行文件
+function compileCodeToExecutable(inputAbsPath, outputAbsPath) {
     // 以代码所在路径为工作路径
-    let workingDir = path.dirname(sourcePath);
-    let linkedModule = LoadModule(sourcePath, workingDir);
+    let workingDir = path.dirname(inputAbsPath);
+    let linkedModule = LoadModule(inputAbsPath, workingDir);
+    fs.writeFileSync(outputAbsPath, JSON.stringify(linkedModule, null, 2), "utf-8");
+}
+// 直接执行模块文件
+function runFromExecutable(execAbsPath) {
+    let workingDir = process.cwd();
+    let moduleJson = JSON.parse(fs.readFileSync(execAbsPath, "utf-8"));
+    let PROCESS = new Process(moduleJson);
+    let RUNTIME = new Runtime(workingDir);
+    RUNTIME.AddProcess(PROCESS);
+    RUNTIME.StartClock(() => { });
+}
+function runFromFile(srcAbsPath) {
+    // 以代码所在路径为工作路径
+    let workingDir = path.dirname(srcAbsPath);
+    let linkedModule = LoadModule(srcAbsPath, workingDir);
     // fs.writeFileSync("module.json", JSON.stringify(linkedModule, null, 2), "utf-8");
     let PROCESS = new Process(linkedModule);
     let RUNTIME = new Runtime(workingDir);
     RUNTIME.AddProcess(PROCESS);
     RUNTIME.StartClock(() => { });
 }
-let argv = process.argv.slice(2);
-let option = argv[0] || "";
-option = option.trim().toLowerCase();
-let sourcePath = TrimQuotes(argv[1]);
-switch (option) {
-    case "debug":
+function runFromCode(code) {
+    let workingDir = process.cwd();
+    let virtualFilename = "temp.scm";
+    code = `((lambda () (display { ${code} }) (newline) ))\n`;
+    let linkedModule = LoadModuleFromCode(code, path.join(workingDir, virtualFilename));
+    let PROCESS = new Process(linkedModule);
+    let RUNTIME = new Runtime(workingDir);
+    RUNTIME.AddProcess(PROCESS);
+    RUNTIME.StartClock(() => { });
+}
+function shellPrompt() {
+}
+function Main() {
+    let argv = process.argv.slice(2);
+    let option = (argv[0] || "").trim().toLowerCase();
+    // REPL
+    if (option === "") {
+        let sourcePath = TrimQuotes(argv[1]);
+        if (sourcePath.length > 0) {
+            // 相对路径补全为绝对路径
+            if (path.isAbsolute(sourcePath) === false) {
+                sourcePath = path.join(process.cwd(), sourcePath);
+            }
+            runFromFile(sourcePath);
+        }
+        else {
+            let repl = new REPL();
+            repl.Start();
+        }
+    }
+    // 从stdin读取代码并执行
+    else if (option === "-") {
+        process.stdin.on("data", (input) => {
+            runFromCode(input.toString());
+        });
+    }
+    else if (option === "-c" || option === "--compile") {
+        let inputPath = TrimQuotes(argv[1]);
+        let outputPath = TrimQuotes(argv[2]);
+        if (path.isAbsolute(inputPath) === false) {
+            inputPath = path.join(process.cwd(), inputPath);
+        }
+        outputPath = (outputPath.length > 0) ? outputPath : (path.basename(inputPath, ".scm") + ".json");
+        if (path.isAbsolute(outputPath) === false) {
+            outputPath = path.join(path.dirname(inputPath), outputPath);
+        }
+        compileCodeToExecutable(inputPath, outputPath);
+        console.log(`Compiled Animac VM executable file saved at: ${outputPath}\n`);
+    }
+    else if (option === "-d" || option === "--debug") {
         StartDebugServer();
-        break;
-    case "run":
-        UT(sourcePath);
-        break;
-    default:
-    case "repl":
+    }
+    else if (option === "-e" || option === "--eval") {
+        let code = TrimQuotes(argv[1]);
+        runFromCode(code.toString());
+    }
+    // 显示帮助信息
+    else if (option === "-h" || option === "--help") {
+        console.log(ANIMAC_HELP);
+    }
+    // 解释执行编译后的模块
+    else if (option === "-i" || option === "--intp") {
+        let modulePath = TrimQuotes(argv[1]);
+        if (path.isAbsolute(modulePath) === false) {
+            modulePath = path.join(process.cwd(), modulePath);
+        }
+        runFromExecutable(modulePath);
+    }
+    else if (option === "-r" || option === "--repl") {
         let repl = new REPL();
         repl.Start();
-        break;
+    }
+    else if (option === "-v" || option === "--version") {
+        console.log(ANIMAC_VERSION);
+    }
+    // 如果没有可识别的参数，则第一个参数视为输入代码路径
+    else {
+        let sourcePath = TrimQuotes(argv[0]);
+        // 相对路径补全为绝对路径
+        if (path.isAbsolute(sourcePath) === false) {
+            sourcePath = path.join(process.cwd(), sourcePath);
+        }
+        runFromFile(sourcePath);
+    }
 }
+Main();

@@ -7,6 +7,29 @@ const path = require("path");
 const http = require('http');
 const url = require('url');
 
+const ANIMAC_VERSION = "V2023-alpha";
+
+const ANIMAC_HELP =
+`Animac Scheme Implementation ${ANIMAC_VERSION}
+Copyright (c) 2019~2023 BD4SUR
+https://github.com/bd4sur/Animac
+
+Usage: node animac.js [option] <input> <output>
+
+Options:
+  (no option)       read and run Scheme code from file <input>.
+                      if no <input> argument provided, start interactive REPL.
+  -                 read and run Scheme code from stdin.
+  -c, --compile     compile Scheme code file <input> to Animac VM executable file <output>.
+                      will not execute the compiled executable.
+                      default <output> is in the curent working directory.
+  -d, --debug       activate built-in debugger.
+  -e, --eval        evaluate code string <input>
+  -h, --help        print help and copyright information.
+  -i, --intp        interpret Animac VM executable file <input>.
+  -r, --repl        start interactive REPL (read-eval-print-loop).
+  -v, --version     print Animac version number.`;
+
 // 状态常量
 const SUCCEED = 0;
 

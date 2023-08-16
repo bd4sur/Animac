@@ -17,14 +17,8 @@ https://github.com/bd4sur/Animac/assets/20069428/6fb423b5-7798-41e8-917c-ed828b5
 ```
 git clone https://github.com/bd4sur/Animac.git
 cd Animac
-node build/animac.js [option] [path]
+node build/animac.js -h
 ```
-
-选项`[option]`：
-
-- `repl`或留空：REPL（交互式解释器）
-- `run [path]`：执行`[path]`处的Scheme代码。
-- `debug`：启动调试服务器。
 
 构建：`npx tsc`
 
