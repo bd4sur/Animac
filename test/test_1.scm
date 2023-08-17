@@ -1,5 +1,7 @@
 (import Utils      "utils.scm")
 (import Calendar   "calendar.scm")
+(import TLS        "tls.scm")
+(import List       "std.list.scm")
 (import MOB        "man_or_boy.scm")
 (import Fac        "factorial.scm")
 (import Sort       "sort.scm")
@@ -13,6 +15,8 @@
 
 ;; 内存占用比较小的测试用例
 (Calendar.run)
+(TLS.run)
+(List.run)
 (MOB.run)
 (Fac.run)
 (Sort.run)

@@ -51,6 +51,8 @@ node build/animac.js -h
 用例集1 `test/test_1.scm` 包括：
 
 - 格式化输出日历
+- 简单递归函数
+- 列表操作
 - Man or Boy test ([Wikipedia](https://en.wikipedia.org/wiki/Man_or_boy_test))
 - 使用CPS风格实现的复杂的阶乘
 - 快速排序
@@ -59,7 +61,8 @@ node build/animac.js -h
 - *The Little Schemer* 书中给出的简单解释器
 - 中缀表达式解析器
 - 生成器
-- 快速傅里叶变换
+- 快速傅里叶变换（FFT）
+- 基于FFT的大整数乘法
 
 用例集2 `test/test_2.scm` 包括：
 
@@ -71,9 +74,9 @@ node build/animac.js -h
 - 线程和本地库（文件、HTTPS）测试
 - Yin-yang puzzle ([Wikipedia](https://en.wikipedia.org/wiki/Call-with-current-continuation#Examples))
 
-用例 `test/test_deadlock.scm` 实现了一个死锁现象的案例，旨在测试线程机制和端口操作。
+用例 `test/test_deadlock.scm` 基于虚拟机提供的多线程机制，实现了一个死锁现象的案例，旨在测试线程调度器和端口操作。
 
-用例 `test/test_tls.scm` 实现了 *The Little Schemer* 书中的部分示例代码。
+用例 `test/test_cr.scm` 基于`call/cc`实现了一个简单的协程机制，借助典型的生产者消费者问题来演示单个虚拟机线程内实现关键资源的无锁同步操作能力。
 
 ### 词法作用域
 
