@@ -18,7 +18,7 @@ Options:
   -c, --compile     compile Scheme code file <input> to Animac VM executable file <output>.
                       will not execute the compiled executable.
                       default <output> is in the curent working directory.
-  -d, --debug       activate built-in debugger.
+  -d, --debug       activate built-in web IDE (debugger) server.
   -e, --eval        evaluate code string <input>
   -h, --help        print help and copyright information.
   -i, --intp        interpret Animac VM executable file <input>.
@@ -4311,7 +4311,7 @@ function StartDebugServer() {
         };
         // 解析请求，包括文件名
         let reqPath = url.parse(request.url).pathname.substr(1);
-        let filePath = path.join(process.cwd(), "debug", url.parse(request.url).pathname);
+        let filePath = path.join(process.cwd(), "ide", url.parse(request.url).pathname);
         request.on('data', (chunk) => {
             incomeData += chunk;
         });

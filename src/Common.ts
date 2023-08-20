@@ -23,7 +23,7 @@ Options:
   -c, --compile     compile Scheme code file <input> to Animac VM executable file <output>.
                       will not execute the compiled executable.
                       default <output> is in the curent working directory.
-  -d, --debug       activate built-in debugger.
+  -d, --debug       activate built-in web IDE (debugger) server.
   -e, --eval        evaluate code string <input>
   -h, --help        print help and copyright information.
   -i, --intp        interpret Animac VM executable file <input>.

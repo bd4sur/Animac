@@ -30,19 +30,21 @@ node build/animac.js -h
 
 ### Scheme语言特性
 
-- 支持Scheme核心子集，包括作为值的函数、词法作用域和列表操作。
-- 支持作为值的续体（continuation）和`call/cc`。
+- 支持Scheme核心子集，包括第一等（first-class）的函数、词法作用域和列表操作。
+- 支持第一等续体（continuation）和`call/cc`。
+- 自动尾调用优化。
 - 具备模块机制，可检测并管理模块间依赖关系。
+- **不遵守R<sup>5</sup>RS标准**。
 
 ### 运行时系统
 
 - 基于栈的虚拟机，执行Scheme代码编译成的中间语言代码。
 - 支持虚拟机层次上的多线程。支持“端口”机制以实现线程间通信。
+- 暂不具备垃圾回收机制。
 
 ### 宿主接口和可扩展性
 
 - 提供宿主接口机制，称为“Native接口”，类似于JNI，实现Animac与宿主环境（Node.js）的互操作，例如文件读写、网络收发等。通过Native接口的二次开发，可以灵活扩展Animac的功能，无需修改Animac核心。
-- **不打算严格遵守R<sup>5</sup>RS标准**。
 
 ## 用例
 
@@ -78,67 +80,57 @@ node build/animac.js -h
 
 用例 `test/test_cr.scm` 基于`call/cc`实现了一个简单的协程机制，借助典型的生产者消费者问题来演示单个虚拟机线程内实现关键资源的无锁同步操作能力。
 
-### 词法作用域
+**词法作用域**
 
 ```scheme
 (define free 100)
-
-(define foo
-  (lambda () free))
-
-(define bar
-  (lambda (free)
-    (foo)))
-
-(display (bar 200)) ;; 输出100，而不是200
+(define foo (lambda () `(,free))) ; 准引用列表也是词法作用域的
+(define bar (lambda (free) (foo)))
+(bar 200) ; 输出(100)，而不是(200)
 ```
 
-### 函数作为一等公民
+**函数作为一等公民**
 
 ```scheme
-(define eval
-  (lambda (f a b)
-    (f a b)))
-
-(display (eval * 30 40)) ; 1200
-(display (eval (lambda (x y) (/ (+ x y) 2)) 30 40)) ; 35
+(import List "test/std.list.scm")         ; 引入列表操作高阶函数
+(native Math)                             ; 声明使用数学本地库
+(List.reduce '(1 2 3 4 5 6 7 8 9 10) + 0) ; 55
+(List.map '(-2 -1 0 1 2) Math.abs)        ; (2 1 0 1 2)
+(List.filter '(0 1 2 3)
+             (lambda (x) (= 0 (% x 2))))  ; (0 2)
 ```
 
-### Quine（自己输出自己的程序）
+**Quine（自己输出自己的程序）**
 
 ```scheme
 ((lambda (x) (cons x (cons (cons quote (cons x '())) '()))) (quote (lambda (x) (cons x (cons (cons quote (cons x '())) '())))))
 ```
 
-### 续延和`call/cc`
+**续体和`call/cc`**
 
 ```scheme
 ;; Yin-yang puzzle
 ;; see https://en.wikipedia.org/wiki/Call-with-current-continuation
-
 (((lambda (x) (begin (display "@") x)) (call/cc (lambda (k) k)))
  ((lambda (x) (begin (display "*") x)) (call/cc (lambda (k) k))))
-
-; @*@**@***@**** ...
+; Output @*@**@***@**** ...
 ```
 
 ## 特性规划
 
 |Features|Priority|Status|
 |----|-----|----|
-|可视化调试工具|★★★|开发中|
-|垃圾回收|★★★|研究中|
-|卫生宏和模式匹配|★★★|研究中|
-|字符串模板和正则表达式|★★★|开发中|
-|完善设计文档和用户手册|★★☆|开发中|
-|数值类型塔（数学库）|★★☆|计划中|
-|Canvas/SVG图形库|★★☆|计划中|
-|R<sup>n</sup>RS尽量兼容|★☆☆|研究中|
-|持续集成和自动化测试|★☆☆|计划中|
-|较高级的编译优化|★☆☆|计划中|
-|用C语言重构VM|★☆☆|开发中|
-|自动CPST&自动柯里化|★☆☆|计划中|
-|类型系统|★☆☆|计划中|
+|Web IDE|★★★|正在开发|
+|垃圾回收|★★★|待研究|
+|卫生宏和模式匹配|★★★|待研究|
+|自动CPST & 自动柯里化|★★☆|待研究|
+|模板字符串和正则表达式|★★☆|待研究|
+|数值类型塔（数学库）|★★☆|待研究|
+|图形库|★★☆|待研究|
+|尽量兼容R<sup>n</sup>RS|★☆☆|待研究|
+|高级编译优化|★☆☆|待研究|
+|C语言重构|★☆☆|待研究|
+|类型系统|★☆☆|待研究|
 
 ## 形式语法（BNF表示）
 
@@ -163,9 +155,28 @@ node build/animac.js -h
         <Symbol> ::= SYMBOL
 ```
 
-## 关于名称
+## 参考文献
+
+- R Kelsey, et al. **Revised^5 Report on the Algorithmic Language Scheme**. 1998.
+- D P Friedman, M Wand. **Essentials of Programming Panguages**. 3rd Edition. 2001.
+- G Springer, D P Friedman. **Scheme and the Art of Programming**. 1989.
+- H Abelson, G J Sussman. **Structure and Interpretation of Computer Programs**. 2nd Edition. 1996.
+- A V Aho, M S Lam, et al. **编译原理**. 第2版. 赵建华等译. 2009.
+- D P Friedman, M Felleisen. **The Little Schemer**. 1995.
+- D P Friedman, M Felleisen. **The Seasoned Schemer**. 1995.
+- B C Pierce. **Types and Programming Languages**. 2002.
+- G L Steele. **Rabbit: A Compiler for Scheme**. 1978.
+- R K Dybvig. **Three Implementation Models for Scheme**. 1987.
+- O Danvy, A Filinski. **Representing Control: A Study of the CPS Transformation**. 1992.
+- C Flanagan, A Sabry, B F Duba, M Felleisen. **The Essence of Compiling with Continuations**. 1993.
+- R A Kelsey. **A Correspondence between Continuation Passing Style and Static Single Assignment Form**. 1995.
+- O Danvy. **Three Steps for the CPS Transformation**. 1992.
+
+## 名称和图标
 
 **Animac**，是自创的合成词，由拉丁语词汇Anima“灵魂”和Machina“机器”缩合而成，寓意“有灵魂的机器”。汉语名称为“**灵机**”，从“灵机一动”而来，也暗示本系统与图**灵机**的计算能力等价。
+
+图标是六元环状图形，表示Eval-Apply循环。相邻的两边，形如“λ”，表示λ-calculus。六边形表示本系统基于Node.js实现。图形整体与艾舍尔名作《[上升与下降](https://en.wikipedia.org/wiki/Ascending_and_Descending)》相似，表达“无限循环”的意思。
 
 ## 权利声明
 

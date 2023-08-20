@@ -51,7 +51,7 @@ function StartDebugServer() {
         };
         // 解析请求，包括文件名
         let reqPath = url.parse(request.url).pathname.substr(1);
-        let filePath = path.join(process.cwd(), "debug" , url.parse(request.url).pathname);
+        let filePath = path.join(process.cwd(), "ide" , url.parse(request.url).pathname);
 
         request.on('data', (chunk)=>{
             incomeData += chunk;
