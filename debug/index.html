@@ -1,73 +1,314 @@
-<!-- AuroraVM Debugger GUI -->
 <html>
 <head>
 <meta content="text/html; charset=utf-8" http-equiv="Content-Type"/>
-<link rel="stylesheet" type="text/css" href="./style.css" charset="utf-8"/>
-<title>AVM Debugger</title>
+<link rel="stylesheet" type="text/css" href="./codemirror.css" charset="utf-8"/>
+<link rel="stylesheet" type="text/css" href="./ide.css" charset="utf-8"/>
+<title>Animac IDE</title>
+<style>
 
+</style>
 </head>
 <body>
 
-<div class="mainbox">
-    <!--标题-->
-    <header>
-        <div class="title">
-            <img src="./icon.png" style="float: left; position: relative; height: 55px; left: -8px;">
-            <div style="line-height: 55px;">
-                <span style="font-size: 25px; color:#666666;">AnimacVM</span> <span style="font-size: 25px; color:#dddddd;">Debugger</span>
-                <i style="color:#cccccc; font-size: 13px;">v0 alpha</i>
-                <div style="float: right; right: 0; margin-top: 18px;">
-                    <a href="https://github.com/bd4sur/Animac" target="_blank"><img alt="GitHub stars" src="https://img.shields.io/github/stars/bd4sur/Animac?style=social"></a>
+<div class="Header">
+    <div style="display: flex; align-items: center;">
+        <img class="AnimacLogo" src="logo.svg">
+        <div class="HeaderTitle"><b>Animac · 灵机</b> 集成开发环境</div>
+    </div>
+    <div style="margin-right: 20px; color: #fff;">
+        <img alt="GitHub stars" src="https://img.shields.io/github/stars/bd4sur/Animac?style=social">
+    </div>
+</div>
+
+<div class="Center">
+    <div class="Navi">
+        <div style="display: flex; flex-direction: column; justify-content: flex-end; align-items: center;">
+            <svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="18" height="18" style="margin: 10px 16px;"><path d="M0 0h256v256H0V0z m384 0h256v256H384V0z m384 0h256v256h-256V0zM0 768h256v256H0v-256z m384 0h256v256H384v-256z m384 0h256v256h-256v-256zM0 384h256v256H0V384z m384 0h256v256H384V384z m384 0h256v256h-256V384z" fill="#ffffff" fill-opacity="0.65"></path></svg>
+
+            <svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="26" height="26" style="margin: 10px 7px;"><path d="M544 128h-288c-19.2 0-32 12.8-32 32v704c0 19.2 12.8 32 32 32h512c19.2 0 32-12.8 32-32v-480h-192c-35.2 0-64-28.8-64-64v-192z m64 12.8v179.2h179.2l-179.2-179.2z m-352-76.8h352c9.6 0 16 3.2 22.4 9.6l224 224c6.4 6.4 9.6 12.8 9.6 22.4v544c0 54.4-41.6 96-96 96h-512c-54.4 0-96-41.6-96-96v-704c0-54.4 41.6-96 96-96z m64 352h160c19.2 0 32 12.8 32 32s-12.8 32-32 32h-160c-19.2 0-32-12.8-32-32s12.8-32 32-32z m0 128h384c19.2 0 32 12.8 32 32s-12.8 32-32 32h-384c-19.2 0-32-12.8-32-32s12.8-32 32-32z m0 128h384c19.2 0 32 12.8 32 32s-12.8 32-32 32h-384c-19.2 0-32-12.8-32-32s12.8-32 32-32z" fill="#ffffff"></path></svg>
+
+            <svg viewBox="0 0 1025 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="24" height="24" style="margin: 10px 8px;"><path d="M1004.692673 466.396616l-447.094409-447.073929c-25.743103-25.763582-67.501405-25.763582-93.264987 0l-103.873521 103.873521 78.171378 78.171378c12.533635-6.00058 26.562294-9.359266 41.389666-9.359266 53.02219 0 96.00928 42.98709 96.00928 96.00928 0 14.827372-3.358686 28.856031-9.359266 41.389666l127.97824 127.97824c12.533635-6.00058 26.562294-9.359266 41.389666-9.359266 53.02219 0 96.00928 42.98709 96.00928 96.00928s-42.98709 96.00928-96.00928 96.00928-96.00928-42.98709-96.00928-96.00928c0-14.827372 3.358686-28.856031 9.359266-41.389666l-127.97824-127.97824c-3.051489 1.454065-6.184898 2.744293-9.379746 3.870681l0 266.97461c37.273227 13.188988 63.99936 48.721433 63.99936 90.520695 0 53.02219-42.98709 96.00928-96.00928 96.00928s-96.00928-42.98709-96.00928-96.00928c0-41.799262 26.726133-77.331707 63.99936-90.520695l0-266.97461c-37.273227-13.188988-63.99936-48.721433-63.99936-90.520695 0-14.827372 3.358686-28.856031 9.359266-41.389666l-78.171378-78.171378-295.892081 295.871601c-25.743103 25.784062-25.743103 67.542365 0 93.285467l447.114889 447.073929c25.743103 25.743103 67.480925 25.743103 93.264987 0l445.00547-445.00547c25.763582-25.763582 25.763582-67.542365 0-93.285467z" fill="#ffffff" fill-opacity="0.65"></path></svg>
+
+            <svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="24" height="24" style="margin: 10px 8px;">
+                <path d="M256 298.666667a85.333333 85.333333 0 1 0 0-170.666667 85.333333 85.333333 0 0 0 0 170.666667z m0 85.333333a170.666667 170.666667 0 1 1 0-341.333333 170.666667 170.666667 0 0 1 0 341.333333z" fill="#ffffff" fill-opacity="0.65"></path>
+                <path d="M298.666667 489.173333V725.333333a85.333333 85.333333 0 0 0 85.333333 85.333334h256v85.333333H384a170.666667 170.666667 0 0 1-170.666667-170.666667V298.666667h85.333334v42.666666a85.333333 85.333333 0 0 0 85.333333 85.333334h256v85.333333H384a169.898667 169.898667 0 0 1-85.333333-22.826667z" fill="#ffffff" fill-opacity="0.65"></path>
+                <path d="M768 938.666667a85.333333 85.333333 0 1 0 0-170.666667 85.333333 85.333333 0 0 0 0 170.666667z m0 85.333333a170.666667 170.666667 0 1 1 0-341.333333 170.666667 170.666667 0 0 1 0 341.333333zM768 554.666667a85.333333 85.333333 0 1 0 0-170.666667 85.333333 85.333333 0 0 0 0 170.666667z m0 85.333333a170.666667 170.666667 0 1 1 0-341.333333 170.666667 170.666667 0 0 1 0 341.333333z" fill="#ffffff" fill-opacity="0.65"></path></svg>
+        </div>
+
+        <div style="display: flex; flex-direction: column; justify-content: flex-end; align-items: center;">
+            <svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="22" height="22" style="margin: 10px 9px;"><path d="M364.218735 512.243462a41.388493 41.388493 0 0 0 40.901569 41.388492H633.000476a40.901569 40.901569 0 0 0 0-82.290061H405.120304a41.388493 41.388493 0 0 0-40.901569 40.901569z m-204.507846 29.70233a40.901569 40.901569 0 0 0 57.94389 0l160.197813-160.684736a40.901569 40.901569 0 0 0 0-57.94389L217.654779 160.684736a40.901569 40.901569 0 1 0-58.430813 57.94389L292.154066 351.558726 159.223966 483.514979a40.901569 40.901569 0 0 0 0 58.430813z m781.999049 399.764146H82.290062V82.290062h859.419876z m0-941.709938H82.290062A82.290062 82.290062 0 0 0 0 82.290062v859.419876A82.290062 82.290062 0 0 0 82.290062 1022.53923h859.419876A82.290062 82.290062 0 0 0 1022.53923 941.709938V82.290062A82.290062 82.290062 0 0 0 941.709938 0z" fill="#ffffff" fill-opacity="0.65"></path></svg>
+
+            <svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="24" height="24" style="margin: 10px 8px;"><path d="M947.942255 886.008182 720.970894 659.243529c48.977481-62.368466 78.178547-140.907217 78.178547-226.249931 0-202.907293-165.033707-367.395578-368.613312-367.395578-203.580628 0-368.616382 164.489308-368.616382 367.395578 0 202.90627 165.035754 367.395578 368.616382 367.395578 85.758176 0 164.673503-29.192879 227.295749-78.146824l226.938616 226.728838c12.769838 12.727882 33.475416 12.727882 46.246277 0l16.925485-16.870226C960.713117 919.374104 960.713117 898.736065 947.942255 886.008182zM430.536129 711.482287c-154.315598 0-279.414781-124.682697-279.414781-278.487665 0-153.805992 125.099183-278.488689 279.414781-278.488689 154.315598 0 279.410688 124.68372 279.410688 278.488689C709.946816 586.79959 584.851727 711.482287 430.536129 711.482287z" fill="#ffffff" fill-opacity="0.65"></path></svg>
+
+            <svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="26" height="26" style="margin: 10px 7px;"><path d="M511.936 959.872a448.768 448.768 0 0 1-79.552-7.168l-2.624-0.448a32 32 0 0 1-25.6-25.6l-15.808-85.44a347.776 347.776 0 0 1-98.944-57.6l-81.92 29.12a32 32 0 0 1-35.136-9.536l-1.792-2.112a445.824 445.824 0 0 1-80-137.792l-0.832-2.56a32 32 0 0 1 9.28-35.2l66.304-56.64a355.84 355.84 0 0 1 0-114.176l-66.304-56.576a32.32 32.32 0 0 1-9.28-35.2l0.896-2.624a446.72 446.72 0 0 1 79.68-137.856l1.792-2.112a32 32 0 0 1 35.136-9.28l81.92 29.056a352 352 0 0 1 98.944-57.6l15.808-85.44a32 32 0 0 1 25.6-25.6l2.88-0.576a452.48 452.48 0 0 1 159.04 0l2.688 0.512a32 32 0 0 1 25.6 25.6l15.68 84.992a352.384 352.384 0 0 1 99.712 57.6l81.536-28.544a32 32 0 0 1 35.072 9.472l1.792 2.112a442.816 442.816 0 0 1 79.744 137.92l0.896 2.624a32 32 0 0 1-9.344 35.2l-65.472 55.872a356.032 356.032 0 0 1 0 115.584l65.472 56a32 32 0 0 1 9.344 35.008l-0.896 2.56a445.44 445.44 0 0 1-79.744 137.92l-1.792 2.112a32 32 0 0 1-24.448 11.328 32 32 0 0 1-10.688-1.792l-81.344-28.928a349.952 349.952 0 0 1-99.712 57.6l-15.68 84.992a32 32 0 0 1-25.6 25.6l-2.688 0.448a445.504 445.504 0 0 1-79.616 7.168z m-208.448-257.472l31.36 25.6a280.384 280.384 0 0 0 78.72 46.272l37.76 14.528 17.92 97.152a374.656 374.656 0 0 0 84.992 0l17.92-97.024 38.08-14.272a281.024 281.024 0 0 0 79.168-46.016l31.424-25.6 92.8 32.896a375.168 375.168 0 0 0 42.624-73.6l-74.688-64 6.4-40.064a281.6 281.6 0 0 0 0-92.224l-6.4-39.936 74.688-64a380.864 380.864 0 0 0-42.56-73.6l-92.288 32.896-31.424-25.6a280.96 280.96 0 0 0-79.232-45.76l-38.4-14.272-17.92-97.28a374.656 374.656 0 0 0-84.992 0l-17.92 97.216-37.888 14.272a278.912 278.912 0 0 0-78.656 45.696l-31.36 25.92-93.44-33.216a372.032 372.032 0 0 0-42.56 73.6l75.392 64.512-6.4 40a278.656 278.656 0 0 0-3.84 45.376 291.008 291.008 0 0 0 3.712 45.504l6.4 40-75.328 64.704a375.488 375.488 0 0 0 42.56 73.792l93.376-33.408zM512 678.272a176 176 0 1 1 176-175.936A176.192 176.192 0 0 1 512 678.272z m0-288a112.064 112.064 0 1 0 79.232 32.832A111.296 111.296 0 0 0 512 390.272z" fill="#ffffff" fill-opacity="0.65"></path></svg>
+        </div>
+    </div>
+    <div class="Main">
+        <div class="Top">
+            <div class="FileList">
+                <div class="FileListTitle">模块</div>
+                <div class="FileListBlock">
+                    <div class="ListItem Active">📑 fft.scm</div>
+                    <div class="ListItem">📑 main.scm</div>
+                    <div class="ListItem">📑 quicksort.scm</div>
+                    <div class="ListItem">📑 std.list.scm</div>
                 </div>
             </div>
-        </div>
-    </header>
 
-    <hr>
+            <div class="Split" id="split1"></div>
 
-    <div class="debugger">
-
-        <div style="margin: 15px 0;">
-            <button id="execute" class="btn-start">▶ 启动</button>
-            <button id="reset"  class="btn-stop">↺ 复位</button>
-            <button id="step"  class="btn-common">▷ 步进(F8)</button>
-            <button id="stepbystep"  class="btn-common">▷ 连续步进</button>
-        </div>
-
-        <div class="console"><pre id="output">Animac Debugger
-</pre>
-        </div>
-
-        <div class="col_container">
-            <div class="ilcode_column">
-                <div class="col_header">中间语言指令序列</div>
-                <div id="ilcode"></div>
+            <div class="CodeEditor">
+                <div class="FilenameContainer"><span id="editorFileName">📑 fft.scm</span></div>
+                <div id="CodeMirrorContainer">
+                    <textarea id="cmEditor" name="code"></textarea>
+                </div>
             </div>
-            <div class="fstack_column">
-                <div class="col_header">函数调用栈</div>
-                <div id="fstack"></div>
-            </div>
-            <div class="opstack_column">
-                <div class="col_header">操作数栈</div>
-                <div id="opstack"></div>
-            </div>
-            <div class="heap_column">
-                <div class="col_header">存储（堆）</div>
-                <div id="heap_map"></div>
-                <div id="heap_obj_info"></div>
+
+            <div class="Split" id="split2"></div>
+
+            <div class="Debugger">
+
+                <div class="debugger_buttons">
+                    <div id="load" class="button">🎯 编译</div>
+                    <div id="execute" class="button btn-start">▶ 启动</div>
+                    <div id="reset" class="button btn-stop">↺ 复位</div>
+                    <div id="step" class="button">▷ 步进(F8)</div>
+                    <div id="stepbystep" class="button">▷ 连续步进</div>
+                </div>
+
+                <div class="debugger_col_container">
+                    <div class="ilcode_column">
+                        <div class="col_header">中间语言指令序列</div>
+                        <div class="ilcode_list" id="ilcode"></div>
+                    </div>
+
+                    <div class="debugger_right_column">
+                        <div class="heap_column">
+                            <div class="col_header">存储（堆）</div>
+                            <div id="heap_map"></div>
+                            <div class="heap_obj_info" id="heap_obj_info"></div>
+                        </div>
+
+                        <div class="stack_column">
+                            <div class="fstack_column">
+                                <div class="col_header">函数调用栈</div>
+                                <div class="fstack_list" id="fstack"></div>
+                            </div>
+                            <div class="opstack_column">
+                                <div class="col_header">操作数栈</div>
+                                <div class="opstack_list" id="opstack"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
 
+        <div class="SplitHorizontal" id="split3"></div>
+
+        <div class="Bottom">
+            <div class="ConsoleTitle">控制台</div>
+            <div class="Console"><pre><code id="output"></code></pre></div>
+        </div>
     </div>
+</div>
 
-<script src="./jquery.min.js"></script>
+
+<div class="Footer">
+    <div class="FooterField" style="background-color: #3f8300;">&gt; REPL</div>
+    <div class="FooterField">行 114 &nbsp;&nbsp; 列 514 &nbsp;&nbsp; 0 error(s)  &nbsp;&nbsp; 0 warning(s)</div>
+    <div class="FooterField">UTF-8 &nbsp;&nbsp; Scheme &nbsp;&nbsp; 已保存</div>
+</div>
+
+<script src="jquery.min.js"></script>
+<script src="codemirror.js"></script>
 <script>
+
+
+const initCode = `;; 递归实现快速傅里叶变换
+;; 2023-08
+
+(native Math)
+
+(define map
+  (lambda (lst f)
+    (if (null? lst)
+        (quote ())
+        (cons (f (car lst)) (map (cdr lst) f))
+    )))
+
+;; 向列表尾部追加一项
+(define append
+  (lambda (x lst)
+    (define append_cps
+      (lambda (x lst cont)
+        (if (null? lst)
+            (cont (cons x lst))
+            (append_cps x (cdr lst)
+              (lambda (res)
+                (cont (cons (car lst) res)))))))
+  (append_cps x lst (lambda (x) x))))
+
+;; 连接两个列表
+(define concat
+  (lambda (a b)
+    (if (null? b)
+        a
+        (concat (append (car b) a) (cdr b)))))
+
+;; 把序列按照奇偶分成两部分
+(define sep
+  (lambda (x)
+    (define even
+      (lambda (input even_items odd_items)
+        (if (null? input)
+            \`(,even_items ,odd_items)
+            (odd (cdr input) (append (car input) even_items) odd_items))))
+    (define odd
+      (lambda (input even_items odd_items)
+        (if (null? input)
+            \`(,even_items ,odd_items)
+            (even (cdr input) even_items (append (car input) odd_items)))))
+    (even x '() '())))
+
+(define complex_mul
+  (lambda (x y)
+    (define a (car x)) (define b (car (cdr x)))
+    (define c (car y)) (define d (car (cdr y)))
+    \`(,(- (* a c) (* b d)) ,(+ (* b c) (* a d)))))
+
+(define complex_add (lambda (x y) \`(,(+ (car x) (car y)) ,(+ (car (cdr x)) (car (cdr y))))))
+
+(define complex_sub (lambda (x y) \`(,(- (car x) (car y)) ,(- (car (cdr x)) (car (cdr y))))))
+
+(define list_pointwise
+  (lambda (op x y)
+    (if (or (null? x) (null? y))
+        '()
+        (cons (op (car x) (car y))
+              (list_pointwise op (cdr x) (cdr y))))))
+
+(define W_nk
+  (lambda (N k)
+    \`(,(Math.cos (/ (* -2 (* (Math.PI) k)) N))
+      ,(Math.sin (/ (* -2 (* (Math.PI) k)) N)))))
+
+(define twiddle_factors
+  (lambda (N iter)
+    (if (= iter (/ N 2)) ;; 只取前一半
+        '()
+        (cons (W_nk N iter)
+              (twiddle_factors N (+ iter 1))))))
+
+(define fft
+  (lambda (input N)
+    (if (= N 1)
+        input
+        {
+          (define s (sep input))
+          (define even_dft (fft (car s)       (/ N 2)))
+          (define odd_dft  (fft (car (cdr s)) (/ N 2)))
+          (define tf (twiddle_factors N 0))
+          (concat (list_pointwise complex_add even_dft (list_pointwise complex_mul odd_dft tf))
+                       (list_pointwise complex_sub even_dft (list_pointwise complex_mul odd_dft tf)))
+        })))
+
+(define ifft
+  (lambda (input N)
+    ;; 复数列表逐个取共轭
+    (define cv_conj
+      (lambda (cv)
+        (map cv (lambda (c) \`(,(car c) ,(- 0 (car (cdr c))))))))
+    (map (cv_conj (fft (cv_conj input) N))
+              (lambda (x) \`(,(/ (car x) N) ,(/ (car (cdr x)) N))))))
+
+(display "快速傅里叶变换：用于测试数学本地库和列表操作")(newline)
+(define N 4)
+(define x '((1 1) (1 0) (4 0) (5 0)))
+(define xx (fft x N))
+(define x2 (ifft xx N))
+(display "FFT实际结果：") (display xx) (newline)
+(display "IFFT期望结果：((1 1) (1 0) (4 0) (5 0))")(newline)
+(display "IFFT实际结果：") (display x2) (newline)
+`;
+
+// 页面整体布局
+function layout(fileListWidth, debuggerWidth, bottomHeight) {
+    let clientWidth = window.innerWidth;
+    let naviWidth = $(".Navi").width();
+    let split1Width = $("#split1").width();
+    let split2Width = $("#split2").width();
+    $(".FileList").width(`${String(fileListWidth)}px`);
+    $(".Debugger").width(`${String(debuggerWidth)}px`);
+    let codeEditorWidth = clientWidth - naviWidth - split1Width - split2Width - fileListWidth - debuggerWidth;
+    $(".CodeEditor").width(`${String(codeEditorWidth)}px`);
+
+    let clientHeight = window.innerHeight;
+    let headerHeight = $(".Header").height();
+    let footerHeight = $(".Footer").height();
+    let split3Height = $("#split3").height();
+    let centerHeight = clientHeight - headerHeight - footerHeight;
+    $(".Center").height(`${String(centerHeight)}px`);
+    $(".Console").height(`${String(bottomHeight)}px`);
+    let topHeight = centerHeight - bottomHeight - split3Height;
+    $(".Top").height(`${String(topHeight)}px`);
+    let filenameContainerHeight = $(".FilenameContainer").height();
+    $("#CodeMirrorContainer").height(`${String(topHeight - filenameContainerHeight)}px`);
+    let debuggerButtonsHeight = $(".debugger_buttons").height();
+    $(".debugger_col_container").height(`${String(topHeight - debuggerButtonsHeight - 1)}px`);
+}
+
+// 设置CodeMirror编辑器
+function initCMEditor() {
+    let cmEditor = CodeMirror.fromTextArea(document.getElementById("cmEditor"), {
+        lineNumbers: true,
+        styleActiveLine: true,
+        matchBrackets: true,
+        lineWrapping: false,
+        highlightSelectionMatches: {showToken: /[^\s\(\)]+/}
+    });
+    cmEditor.setSize('100%', '100%');
+    cmEditor.setValue(initCode);
+    return cmEditor;
+}
 
 function esc(s) {
     return String(s).replace(/&/gi, "&amp;");
 }
 
-function render(res) {
+function renderHeapObjectInfo(hd, info) {
+    if(info.type === "CLOSURE") {
+        let variableLine = new Array();
+        for(let bound in info.boundVariables) {
+            let color = "";
+            if((info.dirtyFlag)[bound] === true) color = ` style="color: red; font-weight: bold;"`;
+            variableLine.push(`<tr class="bound_var"><td class="var_name"${color}>${esc(bound)}</td><td class="var_value"${color}>${esc((info.boundVariables)[bound])}</td></tr>`);
+        }
+        for(let free in info.freeVariables) {
+            variableLine.push(`<tr class="free_var"><td class="var_name">${esc(free)}</td><td class="var_value">${esc((info.freeVariables)[free])}</td></tr>`);
+        }
+
+        $("#heap_obj_info").html(`
+        <div>${esc(hd)}(${info.instructionAddress})</div>
+        <div>Parent: ${esc(info.parent)}</div>
+        <table class="closure_var_table">${variableLine.join("")}</table>`);
+    }
+    else if(info.type === "QUOTE") {
+        $("#heap_obj_info").html(`
+        <div>${esc(hd)}</div>
+        <div>Parent: ${esc(info.parent)}</div>
+        <div>${esc(info.children)}</div>`);
+    }
+    else if(info.type === "CONTINUATION") {
+        $("#heap_obj_info").html(`
+        <div>${esc(hd)}</div>
+        <div>partialEnvironmentJson: ${esc(info.partialEnvironmentJson)}</div>
+        <div>contReturnTargetLable: ${esc(info.contReturnTargetLable)}</div>`);
+    }
+}
+
+function renderDebugInfo(res) {
     let process = res.process;
     let heap_data = process.heap.data;
     let FSTACK = process.FSTACK;
@@ -79,12 +320,14 @@ function render(res) {
 
     // 渲染IL代码
     let html = new Array();
+    let currentIL_ID = 0;
     for(let i = 0; i < instructions.length; i++) {
         let color = "color:#000000;background-color:#ffffff;";
         if(process.PC === i) color = "color:#ff0000;background-color:#cbeeff;";
-        html.push(`<p class="ilcode" id="ilcode${i}" style="${color}"><span class="lineNum">${i}</span>${instructions[i]}</p>`);
+        html.push(`<div class="ilcode" id="ilcode${i}" style="${color}"><span class="lineNum">${i}</span>${instructions[i]}</div>`);
     }
     $('#ilcode').html(html.join(""));
+    $(".ilcode_column").scrollTop($(".ilcode").height() * (process.PC - 15));
 
     // 渲染FSTACK
     html = new Array();
@@ -123,106 +366,107 @@ function render(res) {
         else if(process.heap.data[hd].type === "CONTINUATION") {
             property = ` heap_obj_continuation`;
         }
-
-        html.push(`<div class="heap_obj_box${property}" data-hd="${esc(hd)}">${esc(JSON.stringify(heap_data[hd]))}</div>`);
+        html.push(`<div class="heap_obj_box${property}" data-hd="${esc(hd)}"></div>`);
     }
     $('#heap_map').html(html.join(""));
-}
 
-function renderHeapObjectInfo(hd, info) {
-    if(info.type === "CLOSURE") {
-        let variableLine = new Array();
-        for(let bound in info.boundVariables) {
-            let color = "";
-            if((info.dirtyFlag)[bound] === true) color = ` style="color: red; font-weight: bold;"`;
-            variableLine.push(`<tr class="bound_var"><td class="var_name"${color}>${esc(bound)}</td><td class="var_value"${color}>${esc((info.boundVariables)[bound])}</td></tr>`);
-        }
-        for(let free in info.freeVariables) {
-            variableLine.push(`<tr class="free_var"><td class="var_name">${esc(free)}</td><td class="var_value">${esc((info.freeVariables)[free])}</td></tr>`);
-        }
-
-        $("#heap_obj_info").html(`
-        <div>${esc(hd)}(${info.instructionAddress})</div>
-        <div>Parent: ${esc(info.parent)}</div>
-        <table class="closure_var_table">${variableLine.join("")}</table>`);
-    }
-    else if(info.type === "QUOTE") {
-        $("#heap_obj_info").html(`
-        <div>${esc(hd)}</div>
-        <div>Parent: ${esc(info.parent)}</div>
-        <div>${esc(info.children)}</div>`);
-    }
-    else if(info.type === "CONTINUATION") {
-        $("#heap_obj_info").html(`
-        <div>${esc(hd)}</div>
-        <div>partialEnvironmentJson: ${esc(info.partialEnvironmentJson)}</div>
-        <div>contReturnTargetLable: ${esc(info.contReturnTargetLable)}</div>`);
-    }
-}
-
-function SendDebugRequest(action) {
-    $.ajax({
-        type: "GET",
-        url: `./${action}`,
-        success: (data)=> {
-            render(data);
-            $(".heap_obj_box").each((i,e)=>{
-                $(e).click((event)=> {
-                    let hd = $(e).attr("data-hd");
-                    let info = JSON.parse($(e).text());
-                    renderHeapObjectInfo(hd, info);
-                });
-            });
-        },
-        error: ()=> {
-            console.error(`failed`);
-        }
+    $(".heap_obj_box").each((i,e)=>{
+        $(e).click((event)=> {
+            let hd = $(e).attr("data-hd");
+            /* let info = JSON.parse($(e).text()); */
+            renderHeapObjectInfo(hd, heap_data[hd]);
+        });
     });
+
 }
 
-let clock = 0;
-let state = "paused";
-
-function pause() {
-    $("#stepbystep").html("▷ 连续步进");
-    state = "paused";
-    clearInterval(clock);
+function SendDebugRequest(action, parameter) {
+    parameter = parameter || "";
+    let xhr = new XMLHttpRequest();
+    xhr.open("POST", `./${action}`);
+    xhr.onreadystatechange = () => {
+        if(xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
+            let data = JSON.parse(xhr.responseText);
+            renderDebugInfo(data);
+        }
+        else if(xhr.readyState === XMLHttpRequest.DONE && xhr.status !== 200){
+            console.error(`failed`);
+            return;
+        }
+    };
+    xhr.send(parameter);
 }
 
-$("#execute").click(()=>{
-    pause();
-    SendDebugRequest("execute");
-});
-$("#step").click(()=>{
-    pause();
-    SendDebugRequest("step");
-});
-$("#stepbystep").click(()=>{
-    if(state === "paused") {
-        $("#stepbystep").html("|| 暂停");
-        state = "running";
-        clock = setInterval(()=>{
-            SendDebugRequest("step");
-        }, 0);
+let cmEditor = initCMEditor();
+let DEBUGGER_CLOCK = 0;
+let DEBUGGER_STATE = "paused";
+
+function Init() {
+
+    function pause() {
+        $("#stepbystep").html("▷ 连续步进");
+        DEBUGGER_STATE = "paused";
+        clearInterval(DEBUGGER_CLOCK);
     }
-    else if(state === "running") {
+
+    let layoutObserver = new MutationObserver((mutations, observer) => {
+        layout(200, 780, 240);
+    });
+    layoutObserver.observe(document.getElementsByTagName('html')[0], {attributes: true, characterData: true, childList: true, subtree: true});
+
+    $("#load").click(()=>{
+        let code = cmEditor.getValue();
+        let codes = [code];
         pause();
-    }
-});
+        SendDebugRequest("load", JSON.stringify(codes));
+    });
 
-$("#reset").click(()=>{
-    pause();
-    SendDebugRequest("reset");
-});
+    $("#execute").click(()=>{
+        pause();
+        SendDebugRequest("execute");
+    });
 
-document.onkeydown = (event)=>{
-    if(event && event.keyCode === 119){ // F8
+    $("#step").click(()=>{
         pause();
         SendDebugRequest("step");
-    }
-}; 
+    });
+
+    $("#stepbystep").click(()=>{
+        if(DEBUGGER_STATE === "paused") {
+            $("#stepbystep").html("|| 暂停");
+            DEBUGGER_STATE = "running";
+            // layoutObserver.disconnect();
+            DEBUGGER_CLOCK = setInterval(()=>{
+                SendDebugRequest("step");
+            }, 0);
+        }
+        else if(DEBUGGER_STATE === "running") {
+            pause();
+        }
+    });
+
+    $("#reset").click(()=>{
+        pause();
+        SendDebugRequest("reset");
+    });
+
+    $(".Split").on("mousedown", (e) => {
+        e.preventDefault();
+        startx = e.clientX;
+        console.log(startx);
+    });
+
+    document.onkeydown = (event)=>{
+        if(event && event.keyCode === 119){ // F8
+            pause();
+            SendDebugRequest("step");
+        }
+    };
+
+}
+
+Init();
 
 </script>
-
 </body>
 </html>

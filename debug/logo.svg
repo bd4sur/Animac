@@ -1,0 +1,33 @@
+<svg id="aslogo" width="347px" height="400px" version="1.1" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <linearGradient id="g_A" x1="0%" y1="0%" x2="30%" y2="100%">
+                <stop offset="30%" stop-color="#ffffff22"></stop>
+                <stop offset="100%" stop-color="#ffffff"></stop>
+            </linearGradient>
+
+            <linearGradient id="g_B" x1="0%" y1="100%" x2="70%" y2="0%">
+                <stop offset="10%" stop-color="#ffffff"></stop>
+                <stop offset="90%" stop-color="#ffffff22"></stop>
+            </linearGradient>
+
+            <linearGradient id="g_C" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="10%" stop-color="#ffffff"></stop>
+                <stop offset="85%" stop-color="#ffffff22"></stop>
+            </linearGradient>
+
+            <linearGradient id="g_D" x1="0%" y1="0%" x2="30%" y2="100%">
+                <stop offset="20%" stop-color="#ffffff"></stop>
+                <stop offset="90%" stop-color="#ffffff22"></stop>
+            </linearGradient>
+
+            <linearGradient id="g_E" x1="70%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#ffffff"></stop>
+                <stop offset="80%" stop-color="#ffffff22"></stop>
+            </linearGradient>
+
+            <linearGradient id="g_F" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="20%" stop-color="#ffffff22"></stop>
+                <stop offset="85%" stop-color="#ffffff"></stop>
+            </linearGradient>
+        </defs>
+    <polygon points="77.94228634059948,147 77.94228634059948,254 0,299 0,192" style="fill:url(#g_A);stroke:none;"></polygon><polygon points="93.53074360871936,46 171.47302994931886,91 0,190 0,100" style="fill:url(#g_B);stroke:none;"></polygon><polygon points="173.20508075688772,0 345.54413610999103,99.5 267.96787517317597,144.5 95.26279441628824,45" style="fill:url(#g_C);stroke:none;"></polygon><polygon points="346.41016151377545,101 346.41016151377545,208 268.46787517317597,253 268.46787517317597,146" style="fill:url(#g_D);stroke:none;"></polygon><polygon points="346.41016151377545,210 346.41016151377545,300 252.87941790505607,354 174.9371315644566,309" style="fill:url(#g_E);stroke:none;"></polygon><polygon points="251.1473670974872,355 173.20508075688772,400 0.8660254037844386,300.5 78.80831174438391,255.5" style="fill:url(#g_F);stroke:none;"></polygon></svg>

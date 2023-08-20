@@ -2,19 +2,23 @@
 const DebugServerConfig = {
     'portNumber': 8088,
     'MIME':{
-        'css':'text/css',
-        'jpg':'image/jpeg',
-        'jpeg':'image/jpeg',
-        'png':'image/png',
-        'gif':'image/gif',
-        'bmp':'image/bmp',
-        'js':'text/javascript',
-        'ico':'image/vnd.microsoft.icon',
-        'mp3':'audio/mpeg',
-        'woff':'application/x-font-woff',
-        'woff2':'font/woff2',
-        'ttf':'application/x-font-truetype',
-        'otf':'application/x-font-opentype',
+        "css":   "text/css",
+        "jpg":   "image/jpeg",
+        "jpeg":  "image/jpeg",
+        "png":   "image/png",
+        "gif":   "image/gif",
+        "bmp":   "image/bmp",
+        "webp":  "image/webp",
+        "js":    "text/javascript",
+        "ico":   "image/vnd.microsoft.icon",
+        "mp3":   "audio/mpeg",
+        "woff":  "application/font-woff",
+        "woff2": "font/woff2",
+        "ttf":   "application/x-font-truetype",
+        "otf":   "application/x-font-opentype",
+        "mp4":   "video/mp4",
+        "webm":  "video/webm",
+        "svg":   "image/svg+xml"
     },
 };
 
@@ -22,35 +26,15 @@ const DebugServerConfig = {
 function StartDebugServer() {
 
     let RUNTIME = new Runtime(process.cwd());
-    const moduleID = "ADB";
-    const code = `((lambda ()
 
-(define res_list '())
-(define count 0)
-(define generator #f)
-(define g
-  (lambda ()
-    ((lambda (init)
-      (call/cc (lambda (Kont)
-                 (set! generator Kont)))
-      (set! init (+ init 1))
-      (set! res_list (cons init res_list))
-      (set! count init)
-      res_list) 0)))
-
-(display (g))
-(newline)
-(if (>= count 10)
-    (newline)
-    (display (generator 666)))
-
-))\n`;
-    let mod = LoadModuleFromCode(code, moduleID);
-    let proc = new Process(mod);
-    proc.PID = 0;
-    RUNTIME.asyncCallback = ()=>{};
-    RUNTIME.processPool[0] = proc;
-    RUNTIME.AddProcess(proc);
+    function loadCode(codefiles: string, baseModuleID: string) {
+        let mod = LoadModuleFromCode(`((lambda () ${codefiles[0]}))`, baseModuleID);
+        let proc = new Process(mod);
+        proc.PID = 0;
+        RUNTIME.asyncCallback = ()=>{};
+        RUNTIME.processPool[0] = proc;
+        RUNTIME.AddProcess(proc);
+    }
 
     // 工具函数：用于判断某字符串是否以另一个字符串结尾
     function IsEndWith(test: string, endPattern: string): boolean {
@@ -81,14 +65,11 @@ function StartDebugServer() {
             if(reqPath === '') {
                 readFileSystem(filePath + "index.html");
             }
+            else if(reqPath === "load") {
+                let codefiles = JSON.parse(incomeData);
+                loadCode(codefiles, "ADB");
+            }
             else if(reqPath === "execute") {
-                let mod = LoadModuleFromCode(code, moduleID);
-                let proc = new Process(mod);
-                proc.PID = 0;
-                RUNTIME.outputBuffer = "";
-                RUNTIME.errorBuffer = "";
-                RUNTIME.processPool[0] = proc;
-                RUNTIME.AddProcess(proc);
                 RUNTIME.StartClock(()=>{
                     res.process = RUNTIME.processPool[0];
                     res.outputBuffer = RUNTIME.outputBuffer;
@@ -106,13 +87,10 @@ function StartDebugServer() {
                 response.end();
             }
             else if(reqPath === "reset") {
-                let mod = LoadModuleFromCode(code, moduleID);
-                let proc = new Process(mod);
-                proc.PID = 0;
                 RUNTIME.outputBuffer = "";
                 RUNTIME.errorBuffer = "";
-                RUNTIME.processPool[0] = proc;
-                RUNTIME.AddProcess(proc);
+                RUNTIME.processPool = new Array();
+                RUNTIME.processQueue = new Array();
 
                 res.process = RUNTIME.processPool[0];
                 res.outputBuffer = RUNTIME.outputBuffer;
