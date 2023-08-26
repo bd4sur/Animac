@@ -19,9 +19,9 @@
     (Utils.show "子进程2：读取文件")(newline)
     (native File)
     (File.read "../LICENSE" (lambda (s)
-      (Utils.show (File.readSync "../.gitignore"))
+      (Utils.show (File.readSync "../README.md"))
       (Utils.show s)(newline)
-      (File.read "../.gitignore" (lambda (s) (display s) (newline)))))
+      (File.read "../README.md" (lambda (s) (display s) (newline)))))
     (define foo
     (lambda (n)
         (if (= n 0)

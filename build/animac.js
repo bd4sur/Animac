@@ -3171,8 +3171,8 @@ class Runtime {
         // 调用Native模块内部的函数
         (nativeModule[nativeFunctionName])(PROCESS, RUNTIME);
     }
-    //call arg 函数调用（包括continuation、native函数）
-    AIL_CALL(argument, PROCESS, RUNTIME) {
+    // 辅助函数：可以任意指定返回指令地址的函数调用（非尾调用）。这一函数用于支持异步过程调用（如事件回调），同时也用于实现普通的同步过程调用。
+    CallAsync(returnTarget, argument, PROCESS, RUNTIME) {
         let target;
         if (TypeOfToken(argument) === "VARIABLE") {
             // 首先判断是否为Native调用
@@ -3199,7 +3199,7 @@ class Runtime {
             this.ExecuteOneInst(mnemonic, argument, PROCESS, RUNTIME);
         }
         else if (targetType === "LABEL") {
-            PROCESS.PushStackFrame(PROCESS.currentClosureHandle, PROCESS.PC + 1); // 新的栈帧入栈
+            PROCESS.PushStackFrame(PROCESS.currentClosureHandle, returnTarget); // 新的栈帧入栈
             let instructionAddress = PROCESS.GetLabelAddress(target);
             let newClosureHandle = PROCESS.NewClosure(instructionAddress, PROCESS.currentClosureHandle);
             let currentClosure = PROCESS.GetCurrentClosure();
@@ -3220,14 +3220,14 @@ class Runtime {
             let objType = obj.type;
             // 闭包：函数实例
             if (objType === SchemeObjectType.CLOSURE) {
-                PROCESS.PushStackFrame(PROCESS.currentClosureHandle, PROCESS.PC + 1); // 新的栈帧入栈
+                PROCESS.PushStackFrame(PROCESS.currentClosureHandle, returnTarget); // 新的栈帧入栈
                 let targetClosure = obj;
                 PROCESS.SetCurrentClosure(handle);
                 PROCESS.Goto(targetClosure.instructionAddress);
             }
             // 续延：调用continuation必须带一个参数，在栈顶。TODO 这个检查在编译时完成
             else if (objType === SchemeObjectType.CONTINUATION) {
-                PROCESS.PushStackFrame(PROCESS.currentClosureHandle, PROCESS.PC + 1); // 新的栈帧入栈
+                PROCESS.PushStackFrame(PROCESS.currentClosureHandle, returnTarget); // 新的栈帧入栈
                 let top = PROCESS.PopOperand();
                 let returnTargetLabel = PROCESS.LoadContinuation(handle);
                 PROCESS.PushOperand(top);
@@ -3242,6 +3242,10 @@ class Runtime {
         else {
             throw `[Error] call指令的参数必须是标签、闭包或Continuation`;
         }
+    }
+    //call arg 函数调用（包括continuation、native函数）
+    AIL_CALL(argument, PROCESS, RUNTIME) {
+        this.CallAsync(PROCESS.PC + 1, argument, PROCESS, RUNTIME);
     }
     //tailcall arg 函数尾调用
     AIL_TAILCALL(argument, PROCESS, RUNTIME) {
