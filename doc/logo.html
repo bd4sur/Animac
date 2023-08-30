@@ -1,81 +1,94 @@
 <!DOCTYPE html>
 <html>
-<head></head>
+<head>
+<style>
+.Main {
+    margin: 320px;
+    display: flex;
+    align-items: center;
+}
+.Logo {
+    margin: 10px;
+    text-align: center;
+    vertical-align: middle;
+    background-color: #ffffff;
+    width: 480px;
+    height: 500px;
+    border-radius: 90px;
+    box-shadow: 0 0px #e5e5e5, 0 0 15px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.05);
+}
+.Title {
+    font-family: 'UD Digi Kyokasho NP-B', 'consolas', Courier, monospace;
+    font-size: 280px;
+    line-height: 1;
+    text-align: center;
+    /* color: #666b7b; */
+    background: linear-gradient(0deg, #d9dde4, #525560);
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    -webkit-background-clip: text;
+    width: fit-content;
+    margin: 0 auto;
+}
+.Subtitle {
+    margin-top: 20px;
+    font-family: 'UD Digi Kyokasho NP-B', 'consolas', Courier, monospace;
+    font-size: 80px;
+    line-height: 1;
+    text-align: center;
+}
+</style>
+</head>
 <body>
-<div style="
-margin: 100px;
-display: flex;
-align-items: center;
-">
-<div id="logo" style="
-margin: 10px;
-text-align: center;
-vertical-align: middle;
-background-color: #ffffff;
-width: 480px;
-height: 480px;
-border-radius: 90px;
-box-shadow: 0 0px #e5e5e5, 0 0 15px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.05);
-">
-    <svg id="aslogo" width="347px" height="400px" version="1.1" xmlns="http://www.w3.org/2000/svg" style="margin: auto; margin-top: 40px;">
-        <defs>
-            <linearGradient id="g_A" x1="0%" y1="0%" x2="30%" y2="100%">
-                <stop offset="30%" stop-color="#6cf3"></stop>
-                <stop offset="100%" stop-color="#66ccff"></stop>
-            </linearGradient>
+<div class="Main">
+    <div id="logo" class="Logo">
+        <svg id="aslogo" width="347px" height="400px" version="1.1" xmlns="http://www.w3.org/2000/svg" style="margin: auto; margin-top: 50px;">
+            <defs>
+                <!--左-->
+                <linearGradient id="g_A" x1="0%" y1="0%" x2="30%" y2="100%">
+                    <stop offset="30%" stop-color="#ff559933"></stop>
+                    <stop offset="100%" stop-color="#ff5599"></stop>
+                </linearGradient>
 
-            <linearGradient id="g_B" x1="0%" y1="100%" x2="70%" y2="0%">
-                <stop offset="10%" stop-color="#66ccff"></stop>
-                <stop offset="90%" stop-color="#6cf3"></stop>
-            </linearGradient>
+                <!--上左-->
+                <linearGradient id="g_B" x1="0%" y1="100%" x2="70%" y2="0%">
+                    <stop offset="10%" stop-color="#ff5599"></stop>
+                    <stop offset="90%" stop-color="#ff559933"></stop>
+                </linearGradient>
 
-            <linearGradient id="g_C" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="10%" stop-color="#66ccff"></stop>
-                <stop offset="85%" stop-color="#6cf3"></stop>
-            </linearGradient>
+                <!--上右-->
+                <linearGradient id="g_C" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="10%" stop-color="#00aaff"></stop>
+                    <stop offset="85%" stop-color="#00aaff33"></stop>
+                </linearGradient>
 
-            <linearGradient id="g_D" x1="0%" y1="0%" x2="30%" y2="100%">
-                <stop offset="20%" stop-color="#ff75a6"></stop>
-                <stop offset="90%" stop-color="#ff75a633"></stop>
-            </linearGradient>
+                <!--右-->
+                <linearGradient id="g_D" x1="0%" y1="0%" x2="30%" y2="100%">
+                    <stop offset="20%" stop-color="#00aaff"></stop>
+                    <stop offset="90%" stop-color="#00aaff33"></stop>
+                </linearGradient>
 
-            <linearGradient id="g_E" x1="70%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="#ff75a6"></stop>
-                <stop offset="80%" stop-color="#ff75a633"></stop>
-            </linearGradient>
+                <!--下右-->
+                <linearGradient id="g_E" x1="70%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="#00aaff"></stop>
+                    <stop offset="80%" stop-color="#00aaff33"></stop>
+                </linearGradient>
 
-            <linearGradient id="g_F" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="20%" stop-color="#ff75a633"></stop>
-                <stop offset="85%" stop-color="#ff75a6"></stop>
-            </linearGradient>
-        </defs>
-    </svg>
-</div>
+                <!--下左-->
+                <linearGradient id="g_F" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="20%" stop-color="#ff559933"></stop>
+                    <stop offset="85%" stop-color="#ff5599"></stop>
+                </linearGradient>
+            </defs>
+        </svg>
+    </div>
 
-<div style="margin-left: 100px;">
+    <div style="margin-left: 100px; margin-top: 40px;">
+        <div class="Title">Animac</div>
+        <div class="Subtitle"><span style="color:#cacbd1;">Scheme Implementation</div>
 
-<div style="
-font-family: 'UD Digi Kyokasho NP-B', 'consolas', Courier, monospace;
-font-size: 280px;
-line-height: 1;
-text-align: center;
-background: linear-gradient(270deg, #ff75a6, #cca3ff, #66ccff);
--webkit-text-fill-color: transparent;
-background-clip: text;
--webkit-background-clip: text;
-width: fit-content;
-margin: 0 auto;
-">Animac</div>
 
-<div style="
-margin-top: 20px;
-font-family: 'UD Digi Kyokasho NP-B', 'consolas', Courier, monospace;
-font-size: 80px;
-line-height: 1;
-text-align: center;
-"><span style="color:#cacbd1;">Scheme Implementation</div>
-
-</div>
+    </div>
 
 </div>
 
@@ -83,7 +96,7 @@ text-align: center;
 
 const a = 100;
 const t = 45;
-const w = 1;
+const w = 2;
 const R3 = Math.sqrt(3);
 
 let A1 = [R3 * t , a + t + 2 * w];
