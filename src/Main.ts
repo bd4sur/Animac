@@ -117,7 +117,7 @@ function Main() {
         repl.Start();
     }
     else if(option === "-v" || option === "--version") {
-        console.log(ANIMAC_VERSION);
+        console.log(`V${ANIMAC_VERSION}`);
     }
     // 如果没有可识别的参数，则第一个参数视为输入代码路径
     else {

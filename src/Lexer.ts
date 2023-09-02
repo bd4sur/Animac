@@ -27,7 +27,7 @@ function Lexer(code: string): Array<Token> {
             continue;
         }
         // 括号等定界符
-        else if (code[i-1] !== '\\' && 
+        else if (code[i-1] !== '\\' &&
                 (code[i] === '(' || code[i] === ')' || code[i] === '[' || code[i] === ']' ||
                  code[i] === '{' || code[i] === '}' || code[i] === '\'' || code[i] === ',' || code[i] === '`' || code[i] === '"')) {
             if(token_temp.length > 0) {

@@ -7,10 +7,10 @@ const path = require("path");
 const http = require('http');
 const url = require('url');
 
-const ANIMAC_VERSION = "V2023-alpha";
+const ANIMAC_VERSION = "0.2.0";
 
 const ANIMAC_HELP =
-`Animac Scheme Implementation ${ANIMAC_VERSION}
+`Animac Scheme Implementation V${ANIMAC_VERSION}
 Copyright (c) 2019~2023 BD4SUR
 https://github.com/bd4sur/Animac
 
@@ -29,9 +29,6 @@ Options:
   -i, --intp        interpret Animac VM executable file <input>.
   -r, --repl        start interactive REPL (read-eval-print-loop).
   -v, --version     print Animac version number.`;
-
-// 状态常量
-const SUCCEED = 0;
 
 // 顶级词法节点、顶级作用域和顶级闭包的parent字段
 //   用于判断上溯结束
