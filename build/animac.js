@@ -140,6 +140,136 @@ class FileUtils {
         return fs.readFileSync(p, "utf-8");
     }
 }
+// Memory.ts
+// 内存管理
+class HashMap extends Object {
+    set(handle, value) {
+        this[handle] = value;
+    }
+    get(handle) {
+        return this[handle];
+    }
+    has(handle) {
+        return (handle in this);
+    }
+    Copy() {
+        let copy = new HashMap();
+        for (let addr in this) {
+            let value = this.get(addr);
+            if (value === undefined)
+                continue;
+            if (value instanceof SchemeObject) {
+                copy.set(addr, value.Copy());
+            }
+            else {
+                let newValue = JSON.parse(JSON.stringify(value));
+                copy.set(addr, newValue);
+            }
+        }
+        return copy;
+    }
+}
+// 基于HashMap的对象存储区，用于实现pool、heap等
+class Memory {
+    constructor() {
+        this.data = new HashMap();
+        this.metadata = new HashMap();
+        this.handleCounter = 0;
+    }
+    // 生成元数据字符串
+    MetaString(isStatic, isReadOnly, status) {
+        let str = "";
+        str += (isStatic) ? "S" : "_";
+        str += (isReadOnly) ? "R" : "_";
+        switch (status) {
+            case "allocated":
+                str += "A";
+                break;
+            case "modified":
+                str += "M";
+                break;
+            case "free":
+                str += "F";
+                break;
+            default:
+                str += "_";
+                break;
+        }
+        return str;
+    }
+    // 把柄存在性判断
+    HasHandle(handle) {
+        return this.data.has(handle);
+    }
+    // 新建任意把柄
+    NewHandle(handle, isStatic) {
+        isStatic = isStatic || false;
+        this.data.set(handle, null);
+        this.metadata.set(handle, this.MetaString(isStatic, false, "allocated"));
+    }
+    // 动态分配堆对象把柄
+    AllocateHandle(typeTag, isStatic) {
+        isStatic = isStatic || false;
+        typeTag = typeTag || "OBJECT";
+        let handle = `&${typeTag}_${this.handleCounter}`;
+        this.data.set(handle, null);
+        this.metadata.set(handle, this.MetaString(isStatic, false, "allocated"));
+        this.handleCounter++;
+        return handle;
+    }
+    // 动态回收堆对象把柄：删除堆中相应位置
+    DeleteHandle(handle) {
+        delete this.data[handle];
+        delete this.metadata[handle];
+        // this.data.set(handle, undefined);
+        // this.metadata.set(handle, this.MetaString(false, false, "free"));
+    }
+    // 根据把柄获取对象
+    Get(handle) {
+        if (this.data.has(handle)) {
+            return this.data.get(handle);
+        }
+        else {
+            throw `[Memory.Get] 空把柄:${handle}`;
+        }
+    }
+    // 设置把柄的对象值
+    Set(handle, value) {
+        let metadata = this.metadata.get(handle);
+        if (this.data.has(handle) === false) {
+            throw `[Error] 未分配的把柄:${handle}`;
+        }
+        else if (metadata[1] === "R") {
+            throw `[Error] 不允许修改只读对象:${handle}`;
+        }
+        else if (metadata[0] === "S") {
+            // console.warn(`[Warn] 修改了静态对象:${handle}`);
+        }
+        this.metadata.set(handle, this.MetaString((metadata[0] === "S"), false, "modified"));
+        this.data.set(handle, value);
+    }
+    // 是否静态
+    IsStatic(handle) {
+        return ((this.metadata.get(handle))[0] === "S");
+    }
+    // 遍历
+    // 注意：输入函数通过返回"break"来结束循环，通过返回其他任意值来中止一轮循环（continue）。
+    ForEach(f) {
+        for (let handle in this.data) {
+            let ctrl = f(handle);
+            if (ctrl === "break")
+                break;
+        }
+    }
+    // 深拷贝
+    Copy() {
+        let copy = new Memory();
+        copy.data = this.data.Copy();
+        copy.metadata = this.metadata.Copy();
+        copy.handleCounter = this.handleCounter;
+        return copy;
+    }
+}
 // Object.ts
 // 数据对象定义
 class SchemeObject {
@@ -336,136 +466,6 @@ class Continuation extends SchemeObject {
         copy.type = SchemeObjectType.CONTINUATION;
         copy.partialEnvironmentJson = this.partialEnvironmentJson;
         copy.contReturnTargetLable = this.contReturnTargetLable;
-        return copy;
-    }
-}
-// Memory.ts
-// 内存管理
-class HashMap extends Object {
-    set(handle, value) {
-        this[handle] = value;
-    }
-    get(handle) {
-        return this[handle];
-    }
-    has(handle) {
-        return (handle in this);
-    }
-    Copy() {
-        let copy = new HashMap();
-        for (let addr in this) {
-            let value = this.get(addr);
-            if (value === undefined)
-                continue;
-            if (value instanceof SchemeObject) {
-                copy.set(addr, value.Copy());
-            }
-            else {
-                let newValue = JSON.parse(JSON.stringify(value));
-                copy.set(addr, newValue);
-            }
-        }
-        return copy;
-    }
-}
-// 基于HashMap的对象存储区，用于实现pool、heap等
-class Memory {
-    constructor() {
-        this.data = new HashMap();
-        this.metadata = new HashMap();
-        this.handleCounter = 0;
-    }
-    // 生成元数据字符串
-    MetaString(isStatic, isReadOnly, status) {
-        let str = "";
-        str += (isStatic) ? "S" : "_";
-        str += (isReadOnly) ? "R" : "_";
-        switch (status) {
-            case "allocated":
-                str += "A";
-                break;
-            case "modified":
-                str += "M";
-                break;
-            case "free":
-                str += "F";
-                break;
-            default:
-                str += "_";
-                break;
-        }
-        return str;
-    }
-    // 把柄存在性判断
-    HasHandle(handle) {
-        return this.data.has(handle);
-    }
-    // 新建任意把柄
-    NewHandle(handle, isStatic) {
-        isStatic = isStatic || false;
-        this.data.set(handle, null);
-        this.metadata.set(handle, this.MetaString(isStatic, false, "allocated"));
-    }
-    // 动态分配堆对象把柄
-    AllocateHandle(typeTag, isStatic) {
-        isStatic = isStatic || false;
-        typeTag = typeTag || "OBJECT";
-        let handle = `&${typeTag}_${this.handleCounter}`;
-        this.data.set(handle, null);
-        this.metadata.set(handle, this.MetaString(isStatic, false, "allocated"));
-        this.handleCounter++;
-        return handle;
-    }
-    // 动态回收堆对象把柄：删除堆中相应位置
-    DeleteHandle(handle) {
-        delete this.data[handle];
-        delete this.metadata[handle];
-        // this.data.set(handle, undefined);
-        // this.metadata.set(handle, this.MetaString(false, false, "free"));
-    }
-    // 根据把柄获取对象
-    Get(handle) {
-        if (this.data.has(handle)) {
-            return this.data.get(handle);
-        }
-        else {
-            throw `[Memory.Get] 空把柄:${handle}`;
-        }
-    }
-    // 设置把柄的对象值
-    Set(handle, value) {
-        let metadata = this.metadata.get(handle);
-        if (this.data.has(handle) === false) {
-            throw `[Error] 未分配的把柄:${handle}`;
-        }
-        else if (metadata[1] === "R") {
-            throw `[Error] 不允许修改只读对象:${handle}`;
-        }
-        else if (metadata[0] === "S") {
-            // console.warn(`[Warn] 修改了静态对象:${handle}`);
-        }
-        this.metadata.set(handle, this.MetaString((metadata[0] === "S"), false, "modified"));
-        this.data.set(handle, value);
-    }
-    // 是否静态
-    IsStatic(handle) {
-        return ((this.metadata.get(handle))[0] === "S");
-    }
-    // 遍历
-    // 注意：输入函数通过返回"break"来结束循环，通过返回其他任意值来中止一轮循环（continue）。
-    ForEach(f) {
-        for (let handle in this.data) {
-            let ctrl = f(handle);
-            if (ctrl === "break")
-                break;
-        }
-    }
-    // 深拷贝
-    Copy() {
-        let copy = new Memory();
-        copy.data = this.data.Copy();
-        copy.metadata = this.metadata.Copy();
-        copy.handleCounter = this.handleCounter;
         return copy;
     }
 }

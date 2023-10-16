@@ -8,8 +8,8 @@
     },
     "files": [
         "src/Common.ts",
-        "src/Object.ts",
         "src/Memory.ts",
+        "src/Object.ts",
         "src/Lexer.ts",
         "src/Parser.ts",
         "src/Analyser.ts",
