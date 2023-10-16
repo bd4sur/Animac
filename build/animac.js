@@ -2,8 +2,6 @@
 // 工具函数
 const fs = require("fs");
 const path = require("path");
-const http = require('http');
-const url = require('url');
 const ANIMAC_VERSION = "0.2.0";
 const ANIMAC_HELP = `Animac Scheme Implementation V${ANIMAC_VERSION}
 Copyright (c) 2019~2023 BD4SUR
@@ -118,6 +116,28 @@ class PathUtils {
             .replace(/\s/gi, "_")
             .replace(/[\:]/gi, "")
             .replace(/\.scm$/gi, "");
+    }
+    // 判断是否是所在平台的绝对路径
+    static IsAbsolutePath(p) {
+        return path.isAbsolute(p);
+    }
+    // 在特定平台下，将多个路径按顺序拼接成合理的绝对路径
+    static Join(p1, p2) {
+        return path.join(p1, p2);
+    }
+    // 在特定平台下，返回某个路径的所在目录路径
+    static DirName(p) {
+        return path.dirname(p);
+    }
+    // 在特定平台下，返回某个路径的文件名部分
+    static BaseName(p, suffix) {
+        return path.basename(p, suffix);
+    }
+}
+// 文件操作
+class FileUtils {
+    static ReadFileSync(p) {
+        return fs.readFileSync(p, "utf-8");
     }
 }
 // Object.ts
@@ -1168,9 +1188,9 @@ function Parse(code, absolutePath) {
                 }
                 // 将相对路径扩展为绝对路径
                 let modulePath = TrimQuotes(pathStringObject.content);
-                if (path.isAbsolute(modulePath) === false) {
-                    let basePath = path.dirname(absolutePath); // 当前模块所在的目录
-                    modulePath = path.join(basePath, modulePath); // 将依赖模块的路径拼接为绝对路径
+                if (PathUtils.IsAbsolutePath(modulePath) === false) {
+                    let basePath = PathUtils.DirName(absolutePath); // 当前模块所在的目录
+                    modulePath = PathUtils.Join(basePath, modulePath); // 将依赖模块的路径拼接为绝对路径
                 }
                 ast.dependencies.set(moduleAlias, modulePath);
             }
@@ -2295,12 +2315,12 @@ function LoadModule(modulePath, workingDir) {
     // 递归地引入所有依赖文件，并检测循环依赖
     (function importModule(modulePath, basePath) {
         // 将相对路径拼接为绝对路径
-        if (path.isAbsolute(modulePath) === false) {
-            modulePath = path.join(basePath, modulePath);
+        if (PathUtils.IsAbsolutePath(modulePath) === false) {
+            modulePath = PathUtils.Join(basePath, modulePath);
         }
         let code;
         try {
-            code = fs.readFileSync(modulePath, "utf-8");
+            code = FileUtils.ReadFileSync(modulePath);
         }
         catch (_a) {
             throw `[Error] 模块“${modulePath}”未找到。`;
@@ -2321,7 +2341,7 @@ function LoadModule(modulePath, workingDir) {
                 throw `[Error] 模块之间存在循环依赖，无法载入模块。`;
             }
             // 递归引入下一层依赖，其中基准路径为当前遍历的模块的dirname
-            let currentBasePath = path.dirname(dependencyPath);
+            let currentBasePath = PathUtils.DirName(dependencyPath);
             importModule(dependencyPath, currentBasePath);
         }
     })(modulePath, workingDir);
@@ -2407,12 +2427,12 @@ function LoadModuleFromNode(ast, nodeHandle, workingDir) {
     // 递归地引入所有依赖文件，并检测循环依赖
     function importModule(modulePath, basePath) {
         // 将相对路径拼接为绝对路径
-        if (path.isAbsolute(modulePath) === false) {
-            modulePath = path.join(workingDir, modulePath);
+        if (PathUtils.IsAbsolutePath(modulePath) === false) {
+            modulePath = PathUtils.Join(workingDir, modulePath);
         }
         let code;
         try {
-            code = fs.readFileSync(modulePath, "utf-8");
+            code = FileUtils.ReadFileSync(modulePath);
         }
         catch (_a) {
             throw `[Error] 模块“${modulePath}”未找到。`;
@@ -2433,7 +2453,7 @@ function LoadModuleFromNode(ast, nodeHandle, workingDir) {
                 throw `[Error] 模块之间存在循环依赖，无法载入模块。`;
             }
             // 递归引入下一层依赖，其中基准路径为当前遍历的模块的dirname
-            let currentBasePath = path.dirname(dependencyPath);
+            let currentBasePath = PathUtils.DirName(dependencyPath);
             importModule(dependencyPath, currentBasePath);
         }
     }
@@ -2493,10 +2513,10 @@ function LoadModuleFromCode(code, virtualDir) {
             try {
                 // 将相对路径拼接为绝对路径
                 modulePath = pathOrCode;
-                if (path.isAbsolute(modulePath) === false) {
-                    modulePath = path.join(basePath, modulePath);
+                if (PathUtils.IsAbsolutePath(modulePath) === false) {
+                    modulePath = PathUtils.Join(basePath, modulePath);
                 }
-                code = fs.readFileSync(modulePath, "utf-8");
+                code = FileUtils.ReadFileSync(modulePath);
                 code = `((lambda () ${code}))\n`;
             }
             catch (_a) {
@@ -2522,7 +2542,7 @@ function LoadModuleFromCode(code, virtualDir) {
                 throw `[Error] 模块之间存在循环依赖，无法载入模块。`;
             }
             // 递归引入下一层依赖，其中基准路径为当前遍历的模块的dirname
-            let currentBasePath = path.dirname(dependencyPath);
+            let currentBasePath = PathUtils.DirName(dependencyPath);
             importModule(dependencyPath, true, currentBasePath);
         }
     }
@@ -3166,7 +3186,7 @@ class Runtime {
         let nativeModuleName = target.split(".")[0];
         let nativeFunctionName = target.split(".").slice(1).join("");
         // 引入Native模块
-        let nativeModulePath = path.join(process.cwd(), `lib/${nativeModuleName}.js`);
+        let nativeModulePath = PathUtils.Join(process.cwd(), `lib/${nativeModuleName}.js`);
         let nativeModule = require(nativeModulePath);
         // 调用Native模块内部的函数
         (nativeModule[nativeFunctionName])(PROCESS, RUNTIME);
@@ -3759,7 +3779,7 @@ class Runtime {
         if (argType === "HANDLE") {
             let node = PROCESS.heap.Get(argument);
             if (node.type === "APPLICATION") {
-                let basePath = path.dirname(PROCESS.AST.absolutePath);
+                let basePath = PathUtils.DirName(PROCESS.AST.absolutePath);
                 let modul = LoadModuleFromNode(PROCESS.AST, argument, basePath);
                 let newProcess = new Process(modul);
                 // 分配新的PID
@@ -3771,9 +3791,9 @@ class Runtime {
             else if (node.type === "STRING") {
                 let modulePath = TrimQuotes(node.content);
                 // 将相对路径拼接为绝对路径
-                let basePath = path.dirname(PROCESS.AST.absolutePath);
-                if (path.isAbsolute(modulePath) === false) {
-                    modulePath = path.join(basePath, modulePath);
+                let basePath = PathUtils.DirName(PROCESS.AST.absolutePath);
+                if (PathUtils.IsAbsolutePath(modulePath) === false) {
+                    modulePath = PathUtils.Join(basePath, modulePath);
                 }
                 let forkedModule = LoadModule(modulePath, basePath);
                 // 构造新进程，并分配PID
@@ -4176,7 +4196,7 @@ class REPL {
     run(input, callback) {
         try {
             let code = `((lambda () ${this.allCode.join(" ")} (display ${input}) (newline) ))\n`;
-            let mod = LoadModuleFromCode(code, path.join(this.RUNTIME.workingDir, "repl.scm"));
+            let mod = LoadModuleFromCode(code, PathUtils.Join(this.RUNTIME.workingDir, "repl.scm"));
             let proc = new Process(mod);
             proc.PID = 0;
             this.RUNTIME.asyncCallback = callback; // NOTE 用于文件读写等异步操作结束之后执行
@@ -4267,6 +4287,8 @@ class REPL {
         process.stdin.on("data", (input) => { this.ReadEvalPrint(input); });
     }
 }
+const http = require('http');
+const url = require('url');
 const DebugServerConfig = {
     'portNumber': 8088,
     'MIME': {
@@ -4417,7 +4439,7 @@ function StartDebugServer() {
 // 将Scheme代码文件编译为可执行文件
 function compileCodeToExecutable(inputAbsPath, outputAbsPath) {
     // 以代码所在路径为工作路径
-    let workingDir = path.dirname(inputAbsPath);
+    let workingDir = PathUtils.DirName(inputAbsPath);
     let linkedModule = LoadModule(inputAbsPath, workingDir);
     fs.writeFileSync(outputAbsPath, JSON.stringify(linkedModule, null, 2), "utf-8");
 }
@@ -4432,7 +4454,7 @@ function runFromExecutable(execAbsPath) {
 }
 function runFromFile(srcAbsPath) {
     // 以代码所在路径为工作路径
-    let workingDir = path.dirname(srcAbsPath);
+    let workingDir = PathUtils.DirName(srcAbsPath);
     let linkedModule = LoadModule(srcAbsPath, workingDir);
     // fs.writeFileSync("module.json", JSON.stringify(linkedModule, null, 2), "utf-8");
     let PROCESS = new Process(linkedModule);
@@ -4444,7 +4466,7 @@ function runFromCode(code) {
     let workingDir = process.cwd();
     let virtualFilename = "temp.scm";
     code = `((lambda () (display { ${code} }) (newline) ))\n`;
-    let linkedModule = LoadModuleFromCode(code, path.join(workingDir, virtualFilename));
+    let linkedModule = LoadModuleFromCode(code, PathUtils.Join(workingDir, virtualFilename));
     let PROCESS = new Process(linkedModule);
     let RUNTIME = new Runtime(workingDir);
     RUNTIME.AddProcess(PROCESS);
@@ -4460,8 +4482,8 @@ function Main() {
         let sourcePath = TrimQuotes(argv[1]);
         if (sourcePath.length > 0) {
             // 相对路径补全为绝对路径
-            if (path.isAbsolute(sourcePath) === false) {
-                sourcePath = path.join(process.cwd(), sourcePath);
+            if (PathUtils.IsAbsolutePath(sourcePath) === false) {
+                sourcePath = PathUtils.Join(process.cwd(), sourcePath);
             }
             runFromFile(sourcePath);
         }
@@ -4479,12 +4501,12 @@ function Main() {
     else if (option === "-c" || option === "--compile") {
         let inputPath = TrimQuotes(argv[1]);
         let outputPath = TrimQuotes(argv[2]);
-        if (path.isAbsolute(inputPath) === false) {
-            inputPath = path.join(process.cwd(), inputPath);
+        if (PathUtils.IsAbsolutePath(inputPath) === false) {
+            inputPath = PathUtils.Join(process.cwd(), inputPath);
         }
-        outputPath = (outputPath.length > 0) ? outputPath : (path.basename(inputPath, ".scm") + ".json");
-        if (path.isAbsolute(outputPath) === false) {
-            outputPath = path.join(path.dirname(inputPath), outputPath);
+        outputPath = (outputPath.length > 0) ? outputPath : (PathUtils.BaseName(inputPath, ".scm") + ".json");
+        if (PathUtils.IsAbsolutePath(outputPath) === false) {
+            outputPath = PathUtils.Join(PathUtils.DirName(inputPath), outputPath);
         }
         compileCodeToExecutable(inputPath, outputPath);
         console.log(`Compiled Animac VM executable file saved at: ${outputPath}\n`);
@@ -4503,8 +4525,8 @@ function Main() {
     // 解释执行编译后的模块
     else if (option === "-i" || option === "--intp") {
         let modulePath = TrimQuotes(argv[1]);
-        if (path.isAbsolute(modulePath) === false) {
-            modulePath = path.join(process.cwd(), modulePath);
+        if (PathUtils.IsAbsolutePath(modulePath) === false) {
+            modulePath = PathUtils.Join(process.cwd(), modulePath);
         }
         runFromExecutable(modulePath);
     }
@@ -4519,8 +4541,8 @@ function Main() {
     else {
         let sourcePath = TrimQuotes(argv[0]);
         // 相对路径补全为绝对路径
-        if (path.isAbsolute(sourcePath) === false) {
-            sourcePath = path.join(process.cwd(), sourcePath);
+        if (PathUtils.IsAbsolutePath(sourcePath) === false) {
+            sourcePath = PathUtils.Join(process.cwd(), sourcePath);
         }
         runFromFile(sourcePath);
     }

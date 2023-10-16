@@ -4,8 +4,6 @@
 
 const fs = require("fs");
 const path = require("path");
-const http = require('http');
-const url = require('url');
 
 const ANIMAC_VERSION = "0.2.0";
 
@@ -133,5 +131,32 @@ class PathUtils {
                            .replace(/\s/gi, "_")
                            .replace(/[\:]/gi, "")
                            .replace(/\.scm$/gi, "");
+    }
+
+    // 判断是否是所在平台的绝对路径
+    static IsAbsolutePath(p: string): boolean {
+        return path.isAbsolute(p);
+    }
+
+    // 在特定平台下，将多个路径按顺序拼接成合理的绝对路径
+    static Join(p1: string, p2: string): string {
+        return path.join(p1, p2);
+    }
+
+    // 在特定平台下，返回某个路径的所在目录路径
+    static DirName(p: string): string {
+        return path.dirname(p);
+    }
+
+    // 在特定平台下，返回某个路径的文件名部分
+    static BaseName(p: string, suffix: string): string {
+        return path.basename(p, suffix);
+    }
+}
+
+// 文件操作
+class FileUtils {
+    static ReadFileSync(p: string): string {
+        return fs.readFileSync(p, "utf-8");
     }
 }

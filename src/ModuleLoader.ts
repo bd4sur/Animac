@@ -25,13 +25,13 @@ function LoadModule(modulePath: string, workingDir: string): Module {
     // 递归地引入所有依赖文件，并检测循环依赖
     (function importModule(modulePath: string, basePath: string): void {
         // 将相对路径拼接为绝对路径
-        if(path.isAbsolute(modulePath) === false) {
-            modulePath = path.join(basePath, modulePath);
+        if(PathUtils.IsAbsolutePath(modulePath) === false) {
+            modulePath = PathUtils.Join(basePath, modulePath);
         }
 
         let code: string;
         try {
-            code = fs.readFileSync(modulePath, "utf-8");
+            code = FileUtils.ReadFileSync(modulePath);
         }
         catch {
             throw `[Error] 模块“${modulePath}”未找到。`
@@ -56,7 +56,7 @@ function LoadModule(modulePath: string, workingDir: string): Module {
                 throw `[Error] 模块之间存在循环依赖，无法载入模块。`;
             }
             // 递归引入下一层依赖，其中基准路径为当前遍历的模块的dirname
-            let currentBasePath = path.dirname(dependencyPath);
+            let currentBasePath = PathUtils.DirName(dependencyPath);
             importModule(dependencyPath, currentBasePath);
         }
     })(modulePath, workingDir);
@@ -156,13 +156,13 @@ function LoadModuleFromNode(ast: AST, nodeHandle: Handle, workingDir: string): M
     // 递归地引入所有依赖文件，并检测循环依赖
     function importModule(modulePath: string, basePath: string): void {
         // 将相对路径拼接为绝对路径
-        if(path.isAbsolute(modulePath) === false) {
-            modulePath = path.join(workingDir, modulePath);
+        if(PathUtils.IsAbsolutePath(modulePath) === false) {
+            modulePath = PathUtils.Join(workingDir, modulePath);
         }
 
         let code: string;
         try {
-            code = fs.readFileSync(modulePath, "utf-8");
+            code = FileUtils.ReadFileSync(modulePath);
         }
         catch {
             throw `[Error] 模块“${modulePath}”未找到。`
@@ -187,7 +187,7 @@ function LoadModuleFromNode(ast: AST, nodeHandle: Handle, workingDir: string): M
                 throw `[Error] 模块之间存在循环依赖，无法载入模块。`;
             }
             // 递归引入下一层依赖，其中基准路径为当前遍历的模块的dirname
-            let currentBasePath = path.dirname(dependencyPath);
+            let currentBasePath = PathUtils.DirName(dependencyPath);
             importModule(dependencyPath, currentBasePath);
         }
     }
@@ -254,10 +254,10 @@ function LoadModuleFromCode(code: string, virtualDir: string): Module {
             try {
                 // 将相对路径拼接为绝对路径
                 modulePath = pathOrCode;
-                if(path.isAbsolute(modulePath) === false) {
-                    modulePath = path.join(basePath, modulePath);
+                if(PathUtils.IsAbsolutePath(modulePath) === false) {
+                    modulePath = PathUtils.Join(basePath, modulePath);
                 }
-                code = fs.readFileSync(modulePath, "utf-8");
+                code = FileUtils.ReadFileSync(modulePath);
                 code = `((lambda () ${code}))\n`;
             }
             catch {
@@ -286,7 +286,7 @@ function LoadModuleFromCode(code: string, virtualDir: string): Module {
                 throw `[Error] 模块之间存在循环依赖，无法载入模块。`;
             }
             // 递归引入下一层依赖，其中基准路径为当前遍历的模块的dirname
-            let currentBasePath = path.dirname(dependencyPath);
+            let currentBasePath = PathUtils.DirName(dependencyPath);
             importModule(dependencyPath, true, currentBasePath);
         }
     }

@@ -17,7 +17,7 @@ class REPL {
         try {
             let code = `((lambda () ${this.allCode.join(" ")} (display ${input}) (newline) ))\n`;
 
-            let mod = LoadModuleFromCode(code, path.join(this.RUNTIME.workingDir, "repl.scm"));
+            let mod = LoadModuleFromCode(code, PathUtils.Join(this.RUNTIME.workingDir, "repl.scm"));
 
             let proc = new Process(mod);
             proc.PID = 0;

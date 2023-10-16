@@ -6,7 +6,7 @@
 // 将Scheme代码文件编译为可执行文件
 function compileCodeToExecutable(inputAbsPath: string, outputAbsPath: string) {
     // 以代码所在路径为工作路径
-    let workingDir = path.dirname(inputAbsPath);
+    let workingDir = PathUtils.DirName(inputAbsPath);
     let linkedModule = LoadModule(inputAbsPath, workingDir);
     fs.writeFileSync(outputAbsPath, JSON.stringify(linkedModule, null, 2), "utf-8");
 }
@@ -23,7 +23,7 @@ function runFromExecutable(execAbsPath: string) {
 
 function runFromFile(srcAbsPath: string) {
     // 以代码所在路径为工作路径
-    let workingDir = path.dirname(srcAbsPath);
+    let workingDir = PathUtils.DirName(srcAbsPath);
 
     let linkedModule = LoadModule(srcAbsPath, workingDir);
     // fs.writeFileSync("module.json", JSON.stringify(linkedModule, null, 2), "utf-8");
@@ -41,7 +41,7 @@ function runFromCode(code: string) {
 
     code = `((lambda () (display { ${code} }) (newline) ))\n`;
 
-    let linkedModule = LoadModuleFromCode(code, path.join(workingDir, virtualFilename));
+    let linkedModule = LoadModuleFromCode(code, PathUtils.Join(workingDir, virtualFilename));
 
     let PROCESS = new Process(linkedModule);
     let RUNTIME = new Runtime(workingDir);
@@ -64,8 +64,8 @@ function Main() {
         let sourcePath = TrimQuotes(argv[1]);
         if(sourcePath.length > 0) {
             // 相对路径补全为绝对路径
-            if(path.isAbsolute(sourcePath) === false) {
-                sourcePath = path.join(process.cwd(), sourcePath);
+            if(PathUtils.IsAbsolutePath(sourcePath) === false) {
+                sourcePath = PathUtils.Join(process.cwd(), sourcePath);
             }
             runFromFile(sourcePath);
         }
@@ -83,12 +83,12 @@ function Main() {
     else if(option === "-c" || option === "--compile") {
         let inputPath = TrimQuotes(argv[1]);
         let outputPath = TrimQuotes(argv[2]);
-        if(path.isAbsolute(inputPath) === false) {
-            inputPath = path.join(process.cwd(), inputPath);
+        if(PathUtils.IsAbsolutePath(inputPath) === false) {
+            inputPath = PathUtils.Join(process.cwd(), inputPath);
         }
-        outputPath = (outputPath.length > 0) ? outputPath : (path.basename(inputPath, ".scm") + ".json");
-        if(path.isAbsolute(outputPath) === false) {
-            outputPath = path.join(path.dirname(inputPath), outputPath);
+        outputPath = (outputPath.length > 0) ? outputPath : (PathUtils.BaseName(inputPath, ".scm") + ".json");
+        if(PathUtils.IsAbsolutePath(outputPath) === false) {
+            outputPath = PathUtils.Join(PathUtils.DirName(inputPath), outputPath);
         }
         compileCodeToExecutable(inputPath, outputPath);
         console.log(`Compiled Animac VM executable file saved at: ${outputPath}\n`);
@@ -107,8 +107,8 @@ function Main() {
     // 解释执行编译后的模块
     else if(option === "-i" || option === "--intp") {
         let modulePath = TrimQuotes(argv[1]);
-        if(path.isAbsolute(modulePath) === false) {
-            modulePath = path.join(process.cwd(), modulePath);
+        if(PathUtils.IsAbsolutePath(modulePath) === false) {
+            modulePath = PathUtils.Join(process.cwd(), modulePath);
         }
         runFromExecutable(modulePath);
     }
@@ -123,8 +123,8 @@ function Main() {
     else {
         let sourcePath = TrimQuotes(argv[0]);
         // 相对路径补全为绝对路径
-        if(path.isAbsolute(sourcePath) === false) {
-            sourcePath = path.join(process.cwd(), sourcePath);
+        if(PathUtils.IsAbsolutePath(sourcePath) === false) {
+            sourcePath = PathUtils.Join(process.cwd(), sourcePath);
         }
         runFromFile(sourcePath);
     }

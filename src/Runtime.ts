@@ -278,7 +278,7 @@ class Runtime {
         let nativeModuleName = target.split(".")[0];
         let nativeFunctionName = target.split(".").slice(1).join("");
         // 引入Native模块
-        let nativeModulePath = path.join(process.cwd(), `lib/${nativeModuleName}.js`);
+        let nativeModulePath = PathUtils.Join(process.cwd(), `lib/${nativeModuleName}.js`);
         let nativeModule = require(nativeModulePath);
         // 调用Native模块内部的函数
         (nativeModule[nativeFunctionName])(PROCESS, RUNTIME);
@@ -909,7 +909,7 @@ class Runtime {
         if(argType === "HANDLE") {
             let node = PROCESS.heap.Get(argument);
             if(node.type === "APPLICATION") {
-                let basePath = path.dirname(PROCESS.AST.absolutePath);
+                let basePath = PathUtils.DirName(PROCESS.AST.absolutePath);
                 let modul = LoadModuleFromNode(PROCESS.AST, argument, basePath);
                 let newProcess = new Process(modul);
                 // 分配新的PID
@@ -921,9 +921,9 @@ class Runtime {
             else if(node.type === "STRING"){
                 let modulePath = TrimQuotes(node.content);
                 // 将相对路径拼接为绝对路径
-                let basePath = path.dirname(PROCESS.AST.absolutePath);
-                if(path.isAbsolute(modulePath) === false) {
-                    modulePath = path.join(basePath, modulePath);
+                let basePath = PathUtils.DirName(PROCESS.AST.absolutePath);
+                if(PathUtils.IsAbsolutePath(modulePath) === false) {
+                    modulePath = PathUtils.Join(basePath, modulePath);
                 }
                 let forkedModule = LoadModule(modulePath, basePath);
                 // 构造新进程，并分配PID

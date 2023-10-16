@@ -634,9 +634,9 @@ function Parse(code: string, absolutePath: string): AST {
                 }
                 // 将相对路径扩展为绝对路径
                 let modulePath = TrimQuotes(pathStringObject.content);
-                if(path.isAbsolute(modulePath) === false) {
-                    let basePath = path.dirname(absolutePath);    // 当前模块所在的目录
-                    modulePath = path.join(basePath, modulePath); // 将依赖模块的路径拼接为绝对路径
+                if(PathUtils.IsAbsolutePath(modulePath) === false) {
+                    let basePath = PathUtils.DirName(absolutePath);    // 当前模块所在的目录
+                    modulePath = PathUtils.Join(basePath, modulePath); // 将依赖模块的路径拼接为绝对路径
                 }
                 ast.dependencies.set(moduleAlias, modulePath);
             }
