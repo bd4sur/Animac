@@ -4,6 +4,8 @@
 
 **灵机 · Animac**是一款[Scheme](https://zh.wikipedia.org/wiki/Scheme)解释器，是Scheme语言的一个实现。Animac能够将Scheme代码编译为中间语言代码，并且在虚拟机上执行中间语言代码。目前，Animac使用TypeScript开发，基于Node.js实现。
 
+[立即体验](https://bd4sur.com/Animac)
+
 ## 演示
 
 **案例1**：在Animac的REPL中，通过调用事先封装好的Scheme接口模块`chatbot.scm`，构造提示语（prompt），通过本地宿主环境接口，将其传递给部署于本地的[ChatGLM2-6B](https://github.com/THUDM/ChatGLM2-6B)语言模型，并且将ChatGLM2推理输出的文本回传Animac，实现问答式对话。
