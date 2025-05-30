@@ -8,13 +8,13 @@ function compileCodeToExecutable(inputAbsPath: string, outputAbsPath: string) {
     // 以代码所在路径为工作路径
     let workingDir = PathUtils.DirName(inputAbsPath);
     let linkedModule = LoadModule(inputAbsPath, workingDir);
-    fs.writeFileSync(outputAbsPath, JSON.stringify(linkedModule, null, 2), "utf-8");
+    FileUtils.WriteFileSync(outputAbsPath, JSON.stringify(linkedModule, null, 2));
 }
 
 // 直接执行模块文件
 function runFromExecutable(execAbsPath: string) {
     let workingDir = process.cwd();
-    let moduleJson = JSON.parse(fs.readFileSync(execAbsPath, "utf-8"));
+    let moduleJson = JSON.parse(FileUtils.ReadFileSync(execAbsPath));
     let PROCESS = new Process(moduleJson);
     let RUNTIME = new Runtime(workingDir);
     RUNTIME.AddProcess(PROCESS);

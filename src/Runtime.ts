@@ -132,12 +132,12 @@ class Runtime {
     //=================================================================
 
     public Output(str: string): void {
-        process.stdout.write(str);
+        StdIOUtils.stdout(str);
         this.outputBuffer += str;
     }
 
     public Error(str: string): void {
-        process.stderr.write(str);
+        StdIOUtils.stderr(str);
         this.errorBuffer += str;
     }
 
@@ -277,11 +277,23 @@ class Runtime {
         // NOTE native不压栈帧
         let nativeModuleName = target.split(".")[0];
         let nativeFunctionName = target.split(".").slice(1).join("");
-        // 引入Native模块
-        let nativeModulePath = PathUtils.Join(process.cwd(), `lib/${nativeModuleName}.js`);
-        let nativeModule = require(nativeModulePath);
-        // 调用Native模块内部的函数
-        (nativeModule[nativeFunctionName])(PROCESS, RUNTIME);
+        if (ANIMAC_CONFIG.env_type === "node") {
+            // 引入Native模块
+            let nativeModulePath = PathUtils.Join(PathUtils.cwd(), `lib/${nativeModuleName}.js`);
+            let nativeModule = require(nativeModulePath);
+            // 调用Native模块内部的函数
+            (nativeModule[nativeFunctionName])(PROCESS, RUNTIME);
+        }
+        else if (ANIMAC_CONFIG.env_type === "browser") {
+            // 引入Native模块
+            let nativeModulePath = `/lib/${nativeModuleName}.js`;
+            let nativeModule = RequireNative(nativeModuleName, ANIMAC_VFS[nativeModulePath]);
+            // 调用Native模块内部的函数
+            (nativeModule[nativeFunctionName])(PROCESS, RUNTIME);
+        }
+        else {
+            throw "error: unknown env type.";
+        }
     }
 
     // 辅助函数：可以任意指定返回指令地址的函数调用（非尾调用）。这一函数用于支持异步过程调用（如事件回调），同时也用于实现普通的同步过程调用。

@@ -2,10 +2,26 @@
 // Utility.ts
 // 工具函数
 
-const fs = require("fs");
-const path = require("path");
-
 const ANIMAC_VERSION = "0.2.0";
+
+let ANIMAC_VFS = {};
+
+const ANIMAC_CONFIG = {
+    "env_type": "browser", // 运行环境："node" or "browser"
+};
+
+let ANIMAC_STDOUT_CALLBACK = console.log;
+let ANIMAC_STDERR_CALLBACK = console.error;
+
+let fs = null;
+let path = null;
+
+if (ANIMAC_CONFIG["env_type"] === "node") {
+    fs = require("fs");
+    path = require("path");
+}
+
+
 
 const ANIMAC_HELP =
 `Animac Scheme Implementation V${ANIMAC_VERSION}
@@ -123,6 +139,74 @@ function isVariable(token: string): boolean {
     return (TypeOfToken(token) === "VARIABLE");
 }
 
+
+// 通用的require
+function createModuleSystem() {
+    // 模块缓存
+    const moduleCache = {};
+
+    // 核心的 require 函数
+    function require(moduleId, code) {
+        // 检查缓存
+        if (moduleCache[moduleId]) {
+            return moduleCache[moduleId].exports;
+        }
+
+        // 创建新模块
+        const module = {
+            id: moduleId,
+            exports: {},
+            loaded: false
+        };
+
+        // 立即缓存模块
+        moduleCache[moduleId] = module;
+
+        // 模块包装函数（核心）
+        function wrapModule(code) {
+            return new Function(
+                'exports',
+                'require',
+                'module',
+                '__filename',
+                '__dirname',
+                `{${code}\n}` // 包裹代码块确保作用域隔离
+            );
+        }
+
+        // 执行模块代码
+        try {
+            const moduleFunction = wrapModule(code);
+            moduleFunction.call(
+                module.exports, // this 指向 exports
+                module.exports, // exports 参数
+                createRequire(module), // 自定义 require
+                module,          // module 参数
+                moduleId,        // __filename
+                moduleId.split('/').slice(0, -1).join('/') || '.' // __dirname
+            );
+            module.loaded = true;
+        } catch (error) {
+            delete moduleCache[moduleId];
+            throw error;
+        }
+
+        return module.exports;
+    }
+
+    // 创建模块专用的 require 函数
+    function createRequire(parentModule) {
+        return function (moduleId) {
+            throw new Error(`Cannot require '${moduleId}' (nested requires not supported)`);
+        };
+    }
+
+    return require;
+}
+
+const RequireNative = createModuleSystem();
+
+
 // 路径处理
 class PathUtils {
     static PathToModuleID(absolutePath: string): string {
@@ -135,28 +219,135 @@ class PathUtils {
 
     // 判断是否是所在平台的绝对路径
     static IsAbsolutePath(p: string): boolean {
-        return path.isAbsolute(p);
+        if (ANIMAC_CONFIG.env_type === "node") {
+            return path.isAbsolute(p);
+        }
+        else if (ANIMAC_CONFIG.env_type === "browser") {
+            return p.startsWith('/');
+        }
+        else {
+            throw "error: unknown env type.";
+        }
     }
 
     // 在特定平台下，将多个路径按顺序拼接成合理的绝对路径
     static Join(p1: string, p2: string): string {
-        return path.join(p1, p2);
+        if (ANIMAC_CONFIG.env_type === "node") {
+            return path.join(p1, p2);
+        }
+        else if (ANIMAC_CONFIG.env_type === "browser") {
+            // 仅处理最简单的情况：p1是从根目录开始的绝对路径，p2是从p1开始的相对路径。例如“/root/a”和“b/c”简单拼接为“/root/a/b/c”
+            if (p1.endsWith("/")) {
+                return p1.slice(0, -1) + "/" + p2;
+            }
+            else {
+                return p1 + "/" + p2;
+            }
+        }
+        else {
+            throw "error: unknown env type.";
+        }
     }
 
     // 在特定平台下，返回某个路径的所在目录路径
     static DirName(p: string): string {
-        return path.dirname(p);
+        if (ANIMAC_CONFIG.env_type === "node") {
+            return path.dirname(p);
+        }
+        else if (ANIMAC_CONFIG.env_type === "browser") {
+            let dirs = p.split("/");
+            if (dirs[dirs.length-1] === "") {
+                dirs = dirs.slice(0, -1);
+            }
+            dirs = dirs.slice(0, -1);
+            return dirs.join("/");
+        }
+        else {
+            throw "error: unknown env type.";
+        }
     }
 
     // 在特定平台下，返回某个路径的文件名部分
     static BaseName(p: string, suffix: string): string {
-        return path.basename(p, suffix);
+        if (ANIMAC_CONFIG.env_type === "node") {
+            return path.basename(p, suffix);
+        }
+        else if (ANIMAC_CONFIG.env_type === "browser") {
+            let dirs = p.split("/");
+            if (dirs[dirs.length-1] === "") {
+                dirs = dirs.slice(0, -1);
+            }
+            return dirs.pop();
+        }
+        else {
+            throw "error: unknown env type.";
+        }
+    }
+
+    static cwd(): string {
+        if (ANIMAC_CONFIG.env_type === "node") {
+            return process.cwd();
+        }
+        else if (ANIMAC_CONFIG.env_type === "browser") {
+            return "/";
+        }
+        else {
+            throw "error: unknown env type.";
+        }
     }
 }
 
 // 文件操作
 class FileUtils {
     static ReadFileSync(p: string): string {
-        return fs.readFileSync(p, "utf-8");
+        if (ANIMAC_CONFIG.env_type === "node") {
+            return fs.readFileSync(p, "utf-8");
+        }
+        else if (ANIMAC_CONFIG.env_type === "browser") {
+            return ANIMAC_VFS[p];
+        }
+        else {
+            throw "error: unknown env type.";
+        }
+    }
+
+    static WriteFileSync(p: string, content: string): void {
+        if (ANIMAC_CONFIG.env_type === "node") {
+            fs.writeFileSync(p, content, "utf-8");
+        }
+        else if (ANIMAC_CONFIG.env_type === "browser") {
+            ANIMAC_VFS[p] = content;
+        }
+        else {
+            throw "error: unknown env type.";
+        }
     }
 }
+
+
+// stdio操作抽象
+class StdIOUtils {
+    static stdout(s: string): void {
+        if (ANIMAC_CONFIG.env_type === "node") {
+            process.stdout.write(s);
+        }
+        else if (ANIMAC_CONFIG.env_type === "browser") {
+            ANIMAC_STDOUT_CALLBACK(s);
+        }
+        else {
+            throw "error: unknown env type.";
+        }
+    }
+    static stderr(s: string): void {
+        if (ANIMAC_CONFIG.env_type === "node") {
+            process.stderr.write(s);
+        }
+        else if (ANIMAC_CONFIG.env_type === "browser") {
+            ANIMAC_STDERR_CALLBACK(s);
+        }
+        else {
+            throw "error: unknown env type.";
+        }
+    }
+}
+

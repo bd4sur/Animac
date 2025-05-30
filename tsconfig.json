@@ -4,10 +4,12 @@
         "module": "amd",
         "rootDir": ".",
         "outFile": "./build/animac.js",
-        "outDir": "./build"
+        "outDir": "./build",
+        "skipLibCheck": true
     },
     "files": [
         "src/Common.ts",
+        "src/NativeLib.ts",
         "src/Memory.ts",
         "src/Object.ts",
         "src/Lexer.ts",
@@ -18,8 +20,9 @@
         "src/Process.ts",
         "src/Runtime.ts",
         "src/Instruction.ts",
-        "src/REPL.ts",
-        "src/DebugServer.ts",
-        "src/Main.ts"
+        // "src/REPL.ts",
+        // "src/DebugServer.ts",
+        "src/main_browser.ts"
+        // "src/Main.ts"
     ]
 }

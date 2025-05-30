@@ -111,6 +111,6 @@ class REPL {
         this.RUNTIME.Output(`Type ".help" for more information.\n`);
         this.RUNTIME.Output(`> `);
 
-        process.stdin.on("data", (input)=>{this.ReadEvalPrint(input);});
+        process.stdin.on("data", (input)=>{this.ReadEvalPrint(input.toString());});
     }
 }

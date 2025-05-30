@@ -1,8 +1,18 @@
 // Utility.ts
 // 工具函数
-const fs = require("fs");
-const path = require("path");
 const ANIMAC_VERSION = "0.2.0";
+let ANIMAC_VFS = {};
+const ANIMAC_CONFIG = {
+    "env_type": "browser", // 运行环境："node" or "browser"
+};
+let ANIMAC_STDOUT_CALLBACK = console.log;
+let ANIMAC_STDERR_CALLBACK = console.error;
+let fs = null;
+let path = null;
+if (ANIMAC_CONFIG["env_type"] === "node") {
+    fs = require("fs");
+    path = require("path");
+}
 const ANIMAC_HELP = `Animac Scheme Implementation V${ANIMAC_VERSION}
 Copyright (c) 2019~2023 BD4SUR
 https://github.com/bd4sur/Animac
@@ -108,6 +118,56 @@ function TypeOfToken(token) {
 function isVariable(token) {
     return (TypeOfToken(token) === "VARIABLE");
 }
+// 通用的require
+function createModuleSystem() {
+    // 模块缓存
+    const moduleCache = {};
+    // 核心的 require 函数
+    function require(moduleId, code) {
+        // 检查缓存
+        if (moduleCache[moduleId]) {
+            return moduleCache[moduleId].exports;
+        }
+        // 创建新模块
+        const module = {
+            id: moduleId,
+            exports: {},
+            loaded: false
+        };
+        // 立即缓存模块
+        moduleCache[moduleId] = module;
+        // 模块包装函数（核心）
+        function wrapModule(code) {
+            return new Function('exports', 'require', 'module', '__filename', '__dirname', `{${code}\n}` // 包裹代码块确保作用域隔离
+            );
+        }
+        // 执行模块代码
+        try {
+            const moduleFunction = wrapModule(code);
+            moduleFunction.call(module.exports, // this 指向 exports
+            module.exports, // exports 参数
+            createRequire(module), // 自定义 require
+            module, // module 参数
+            moduleId, // __filename
+            moduleId.split('/').slice(0, -1).join('/') || '.' // __dirname
+            );
+            module.loaded = true;
+        }
+        catch (error) {
+            delete moduleCache[moduleId];
+            throw error;
+        }
+        return module.exports;
+    }
+    // 创建模块专用的 require 函数
+    function createRequire(parentModule) {
+        return function (moduleId) {
+            throw new Error(`Cannot require '${moduleId}' (nested requires not supported)`);
+        };
+    }
+    return require;
+}
+const RequireNative = createModuleSystem();
 // 路径处理
 class PathUtils {
     static PathToModuleID(absolutePath) {
@@ -119,27 +179,333 @@ class PathUtils {
     }
     // 判断是否是所在平台的绝对路径
     static IsAbsolutePath(p) {
-        return path.isAbsolute(p);
+        if (ANIMAC_CONFIG.env_type === "node") {
+            return path.isAbsolute(p);
+        }
+        else if (ANIMAC_CONFIG.env_type === "browser") {
+            return p.startsWith('/');
+        }
+        else {
+            throw "error: unknown env type.";
+        }
     }
     // 在特定平台下，将多个路径按顺序拼接成合理的绝对路径
     static Join(p1, p2) {
-        return path.join(p1, p2);
+        if (ANIMAC_CONFIG.env_type === "node") {
+            return path.join(p1, p2);
+        }
+        else if (ANIMAC_CONFIG.env_type === "browser") {
+            // 仅处理最简单的情况：p1是从根目录开始的绝对路径，p2是从p1开始的相对路径。例如“/root/a”和“b/c”简单拼接为“/root/a/b/c”
+            if (p1.endsWith("/")) {
+                return p1.slice(0, -1) + "/" + p2;
+            }
+            else {
+                return p1 + "/" + p2;
+            }
+        }
+        else {
+            throw "error: unknown env type.";
+        }
     }
     // 在特定平台下，返回某个路径的所在目录路径
     static DirName(p) {
-        return path.dirname(p);
+        if (ANIMAC_CONFIG.env_type === "node") {
+            return path.dirname(p);
+        }
+        else if (ANIMAC_CONFIG.env_type === "browser") {
+            let dirs = p.split("/");
+            if (dirs[dirs.length - 1] === "") {
+                dirs = dirs.slice(0, -1);
+            }
+            dirs = dirs.slice(0, -1);
+            return dirs.join("/");
+        }
+        else {
+            throw "error: unknown env type.";
+        }
     }
     // 在特定平台下，返回某个路径的文件名部分
     static BaseName(p, suffix) {
-        return path.basename(p, suffix);
+        if (ANIMAC_CONFIG.env_type === "node") {
+            return path.basename(p, suffix);
+        }
+        else if (ANIMAC_CONFIG.env_type === "browser") {
+            let dirs = p.split("/");
+            if (dirs[dirs.length - 1] === "") {
+                dirs = dirs.slice(0, -1);
+            }
+            return dirs.pop();
+        }
+        else {
+            throw "error: unknown env type.";
+        }
+    }
+    static cwd() {
+        if (ANIMAC_CONFIG.env_type === "node") {
+            return process.cwd();
+        }
+        else if (ANIMAC_CONFIG.env_type === "browser") {
+            return "/";
+        }
+        else {
+            throw "error: unknown env type.";
+        }
     }
 }
 // 文件操作
 class FileUtils {
     static ReadFileSync(p) {
-        return fs.readFileSync(p, "utf-8");
+        if (ANIMAC_CONFIG.env_type === "node") {
+            return fs.readFileSync(p, "utf-8");
+        }
+        else if (ANIMAC_CONFIG.env_type === "browser") {
+            return ANIMAC_VFS[p];
+        }
+        else {
+            throw "error: unknown env type.";
+        }
+    }
+    static WriteFileSync(p, content) {
+        if (ANIMAC_CONFIG.env_type === "node") {
+            fs.writeFileSync(p, content, "utf-8");
+        }
+        else if (ANIMAC_CONFIG.env_type === "browser") {
+            ANIMAC_VFS[p] = content;
+        }
+        else {
+            throw "error: unknown env type.";
+        }
     }
 }
+// stdio操作抽象
+class StdIOUtils {
+    static stdout(s) {
+        if (ANIMAC_CONFIG.env_type === "node") {
+            process.stdout.write(s);
+        }
+        else if (ANIMAC_CONFIG.env_type === "browser") {
+            ANIMAC_STDOUT_CALLBACK(s);
+        }
+        else {
+            throw "error: unknown env type.";
+        }
+    }
+    static stderr(s) {
+        if (ANIMAC_CONFIG.env_type === "node") {
+            process.stderr.write(s);
+        }
+        else if (ANIMAC_CONFIG.env_type === "browser") {
+            ANIMAC_STDERR_CALLBACK(s);
+        }
+        else {
+            throw "error: unknown env type.";
+        }
+    }
+}
+ANIMAC_VFS["/lib/Math.js"] = `
+// (Math.PI) : Number
+function PI(PROCESS, RUNTIME) {
+    PROCESS.OPSTACK.push(Number(Math.PI));
+    PROCESS.Step();
+}
+
+// (Math.exp x:Number) : Number
+function exp(PROCESS, RUNTIME) {
+    let x = PROCESS.PopOperand();
+    let res = Math.exp(Number(x));
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
+// (Math.log x:Number) : Number
+function log(PROCESS, RUNTIME) {
+    let x = PROCESS.PopOperand();
+    let res = Math.log(Number(x));
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
+// (Math.log10 x:Number) : Number
+function log10(PROCESS, RUNTIME) {
+    let x = PROCESS.PopOperand();
+    let res = Math.log10(Number(x));
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
+// (Math.log2 x:Number) : Number
+function log2(PROCESS, RUNTIME) {
+    let x = PROCESS.PopOperand();
+    let res = Math.log2(Number(x));
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
+// (Math.sin x:Number) : Number
+function sin(PROCESS, RUNTIME) {
+    let x = PROCESS.PopOperand();
+    let res = Math.sin(Number(x));
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
+// (Math.cos x:Number) : Number
+function cos(PROCESS, RUNTIME) {
+    let x = PROCESS.PopOperand();
+    let res = Math.cos(Number(x));
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
+// (Math.tan x:Number) : Number
+function tan(PROCESS, RUNTIME) {
+    let x = PROCESS.PopOperand();
+    let res = Math.tan(Number(x));
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
+// (Math.atan x:Number) : Number
+function atan(PROCESS, RUNTIME) {
+    let x = PROCESS.PopOperand();
+    let res = Math.atan(Number(x));
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
+// (Math.floor x:Number) : Number
+function floor(PROCESS, RUNTIME) {
+    let x = PROCESS.PopOperand();
+    let res = Math.floor(Number(x));
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
+// (Math.ceil x:Number) : Number
+function ceil(PROCESS, RUNTIME) {
+    let x = PROCESS.PopOperand();
+    let res = Math.ceil(Number(x));
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
+// (Math.round x:Number) : Number
+function round(PROCESS, RUNTIME) {
+    let x = PROCESS.PopOperand();
+    let res = Math.round(Number(x));
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
+// (Math.abs x:Number) : Number
+function abs(PROCESS, RUNTIME) {
+    let x = PROCESS.PopOperand();
+    let res = Math.abs(Number(x));
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
+// (Math.random) : Number
+function random(PROCESS, RUNTIME) {
+    let res = Math.random();
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
+module.exports.PI = PI;
+module.exports.exp = exp;
+module.exports.log = log;
+module.exports.log10 = log10;
+module.exports.log2 = log2;
+module.exports.sin = sin;
+module.exports.cos = cos;
+module.exports.tan = tan;
+module.exports.atan = atan;
+module.exports.floor = floor;
+module.exports.ceil = ceil;
+module.exports.round = round;
+module.exports.abs = abs;
+module.exports.random = random;
+`;
+ANIMAC_VFS["/lib/String.js"] = `
+function TrimQuotes(str) {
+    if(str === undefined) return "";
+    if(str[0] === '"' && str[str.length-1] === '"') {
+        str = str.substring(1, str.length-1);
+    }
+    str = str.replace(/\\\\n/gi, "\\n").replace(/\\\\r/gi, "\\r").replace(/\\\\"/gi, '"').replace(/\\\\t/gi, '\\t');
+    return str;
+}
+
+// (String.length str:String) : Number
+function length(PROCESS, RUNTIME) {
+    let strHandle = PROCESS.PopOperand();
+    let str = TrimQuotes(PROCESS.heap.Get(strHandle).content);
+    PROCESS.OPSTACK.push(Number(str.length));
+    PROCESS.Step();
+}
+
+// (String.atom_to_string x:Boolean|Number|Symbol) : String
+function atom_to_string(PROCESS, RUNTIME) {
+    let x = PROCESS.PopOperand();
+    // 构造字符串对象
+    let strHandle = PROCESS.heap.AllocateHandle("STRING", false);
+    let strObject = {
+        type: "STRING",
+        content: String(x)
+    };
+    PROCESS.heap.Set(strHandle, strObject);
+    PROCESS.OPSTACK.push(strHandle);
+    PROCESS.Step();
+}
+
+// (String.concat str1:String str2:String) : String
+function concat(PROCESS, RUNTIME) {
+    let str2Handle = PROCESS.PopOperand();
+    let str2 = TrimQuotes(PROCESS.heap.Get(str2Handle).content);
+    let str1Handle = PROCESS.PopOperand();
+    let str1 = TrimQuotes(PROCESS.heap.Get(str1Handle).content);
+    // 构造字符串对象
+    let strHandle = PROCESS.heap.AllocateHandle("STRING", false);
+    let strObject = {
+        type: "STRING",
+        content: str1.concat(str2)
+    };
+    PROCESS.heap.Set(strHandle, strObject);
+    PROCESS.OPSTACK.push(strHandle);
+    PROCESS.Step();
+}
+
+// (String.charCodeAt index:Number str:String) : Number
+function charCodeAt(PROCESS, RUNTIME) {
+    // 注意参数退栈顺序与参数列表顺序相反
+    let strHandle = PROCESS.PopOperand();
+    let str = TrimQuotes(PROCESS.heap.Get(strHandle).content);
+    let index = Number(PROCESS.PopOperand());
+    PROCESS.OPSTACK.push(Number(str.charCodeAt(index)));
+    PROCESS.Step();
+}
+
+// (String.fromCharCode charcode:Number) : String
+function fromCharCode(PROCESS, RUNTIME) {
+    let charcode = PROCESS.PopOperand();
+    // 构造字符串对象
+    let strHandle = PROCESS.heap.AllocateHandle("STRING", false);
+    let strObject = {
+        type: "STRING",
+        content: String.fromCharCode(Number(charcode))
+    };
+    PROCESS.heap.Set(strHandle, strObject);
+    PROCESS.OPSTACK.push(strHandle);
+    PROCESS.Step();
+}
+
+module.exports.length = length;
+module.exports.atom_to_string = atom_to_string;
+module.exports.concat = concat;
+module.exports.charCodeAt = charCodeAt;
+module.exports.fromCharCode = fromCharCode;
+`;
 // Memory.ts
 // 内存管理
 class HashMap extends Object {
@@ -3054,11 +3420,11 @@ class Runtime {
     //                      以下是控制台输入输出
     //=================================================================
     Output(str) {
-        process.stdout.write(str);
+        StdIOUtils.stdout(str);
         this.outputBuffer += str;
     }
     Error(str) {
-        process.stderr.write(str);
+        StdIOUtils.stderr(str);
         this.errorBuffer += str;
     }
     //=================================================================
@@ -3185,11 +3551,23 @@ class Runtime {
         // NOTE native不压栈帧
         let nativeModuleName = target.split(".")[0];
         let nativeFunctionName = target.split(".").slice(1).join("");
-        // 引入Native模块
-        let nativeModulePath = PathUtils.Join(process.cwd(), `lib/${nativeModuleName}.js`);
-        let nativeModule = require(nativeModulePath);
-        // 调用Native模块内部的函数
-        (nativeModule[nativeFunctionName])(PROCESS, RUNTIME);
+        if (ANIMAC_CONFIG.env_type === "node") {
+            // 引入Native模块
+            let nativeModulePath = PathUtils.Join(PathUtils.cwd(), `lib/${nativeModuleName}.js`);
+            let nativeModule = require(nativeModulePath);
+            // 调用Native模块内部的函数
+            (nativeModule[nativeFunctionName])(PROCESS, RUNTIME);
+        }
+        else if (ANIMAC_CONFIG.env_type === "browser") {
+            // 引入Native模块
+            let nativeModulePath = `/lib/${nativeModuleName}.js`;
+            let nativeModule = RequireNative(nativeModuleName, ANIMAC_VFS[nativeModulePath]);
+            // 调用Native模块内部的函数
+            (nativeModule[nativeFunctionName])(PROCESS, RUNTIME);
+        }
+        else {
+            throw "error: unknown env type.";
+        }
     }
     // 辅助函数：可以任意指定返回指令地址的函数调用（非尾调用）。这一函数用于支持异步过程调用（如事件回调），同时也用于实现普通的同步过程调用。
     CallAsync(returnTarget, argument, PROCESS, RUNTIME) {
@@ -4185,286 +4563,9 @@ class Instruction {
         }
     }
 }
-// REPL.ts
-// Read-Eval-Print Loop
-class REPL {
-    constructor() {
-        this.allCode = new Array();
-        this.RUNTIME = new Runtime(process.cwd());
-        this.inputBuffer = new Array();
-    }
-    run(input, callback) {
-        try {
-            let code = `((lambda () ${this.allCode.join(" ")} (display ${input}) (newline) ))\n`;
-            let mod = LoadModuleFromCode(code, PathUtils.Join(this.RUNTIME.workingDir, "repl.scm"));
-            let proc = new Process(mod);
-            proc.PID = 0;
-            this.RUNTIME.asyncCallback = callback; // NOTE 用于文件读写等异步操作结束之后执行
-            this.RUNTIME.processPool[0] = proc;
-            this.RUNTIME.AddProcess(proc);
-            this.RUNTIME.StartClock(callback);
-            // TODO 仅保留有副作用的语句
-            if (/define|set!|native|import/gi.test(input)) {
-                this.allCode.push(input);
-            }
-        }
-        catch (e) {
-            process.stderr.write(`${e.toString()}\n`);
-            // 即便报错也要保留define语句
-            if (/define/gi.test(input)) {
-                this.allCode.push(input);
-            }
-            callback();
-        }
-    }
-    CountBrackets(input) {
-        let bcount = 0;
-        for (let i = 0; i < input.length; i++) {
-            if (input[i] === "(" || input[i] === "{")
-                bcount++;
-            else if (input[i] === ")" || input[i] === "}")
-                bcount--;
-        }
-        return bcount;
-    }
-    ReadEvalPrint(input) {
-        input = input.toString();
-        if (input.trim() === ".help") {
-            this.RUNTIME.Output(`Animac Scheme Implementation V2023-alpha\n`);
-            this.RUNTIME.Output(`Copyright (c) 2019~2023 BD4SUR\n`);
-            this.RUNTIME.Output(`https://github.com/bd4sur/Animac\n`);
-            this.RUNTIME.Output(`\n`);
-            this.RUNTIME.Output(`REPL Command Reference:\n`);
-            this.RUNTIME.Output(`  .exit     exit the REPL.\n`);
-            this.RUNTIME.Output(`  .reset    reset the REPL to initial state.\n`);
-            this.RUNTIME.Output(`  .help     show usage and copyright information.\n`);
-            this.RUNTIME.Output(`\n`);
-            this.RUNTIME.Output(`> `);
-            return;
-        }
-        else if (input.trim() === ".exit") {
-            process.exit();
-        }
-        else if (input.trim() === ".reset") {
-            this.allCode = new Array();
-            this.RUNTIME.Output(`REPL已重置。\n`);
-            this.RUNTIME.Output(`> `);
-            return;
-        }
-        this.inputBuffer.push(input);
-        let code = this.inputBuffer.join("");
-        let indentLevel = this.CountBrackets(code);
-        if (indentLevel === 0) {
-            this.inputBuffer = new Array();
-            this.run(code, () => {
-                if (this.RUNTIME.processPool[0] !== undefined && this.RUNTIME.processPool[0].state === ProcessState.SLEEPING) {
-                    return;
-                }
-                else {
-                    this.RUNTIME.Output("> ");
-                }
-            });
-        }
-        else if (indentLevel > 0) {
-            let prompt = "...";
-            let icount = indentLevel - 1;
-            while (icount > 0) {
-                prompt += "..";
-                icount--;
-            }
-            this.RUNTIME.Output(`${prompt} `);
-        }
-        else {
-            this.inputBuffer = new Array();
-            this.RUNTIME.Error(`[REPL Error] 括号不匹配\n`);
-        }
-    }
-    Start() {
-        this.RUNTIME.Output(`Animac Scheme Implementation V2023-alpha\n`);
-        this.RUNTIME.Output(`Copyright (c) 2019~2023 BD4SUR\n`);
-        this.RUNTIME.Output(`Type ".help" for more information.\n`);
-        this.RUNTIME.Output(`> `);
-        process.stdin.on("data", (input) => { this.ReadEvalPrint(input); });
-    }
-}
-const http = require('http');
-const url = require('url');
-const DebugServerConfig = {
-    'portNumber': 8088,
-    'MIME': {
-        "css": "text/css",
-        "jpg": "image/jpeg",
-        "jpeg": "image/jpeg",
-        "png": "image/png",
-        "gif": "image/gif",
-        "bmp": "image/bmp",
-        "webp": "image/webp",
-        "js": "text/javascript",
-        "ico": "image/vnd.microsoft.icon",
-        "mp3": "audio/mpeg",
-        "woff": "application/font-woff",
-        "woff2": "font/woff2",
-        "ttf": "application/x-font-truetype",
-        "otf": "application/x-font-opentype",
-        "mp4": "video/mp4",
-        "webm": "video/webm",
-        "svg": "image/svg+xml"
-    },
-};
-// 启动调试服务器
-function StartDebugServer() {
-    let RUNTIME = new Runtime(process.cwd());
-    function loadCode(codefiles, baseModuleID) {
-        let mod = LoadModuleFromCode(`((lambda () ${codefiles[0]}))`, baseModuleID);
-        let proc = new Process(mod);
-        proc.PID = 0;
-        RUNTIME.asyncCallback = () => { };
-        RUNTIME.processPool[0] = proc;
-        RUNTIME.AddProcess(proc);
-    }
-    // 工具函数：用于判断某字符串是否以另一个字符串结尾
-    function IsEndWith(test, endPattern) {
-        let reg = new RegExp(endPattern + '$', 'i');
-        return reg.test(test);
-    }
-    http.createServer((request, response) => {
-        // 请求数据
-        let incomeData = '';
-        // 响应结构
-        let res = {
-            process: null,
-            outputBuffer: null
-        };
-        // 解析请求，包括文件名
-        let reqPath = url.parse(request.url).pathname.substr(1);
-        let filePath = path.join(process.cwd(), "ide", url.parse(request.url).pathname);
-        request.on('data', (chunk) => {
-            incomeData += chunk;
-        });
-        request.on('end', () => {
-            let now = new Date();
-            console.log(`${now.toLocaleDateString()} ${now.toLocaleTimeString()} 收到请求：${request.url}`);
-            // 默认主页
-            if (reqPath === '') {
-                readFileSystem(filePath + "index.html");
-            }
-            else if (reqPath === "load") {
-                let codefiles = JSON.parse(incomeData);
-                loadCode(codefiles, "ADB");
-            }
-            else if (reqPath === "execute") {
-                RUNTIME.StartClock(() => {
-                    res.process = RUNTIME.processPool[0];
-                    res.outputBuffer = RUNTIME.outputBuffer;
-                    response.writeHead(200, { 'Content-Type': 'application/json' });
-                    response.write(JSON.stringify(res));
-                    response.end();
-                });
-            }
-            else if (reqPath === "step") {
-                RUNTIME.Tick(0);
-                res.process = RUNTIME.processPool[0];
-                res.outputBuffer = RUNTIME.outputBuffer;
-                response.writeHead(200, { 'Content-Type': 'application/json' });
-                response.write(JSON.stringify(res));
-                response.end();
-            }
-            else if (reqPath === "reset") {
-                RUNTIME.outputBuffer = "";
-                RUNTIME.errorBuffer = "";
-                RUNTIME.processPool = new Array();
-                RUNTIME.processQueue = new Array();
-                res.process = RUNTIME.processPool[0];
-                res.outputBuffer = RUNTIME.outputBuffer;
-                response.writeHead(200, { 'Content-Type': 'application/json' });
-                response.write(JSON.stringify(res));
-                response.end();
-            }
-            else {
-                readFileSystem(decodeURI(filePath));
-            }
-            // 从文件系统读取相应的数据，向客户端返回
-            function readFileSystem(reqPath) {
-                fs.readFile(reqPath, function (err, data) {
-                    // 处理404，返回预先设置好的404页
-                    if (err) {
-                        console.log("404 ERROR");
-                        fs.readFile('404.html', function (err, data) {
-                            // 如果连404页都找不到
-                            if (err) {
-                                response.writeHead(404, { 'Content-Type': 'text/html' });
-                                response.write('<head><meta charset="utf-8"/></head><h1>真·404</h1>');
-                            }
-                            else {
-                                response.writeHead(404, { 'Content-Type': 'text/html' });
-                                response.write(data.toString());
-                            }
-                            response.end(); // 响应
-                        });
-                        return;
-                    }
-                    else {
-                        // 默认MIME标记
-                        let defaultFlag = true;
-                        // 根据后缀，检查所有的已有的MIME类型（如果可以硬编码是不是好一点？可能要用到所谓的元编程了）
-                        for (let suffix in DebugServerConfig.MIME) {
-                            if (IsEndWith(reqPath, '.' + suffix)) {
-                                defaultFlag = false;
-                                let mimeType = DebugServerConfig.MIME[suffix];
-                                response.writeHead(200, { 'Content-Type': mimeType });
-                                if ((mimeType.split('/'))[0] === 'text') {
-                                    response.write(data.toString());
-                                }
-                                else {
-                                    response.write(data);
-                                }
-                            }
-                        }
-                        // 默认MIME类型：text
-                        if (defaultFlag === true) {
-                            response.writeHead(200, { 'Content-Type': 'text/html' });
-                            response.write(data.toString());
-                        }
-                    }
-                    response.end(); // 响应
-                });
-            }
-        });
-    }).listen(DebugServerConfig.portNumber);
-    console.log(`Animac调试服务器已启动，正在监听端口：${DebugServerConfig.portNumber}`);
-}
-///////////////////////////////////////////////
-// Main.ts
-// 系统入口（外壳）
-// 将Scheme代码文件编译为可执行文件
-function compileCodeToExecutable(inputAbsPath, outputAbsPath) {
-    // 以代码所在路径为工作路径
-    let workingDir = PathUtils.DirName(inputAbsPath);
-    let linkedModule = LoadModule(inputAbsPath, workingDir);
-    fs.writeFileSync(outputAbsPath, JSON.stringify(linkedModule, null, 2), "utf-8");
-}
-// 直接执行模块文件
-function runFromExecutable(execAbsPath) {
-    let workingDir = process.cwd();
-    let moduleJson = JSON.parse(fs.readFileSync(execAbsPath, "utf-8"));
-    let PROCESS = new Process(moduleJson);
-    let RUNTIME = new Runtime(workingDir);
-    RUNTIME.AddProcess(PROCESS);
-    RUNTIME.StartClock(() => { });
-}
-function runFromFile(srcAbsPath) {
-    // 以代码所在路径为工作路径
-    let workingDir = PathUtils.DirName(srcAbsPath);
-    let linkedModule = LoadModule(srcAbsPath, workingDir);
-    // fs.writeFileSync("module.json", JSON.stringify(linkedModule, null, 2), "utf-8");
-    let PROCESS = new Process(linkedModule);
-    let RUNTIME = new Runtime(workingDir);
-    RUNTIME.AddProcess(PROCESS);
-    RUNTIME.StartClock(() => { });
-}
 function runFromCode(code) {
-    let workingDir = process.cwd();
-    let virtualFilename = "temp.scm";
+    let workingDir = "/test";
+    let virtualFilename = "a.scm";
     code = `((lambda () (display { ${code} }) (newline) ))\n`;
     let linkedModule = LoadModuleFromCode(code, PathUtils.Join(workingDir, virtualFilename));
     let PROCESS = new Process(linkedModule);
@@ -4472,79 +4573,12 @@ function runFromCode(code) {
     RUNTIME.AddProcess(PROCESS);
     RUNTIME.StartClock(() => { });
 }
-function shellPrompt() {
+function runFromFile(srcAbsPath, callback) {
+    // 以代码所在路径为工作路径
+    let workingDir = PathUtils.DirName(srcAbsPath);
+    let linkedModule = LoadModule(srcAbsPath, workingDir);
+    let PROCESS = new Process(linkedModule);
+    let RUNTIME = new Runtime(workingDir);
+    RUNTIME.AddProcess(PROCESS);
+    RUNTIME.StartClock(callback);
 }
-function Main() {
-    let argv = process.argv.slice(2);
-    let option = (argv[0] || "").trim().toLowerCase();
-    // REPL
-    if (option === "") {
-        let sourcePath = TrimQuotes(argv[1]);
-        if (sourcePath.length > 0) {
-            // 相对路径补全为绝对路径
-            if (PathUtils.IsAbsolutePath(sourcePath) === false) {
-                sourcePath = PathUtils.Join(process.cwd(), sourcePath);
-            }
-            runFromFile(sourcePath);
-        }
-        else {
-            let repl = new REPL();
-            repl.Start();
-        }
-    }
-    // 从stdin读取代码并执行
-    else if (option === "-") {
-        process.stdin.on("data", (input) => {
-            runFromCode(input.toString());
-        });
-    }
-    else if (option === "-c" || option === "--compile") {
-        let inputPath = TrimQuotes(argv[1]);
-        let outputPath = TrimQuotes(argv[2]);
-        if (PathUtils.IsAbsolutePath(inputPath) === false) {
-            inputPath = PathUtils.Join(process.cwd(), inputPath);
-        }
-        outputPath = (outputPath.length > 0) ? outputPath : (PathUtils.BaseName(inputPath, ".scm") + ".json");
-        if (PathUtils.IsAbsolutePath(outputPath) === false) {
-            outputPath = PathUtils.Join(PathUtils.DirName(inputPath), outputPath);
-        }
-        compileCodeToExecutable(inputPath, outputPath);
-        console.log(`Compiled Animac VM executable file saved at: ${outputPath}\n`);
-    }
-    else if (option === "-d" || option === "--debug") {
-        StartDebugServer();
-    }
-    else if (option === "-e" || option === "--eval") {
-        let code = TrimQuotes(argv[1]);
-        runFromCode(code.toString());
-    }
-    // 显示帮助信息
-    else if (option === "-h" || option === "--help") {
-        console.log(ANIMAC_HELP);
-    }
-    // 解释执行编译后的模块
-    else if (option === "-i" || option === "--intp") {
-        let modulePath = TrimQuotes(argv[1]);
-        if (PathUtils.IsAbsolutePath(modulePath) === false) {
-            modulePath = PathUtils.Join(process.cwd(), modulePath);
-        }
-        runFromExecutable(modulePath);
-    }
-    else if (option === "-r" || option === "--repl") {
-        let repl = new REPL();
-        repl.Start();
-    }
-    else if (option === "-v" || option === "--version") {
-        console.log(`V${ANIMAC_VERSION}`);
-    }
-    // 如果没有可识别的参数，则第一个参数视为输入代码路径
-    else {
-        let sourcePath = TrimQuotes(argv[0]);
-        // 相对路径补全为绝对路径
-        if (PathUtils.IsAbsolutePath(sourcePath) === false) {
-            sourcePath = PathUtils.Join(process.cwd(), sourcePath);
-        }
-        runFromFile(sourcePath);
-    }
-}
-Main();
