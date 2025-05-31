@@ -1,0 +1,441 @@
+body {
+    margin: 0; padding: 0; outline: none;
+}
+pre {
+    margin: 0; padding: 0;
+}
+.Header {
+    display: flex;
+    background-color: transparent;
+    margin: 20px 0;
+    height: 40px;
+    align-items: center;
+    justify-content: center;
+}
+.HeaderTitle {
+    color: #394359;
+    font-size: 20px;
+    line-height: 40px;
+    padding-left: 10px;
+    letter-spacing: 0.5px;
+}
+.AnimacLogoContainer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 14px;
+    background: linear-gradient(0deg, #00d0ff, #5d00ff);
+    width: 36px;
+    height: 36px;
+}
+.AnimacLogo {
+    display: inline-block;
+    height: 24px;
+}
+
+
+.Center {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+}
+.Left {
+    max-width: 800px;
+}
+.Right {
+    max-width: 800px;
+}
+.Debugger {
+    display: flex;
+    overflow: auto;
+    margin: 10px;
+    box-shadow: 0 0px #e5e5e5, 0 0 15px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+.Bottom {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+
+.FilenameTagContainer {
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    margin: 5px 0;
+}
+.FilenameTag {
+    border-radius: 5px;
+    background: linear-gradient(0deg, #eff0f3, #ffffff);
+    color: #656e83;
+    margin: 3px;
+    padding: 6px 10px;
+    font-size: 13px;
+    line-height: 1;
+    letter-spacing: 0px;
+    cursor: pointer;
+}
+.FilenameTag:hover {
+    background: linear-gradient(0deg, #e3e5e9, #ffffff);
+}
+
+
+.CodeEditor {
+    border-radius: 8px;
+    overflow: hidden;
+    height: 400px;
+    font-size: 13px;
+    line-height: 1.3;
+    box-shadow: 0 0px #e5e5e5, 0 0 15px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.Console {
+    box-sizing: border-box;
+    border-radius: 6px;
+    background-color: #262628;
+    font-size: 12px;
+    line-height: 1.3;
+    font-family: monospace;
+    color: #fff;
+    padding: 10px;
+    white-space: pre;
+    height: 100%;
+    overflow: auto;
+    height: 160px;
+    max-height: 160px;
+}
+.Navi {
+    background-color: #383c44;
+    width: 40px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.FileList {
+    font-size: 12px;
+    width: 200px;
+}
+
+.FileListTitle {
+    height: 24px;
+    line-height: 24px;
+    padding: 0px 10px;
+    background-color: #eaecef;
+    color: #031747;
+    font-weight: bold;
+}
+.ListItem {
+    padding: 3px 10px;
+    border-bottom: 1px solid #f6f8f9;
+    color: #05112f;
+    cursor: default;
+}
+.ListItem:hover, .Active {
+    padding: 3px 10px;
+    border-bottom: 1px solid #f6f8f9;
+    color: #15e;
+    background-color: #ebf1ff;
+    cursor: default;
+}
+
+
+.Footer {
+    height: 24px;
+    display: flex;
+    margin: 5px;
+    font-size: 10px;
+    color: #9a9ea8;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+}
+
+
+#CodeMirrorContainer {
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.Split {
+    width: 3px;
+    background-color: #d5dae1;
+    cursor: w-resize;
+}
+.SplitHorizontal {
+    height: 3px;
+    background-color: #d5dae1;
+    cursor: ns-resize;
+}
+
+
+.debugger_buttons {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #e2e5e8;
+}
+
+.button {
+    display: inline-block;
+    background-color: #fff;
+    height: 24px;
+    line-height: 24px;
+    padding: 0px 10px 0px 10px;
+    border: none;
+    font-size: 11px;
+    display: inline-block;
+    outline: none;
+    color: #234;
+    cursor: pointer;
+}
+.button:hover {
+    background-color: #e2e5e8;
+}
+
+.btn-stop {
+    color: #8d0028;
+}
+.btn-start {
+    color: #3f8300;
+}
+
+
+
+
+
+.lineNum {
+    font-family: monospace;
+    margin: 2px 0;
+    color: #aaaaaa;
+    display: inline-block;
+    text-align: right;
+    width: 20px;
+    margin-right: 15px;
+}
+.debugger_col_container {
+    width: 100%;
+    font-size: 11px;
+    display: flex;
+    align-items: flex-start;
+}
+.debugger_right_column {
+    width: 100%;
+    height: 100%;
+}
+.col_header {
+    background-color: #e2e5e8;
+    font-weight: bold;
+    padding: 0 5px;
+    line-height: 2;
+    position: sticky;
+    top: 0px;
+}
+.ilcode {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.ilcode_column {
+    min-width: 270px;
+    border-right: 1px solid #e2e5e8;
+    overflow: auto;
+    height: 100%;
+}
+.heap_column {
+    height: 70%;
+    border-left: 1px solid #e2e5e8;
+    overflow: auto;
+}
+.stack_column {
+    height: 30%;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    overflow: hidden;
+}
+.fstack_column {
+    width: 50%;
+    height: 100%;
+    overflow: auto;
+}
+.opstack_column {
+    width: 50%;
+    height: 100%;
+    overflow: auto;
+}
+
+.ilcode_list {
+    font-family: monospace;
+}
+.fstack_list {
+    font-family: monospace;
+}
+.opstack_list {
+    font-family: monospace;
+}
+.heap_obj_info {
+    font-family: monospace;
+}
+
+.fstack_number {
+    color: #777d81;
+    padding-right: 5px;
+}
+.fstack_closure {
+    color: #222;
+    padding-left: 5px; padding-right: 5px;
+}
+.fstack_retaddr {
+    font-weight: bold; color: #15e;
+    padding-left: 5px; padding-right: 5px;
+}
+
+.heap_map {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+.heap_obj_box {
+    width: 10px;
+    height: 10px;
+    display: inline-block;
+    overflow: hidden;
+    margin: 0px;
+    border: 0.5px solid #fff;
+    border-radius: 2px;
+    cursor: pointer;
+    color: transparent;
+}
+.heap_obj_box:hover {
+    border: 0.5px solid #f00;
+}
+.heap_obj_static {
+    background: #d8dfe6;
+}
+.heap_obj_quote {
+    background: #a2e0ff;
+}
+.heap_obj_continuation {
+    background: #ffb0d0;
+}
+.heap_obj_closure {
+    background: #ffe39d;
+}
+.heap_obj_closure_current {
+    background: #ffbb66;
+}
+.closure_box {
+    width: 100px;
+    height: 50px;
+    border: 1px solid #e2e5e8;
+    /* background: #e2e5e8; */
+    /* margin: 3px 0; */
+    display: inline-block;
+    overflow: hidden;
+}
+/* .closure_box_header {
+    display: flex;
+} */
+.closure_handle {
+    font-weight: bold;
+}
+
+.closure_var_table {
+    width: 100%;
+    font-size: 11px;
+    white-space: pre-line;
+    line-break: anywhere;
+}
+.closure_var_table td{
+    padding: 2px 6px;
+}
+.bound_var {
+    background-color: #d9f1ff;
+}
+.free_var {
+    background-color:#fff1f7;
+}
+.var_value{
+    text-align: left;
+}
+.var_name{
+    text-align: left;
+}
+
+
+
+
+.ButtonConfirm {
+    display: inline-block;
+    margin: 5px;
+    padding: 8px 18px;
+    font-size: 14px;
+    border: none;
+    color: #ffffff;
+    background: #15e;
+    border-radius: 6px;
+}
+.ButtonConfirm:active {
+    background: #0038b9;
+    box-shadow: inset 1px 1px 3px 0px rgba(0, 0, 0, 0.5);
+}
+.ButtonConfirm:disabled {
+    background: #e6e9ef;
+}
+
+.ButtonRun {
+    display: inline-block;
+    margin: 5px;
+    padding: 8px 18px;
+    font-size: 14px;
+    border: none;
+    color: #ffffff;
+    background: #64bc00;
+    border-radius: 6px;
+}
+.ButtonRun:active {
+    background: #498900;
+    box-shadow: inset 1px 1px 3px 0px rgba(0, 0, 0, 0.5);
+}
+.ButtonRun:disabled {
+    background: #e6e9ef;
+}
+
+.ButtonCancel {
+    display: inline-block;
+    margin: 5px;
+    padding: 8px 18px;
+    font-size: 14px;
+    border: none;
+    color: #ffffff;
+    background: #bf0000;
+    border-radius: 6px;
+}
+.ButtonCancel:active {
+    background: #8c0000;
+    box-shadow: inset 1px 1px 3px 0px rgba(0, 0, 0, 0.5);
+}
+.ButtonCancel:disabled {
+    background: #e6e9ef;
+}
+
+.ButtonDefault {
+    display: inline-block;
+    margin: 5px;
+    padding: 8px 18px;
+    font-size: 14px;
+    border: none;
+    color: #2a2b2f;
+    background: #e6e9ef;
+    border-radius: 6px;
+}
+.ButtonDefault:active {
+    background: #ced2da;
+    box-shadow: inset 1px 1px 3px 0px rgba(0, 0, 0, 0.5);
+}
+.ButtonDefault:disabled {
+    background: #e6e9ef;
+}
