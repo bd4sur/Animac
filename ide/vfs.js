@@ -941,3 +941,861 @@ ANIMAC_VFS["/test/interpreter.scm"] = `
 
 (run)
 `;
+
+ANIMAC_VFS["/test/quasiquote.scm"] = `;; 准引用列表（quasiquote）
+
+(define printf
+  (lambda (template)
+    (cond ((null? template) #f)
+          ((not (list? template)) (display template))
+          (else {
+              (display (car template))
+              (printf (cdr template))
+          }))))
+
+(define run
+  (lambda () {
+    (display "准引用列表（quasiquote）测试：")(newline)
+
+    (define a 100)
+    (define qq \`("a=\${" ,(car \`((a ,(* a 2) ,a) 1 a ,a ,(* a a))) "}"))
+
+    ;; 直接输出
+    (display "期望输出：a=\${(a 200 100)}")(newline)
+    (display "实际输出：")
+    (printf qq)
+    (newline)
+
+    ;; 准引用列表里面的unquote也应该是词法作用域的。
+    (display "期望输出：a=\${(a 200 100)}")(newline)
+    (display "实际输出：")
+    ((lambda (a) (printf qq) (newline)) 200)
+
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ;; 以下是故障单#16的测试用例
+
+    (define foo (lambda (a lst) (cons \`(,a) lst)))
+    (define lst '())
+
+    (set! lst (foo 100 lst))
+    (display "期望输出：((100))")(newline)
+    (display "实际输出：")
+    (display lst)(newline)
+
+    (set! lst (foo 200 lst))
+    (display "期望输出：((200) (100))")(newline)
+    (display "实际输出：")
+    (display lst)(newline)
+
+    (newline)
+
+  })
+)
+
+(run)
+
+`;
+
+ANIMAC_VFS["/test/calendar.scm"] = `;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Animac测试用例 ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; 打印某年某月的日历
+
+(define get-value-iter
+  (lambda (list i counter)
+    (if (= counter i)
+        (car list)
+        (get-value-iter (cdr list) i (+ counter 1)))))
+
+(define get-value
+  (lambda (list i)
+    (get-value-iter list i 0)))
+
+(define is-leap-year?
+  (lambda (year)
+    (cond ((and (= (% year 4) 0)
+                (not (= (% year 100) 0)))
+           #t)
+          ((= (% year 400) 0)
+           #t)
+          (else
+           #f))))
+
+(define days-of-month
+  (lambda (year month)
+    (cond ((< month 1) 0)
+          ((> month 12) 0)
+          (else (cond ((is-leap-year? year)
+                       (get-value '(0 31 29 31 30 31 30 31 31 30 31 30 31) month))
+                      (else
+                       (get-value '(0 31 28 31 30 31 30 31 31 30 31 30 31) month)))))))
+
+(define days-of-year
+  (lambda (year)
+    (if (is-leap-year? year)
+        366 
+        365)))
+
+;某月某日是某年的第几天
+(define day-count
+  (lambda (year month day)
+    (cond ((= month 0) day)
+          (else (+ (days-of-month year (- month 1)) (day-count year (- month 1) day))))))
+
+;计算两个日期之间的日数差
+(define day-diff
+  (lambda (y1 m1 d1 y2 m2 d2)
+    (cond ((= y1 y2) (- (day-count y2 m2 d2) (day-count y1 m1 d1)))
+          (else (+ (days-of-year (- y2 1)) (day-diff y1 m1 d1 (- y2 1) m2 d2))))))
+
+;计算某日的星期数
+(define get-week
+  (lambda (year month day)
+    (% (day-diff 2017 1 1 year month day) 7)))
+
+;格式输出
+(define print-iter
+  (lambda (year month iter blank-flag)
+    (cond ((>= iter (+ (get-week year month 1) (days-of-month year month)))
+           (newline)) ;月末结束
+          ((< iter (get-week year month 1)) {
+             (display "   ")
+             (print-iter year month (+ iter 1) blank-flag)}) ;月初空格
+          (else
+             (cond ((and (< (- iter (get-week year month 1)) 9) (= blank-flag 0)) {
+                      (display " ")
+                      (print-iter year month iter 1)})
+                   (else
+                      (cond ((= (% iter 7) 6) {
+                               (display (+ 1 (- iter (get-week year month 1)))) (newline) (print-iter year month (+ iter 1) 0)}) ;行末换行
+                            (else {(display (+ 1 (- iter (get-week year month 1)))) (display " ") (print-iter year month (+ iter 1) 0)}))))))))
+
+(define print-calendar
+  (lambda (year month)
+    (print-iter year month 0 0)))
+
+(define Calendar
+  (lambda (year month)
+    (display "Animac测试用例：日历")(newline)
+    (display "2012.6      C语言编写")(newline)
+    (display "2017.8.26   改写为Scheme")(newline)
+    (display year)(display "年")(display month)(display "月")(newline)
+    (display "====================")(newline)
+    (display "Su Mo Tu We Th Fr Sa")(newline)
+    (display "====================")(newline)
+    (print-calendar year month)
+    (display "====================")(newline)
+  ))
+
+(define run
+  (lambda () {
+    (Calendar 2019 9)
+    (newline)
+  })
+)
+
+(run)
+`;
+
+ANIMAC_VFS["/test/church_encoding.scm"] = `;; 丘奇编码
+;; https://en.wikipedia.org/wiki/Church_encoding
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; 布尔值
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define SHOWBOOL
+  (lambda (b)
+    (b #t #f)))
+
+(define TRUE  (lambda (x y) x))
+(define FALSE (lambda (x y) y))
+
+(define NOT
+  (lambda (bool)
+    (bool FALSE TRUE)))
+
+(define AND
+  (lambda (boolx booly)
+    (boolx booly boolx)))
+
+(define OR
+  (lambda (boolx booly)
+    (boolx boolx booly)))
+
+(define IS_ZERO
+  (lambda (n)
+    (n (lambda (x) FALSE) TRUE)))
+
+(define IF
+  (lambda (p x y)
+    (p x y)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; 自然数
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define SHOWNUM
+  (lambda (n)
+    (n (lambda (x) (+ x 1)) 0)))
+
+(define NUM_TO_LAMBDA
+  (lambda (number)
+    (if (= number 0)
+        NUM_0
+        (INC (NUM_TO_LAMBDA (- number 1))))))
+
+(define NUM_0 (lambda (f a) a))
+
+(define NUM_1 (lambda (f a) (f a)))
+
+(define INC
+  (lambda (n)
+    (lambda (f a)
+      (f (n f a)))))
+
+(define ADD
+  (lambda (m n)
+    (m INC n)))
+
+;Curried-ADD - for function MUL
+(define ADD_c
+  (lambda (m)
+    (lambda (n)
+      (m INC n))))
+
+(define MUL
+  (lambda (m n)
+    (n (ADD_c m) NUM_0)))
+
+;Curried-MUL - for function POW
+(define MUL_c
+  (lambda (m)
+    (lambda (n)
+      (n (ADD_c m) NUM_0))))
+
+(define POW
+  (lambda (m n)
+    (n (MUL_c m) NUM_1)))
+
+;some paticular numbers
+(define NUM_2 (lambda (f a) (f (f a))))
+(define NUM_3 (lambda (f a) (f (f (f a)))))
+(define NUM_4 (lambda (f a) (f (f (f (f a))))))
+(define NUM_5 (lambda (f a) (f (f (f (f (f a)))))))
+(define NUM_6 (lambda (f a) (f (f (f (f (f (f a))))))))
+(define NUM_7 (lambda (f a) (f (f (f (f (f (f (f a)))))))))
+(define NUM_8 (lambda (f a) (f (f (f (f (f (f (f (f a))))))))))
+(define NUM_9 (lambda (f a) (f (f (f (f (f (f (f (f (f a)))))))))))
+(define NUM_10 (lambda (f a) (f (f (f (f (f (f (f (f (f (f a))))))))))))
+(define NUM_11 (lambda (f a) (f (f (f (f (f (f (f (f (f (f (f a)))))))))))))
+(define NUM_12 (lambda (f a) (f (f (f (f (f (f (f (f (f (f (f (f a))))))))))))))
+(define NUM_13 (lambda (f a) (f (f (f (f (f (f (f (f (f (f (f (f (f a)))))))))))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; 有序对和减法
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define PAIR
+  (lambda (x y)
+    (lambda (f)
+      (f x y))))
+
+(define LEFT
+  (lambda (pair)
+    (pair TRUE)))
+
+(define RIGHT
+  (lambda (pair)
+    (pair FALSE)))
+
+;substraction
+(define SLIDE
+  (lambda (pair)
+    (PAIR (RIGHT pair) (INC (RIGHT pair)))))
+
+(define DEC
+  (lambda (n)
+    (LEFT (n SLIDE (PAIR NUM_0 NUM_0)))))
+
+(define SUB
+  (lambda (m n)
+    (n DEC m)))
+
+;comparation
+(define IS_LE
+  (lambda (num1 num2)
+    (IS_ZERO (SUB num1 num2))))
+
+(define IS_EQUAL
+  (lambda (num1 num2)
+    (AND (IS_LE num1 num2) (IS_LE num2 num1))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Z组合子（Y组合子的应用序求值版本）
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;Y-Combinator
+;注意：目标函数应使用单参形式
+(define Y
+  (lambda (S)
+    ( (lambda (x) (S (lambda (y) ((x x) y))))
+      (lambda (x) (S (lambda (y) ((x x) y)))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; 整数（暂时没有用）
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define INT
+  (lambda (neg pos)
+    (PAIR neg pos)))
+
+(define INT_ZREO
+  (PAIR NUM_0 NUM_0))
+
+(define INT_IS_ZERO
+  (lambda (int)
+    (AND (IS_ZERO (LEFT  int))
+         (IS_ZERO (RIGHT int)))))
+
+;整数标准化，也就是简化成至少一边为0的形式，这样就可以实现绝对值函数和符号函数了
+(define INT_NORMALIZE
+  (lambda (int)
+    (IF (IS_LE (LEFT int) (RIGHT int))
+        (INT NUM_0 (SUB (RIGHT int) (LEFT int)))
+        (INT (SUB (LEFT int) (RIGHT int)) NUM_0))))
+
+(define INT_ABS
+  (lambda (int)
+    (IF (IS_ZERO (LEFT (INT_NORMALIZE int)))
+        (RIGHT (INT_NORMALIZE int))
+        (LEFT  (INT_NORMALIZE int)))))
+
+;TRUE +; FALSE -
+(define INT_SGN
+  (lambda (int)
+    (IS_ZERO (LEFT (INT_NORMALIZE int)))))
+
+(define SHOWINT
+  (lambda (int)
+    (if (SHOWBOOL (INT_SGN int))
+        {(display "+") (SHOWNUM (INT_ABS int))}
+        {(display "-") (SHOWNUM (INT_ABS int))})))
+
+(define INT_ADD
+  (lambda (i j)
+    (INT (ADD (LEFT  i) (LEFT  j))
+         (ADD (RIGHT i) (RIGHT j)))))
+
+(define INT_MUL
+  (lambda (i j)
+    (INT (ADD (MUL (LEFT i) (LEFT j)) (MUL (RIGHT i) (RIGHT j)))
+         (ADD (MUL (LEFT i) (RIGHT j)) (MUL (RIGHT i) (LEFT j))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; 列表（二叉树）
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; TODO NOTE 【注意】这里体现了Animac的define与标准define的不同之处。Aurora的被define的项是不求值的，因此如果想使用它的值，就需要把它封装成一个thunk，使用的时候调用之。
+(define NULL_LIST
+  (lambda ()
+    (PAIR TRUE TRUE)))
+
+(define IS_NULLLIST
+  (lambda (list)
+    (LEFT list)))
+
+(define CONS
+  (lambda (e l)
+    (PAIR FALSE (PAIR e l))))
+
+(define CAR
+  (lambda (list)
+    (LEFT (RIGHT list))))
+
+(define CDR
+  (lambda (list)
+    (RIGHT (RIGHT list))))
+
+(define COUNT
+  (lambda (l)
+    ((Y (lambda (f)
+          (lambda (list)
+            (IF (NOT (IS_NULLLIST list))
+                (lambda (x y) ((INC (f (CDR list)))
+                               x
+                               y))
+                NUM_0))))
+     l)))
+
+(define SHOWLIST
+  (lambda (list)
+    (if (SHOWBOOL (IS_NULLLIST list))
+        (display "N)")
+        {
+            (display (SHOWNUM (CAR list)))
+            ;(display ",")
+            (SHOWLIST (CDR list))
+        }
+    )))
+
+;闭区间
+;注意Currying
+(define RANGE
+  (lambda (m n)
+    (((Y (lambda (f)
+          (lambda (a)
+            (lambda (b)
+            (IF (IS_LE a b)
+                (lambda (z) ((CONS a ((f (INC a)) b))
+                               z ))
+                (NULL_LIST)
+            )))))m)n)))
+
+;高阶函数Fold和Map
+(define FOLD
+  (lambda (list init func)
+    ((((Y (lambda (f)
+          (lambda (l)
+            (lambda (i)
+              (lambda (g)
+                (IF (IS_NULLLIST l)
+                    i
+                    (lambda (x y) (
+                      (g (CAR l) (((f (CDR l)) i) g))
+                      x y))
+                ))))))list)init)func)))
+
+(define MAP
+  (lambda (list func)
+    (((Y (lambda (f)
+           (lambda (l)
+             (lambda (g)
+               (IF (IS_NULLLIST l)
+                   (NULL_LIST)
+                   (lambda (x) ((CONS (g (CAR l)) ((f (CDR l)) g)) x))
+                )))))list)func)))
+
+; 投影函数（常用）
+(define PROJ
+  (lambda (list index)
+    ((((Y (lambda (f)
+            (lambda (l)
+              (lambda (i)
+                (lambda (j)
+                  (IF (IS_EQUAL i j)
+                      (CAR l)
+                      (lambda (x y) ((((f (CDR l)) i) (INC j)) x y))
+                   ))))))list)index)NUM_0)))
+
+(define run
+  (lambda () {
+
+    (display "Church编码：测试Scheme语言核心")
+    (newline)
+
+    (display "6!=")
+    (display
+    (SHOWNUM 
+    ((Y (lambda (f)
+        (lambda (n)
+          (IF (IS_EQUAL n NUM_0)
+              NUM_1
+              (lambda (x y) ((MUL n (f (DEC n)))
+                              x
+                              y))
+          ))))
+    NUM_6)))
+    (newline)
+
+    (display "Count(1,2,3,3,3)=")
+    (display (SHOWNUM (COUNT (CONS NUM_1 (CONS NUM_2 (CONS NUM_3 (CONS NUM_3 (CONS NUM_3 (NULL_LIST)))))))))
+    (newline)
+
+    (display "List=(")
+    (SHOWLIST (CONS NUM_1 (CONS NUM_2 (CONS NUM_3 (CONS NUM_4 (CONS NUM_5 (NULL_LIST)))))))
+    (newline)
+
+    (display "Range(2,7)=(")
+    (SHOWLIST (RANGE NUM_2 NUM_7))
+    (newline)
+
+    (display "Fold(1:10,0,ADD)=")
+    (display (SHOWNUM (FOLD (RANGE NUM_1 NUM_10) NUM_0 ADD)))
+    (newline)
+
+    (display "MAP(1:9,0,INC)=(")
+    (SHOWLIST (MAP (RANGE NUM_1 NUM_9) INC))
+    (newline)
+
+    (display "Proj(2:10,5)=")
+    (display (SHOWNUM (PROJ (MAP (RANGE NUM_1 NUM_9) INC) NUM_5)))
+    (newline)
+
+  })
+)
+
+(run)
+`;
+
+ANIMAC_VFS["/test/factorial.scm"] = `(define fac_cps
+(lambda (cont)
+  (cont (lambda (n)
+          (lambda (k)
+            ((lambda (cont)
+               ((lambda (cont)
+                  ((lambda (cont) (cont (lambda (x y) (lambda (k) (k (= x y)))))) ; 内置相等判断
+                   (lambda (node0)
+                     ((node0 0 n)
+                      (lambda (res) (cont res))))))
+                (lambda (p_res)
+                  (if p_res
+                      ((lambda (cont) (cont 1))
+                       cont)
+                      ((lambda (cont)
+                         ; 以下仅仅是对每个AST节点进行简单的遍历CPST/重命名,并未体现求值顺序，可以理解成并行的
+                         ((lambda (cont) (cont (lambda (x y) (lambda (k) (k (* x y)))))) (lambda (node0) ; 内置乘法
+                         ( fac_cps                                                       (lambda (node1) ; 递归调用(重命名后的)
+                         ((lambda (cont) (cont (lambda (x y) (lambda (k) (k (- x y)))))) (lambda (node2) ; 内置减法
+                         ; 从这里开始体现求值顺序,几乎等于是 A-Normal Form
+                         ((node2 n 1)    (lambda (res2)
+                         ((node1 res2)   (lambda (res1)
+                         ((node0 n res1) (lambda (res)
+                         ; 最后执行总的continuation
+                         ( cont res))))))))))))))
+                       cont)))))
+             (lambda (m) (k m))))))))
+
+
+(define fac-count 0)
+(define clo-count 0)
+(define fac
+  (lambda (n cont) (begin
+    (set! fac-count (+ fac-count 1))
+    (if (= n 0)
+        (cont 1)
+        (fac (- n 1)
+             (lambda (res) (begin
+               (set! clo-count (+ clo-count 1))
+               (cont (* res n)))))))))
+
+
+(define sum_iter
+  (lambda (n init)
+    (if (= n 0)
+        init
+        (sum_iter (- n 1) (+ n init)))))
+
+
+(define run
+  (lambda () {
+
+    (display "阶乘测试①：真·CPS阶乘")(newline)
+    (display "期望结果：3628800")(newline)
+    (display "实际结果：")
+    (((fac_cps (lambda (x) x)) 10) (lambda (x) (display x)))
+    (newline)
+    (newline)
+
+    (display "阶乘测试②：CPS和set!的结合")(newline)
+    (display "5!（期望120）=")
+    (display (fac 5 (lambda (x) x)))
+    (newline)
+    (display "闭包调用次数（期望5）=")
+    (display clo-count)
+    (newline)
+    (display "阶乘递归调用次数（期望6）=")
+    (display fac-count)
+    (newline)
+    (newline)
+
+    (display "尾调用优化测试：大量的尾递归调用")(newline)
+    (display "期望结果：5000050000")(newline)
+    (display "实际结果：")
+    (display (sum_iter 100000 0))
+    (newline)
+    (newline)
+
+    (display "快速求幂算法：测试cond语句")(newline)
+    (display "期望结果：1073741824")(newline)
+    (display "实际结果：")
+    (define power
+      (lambda (base exp init)
+        (cond ((= exp 0) init)
+              ((= 0 (% exp 2)) (power (* base base) (/ exp 2) init))
+              (else (power base (- exp 1) (* base init))))))
+    (display (power 2 30 1))
+    (newline)
+    (newline)
+
+  })
+)
+
+(run)
+`;
+
+ANIMAC_VFS["/test/calculator.scm"] = `;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Animac测试用例 ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; 简单的中缀表达式解析
+;; 参见 The Little Schemer
+
+(define numbered?
+  (lambda (aexp)
+    (cond ((atom? aexp) (number? aexp))
+          ((atom? (car (cdr aexp))) (and (numbered? (car aexp)) (numbered? (car (cdr (cdr aexp))))))
+          (else #f))))
+
+(define value
+  (lambda (aexp)
+    (cond ((atom? aexp) aexp)
+          ((eq? (car (cdr aexp)) '+)
+           (+ (value (car aexp)) (value (car (cdr (cdr aexp))))))
+          ((eq? (car (cdr aexp)) '-)
+           (- (value (car aexp)) (value (car (cdr (cdr aexp))))))
+          ((eq? (car (cdr aexp)) '*)
+           (* (value (car aexp)) (value (car (cdr (cdr aexp))))))
+          ((eq? (car (cdr aexp)) '/)
+           (/ (value (car aexp)) (value (car (cdr (cdr aexp))))))
+          (else (display "Unexpected operator")))))
+
+(define run
+  (lambda () {
+    (display "简单的中缀表达式解析：")(newline)
+    (display "预期输出：0.08333333333333331")(newline)
+    (display "(1 / 3) - (1 / 4) = ")
+    (display (value '((1 / 3) - (1 / 4))))
+
+    (newline)
+    (newline)
+  })
+)
+
+(run)
+`;
+
+ANIMAC_VFS["/test/generator.scm"] = `;; 生成器示例
+;; 用于演示一等Continuation
+;; 说明：本解释器暂时没有将顶级作用域特殊看待，导致捕获Continuation时会同时捕获到后续的generator调用，形成递归。因此引入了判断，使得演示程序能够在10轮递归之内结束。
+;; 预期结果：输出1~10
+
+(define count 0)
+(define generator #f)
+(define g
+  (lambda ()
+    ((lambda (init)
+      (call/cc (lambda (Kont)
+                 (set! generator Kont)))
+      (set! init (+ init 1))
+      (set! count init)
+      init) 0)))
+
+(define run
+  (lambda () {
+
+    (display "测试：使用call/cc模拟其他高级语言的生成器。")(newline)
+    (display "此用例用来测试call/cc。")(newline)
+    (display "期望结果：1 2 3 4 5 6 7 8 9 10")(newline)
+    (display "实际结果：")
+    (display (g))
+    (display " ")
+    (if (>= count 10)
+        (newline)
+        (display (generator 666)))
+    (newline)
+
+  })
+)
+
+(run)
+`;
+
+ANIMAC_VFS["/test/coroutine.scm"] = `;; 利用call/cc实现协程（生产者消费者同步问题）
+;; 实际上不是完全的协程，因不具备yield到任意协程的能力
+;; 参考：https://www.scheme.com/tspl4/further.html
+
+(import List "/test/list.scm")
+
+(define QUEUE_1 '())
+(define QUEUE_2 '())
+(define QUEUE_1_MAXLEN 8)
+(define QUEUE_2_MAXLEN 8)
+
+;; 倒序显示队列（左边进右边出）
+(define showq
+  (lambda (q)
+    (define rev
+      (lambda (q)
+        (if (null? q)
+            '()
+            (List.append (car q) (rev (cdr q))))))
+    (if (null? q)
+        (display "()")
+        (display (rev q)))))
+
+;; 队列长度
+(define watermark (lambda (q) (if (null? q) 0 (+ 1 (watermark (cdr q))))))
+
+;; 元素插入队列尾部：插入成功返回#t，否则返回#f
+(define push_1
+  (lambda (e)
+    (if (>= (watermark QUEUE_1) QUEUE_1_MAXLEN)
+        #f
+        { (set! QUEUE_1 (List.append e QUEUE_1)) #t})))
+(define push_2
+  (lambda (e)
+    (if (>= (watermark QUEUE_2) QUEUE_2_MAXLEN)
+        #f
+        { (set! QUEUE_2 (List.append e QUEUE_2)) #t})))
+
+;; 弹出队列头部元素，并返回
+(define shift_1
+  (lambda ()
+    (if (null? QUEUE_1)
+        #f
+        { (define a (car QUEUE_1))
+          (set! QUEUE_1 (cdr QUEUE_1))
+          a })))
+(define shift_2
+  (lambda ()
+    (if (null? QUEUE_2)
+        #f
+        { (define a (car QUEUE_2))
+          (set! QUEUE_2 (cdr QUEUE_2))
+          a })))
+
+(define LWP_LIST '())
+
+(define lwp
+  (lambda (thunk)
+    (set! LWP_LIST (List.append thunk LWP_LIST))))
+
+(define start_next
+  (lambda ()
+    (define p (car LWP_LIST))
+    (set! LWP_LIST (cdr LWP_LIST))
+    (p)))
+
+(define wait_this_and_start_next
+  (lambda ()
+    (call/cc
+      (lambda (k)
+        (lwp (lambda () (k #t)))
+        (start_next)))))
+
+(define quit
+  (lambda (return msg)
+    (if (null? LWP_LIST)
+        { (display msg) (display "已结束，进程队列空，停机。\\n") (return) }
+        { (display msg) (display "已结束。\\n") (start_next) })))
+
+
+(define COUNTER 1)
+
+(display "利用call/cc实现协程（生产者消费者同步问题）\\n")
+
+(call/cc (lambda (return) (
+
+  (lwp
+    (lambda ()
+      (define f
+        (lambda ()
+          ;(display "生产者 ")
+          (if (push_1 COUNTER)
+              { (set! COUNTER (+ COUNTER 1))
+                (showq QUEUE_1) (display " -> ")
+                (showq QUEUE_2) (newline)
+              }
+              (wait_this_and_start_next))
+          (if (and (null? QUEUE_1) (null? QUEUE_2)) (quit return "生产者") #f)
+          (f)))
+      (f)))
+
+  (lwp
+    (lambda ()
+      (define f
+        (lambda ()
+          ;(display "中间商 ")
+          (define t (shift_1))
+          (if (not t)
+              (wait_this_and_start_next)
+              (if (push_2 t)
+                  { (showq QUEUE_1) (display " -> ")
+                    (showq QUEUE_2) (newline)
+                  }
+                  { (wait_this_and_start_next)
+                    (display "丢弃：") (display t) (newline) }))
+          (if (and (null? QUEUE_1) (null? QUEUE_2)) (quit return "中间商") #f)
+          (f)))
+      (f)))
+
+  (lwp
+    (lambda ()
+      (define f
+        (lambda ()
+          ;(display "消费者 ")
+          (define t (shift_2))
+          (if (not t)
+              (wait_this_and_start_next)
+              { (showq QUEUE_1) (display " -> ")
+                (showq QUEUE_2) (newline)
+              })
+          (if (and (null? QUEUE_1) (null? QUEUE_2)) (quit return "消费者") #f)
+          (f)))
+      (f)))
+
+  (start_next))))
+
+(display "\\n调度器结束，返回最外层。\\n")`;
+
+ANIMAC_VFS["/test/deadlock.scm"] = `;; 端口、信号量和死锁演示
+
+;; 临界区：需要独占端口资源的过程，这里是一段空转延时。
+(define Critical
+    (lambda (countdown)
+        (if (= countdown 0)
+            #f
+            (Critical (- countdown 1)))))
+
+;; 请求资源，并在回调中使用申请到的资源。当然回调中也可以申请新的资源。
+(define Request
+    (lambda (lock pid callback)
+        (if (= (read lock) 0) {
+            (display "进程 ")(display pid)(display " 获得并占用资源 ")(display lock)(display " ...")(newline)
+            (write lock 1)
+            (callback)
+            (write lock 0)
+            (display "进程 ")(display pid)(display " 已释放资源 ")(display lock)(display " !")(newline)
+        } {
+            (Request lock pid callback)
+        })
+    )
+)
+
+;; 初始化两个信号量，对应两个资源
+(write :lock1 0)
+(write :lock2 0)
+
+;; 进程1：先后请求资源1和资源2
+(fork {
+    (display "进程 1 开始尝试请求资源 :lock1 ...")(newline)
+    (Request :lock1 1 (lambda ()
+        (Critical 100000) ;; 需要不短于一个时间片，保证另一进程申请到另一资源之前不释放，以满足死锁条件。下同。
+        (display "进程 1 开始尝试请求资源 :lock2 ...")(newline)
+        (Request :lock2 1 (lambda () #f))
+    ))
+})
+
+;; 进程2：先后请求资源2和资源1
+(fork {
+    (display "进程 2 开始尝试请求资源 :lock2 ...")(newline)
+    (Request :lock2 2 (lambda ()
+        (Critical 100000)
+        (display "进程 2 开始尝试请求资源 :lock1 ...")(newline)
+        (Request :lock1 2 (lambda () #f))
+    ))
+})
+`;
+

@@ -1,3 +1,8 @@
+function scroll_to_bottom() {
+    let scrollHeight = $(".Console").prop("scrollHeight");
+    $(".Console").animate({scrollTop:scrollHeight}, 0);
+}
+
 
 function esc(s) {
     return String(s).replace(/&/gi, "&amp;");
@@ -103,5 +108,7 @@ function renderDebugInfo(res) {
             renderHeapObjectInfo(hd, heap_data[hd]);
         });
     });
+
+    scroll_to_bottom();
 
 }

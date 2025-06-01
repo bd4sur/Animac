@@ -58,6 +58,14 @@ a:hover {
             <div class="FilenameTag" id="sample_5">利用FFT计算整数乘法</div>
             <div class="FilenameTag" id="sample_6">阴阳谜题</div>
             <div class="FilenameTag" id="sample_7">TLS解释器</div>
+            <div class="FilenameTag" id="sample_8">Quasi-quote</div>
+            <div class="FilenameTag" id="sample_9">日历</div>
+            <div class="FilenameTag" id="sample_10">Church编码</div>
+            <div class="FilenameTag" id="sample_11">阶乘</div>
+            <div class="FilenameTag" id="sample_12">中缀表达式解析</div>
+            <div class="FilenameTag" id="sample_13">生成器</div>
+            <div class="FilenameTag" id="sample_14">协程</div>
+            <div class="FilenameTag" id="sample_15">死锁</div>
         </div>
 
         <div class="CodeEditor">
@@ -193,6 +201,7 @@ let OUTPUT_BUFFER = "";
 ANIMAC_STDOUT_CALLBACK = (x) => {
     OUTPUT_BUFFER += String(x);
     document.getElementById('output').innerHTML = OUTPUT_BUFFER;
+    scroll_to_bottom();
 };
 
 function Init() {
@@ -248,12 +257,14 @@ function Init() {
                 console.timeEnd("执行计时");
                 OUTPUT_BUFFER += '\n<span style="color: #0f0;">执行时间：' + (finishTime-startTime).toFixed(0) + 'ms</span>';
                 document.getElementById('output').innerHTML = OUTPUT_BUFFER;
+                scroll_to_bottom();
                 $('#execute').removeAttr('disabled');
                 $('#execute').html('执行');
             });
         }
         catch (e) {
             document.getElementById('output').innerHTML = '<span style="color: #f00;">执行失败</span>';
+            scroll_to_bottom();
             $('#execute').removeAttr('disabled');
             $('#execute').html('执行');
         }
@@ -327,18 +338,6 @@ function Init() {
 Init();
 
 
-
-$("#run").on("click", function(e) {
-    $('#run').attr('disabled', 'disabled');
-    $('#run').html('正在执行');
-
-
-
-
-
-
-});
-
 $("#sample_0").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/man_or_boy_test.scm"]); });
 $("#sample_1").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/quine.scm"]); });
 $("#sample_2").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/quicksort.scm"]); });
@@ -347,6 +346,14 @@ $("#sample_4").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/ff
 $("#sample_5").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/bigint.scm"] + "\n(run)\n"); });
 $("#sample_6").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/yinyang.scm"]); });
 $("#sample_7").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/interpreter.scm"]); });
+$("#sample_8").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/quasiquote.scm"]); });
+$("#sample_9").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/calendar.scm"]); });
+$("#sample_10").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/church_encoding.scm"]); });
+$("#sample_11").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/factorial.scm"]); });
+$("#sample_12").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/calculator.scm"]); });
+$("#sample_13").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/generator.scm"]); });
+$("#sample_14").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/coroutine.scm"]); });
+$("#sample_15").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/deadlock.scm"]); });
 
 
 
