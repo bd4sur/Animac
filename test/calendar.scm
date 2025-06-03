@@ -1,5 +1,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Animac测试用例 ;;
+;; Animac测试用例
+;; 2012.6    C语言编写
+;; 2017.8.26 改写为Scheme
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; 打印某年某月的日历
@@ -54,7 +56,8 @@
 ;计算某日的星期数
 (define get-week
   (lambda (year month day)
-    (% (day-diff 2017 1 1 year month day) 7)))
+    (define wk (% (day-diff 2017 1 1 year month day) 7))
+    (if (= wk 0) 7 wk)))
 
 ;格式输出
 (define print-iter
@@ -69,22 +72,20 @@
                       (display " ")
                       (print-iter year month iter 1)})
                    (else
-                      (cond ((= (% iter 7) 6) {
+                      (cond ((= (% iter 7) 0) {
                                (display (+ 1 (- iter (get-week year month 1)))) (newline) (print-iter year month (+ iter 1) 0)}) ;行末换行
                             (else {(display (+ 1 (- iter (get-week year month 1)))) (display " ") (print-iter year month (+ iter 1) 0)}))))))))
 
 (define print-calendar
   (lambda (year month)
-    (print-iter year month 0 0)))
+    (print-iter year month 1 0)))
 
 (define Calendar
   (lambda (year month)
     (display "Animac测试用例：日历")(newline)
-    (display "2012.6      C语言编写")(newline)
-    (display "2017.8.26   改写为Scheme")(newline)
     (display year)(display "年")(display month)(display "月")(newline)
     (display "====================")(newline)
-    (display "Su Mo Tu We Th Fr Sa")(newline)
+    (display "Mo Tu We Th Fr Sa Su")(newline)
     (display "====================")(newline)
     (print-calendar year month)
     (display "====================")(newline)
@@ -92,8 +93,6 @@
 
 (define run
   (lambda () {
-    (Calendar 2019 9)
-    (newline)
-    (newline)
+    (Calendar 2025 6)
   })
 )
