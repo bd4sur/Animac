@@ -376,6 +376,7 @@ pre {
     color: #ffffff;
     background: #15e;
     border-radius: 6px;
+    box-shadow: inset 1px 1px 1px #ffffffba, inset -1px -1px 1px #0000003b,.222px .222px .314px -.5px #0003,.605px .605px .856px -1px #0000002e,1.329px 1.329px 1.88px -1.5px #00000040,2.95px 2.95px 4.172px -2px #0000001a,2.5px 2.5px 3px -2.5px #00000026,-.5px -.5px #0000001a;
 }
 .ButtonConfirm:active {
     background: #0038b9;
@@ -383,6 +384,7 @@ pre {
 }
 .ButtonConfirm:disabled {
     background: #e6e9ef;
+    box-shadow: none;
 }
 
 .ButtonRun {
@@ -394,6 +396,7 @@ pre {
     color: #ffffff;
     background: #64bc00;
     border-radius: 6px;
+    box-shadow: inset 1px 1px 1px #ffffffba, inset -1px -1px 1px #0000003b,.222px .222px .314px -.5px #0003,.605px .605px .856px -1px #0000002e,1.329px 1.329px 1.88px -1.5px #00000040,2.95px 2.95px 4.172px -2px #0000001a,2.5px 2.5px 3px -2.5px #00000026,-.5px -.5px #0000001a;
 }
 .ButtonRun:active {
     background: #498900;
@@ -401,6 +404,7 @@ pre {
 }
 .ButtonRun:disabled {
     background: #e6e9ef;
+    box-shadow: none;
 }
 
 .ButtonCancel {
@@ -412,6 +416,7 @@ pre {
     color: #ffffff;
     background: #bf0000;
     border-radius: 6px;
+    box-shadow: inset 1px 1px 1px #ffffffba, inset -1px -1px 1px #0000003b,.222px .222px .314px -.5px #0003,.605px .605px .856px -1px #0000002e,1.329px 1.329px 1.88px -1.5px #00000040,2.95px 2.95px 4.172px -2px #0000001a,2.5px 2.5px 3px -2.5px #00000026,-.5px -.5px #0000001a;
 }
 .ButtonCancel:active {
     background: #8c0000;
@@ -419,6 +424,7 @@ pre {
 }
 .ButtonCancel:disabled {
     background: #e6e9ef;
+    box-shadow: none;
 }
 
 .ButtonDefault {
@@ -430,6 +436,7 @@ pre {
     color: #2a2b2f;
     background: #e6e9ef;
     border-radius: 6px;
+    box-shadow: inset 1px 1px 1px #ffffffba, inset -1px -1px 1px #0000003b,.222px .222px .314px -.5px #0003,.605px .605px .856px -1px #0000002e,1.329px 1.329px 1.88px -1.5px #00000040,2.95px 2.95px 4.172px -2px #0000001a,2.5px 2.5px 3px -2.5px #00000026,-.5px -.5px #0000001a;
 }
 .ButtonDefault:active {
     background: #ced2da;
@@ -437,4 +444,5 @@ pre {
 }
 .ButtonDefault:disabled {
     background: #e6e9ef;
+    box-shadow: none;
 }
