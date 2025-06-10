@@ -66,6 +66,7 @@ a:hover {
             <div class="FilenameTag" id="sample_13">生成器</div>
             <div class="FilenameTag" id="sample_14">协程</div>
             <div class="FilenameTag" id="sample_15">死锁</div>
+            <div class="FilenameTag" id="sample_16">异步回调</div>
         </div>
 
         <div class="CodeEditor">
@@ -137,7 +138,7 @@ a:hover {
 <script src="./ide/jquery.min.js"></script>
 <script src="./ide/codemirror.js"></script>
 
-<script src="./build/animac.js"></script>
+<script src="./build/animac-web.js"></script>
 
 <!--虚拟文件系统-->
 <script src="./ide/vfs.js"></script>
@@ -354,6 +355,7 @@ $("#sample_12").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/c
 $("#sample_13").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/generator.scm"]); });
 $("#sample_14").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/coroutine.scm"]); });
 $("#sample_15").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/deadlock.scm"]); });
+$("#sample_16").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/async_callback.scm"]); });
 
 
 

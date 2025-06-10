@@ -62,7 +62,12 @@ function Analyse(ast: AST): AST{
 
     // 生成模块内唯一的变量名
     function MakeUniqueVariable(lambdaHandle: Handle, variable: string): string {
-        return `${lambdaHandle.substring(1)}.${variable}`;
+        if (ANIMAC_CONFIG.is_debug !== true) {
+            return "V" + HashString([lambdaHandle.substring(1), variable]);
+        }
+        else {
+            return `${lambdaHandle.substring(1)}.${variable}`;
+        }
     }
 
     // 以下是作用域解析：需要对所有node扫描两遍

@@ -54,7 +54,7 @@ class REPL {
     public ReadEvalPrint(input: string): void {
         input = input.toString();
         if(input.trim() === ".help") {
-            this.RUNTIME.Output(`Animac Scheme Implementation V2023-alpha\n`);
+            this.RUNTIME.Output(`Animac Scheme Implementation V${ANIMAC_CONFIG.version}\n`);
             this.RUNTIME.Output(`Copyright (c) 2019~2023 BD4SUR\n`);
             this.RUNTIME.Output(`https://github.com/bd4sur/Animac\n`);
             this.RUNTIME.Output(`\n`);
@@ -106,7 +106,7 @@ class REPL {
     }
 
     public Start(): void {
-        this.RUNTIME.Output(`Animac Scheme Implementation V2023-alpha\n`);
+        this.RUNTIME.Output(`Animac Scheme Implementation V${ANIMAC_CONFIG.version}\n`);
         this.RUNTIME.Output(`Copyright (c) 2019~2023 BD4SUR\n`);
         this.RUNTIME.Output(`Type ".help" for more information.\n`);
         this.RUNTIME.Output(`> `);

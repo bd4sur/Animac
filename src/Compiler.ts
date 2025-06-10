@@ -21,7 +21,12 @@ function Compile(ast: AST): Array<string> {
     function UniqueString() {
         let uniqueString = `${ast.moduleID}.ID${uniqueStringCounter.toString()}`;
         uniqueStringCounter++;
-        return uniqueString;
+        if (ANIMAC_CONFIG.is_debug !== true) {
+            return HashString([uniqueString]);
+        }
+        else {
+            return uniqueString;
+        }
     }
     // 增加一条新指令
     function AddInstruction(instStr: string): void {

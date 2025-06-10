@@ -1,3 +1,80 @@
+ANIMAC_VFS["/lib/System.js"] = `
+// (System.set_timeout time_ms:Number callback:(void->undefined)) : Number(计时器编号)
+function set_timeout(PROCESS, RUNTIME) {
+    // 从栈中获取参数，注意顺序是反的
+    let callback = PROCESS.PopOperand();
+    let time_ms = PROCESS.PopOperand();
+
+    let timer = setTimeout(() => {
+        // 若进程已经执行完毕，则将其重新加入进程队列，重启时钟，执行回调函数
+        if(PROCESS.state !== "RUNNING") {
+            // NOTE 返回到地址为1的指令，即halt指令
+            RUNTIME.CallAsync(1, callback, PROCESS, RUNTIME);
+            // 恢复进程状态
+            PROCESS.SetState("RUNNING");
+            RUNTIME.AddProcess(PROCESS);
+            RUNTIME.StartClock(RUNTIME.asyncCallback);
+        }
+        // 若进程尚未执行完毕，直接调用回调
+        else {
+            // 返回到中断发生时的PC的下一条指令
+            RUNTIME.CallAsync(PROCESS.PC + 1, callback, PROCESS, RUNTIME);
+        }
+    }, time_ms);
+
+    PROCESS.OPSTACK.push(Number(timer));
+    PROCESS.Step(); // 退出，执行下一指令
+}
+
+// (System.set_interval time_ms:Number callback:(void->undefined)) : Number(计时器编号)
+function set_interval(PROCESS, RUNTIME) {
+    // 从栈中获取参数，注意顺序是反的
+    let callback = PROCESS.PopOperand();
+    let time_ms = PROCESS.PopOperand();
+
+    let timer = setInterval(() => {
+        // 若进程已经执行完毕，则将其重新加入进程队列，重启时钟，执行回调函数
+        if(PROCESS.state !== "RUNNING") {
+            // NOTE 返回到地址为1的指令，即halt指令
+            RUNTIME.CallAsync(1, callback, PROCESS, RUNTIME);
+            // 恢复进程状态
+            PROCESS.SetState("RUNNING");
+            RUNTIME.AddProcess(PROCESS);
+            RUNTIME.StartClock(RUNTIME.asyncCallback);
+        }
+        // 若进程尚未执行完毕，直接调用回调
+        else {
+            // 返回到中断发生时的PC的下一条指令
+            RUNTIME.CallAsync(PROCESS.PC + 1, callback, PROCESS, RUNTIME);
+        }
+    }, time_ms);
+
+    PROCESS.OPSTACK.push(Number(timer));
+    PROCESS.Step(); // 退出，执行下一指令
+}
+
+// (System.clear_timeout timer:Number) : void
+function clear_timeout(PROCESS, RUNTIME) {
+    // 从栈中获取参数，注意顺序是反的
+    let timer = PROCESS.PopOperand();
+    clearTimeout(timer);
+    PROCESS.Step(); // 退出，执行下一指令
+}
+
+// (System.clear_interval timer:Number) : void
+function clear_interval(PROCESS, RUNTIME) {
+    // 从栈中获取参数，注意顺序是反的
+    let timer = PROCESS.PopOperand();
+    clearInterval(timer);
+    PROCESS.Step(); // 退出，执行下一指令
+}
+
+module.exports.set_timeout = set_timeout;
+module.exports.set_interval = set_interval;
+module.exports.clear_timeout = clear_timeout;
+module.exports.clear_interval = clear_interval;
+`;
+
 ANIMAC_VFS["/lib/Math.js"] = `
 // (Math.PI) : Number
 function PI(PROCESS, RUNTIME) {

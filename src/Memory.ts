@@ -83,6 +83,9 @@ class Memory {
         isStatic = isStatic || false;
         typeTag = typeTag || "OBJECT";
         let handle = `&${typeTag}_${this.handleCounter}`;
+        if (ANIMAC_CONFIG.is_debug !== true) {
+            handle = "&" + HashString([handle]);
+        }
         this.data.set(handle, null);
         this.metadata.set(handle, this.MetaString(isStatic, false, "allocated"));
         this.handleCounter++;

@@ -1,13 +1,12 @@
 {
+    "extends": "./tsconfig.base.json",
     "compilerOptions": {
-        "target": "ES6",
-        "module": "amd",
         "rootDir": ".",
-        "outFile": "./build/animac.js",
-        "outDir": "./build",
-        "skipLibCheck": true
+        "outFile": "./build/animac-cli.js",
+        "outDir": "./build"
     },
     "files": [
+        "src/config.cli.ts",
         "src/Common.ts",
         "src/NativeLib.ts",
         "src/Memory.ts",
@@ -20,9 +19,8 @@
         "src/Process.ts",
         "src/Runtime.ts",
         "src/Instruction.ts",
-        // "src/REPL.ts",
-        // "src/DebugServer.ts",
-        "src/main_browser.ts"
-        // "src/Main.ts"
+        "src/REPL.ts",
+        "src/DebugServer.ts",
+        "src/Main.ts"
     ]
 }

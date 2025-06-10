@@ -2,29 +2,19 @@
 // Utility.ts
 // 工具函数
 
-const ANIMAC_VERSION = "0.2.0";
-
+// 虚拟文件系统
 let ANIMAC_VFS = {};
-
-const ANIMAC_CONFIG = {
-    "env_type": "browser", // 运行环境："node" or "browser"
-};
-
-let ANIMAC_STDOUT_CALLBACK = console.log;
-let ANIMAC_STDERR_CALLBACK = console.error;
 
 let fs = null;
 let path = null;
 
-if (ANIMAC_CONFIG["env_type"] === "node") {
+if (ANIMAC_CONFIG["env_type"] === "cli") {
     fs = require("fs");
     path = require("path");
 }
 
-
-
 const ANIMAC_HELP =
-`Animac Scheme Implementation V${ANIMAC_VERSION}
+`Animac Scheme Implementation V${ANIMAC_CONFIG.version}
 Copyright (c) 2019~2023 BD4SUR
 https://github.com/bd4sur/Animac
 
@@ -140,6 +130,28 @@ function isVariable(token: string): boolean {
 }
 
 
+// 字符串散列相关
+function HashString(strArray) {
+    function DJB(str) {
+        let hash = 5381;
+        for (let i = 0; i < str.length; i++) {
+            const charCode = str.charCodeAt(i);
+            hash = ((hash << 5) + hash) + charCode; // hash * 33 + charCode
+        }
+        return hash >>> 0;
+    }
+    let s = 1;
+    for (let i = 0; i < strArray.length; i++) {
+        s *= DJB(strArray[i]);
+    }
+
+    return s.toString(16).slice(0, 16);
+}
+
+
+
+
+
 // 通用的require
 function createModuleSystem() {
     // 模块缓存
@@ -219,10 +231,10 @@ class PathUtils {
 
     // 判断是否是所在平台的绝对路径
     static IsAbsolutePath(p: string): boolean {
-        if (ANIMAC_CONFIG.env_type === "node") {
+        if (ANIMAC_CONFIG.env_type === "cli") {
             return path.isAbsolute(p);
         }
-        else if (ANIMAC_CONFIG.env_type === "browser") {
+        else if (ANIMAC_CONFIG.env_type === "web") {
             return p.startsWith('/');
         }
         else {
@@ -232,10 +244,10 @@ class PathUtils {
 
     // 在特定平台下，将多个路径按顺序拼接成合理的绝对路径
     static Join(p1: string, p2: string): string {
-        if (ANIMAC_CONFIG.env_type === "node") {
+        if (ANIMAC_CONFIG.env_type === "cli") {
             return path.join(p1, p2);
         }
-        else if (ANIMAC_CONFIG.env_type === "browser") {
+        else if (ANIMAC_CONFIG.env_type === "web") {
             // 仅处理最简单的情况：p1是从根目录开始的绝对路径，p2是从p1开始的相对路径。例如“/root/a”和“b/c”简单拼接为“/root/a/b/c”
             if (p1.endsWith("/")) {
                 return p1.slice(0, -1) + "/" + p2;
@@ -251,10 +263,10 @@ class PathUtils {
 
     // 在特定平台下，返回某个路径的所在目录路径
     static DirName(p: string): string {
-        if (ANIMAC_CONFIG.env_type === "node") {
+        if (ANIMAC_CONFIG.env_type === "cli") {
             return path.dirname(p);
         }
-        else if (ANIMAC_CONFIG.env_type === "browser") {
+        else if (ANIMAC_CONFIG.env_type === "web") {
             let dirs = p.split("/");
             if (dirs[dirs.length-1] === "") {
                 dirs = dirs.slice(0, -1);
@@ -269,10 +281,10 @@ class PathUtils {
 
     // 在特定平台下，返回某个路径的文件名部分
     static BaseName(p: string, suffix: string): string {
-        if (ANIMAC_CONFIG.env_type === "node") {
+        if (ANIMAC_CONFIG.env_type === "cli") {
             return path.basename(p, suffix);
         }
-        else if (ANIMAC_CONFIG.env_type === "browser") {
+        else if (ANIMAC_CONFIG.env_type === "web") {
             let dirs = p.split("/");
             if (dirs[dirs.length-1] === "") {
                 dirs = dirs.slice(0, -1);
@@ -285,10 +297,10 @@ class PathUtils {
     }
 
     static cwd(): string {
-        if (ANIMAC_CONFIG.env_type === "node") {
+        if (ANIMAC_CONFIG.env_type === "cli") {
             return process.cwd();
         }
-        else if (ANIMAC_CONFIG.env_type === "browser") {
+        else if (ANIMAC_CONFIG.env_type === "web") {
             return "/";
         }
         else {
@@ -300,10 +312,10 @@ class PathUtils {
 // 文件操作
 class FileUtils {
     static ReadFileSync(p: string): string {
-        if (ANIMAC_CONFIG.env_type === "node") {
+        if (ANIMAC_CONFIG.env_type === "cli") {
             return fs.readFileSync(p, "utf-8");
         }
-        else if (ANIMAC_CONFIG.env_type === "browser") {
+        else if (ANIMAC_CONFIG.env_type === "web") {
             return ANIMAC_VFS[p];
         }
         else {
@@ -312,10 +324,10 @@ class FileUtils {
     }
 
     static WriteFileSync(p: string, content: string): void {
-        if (ANIMAC_CONFIG.env_type === "node") {
+        if (ANIMAC_CONFIG.env_type === "cli") {
             fs.writeFileSync(p, content, "utf-8");
         }
-        else if (ANIMAC_CONFIG.env_type === "browser") {
+        else if (ANIMAC_CONFIG.env_type === "web") {
             ANIMAC_VFS[p] = content;
         }
         else {
@@ -328,10 +340,10 @@ class FileUtils {
 // stdio操作抽象
 class StdIOUtils {
     static stdout(s: string): void {
-        if (ANIMAC_CONFIG.env_type === "node") {
+        if (ANIMAC_CONFIG.env_type === "cli") {
             process.stdout.write(s);
         }
-        else if (ANIMAC_CONFIG.env_type === "browser") {
+        else if (ANIMAC_CONFIG.env_type === "web") {
             ANIMAC_STDOUT_CALLBACK(s);
         }
         else {
@@ -339,10 +351,10 @@ class StdIOUtils {
         }
     }
     static stderr(s: string): void {
-        if (ANIMAC_CONFIG.env_type === "node") {
+        if (ANIMAC_CONFIG.env_type === "cli") {
             process.stderr.write(s);
         }
-        else if (ANIMAC_CONFIG.env_type === "browser") {
+        else if (ANIMAC_CONFIG.env_type === "web") {
             ANIMAC_STDERR_CALLBACK(s);
         }
         else {

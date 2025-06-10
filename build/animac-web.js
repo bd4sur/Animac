@@ -1,19 +1,23 @@
-// Utility.ts
-// 工具函数
-const ANIMAC_VERSION = "0.2.0";
-let ANIMAC_VFS = {};
+// config.ts
+// 全局配置
 const ANIMAC_CONFIG = {
-    "env_type": "browser", // 运行环境："node" or "browser"
+    "version": "2025.6",
+    "env_type": "web", // 运行环境："cli" or "web"
+    "is_debug": false
 };
 let ANIMAC_STDOUT_CALLBACK = console.log;
 let ANIMAC_STDERR_CALLBACK = console.error;
+// Utility.ts
+// 工具函数
+// 虚拟文件系统
+let ANIMAC_VFS = {};
 let fs = null;
 let path = null;
-if (ANIMAC_CONFIG["env_type"] === "node") {
+if (ANIMAC_CONFIG["env_type"] === "cli") {
     fs = require("fs");
     path = require("path");
 }
-const ANIMAC_HELP = `Animac Scheme Implementation V${ANIMAC_VERSION}
+const ANIMAC_HELP = `Animac Scheme Implementation V${ANIMAC_CONFIG.version}
 Copyright (c) 2019~2023 BD4SUR
 https://github.com/bd4sur/Animac
 
@@ -118,6 +122,22 @@ function TypeOfToken(token) {
 function isVariable(token) {
     return (TypeOfToken(token) === "VARIABLE");
 }
+// 字符串散列相关
+function HashString(strArray) {
+    function DJB(str) {
+        let hash = 5381;
+        for (let i = 0; i < str.length; i++) {
+            const charCode = str.charCodeAt(i);
+            hash = ((hash << 5) + hash) + charCode; // hash * 33 + charCode
+        }
+        return hash >>> 0;
+    }
+    let s = 1;
+    for (let i = 0; i < strArray.length; i++) {
+        s *= DJB(strArray[i]);
+    }
+    return s.toString(16).slice(0, 16);
+}
 // 通用的require
 function createModuleSystem() {
     // 模块缓存
@@ -179,10 +199,10 @@ class PathUtils {
     }
     // 判断是否是所在平台的绝对路径
     static IsAbsolutePath(p) {
-        if (ANIMAC_CONFIG.env_type === "node") {
+        if (ANIMAC_CONFIG.env_type === "cli") {
             return path.isAbsolute(p);
         }
-        else if (ANIMAC_CONFIG.env_type === "browser") {
+        else if (ANIMAC_CONFIG.env_type === "web") {
             return p.startsWith('/');
         }
         else {
@@ -191,10 +211,10 @@ class PathUtils {
     }
     // 在特定平台下，将多个路径按顺序拼接成合理的绝对路径
     static Join(p1, p2) {
-        if (ANIMAC_CONFIG.env_type === "node") {
+        if (ANIMAC_CONFIG.env_type === "cli") {
             return path.join(p1, p2);
         }
-        else if (ANIMAC_CONFIG.env_type === "browser") {
+        else if (ANIMAC_CONFIG.env_type === "web") {
             // 仅处理最简单的情况：p1是从根目录开始的绝对路径，p2是从p1开始的相对路径。例如“/root/a”和“b/c”简单拼接为“/root/a/b/c”
             if (p1.endsWith("/")) {
                 return p1.slice(0, -1) + "/" + p2;
@@ -209,10 +229,10 @@ class PathUtils {
     }
     // 在特定平台下，返回某个路径的所在目录路径
     static DirName(p) {
-        if (ANIMAC_CONFIG.env_type === "node") {
+        if (ANIMAC_CONFIG.env_type === "cli") {
             return path.dirname(p);
         }
-        else if (ANIMAC_CONFIG.env_type === "browser") {
+        else if (ANIMAC_CONFIG.env_type === "web") {
             let dirs = p.split("/");
             if (dirs[dirs.length - 1] === "") {
                 dirs = dirs.slice(0, -1);
@@ -226,10 +246,10 @@ class PathUtils {
     }
     // 在特定平台下，返回某个路径的文件名部分
     static BaseName(p, suffix) {
-        if (ANIMAC_CONFIG.env_type === "node") {
+        if (ANIMAC_CONFIG.env_type === "cli") {
             return path.basename(p, suffix);
         }
-        else if (ANIMAC_CONFIG.env_type === "browser") {
+        else if (ANIMAC_CONFIG.env_type === "web") {
             let dirs = p.split("/");
             if (dirs[dirs.length - 1] === "") {
                 dirs = dirs.slice(0, -1);
@@ -241,10 +261,10 @@ class PathUtils {
         }
     }
     static cwd() {
-        if (ANIMAC_CONFIG.env_type === "node") {
+        if (ANIMAC_CONFIG.env_type === "cli") {
             return process.cwd();
         }
-        else if (ANIMAC_CONFIG.env_type === "browser") {
+        else if (ANIMAC_CONFIG.env_type === "web") {
             return "/";
         }
         else {
@@ -255,10 +275,10 @@ class PathUtils {
 // 文件操作
 class FileUtils {
     static ReadFileSync(p) {
-        if (ANIMAC_CONFIG.env_type === "node") {
+        if (ANIMAC_CONFIG.env_type === "cli") {
             return fs.readFileSync(p, "utf-8");
         }
-        else if (ANIMAC_CONFIG.env_type === "browser") {
+        else if (ANIMAC_CONFIG.env_type === "web") {
             return ANIMAC_VFS[p];
         }
         else {
@@ -266,10 +286,10 @@ class FileUtils {
         }
     }
     static WriteFileSync(p, content) {
-        if (ANIMAC_CONFIG.env_type === "node") {
+        if (ANIMAC_CONFIG.env_type === "cli") {
             fs.writeFileSync(p, content, "utf-8");
         }
-        else if (ANIMAC_CONFIG.env_type === "browser") {
+        else if (ANIMAC_CONFIG.env_type === "web") {
             ANIMAC_VFS[p] = content;
         }
         else {
@@ -280,10 +300,10 @@ class FileUtils {
 // stdio操作抽象
 class StdIOUtils {
     static stdout(s) {
-        if (ANIMAC_CONFIG.env_type === "node") {
+        if (ANIMAC_CONFIG.env_type === "cli") {
             process.stdout.write(s);
         }
-        else if (ANIMAC_CONFIG.env_type === "browser") {
+        else if (ANIMAC_CONFIG.env_type === "web") {
             ANIMAC_STDOUT_CALLBACK(s);
         }
         else {
@@ -291,10 +311,10 @@ class StdIOUtils {
         }
     }
     static stderr(s) {
-        if (ANIMAC_CONFIG.env_type === "node") {
+        if (ANIMAC_CONFIG.env_type === "cli") {
             process.stderr.write(s);
         }
-        else if (ANIMAC_CONFIG.env_type === "browser") {
+        else if (ANIMAC_CONFIG.env_type === "web") {
             ANIMAC_STDERR_CALLBACK(s);
         }
         else {
@@ -302,6 +322,82 @@ class StdIOUtils {
         }
     }
 }
+ANIMAC_VFS["/lib/System.js"] = `
+// (System.set_timeout time_ms:Number callback:(void->undefined)) : Number(计时器编号)
+function set_timeout(PROCESS, RUNTIME) {
+    // 从栈中获取参数，注意顺序是反的
+    let callback = PROCESS.PopOperand();
+    let time_ms = PROCESS.PopOperand();
+
+    let timer = setTimeout(() => {
+        // 若进程已经执行完毕，则将其重新加入进程队列，重启时钟，执行回调函数
+        if(PROCESS.state !== "RUNNING") {
+            // NOTE 返回到地址为1的指令，即halt指令
+            RUNTIME.CallAsync(1, callback, PROCESS, RUNTIME);
+            // 恢复进程状态
+            PROCESS.SetState("RUNNING");
+            RUNTIME.AddProcess(PROCESS);
+            RUNTIME.StartClock(RUNTIME.asyncCallback);
+        }
+        // 若进程尚未执行完毕，直接调用回调
+        else {
+            // 返回到中断发生时的PC的下一条指令
+            RUNTIME.CallAsync(PROCESS.PC + 1, callback, PROCESS, RUNTIME);
+        }
+    }, time_ms);
+
+    PROCESS.OPSTACK.push(Number(timer));
+    PROCESS.Step(); // 退出，执行下一指令
+}
+
+// (System.set_interval time_ms:Number callback:(void->undefined)) : Number(计时器编号)
+function set_interval(PROCESS, RUNTIME) {
+    // 从栈中获取参数，注意顺序是反的
+    let callback = PROCESS.PopOperand();
+    let time_ms = PROCESS.PopOperand();
+
+    let timer = setInterval(() => {
+        // 若进程已经执行完毕，则将其重新加入进程队列，重启时钟，执行回调函数
+        if(PROCESS.state !== "RUNNING") {
+            // NOTE 返回到地址为1的指令，即halt指令
+            RUNTIME.CallAsync(1, callback, PROCESS, RUNTIME);
+            // 恢复进程状态
+            PROCESS.SetState("RUNNING");
+            RUNTIME.AddProcess(PROCESS);
+            RUNTIME.StartClock(RUNTIME.asyncCallback);
+        }
+        // 若进程尚未执行完毕，直接调用回调
+        else {
+            // 返回到中断发生时的PC的下一条指令
+            RUNTIME.CallAsync(PROCESS.PC + 1, callback, PROCESS, RUNTIME);
+        }
+    }, time_ms);
+
+    PROCESS.OPSTACK.push(Number(timer));
+    PROCESS.Step(); // 退出，执行下一指令
+}
+
+// (System.clear_timeout timer:Number) : void
+function clear_timeout(PROCESS, RUNTIME) {
+    // 从栈中获取参数，注意顺序是反的
+    let timer = PROCESS.PopOperand();
+    clearTimeout(timer);
+    PROCESS.Step(); // 退出，执行下一指令
+}
+
+// (System.clear_interval timer:Number) : void
+function clear_interval(PROCESS, RUNTIME) {
+    // 从栈中获取参数，注意顺序是反的
+    let timer = PROCESS.PopOperand();
+    clearInterval(timer);
+    PROCESS.Step(); // 退出，执行下一指令
+}
+
+module.exports.set_timeout = set_timeout;
+module.exports.set_interval = set_interval;
+module.exports.clear_timeout = clear_timeout;
+module.exports.clear_interval = clear_interval;
+`;
 ANIMAC_VFS["/lib/Math.js"] = `
 // (Math.PI) : Number
 function PI(PROCESS, RUNTIME) {
@@ -578,6 +674,9 @@ class Memory {
         isStatic = isStatic || false;
         typeTag = typeTag || "OBJECT";
         let handle = `&${typeTag}_${this.handleCounter}`;
+        if (ANIMAC_CONFIG.is_debug !== true) {
+            handle = "&" + HashString([handle]);
+        }
         this.data.set(handle, null);
         this.metadata.set(handle, this.MetaString(isStatic, false, "allocated"));
         this.handleCounter++;
@@ -1625,7 +1724,12 @@ function Analyse(ast) {
     }
     // 生成模块内唯一的变量名
     function MakeUniqueVariable(lambdaHandle, variable) {
-        return `${lambdaHandle.substring(1)}.${variable}`;
+        if (ANIMAC_CONFIG.is_debug !== true) {
+            return "V" + HashString([lambdaHandle.substring(1), variable]);
+        }
+        else {
+            return `${lambdaHandle.substring(1)}.${variable}`;
+        }
     }
     // 以下是作用域解析：需要对所有node扫描两遍
     function ScopeAnalysis() {
@@ -1825,7 +1929,12 @@ function Compile(ast) {
     function UniqueString() {
         let uniqueString = `${ast.moduleID}.ID${uniqueStringCounter.toString()}`;
         uniqueStringCounter++;
-        return uniqueString;
+        if (ANIMAC_CONFIG.is_debug !== true) {
+            return HashString([uniqueString]);
+        }
+        else {
+            return uniqueString;
+        }
     }
     // 增加一条新指令
     function AddInstruction(instStr) {
@@ -3551,14 +3660,14 @@ class Runtime {
         // NOTE native不压栈帧
         let nativeModuleName = target.split(".")[0];
         let nativeFunctionName = target.split(".").slice(1).join("");
-        if (ANIMAC_CONFIG.env_type === "node") {
+        if (ANIMAC_CONFIG.env_type === "cli") {
             // 引入Native模块
             let nativeModulePath = PathUtils.Join(PathUtils.cwd(), `lib/${nativeModuleName}.js`);
             let nativeModule = require(nativeModulePath);
             // 调用Native模块内部的函数
             (nativeModule[nativeFunctionName])(PROCESS, RUNTIME);
         }
-        else if (ANIMAC_CONFIG.env_type === "browser") {
+        else if (ANIMAC_CONFIG.env_type === "web") {
             // 引入Native模块
             let nativeModulePath = `/lib/${nativeModuleName}.js`;
             let nativeModule = RequireNative(nativeModuleName, ANIMAC_VFS[nativeModulePath]);

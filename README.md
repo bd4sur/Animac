@@ -19,10 +19,10 @@ https://github.com/bd4sur/Animac/assets/20069428/6fb423b5-7798-41e8-917c-ed828b5
 ```
 git clone https://github.com/bd4sur/Animac.git
 cd Animac
-node build/animac.js -h
+node build/animac-cli.js -h
 ```
 
-构建：`npx tsc`
+构建：`node build.js`
 
 ## 系统框图
 

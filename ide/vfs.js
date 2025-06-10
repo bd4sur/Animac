@@ -1799,3 +1799,20 @@ ANIMAC_VFS["/test/deadlock.scm"] = `;; 端口、信号量和死锁演示
 })
 `;
 
+ANIMAC_VFS["/test/async_callback.scm"] = `;; 异步回调演示
+(native System)
+
+(define g 0)
+(define timer1 0)
+
+(set! timer1
+  (System.set_interval 500 (lambda ()
+                             (set! g (+ 1 g))
+                             (display "T1 = ") (display g) (newline)
+                             (if (> g 10) (System.clear_interval timer1) 0))))
+
+(define count (lambda (x) (if (< x 0) 0 { (display x) (newline) (count (- x 1)) })))
+
+(count 100)
+
+`;

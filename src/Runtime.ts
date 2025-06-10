@@ -277,14 +277,14 @@ class Runtime {
         // NOTE native不压栈帧
         let nativeModuleName = target.split(".")[0];
         let nativeFunctionName = target.split(".").slice(1).join("");
-        if (ANIMAC_CONFIG.env_type === "node") {
+        if (ANIMAC_CONFIG.env_type === "cli") {
             // 引入Native模块
             let nativeModulePath = PathUtils.Join(PathUtils.cwd(), `lib/${nativeModuleName}.js`);
             let nativeModule = require(nativeModulePath);
             // 调用Native模块内部的函数
             (nativeModule[nativeFunctionName])(PROCESS, RUNTIME);
         }
-        else if (ANIMAC_CONFIG.env_type === "browser") {
+        else if (ANIMAC_CONFIG.env_type === "web") {
             // 引入Native模块
             let nativeModulePath = `/lib/${nativeModuleName}.js`;
             let nativeModule = RequireNative(nativeModuleName, ANIMAC_VFS[nativeModulePath]);

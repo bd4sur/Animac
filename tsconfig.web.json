@@ -1,0 +1,24 @@
+{
+    "extends": "./tsconfig.base.json",
+    "compilerOptions": {
+        "rootDir": ".",
+        "outFile": "./build/animac-web.js",
+        "outDir": "./build"
+    },
+    "files": [
+        "src/config.web.ts",
+        "src/Common.ts",
+        "src/NativeLib.ts",
+        "src/Memory.ts",
+        "src/Object.ts",
+        "src/Lexer.ts",
+        "src/Parser.ts",
+        "src/Analyser.ts",
+        "src/Compiler.ts",
+        "src/ModuleLoader.ts",
+        "src/Process.ts",
+        "src/Runtime.ts",
+        "src/Instruction.ts",
+        "src/main_browser.ts"
+    ]
+}
