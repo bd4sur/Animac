@@ -1806,13 +1806,15 @@ ANIMAC_VFS["/test/async_callback.scm"] = `;; 异步回调演示
 (define timer1 0)
 
 (set! timer1
-  (System.set_interval 500 (lambda ()
+  (System.set_timeout 800 (lambda ()
                              (set! g (+ 1 g))
-                             (display "T1 = ") (display g) (newline)
-                             (if (> g 10) (System.clear_interval timer1) 0))))
+                             (display "T1 ============= ") (display g) (newline)
+                             )))
 
 (define count (lambda (x) (if (< x 0) 0 { (display x) (newline) (count (- x 1)) })))
 
-(count 100)
+(count 1000)
+
+
 
 `;
