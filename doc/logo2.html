@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+.Main {
+    margin: 320px;
+    display: flex;
+    align-items: center;
+}
+.Logo {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 250px;
+    background: linear-gradient(0deg, #00d0ff, #5d00ff);
+    width: 580px;
+    height: 580px;
+}
+.Title {
+    font-family: 'UD Digi Kyokasho NP-B', 'consolas', Courier, monospace;
+    font-size: 380px;
+    line-height: 1;
+    text-align: center;
+    /* color: #666b7b; */
+    background: linear-gradient(0deg, #d9dde4, #24262d);
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    -webkit-background-clip: text;
+    width: fit-content;
+    margin: 0 auto;
+}
+.Subtitle {
+    margin-top: 20px;
+    font-family: 'UD Digi Kyokasho NP-B', 'consolas', Courier, monospace;
+    font-size: 96px;
+    line-height: 1;
+    text-align: center;
+}
+</style>
+</head>
+<body>
+<div class="Main">
+    <div id="logo" class="Logo">
+        <svg id="aslogo" width="347px" height="400px" version="1.1" xmlns="http://www.w3.org/2000/svg" style="margin: auto;">
+            <defs>
+                <!--左-->
+                <linearGradient id="g_A" x1="0%" y1="0%" x2="30%" y2="100%">
+                    <stop offset="30%" stop-color="#ffffff33"></stop>
+                    <stop offset="100%" stop-color="#ffffff"></stop>
+                </linearGradient>
+
+                <!--上左-->
+                <linearGradient id="g_B" x1="0%" y1="100%" x2="70%" y2="0%">
+                    <stop offset="10%" stop-color="#ffffff"></stop>
+                    <stop offset="90%" stop-color="#ffffff33"></stop>
+                </linearGradient>
+
+                <!--上右-->
+                <linearGradient id="g_C" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="10%" stop-color="#ffffff"></stop>
+                    <stop offset="85%" stop-color="#ffffff33"></stop>
+                </linearGradient>
+
+                <!--右-->
+                <linearGradient id="g_D" x1="0%" y1="0%" x2="30%" y2="100%">
+                    <stop offset="20%" stop-color="#ffffff"></stop>
+                    <stop offset="90%" stop-color="#ffffff33"></stop>
+                </linearGradient>
+
+                <!--下右-->
+                <linearGradient id="g_E" x1="70%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="#ffffff"></stop>
+                    <stop offset="80%" stop-color="#ffffff33"></stop>
+                </linearGradient>
+
+                <!--下左-->
+                <linearGradient id="g_F" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="20%" stop-color="#ffffff33"></stop>
+                    <stop offset="85%" stop-color="#ffffff"></stop>
+                </linearGradient>
+            </defs>
+        </svg>
+    </div>
+
+    <div style="margin-left: 140px; margin-top: 0px;">
+        <div class="Title">Animac</div>
+        <div class="Subtitle"><span style="color:#b6b8c2;">( Scheme . Implementation )</div>
+
+
+    </div>
+
+</div>
+
+<script>
+
+const a = 100;
+const t = 50;
+const w = 2;
+const R3 = Math.sqrt(3);
+
+let A1 = [R3 * t , a + t + 2 * w];
+let A2 = [R3 * t , 3 * a - t - w];
+let A3 = [0 , 3 * a - w];
+let A4 = [0 , a + 2 * t + 2 * w];
+
+let B1 = [R3 * a - R3 * t - R3 * w , t + w];
+let B2 = [R3 * a - R3 * w , 2 * t + w];
+let B3 = [0 , a + 2 * t];
+let B4 = [0 , a];
+
+let C1 = [R3 * a , 0];
+let C2 = [2 * R3 * a - 0.5 * R3 * w , a - 0.5 * w];
+let C3 = [2 * R3 * a - R3 * t - 0.5 * w , a + t - 0.5 * w];
+let C4 = [R3 * a - R3 * t , t];
+
+let D1 = [2 * R3 * a , a + w];
+let D2 = [2 * R3 * a , 3 * a - 2 * t - 2 * w];
+let D3 = [2 * R3 * a - R3 * t , 3 * a - t - 2 * w];
+let D4 = [2 * R3 * a - R3 * t , a + t + w];
+
+let E1 = [2 * R3 * a , 3 * a - 2 * t];
+let E2 = [2 * R3 * a , 3 * a];
+let E3 = [R3 * a + R3 * t + R3 * w , 4 * a - t - w];
+let E4 = [R3 * a + R3 * w , 4 * a - 2 * t - w];
+
+let F1 = [R3 * a + R3 * t , 4 * a - t];
+let F2 = [R3 * a , 4 * a];
+let F3 = [0.5 * R3 * w , 3 * a + 0.5 * w];
+let F4 = [R3 * t + 0.5 * R3 * w , 3 * a - t + 0.5 * w];
+
+let Polygon_A = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+Polygon_A.setAttribute("points", `${A1[0]},${A1[1]} ${A2[0]},${A2[1]} ${A3[0]},${A3[1]} ${A4[0]},${A4[1]}`);
+Polygon_A.setAttribute("style", "fill:url(#g_A);stroke:none;");
+
+let Polygon_B = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+Polygon_B.setAttribute("points", `${B1[0]},${B1[1]} ${B2[0]},${B2[1]} ${B3[0]},${B3[1]} ${B4[0]},${B4[1]}`);
+Polygon_B.setAttribute("style", "fill:url(#g_B);stroke:none;");
+
+let Polygon_C = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+Polygon_C.setAttribute("points", `${C1[0]},${C1[1]} ${C2[0]},${C2[1]} ${C3[0]},${C3[1]} ${C4[0]},${C4[1]}`);
+Polygon_C.setAttribute("style", "fill:url(#g_C);stroke:none;");
+
+let Polygon_D = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+Polygon_D.setAttribute("points", `${D1[0]},${D1[1]} ${D2[0]},${D2[1]} ${D3[0]},${D3[1]} ${D4[0]},${D4[1]}`);
+Polygon_D.setAttribute("style", "fill:url(#g_D);stroke:none;");
+
+let Polygon_E = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+Polygon_E.setAttribute("points", `${E1[0]},${E1[1]} ${E2[0]},${E2[1]} ${E3[0]},${E3[1]} ${E4[0]},${E4[1]}`);
+Polygon_E.setAttribute("style", "fill:url(#g_E);stroke:none;");
+
+let Polygon_F = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+Polygon_F.setAttribute("points", `${F1[0]},${F1[1]} ${F2[0]},${F2[1]} ${F3[0]},${F3[1]} ${F4[0]},${F4[1]}`);
+Polygon_F.setAttribute("style", "fill:url(#g_F);stroke:none;");
+
+document.getElementById("aslogo").appendChild(Polygon_A);
+document.getElementById("aslogo").appendChild(Polygon_B);
+document.getElementById("aslogo").appendChild(Polygon_C);
+document.getElementById("aslogo").appendChild(Polygon_D);
+document.getElementById("aslogo").appendChild(Polygon_E);
+document.getElementById("aslogo").appendChild(Polygon_F);
+
+</script>
+
+</body>
+</html>

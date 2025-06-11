@@ -1,4 +1,4 @@
-<p align="center"><img src="./doc/logo.png" width="400"></p>
+<p align="center"><img src="./doc/logo2.png" width="400"></p>
 
 <h1 align="center">Animac · 灵机</h1>
 
