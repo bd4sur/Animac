@@ -2,51 +2,52 @@
 
 <h1 align="center">Animac · 灵机</h1>
 
-**灵机 · Animac**是一款[Scheme](https://zh.wikipedia.org/wiki/Scheme)解释器，是Scheme语言的一个实现。Animac能够将Scheme代码编译为中间语言代码，并且在虚拟机上执行中间语言代码。目前，Animac使用TypeScript开发，基于Node.js实现。
+**灵机 · Animac**是[Scheme](https://zh.wikipedia.org/wiki/Scheme)程序语言的一个实现。Animac将Scheme代码编译为中间语言代码，并且在虚拟机上执行。Animac不遵守R<sup>5</sup>RS标准。目前，Animac使用TypeScript开发，能够在Web浏览器和Node.js环境中运行。
 
-[立即体验](https://bd4sur.com/Animac)
+[立即体验](https://bd4sur.com/Animac) | [B站视频：调试器演示](https://www.bilibili.com/video/BV1xu4y1v7Ks)
 
-## 演示
-
-**案例1**：在Animac的REPL中，通过调用事先封装好的Scheme接口模块`chatbot.scm`，构造提示语（prompt），通过本地宿主环境接口，将其传递给部署于本地的[ChatGLM2-6B](https://github.com/THUDM/ChatGLM2-6B)语言模型，并且将ChatGLM2推理输出的文本回传Animac，实现问答式对话。
-
-https://github.com/bd4sur/Animac/assets/20069428/6fb423b5-7798-41e8-917c-ed828b54ac3e
-
-## 开始使用
-
-请先安装Node.js，建议使用 V18.17.1 LTS。然后执行以下命令，以启动Animac：
-
-```
-git clone https://github.com/bd4sur/Animac.git
-cd Animac
-node build/animac-cli.js -h
-```
-
-构建：`node build.js`
-
-## 系统框图
-
-![System Architecture](./doc/sysarch.png)
+![Debugger](./doc/debugger.png)
 
 ## 特性
 
 ### Scheme语言特性
 
-- 支持Scheme核心子集，包括第一等（first-class）的函数、词法作用域和列表操作。
-- 支持第一等续体（continuation）和`call/cc`。
+- **参考但是不遵守R<sup>5</sup>RS标准**。
+- 支持Scheme核心子集，包括S表达式、第一等（first-class）的函数、词法作用域和列表操作等。
+- 第一等的计算续体（continuation）和`call/cc`。
 - 自动尾调用优化。
-- 具备模块机制，可检测并管理模块间依赖关系。
-- **不遵守R<sup>5</sup>RS标准**。
+- 模块机制。
 
 ### 运行时系统
 
-- 基于栈的虚拟机，执行Scheme代码编译成的中间语言代码。
-- 支持虚拟机层次上的多线程。支持“端口”机制以实现线程间通信。
-- 暂不具备垃圾回收机制。
+![System Architecture](./doc/sysarch.png)
+
+- 基于栈的虚拟机。Scheme代码被编译成中间语言代码，在虚拟机上执行。
+- 虚拟机层次上的（用户态）多线程。
+- 通过“端口”机制实现线程间通信。
+- **暂未实现自动垃圾回收。**
 
 ### 宿主接口和可扩展性
 
-- 提供宿主接口机制，称为“Native接口”，类似于JNI，实现Animac与宿主环境（Node.js）的互操作，例如文件读写、网络收发等。通过Native接口的二次开发，可以灵活扩展Animac的功能，无需修改Animac核心。
+- 本地宿主接口机制。类似于JNI，用于实现Animac与宿主环境的互操作。
+
+## 构建与使用
+
+请先安装最新版Node.js和TypeScript编译器。
+
+```
+# 拉取仓库到本地
+git clone https://github.com/bd4sur/Animac.git
+cd Animac
+
+# 构建
+node build.js
+
+# 执行
+node build/animac-cli.js
+```
+
+也可以直接打开`index.html`在浏览器中使用。
 
 ## 用例
 
@@ -80,7 +81,7 @@ node build/animac-cli.js -h
 
 用例 `test/test_deadlock.scm` 基于虚拟机提供的多线程机制，实现了一个死锁现象的案例，旨在测试线程调度器和端口操作。
 
-用例 `test/test_cr.scm` 基于`call/cc`实现了一个简单的协程机制，借助典型的生产者消费者问题来演示单个虚拟机线程内实现关键资源的无锁同步操作能力。
+用例 `test/test_cr.scm` 基于`call/cc`实现了一个简单的协程机制，借助典型的生产者消费者问题来演示单个虚拟机线程内实现关键资源的无锁并发操作。
 
 **词法作用域**
 
@@ -91,7 +92,7 @@ node build/animac-cli.js -h
 (bar 200) ; 输出(100)，而不是(200)
 ```
 
-**函数作为一等公民**
+**函数作为第一等公民**
 
 ```scheme
 (import List "test/std.list.scm")         ; 引入列表操作高阶函数
@@ -120,25 +121,23 @@ node build/animac-cli.js -h
 
 ## 研发方针
 
-- **Animac是一个实验性的系统，并非健壮可靠的软件产品**。开发过程的首要考虑是写出给人看的代码，以代码为文档，将关键设计思想固化在可执行的代码中，而不刻意采用软件工程的种种设计模式和“最佳实践”，以免关键思想被掩盖在软件工程的迷雾之中。
-- **Animac从构建最小可用系统(MVP)开始，持续扩充功能特性“做加法”**。目前，Animac重视解决“从0到1”的问题，暂时不关注性能优化、异常和边界情况处理、安全加固等打造一款成熟软件时所必须考虑的问题。
-- **Animac贯彻极简主义，期望打造成一个自持的、具体而微的系统**。Animac尽可能减少外部依赖，其核心功能仅需Node.js和一份代码即可运行，无需额外安装其他依赖。
+Animac是什么？不是什么？
 
-## 特性规划
+- **Animac是实验性的玩具系统，并非健壮可靠的软件产品**。Animac贯彻“代码即文档”的精神，将关键设计思想固化在人类可读、机器可执行的代码中。代码风格直白第一，不刻意采用所谓设计模式和最佳实践。
+- **Animac是最小可用系统(MVP)**。Animac认同Scheme语言“小内涵、大外延”的极简主义哲学，不贪图大而全和酷炫的特性集合。Animac暂不关注安全、质量、性能等问题，除非感兴趣。
+- **Animac是自持的、具体而微的系统**。Animac尽可能减少任何外部依赖，尽量不使用第三方库。Animac希望、但是不尝试实现[语言的自举](https://zh.wikipedia.org/wiki/%E8%87%AA%E4%B8%BE_(%E7%BC%96%E8%AF%91%E5%99%A8))。
 
-|Features|Priority|Status|
+特性规划：
+
+|特性|优先级|状态|
 |----|-----|----|
-|Web IDE|★★★|正在开发|
-|垃圾回收|★★★|待研究|
-|卫生宏和模式匹配|★★★|待研究|
-|自动CPST & 自动柯里化|★★☆|待研究|
-|模板字符串和正则表达式|★★☆|待研究|
-|数值类型塔（数学库）|★★☆|待研究|
-|图形库|★★☆|待研究|
-|尽量兼容R<sup>n</sup>RS|★☆☆|待研究|
-|高级编译优化|★☆☆|待研究|
-|C语言重构|★☆☆|待研究|
-|类型系统|★☆☆|待研究|
+|自动垃圾回收|★★★|正在研究|
+|数学库和CAS|★★★|正在研究|
+|字符串标准库|★★☆|挂起|
+|C语言重构|★★☆|挂起|
+|自动CPS变换|★★☆|挂起|
+|卫生宏和模式匹配|★☆☆|挂起|
+|显式类型和类型系统|★☆☆|挂起|
 
 ## 形式语法（BNF表示）
 
@@ -184,10 +183,10 @@ node build/animac-cli.js -h
 
 **Animac**，是自创的合成词，由拉丁语词汇Anima“灵魂”和Machina“机器”缩合而成，寓意“有灵魂的机器”。汉语名称为“**灵机**”，从“灵机一动”而来，也暗示本系统与图**灵机**的计算能力等价。
 
-图标是六元环状图形，表示Eval-Apply循环。相邻的两边，形如“λ”，表示λ-calculus。六边形表示本系统基于Node.js实现。图形整体与艾舍尔名作《[上升与下降](https://en.wikipedia.org/wiki/Ascending_and_Descending)》相似，表达“无限循环”的意思。
+图标是六元环状图形，表示Eval-Apply循环。相邻的两边，形如“λ”，表示λ-calculus。六边形暗示本系统起初基于Node.js实现。图形整体呈现出[彭罗斯阶梯](https://en.wikipedia.org/wiki/Penrose_stairs)的形状，表达“无限循环”的意思。
 
 ## 权利声明
 
-版权所有 &copy; 2019~2023 BD4SUR，保留所有权利。
+版权所有 &copy; 2018~2025 BD4SUR，保留所有权利。
 
 本系统“按原样”提供，采用MIT协议授权。本系统为作者个人以学习和自用目的所创作的作品。作者不对本系统的质量作任何承诺。作者不保证提供有关本系统的任何形式的解释、维护或支持。作者不为任何人使用此系统所造成的任何正面的或负面的后果负责。
