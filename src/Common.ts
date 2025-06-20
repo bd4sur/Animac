@@ -40,7 +40,7 @@ const TOP_NODE_HANDLE: Handle = "&TOP_NODE";
 
 // 关键字集合
 const KEYWORDS = [
-    "car",    "cdr",    "cons",    "cond",    "if",    "else",    "begin",
+    "car",    "cdr",    "cons",    "cond",    "if",    "else",    "begin", "while",
     "+",      "-",      "*",       "/",       "=",     "%",       "pow",
     "and",     "or",    "not",     ">",       "<",     ">=",      "<=",    "eq?",
     "define", "set!",   "null?",   "atom?",   "list?", "number?",

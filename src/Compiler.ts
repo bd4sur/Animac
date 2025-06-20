@@ -529,6 +529,91 @@ function Compile(ast: AST): Array<string> {
         AddInstruction(`;;`);
     }
 
+    // 编译while
+    function CompileWhile(nodeHandle: Handle): void {
+        let node: ApplicationObject = ast.GetNode(nodeHandle);
+        // 注释
+        AddInstruction(`;; ✅ WHILE “${nodeHandle}” BEGIN`);
+
+        // 标签
+        let uqStr = UniqueString();
+        let condTag = `@WHILE_COND_${uqStr}`; // 循环条件标签
+        let endTag = `@WHILE_END_${uqStr}`; // 循环结束标签
+
+        // 添加循环条件标签
+        AddInstruction(condTag);
+
+        // 循环条件
+        let cond = node.children[1];
+        let condType = TypeOfToken(cond);
+        if(condType === "HANDLE") {
+            let condNode = ast.GetNode(cond);
+            if(condNode.type === "APPLICATION") {
+                CompileApplication(cond);
+            }
+            // 其余情况，统统作push处理
+            else {
+                AddInstruction(`push ${cond}`);
+            }
+        }
+        // TODO 此处可以作优化
+        else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(condType) >= 0 || ast.IsNativeCall(cond)) {
+            AddInstruction(`push ${cond}`);
+        }
+        else if(condType === "VARIABLE") {
+            AddInstruction(`load ${cond}`);
+        }
+        else {
+            throw `[Error] 意外的while循环条件。`;
+        }
+
+        // 如果循环条件为#f，则跳出循环，否则执行紧接着的循环体
+        AddInstruction(`iffalse ${endTag}`);
+
+        // 循环体
+        let loopBody = node.children[2];
+        let loopBodyType = TypeOfToken(loopBody);
+        if(loopBodyType === "HANDLE") {
+            let loopBodyNode = ast.GetNode(loopBody);
+            if(loopBodyNode.type === "LAMBDA") {
+                AddInstruction(`loadclosure @${loopBody}`); // 返回闭包
+            }
+            else if(loopBodyNode.type === "QUOTE") {
+                AddInstruction(`push ${loopBody}`);
+            }
+            else if(loopBodyNode.type === "QUASIQUOTE") {
+                CompileQuasiquote(loopBody);
+            }
+            else if(loopBodyNode.type === "STRING") {
+                AddInstruction(`push ${loopBody}`);
+            }
+            else if(loopBodyNode.type === "APPLICATION" || loopBodyNode.type === "UNQUOTE") {
+                CompileApplication(loopBody);
+            }
+            else {
+                throw `[Error] 意外的if-false分支。`;
+            }
+        }
+        else if(["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(loopBodyType) >= 0 || ast.IsNativeCall(loopBody)) {
+            AddInstruction(`push ${loopBody}`);
+        }
+        else if(loopBodyType === "VARIABLE") {
+            AddInstruction(`load ${loopBody}`);
+        }
+        else {
+            throw `[Error] 意外的if-false分支。`;
+        }
+
+        // 跳转回循环条件标签
+        AddInstruction(`goto ${condTag}`);
+
+        // 结束标签
+        AddInstruction(endTag);
+
+        AddInstruction(`;; 🛑 WHILE “${nodeHandle}” END   `);
+        AddInstruction(`;;`);
+    }
+
     // 编译and
     function CompileAnd(nodeHandle: Handle): void {
         let node: ApplicationObject = ast.GetNode(nodeHandle);
@@ -813,6 +898,7 @@ function Compile(ast: AST): Array<string> {
         else if(first === 'set!')    { return CompileSet(nodeHandle); }
         else if(first === 'cond')    { return CompileCond(nodeHandle);}
         else if(first === 'if')      { return CompileIf(nodeHandle);}
+        else if(first === 'while')   { return CompileWhile(nodeHandle);}
         else if(first === 'and')     { return CompileAnd(nodeHandle);}
         else if(first === 'or')      { return CompileOr(nodeHandle);}
         else if(first === 'fork')    { AddInstruction(`fork ${children[1]}`); return; }
