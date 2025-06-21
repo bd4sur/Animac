@@ -329,6 +329,9 @@ function set_timeout(PROCESS, RUNTIME) {
     let callback = PROCESS.PopOperand();
     let time_ms = PROCESS.PopOperand();
 
+    // 异步回调闭包需要设置为keepalive，防止被GC
+    PROCESS.heap.SetKeepalive(callback, true);
+
     let timer = setTimeout(() => {
         // 若进程已经执行完毕，则将其重新加入进程队列，重启时钟，执行回调函数
         if(PROCESS.state === "STOPPED") {
@@ -355,6 +358,9 @@ function set_interval(PROCESS, RUNTIME) {
     // 从栈中获取参数，注意顺序是反的
     let callback = PROCESS.PopOperand();
     let time_ms = PROCESS.PopOperand();
+
+    // 异步回调闭包需要设置为keepalive，防止被GC
+    PROCESS.heap.SetKeepalive(callback, true);
 
     let timer = setInterval(() => {
         // 若进程已经执行完毕，则将其重新加入进程队列，重启时钟，执行回调函数
@@ -639,7 +645,8 @@ class Memory {
         this.handleCounter = 0;
     }
     // 生成元数据字符串
-    MetaString(isStatic, isReadOnly, status) {
+    // NOTE 增加新字段时，需要修改所有波及的硬编码下标
+    MetaString(isStatic, isReadOnly, status, isKeepalive) {
         let str = "";
         str += (isStatic) ? "S" : "_";
         str += (isReadOnly) ? "R" : "_";
@@ -657,6 +664,7 @@ class Memory {
                 str += "_";
                 break;
         }
+        str += (isKeepalive === true) ? "A" : "_"; // 声明为保持存活的对象，保证不会被GC清理，一般用于涉及尾调用的闭包对象
         return str;
     }
     // 把柄存在性判断
@@ -667,7 +675,7 @@ class Memory {
     NewHandle(handle, isStatic) {
         isStatic = isStatic || false;
         this.data.set(handle, null);
-        this.metadata.set(handle, this.MetaString(isStatic, false, "allocated"));
+        this.metadata.set(handle, this.MetaString(isStatic, false, "allocated", false));
     }
     // 动态分配堆对象把柄
     AllocateHandle(typeTag, isStatic) {
@@ -678,16 +686,30 @@ class Memory {
             handle = "&" + HashString([handle]);
         }
         this.data.set(handle, null);
-        this.metadata.set(handle, this.MetaString(isStatic, false, "allocated"));
+        this.metadata.set(handle, this.MetaString(isStatic, false, "allocated", false));
         this.handleCounter++;
         return handle;
     }
     // 动态回收堆对象把柄：删除堆中相应位置
     DeleteHandle(handle) {
+        if (this.metadata[handle][3] === "A") { // metadata的keepalive标记
+            console.warn(`[Memory.DeleteHandle] 把柄 ${handle} 声明为keepalive，不可删除`);
+            return;
+        }
         delete this.data[handle];
         delete this.metadata[handle];
         // this.data.set(handle, undefined);
         // this.metadata.set(handle, this.MetaString(false, false, "free"));
+    }
+    SetKeepalive(handle, isKeepalive) {
+        if (this.metadata.has(handle)) {
+            let meta = this.metadata[handle];
+            let new_meta = [meta[0], meta[1], meta[2], ((isKeepalive === true) ? "A" : "_")].join("");
+            this.metadata[handle] = new_meta;
+        }
+        else {
+            throw `[Memory.SetKeepalive] 空把柄:${handle}`;
+        }
     }
     // 根据把柄获取对象
     Get(handle) {
@@ -710,7 +732,7 @@ class Memory {
         else if (metadata[0] === "S") {
             // console.warn(`[Warn] 修改了静态对象:${handle}`);
         }
-        this.metadata.set(handle, this.MetaString((metadata[0] === "S"), false, "modified"));
+        this.metadata.set(handle, this.MetaString((metadata[0] === "S"), false, "modified", false));
         this.data.set(handle, value);
     }
     // 是否静态
@@ -3341,53 +3363,74 @@ class Process {
         throw `[Error] 变量'${variableName}' at Closure${this.currentClosureHandle}未定义`;
     }
     GC() {
-        // 获取当前所有闭包空间的全部绑定、以及操作数栈内的把柄，作为可达性分析的根节点
+        // NOTE 可达性分析的根节点有哪些？
+        // - 当前闭包
+        // - 当前闭包和函数调用栈对应闭包内的变量绑定
+        // - 操作数栈内的把柄
+        // - 函数调用栈内所有栈帧对应的闭包把柄
+        // - 所有continuation中保留的上面的各项
         let gcroots = new Array();
+        let currentProcess = this;
+        function GCRoot(currentClosureHandle, OPSTACK, FSTACK) {
+            let currentClosure = currentProcess.heap.Get(currentClosureHandle);
+            gcroots.push(currentClosureHandle);
+            for (let bound in currentClosure.boundVariables) {
+                let boundValue = currentClosure.GetBoundVariable(bound);
+                if (TypeOfToken(boundValue) === "HANDLE") {
+                    gcroots.push(boundValue);
+                }
+            }
+            for (let free in currentClosure.freeVariables) {
+                let freeValue = currentClosure.GetFreeVariable(free);
+                if (TypeOfToken(freeValue) === "HANDLE") {
+                    gcroots.push(freeValue);
+                }
+            }
+            for (let r of OPSTACK) {
+                if (TypeOfToken(r) === "HANDLE") {
+                    gcroots.push(r);
+                }
+            }
+            for (let f of FSTACK) {
+                let closure = currentProcess.heap.Get(f.closureHandle);
+                if (closure.type === "CLOSURE") {
+                    gcroots.push(f.closureHandle);
+                    let currentClosure = closure;
+                    for (let bound in currentClosure.boundVariables) {
+                        let boundValue = currentClosure.GetBoundVariable(bound);
+                        if (TypeOfToken(boundValue) === "HANDLE") {
+                            gcroots.push(boundValue);
+                        }
+                    }
+                    for (let free in currentClosure.freeVariables) {
+                        let freeValue = currentClosure.GetFreeVariable(free);
+                        if (TypeOfToken(freeValue) === "HANDLE") {
+                            gcroots.push(freeValue);
+                        }
+                    }
+                }
+            }
+        }
+        // 分析虚拟机基础环境中的GC根
+        GCRoot(this.currentClosureHandle, this.OPSTACK, this.FSTACK);
         this.heap.ForEach((hd) => {
             let obj = this.heap.Get(hd);
-            if (obj.type === "CLOSURE") {
-                let currentClosure = obj;
-                for (let bound in currentClosure.boundVariables) {
-                    let boundValue = currentClosure.GetBoundVariable(bound);
-                    if (TypeOfToken(boundValue) === "HANDLE") {
-                        gcroots.push(boundValue);
-                    }
-                }
-                for (let free in currentClosure.freeVariables) {
-                    let freeValue = currentClosure.GetFreeVariable(free);
-                    if (TypeOfToken(freeValue) === "HANDLE") {
-                        gcroots.push(freeValue);
-                    }
-                }
+            if (obj.type === "CONTINUATION") {
+                // 获取续体，并反序列化之
+                let cont = obj;
+                let newConfiguration = JSON.parse(cont.partialEnvironmentJson);
+                // 将续体内部环境加入GC根
+                GCRoot(newConfiguration.currentClosureHandle, newConfiguration.OPSTACK, newConfiguration.FSTACK);
             }
+            else
+                return;
         });
-        for (let r of this.OPSTACK) {
-            if (TypeOfToken(r) === "HANDLE") {
-                gcroots.push(r);
-            }
-        }
-        for (let f of this.FSTACK) {
-            let closure = this.heap.Get(f.closureHandle);
-            if (closure.type === "CLOSURE") {
-                let currentClosure = closure;
-                for (let bound in currentClosure.boundVariables) {
-                    let boundValue = currentClosure.GetBoundVariable(bound);
-                    if (TypeOfToken(boundValue) === "HANDLE") {
-                        gcroots.push(boundValue);
-                    }
-                }
-                for (let free in currentClosure.freeVariables) {
-                    let freeValue = currentClosure.GetFreeVariable(free);
-                    if (TypeOfToken(freeValue) === "HANDLE") {
-                        gcroots.push(freeValue);
-                    }
-                }
-            }
-        }
         // 仅标记列表和字符串，不处理闭包和续延。清除也是。
         let alives = new HashMap();
         let thisProcess = this;
         function GCMark(handle) {
+            if (alives.has(handle))
+                return;
             if (TypeOfToken(handle) !== "HANDLE")
                 return;
             else if (thisProcess.heap.HasHandle(handle) !== true)
@@ -3402,10 +3445,28 @@ class Process {
             else if (obj.type === "STRING") {
                 alives.set(handle, true);
             }
+            else if (obj.type === "CLOSURE") {
+                alives.set(handle, true);
+                let currentClosure = obj;
+                GCMark(currentClosure.parent);
+                for (let bound in currentClosure.boundVariables) {
+                    let boundValue = currentClosure.GetBoundVariable(bound);
+                    if (TypeOfToken(boundValue) === "HANDLE") {
+                        GCMark(boundValue);
+                    }
+                }
+                for (let free in currentClosure.freeVariables) {
+                    let freeValue = currentClosure.GetFreeVariable(free);
+                    if (TypeOfToken(freeValue) === "HANDLE") {
+                        GCMark(freeValue);
+                    }
+                }
+            }
         }
         for (let root of gcroots) {
             GCMark(root);
         }
+        // console.log(alives);
         // 凡是上位节点存活的，标记为存活
         // this.heap.ForEach((hd)=> {
         //     let obj = this.heap.Get(hd);
@@ -3427,16 +3488,17 @@ class Process {
             let isStatic = (this.heap.metadata.get(hd).charAt(0) === "S");
             if (isStatic)
                 return;
-            else if (obj.type === "QUOTE" || obj.type === "QUASIQUOTE" || obj.type === "UNQUOTE" || obj.type === "STRING") {
+            else if (obj.type === "QUOTE" || obj.type === "QUASIQUOTE" || obj.type === "UNQUOTE" || obj.type === "STRING" || obj.type === "CLOSURE") {
                 if (alives.get(hd) !== true) {
                     this.heap.DeleteHandle(hd);
+                    // console.info(`[GC] 回收对象 ${hd}。`);
                     gcount++;
                 }
             }
             else
                 return;
         });
-        if (gcount > 0) {
+        if (ANIMAC_CONFIG.is_debug === true && gcount > 0) {
             console.info(`[GC] 已回收 ${gcount} / ${count} 个对象。`);
         }
     }
@@ -3510,6 +3572,7 @@ var VMState;
 })(VMState || (VMState = {}));
 class Runtime {
     constructor(workingDir) {
+        this.tickCounter = 0; // 虚拟机调度机计数器：用于计量时间片切换（Tick）的次数
         this.processPool = new Array();
         this.processQueue = new Array();
         this.ports = new HashMap();
@@ -3558,8 +3621,9 @@ class Runtime {
         }
         // 后处理
         if (currentProcess.state === ProcessState.RUNNING) {
+            // 定期垃圾回收
+            currentProcess.GC();
             // 仍在运行的进程加入队尾
-            // currentProcess.GC(); // TODO 垃圾回收仍然不完善
             currentProcess.state = ProcessState.READY;
             this.processQueue.push(currentPID);
         }
@@ -3586,6 +3650,7 @@ class Runtime {
             let COMPUTATION_PHASE_LENGTH = 100; // TODO 这个值可以调整
             while (COMPUTATION_PHASE_LENGTH >= 0) {
                 let avmState = this.Tick(1000);
+                this.tickCounter++;
                 COMPUTATION_PHASE_LENGTH--;
                 if (avmState === VMState.IDLE) {
                     clearInterval(CLOCK);

@@ -49,7 +49,8 @@ class Memory {
     }
 
     // 生成元数据字符串
-    private MetaString(isStatic: boolean, isReadOnly: boolean, status: string): string {
+    // NOTE 增加新字段时，需要修改所有波及的硬编码下标
+    private MetaString(isStatic: boolean, isReadOnly: boolean, status: string, isKeepalive: boolean): string {
         let str = "";
         str +=   (isStatic) ? "S" : "_";
         str += (isReadOnly) ? "R" : "_";
@@ -63,6 +64,7 @@ class Memory {
             default:
                 str += "_"; break;
         }
+        str += (isKeepalive === true) ? "A" : "_"; // 声明为保持存活的对象，保证不会被GC清理，一般用于涉及尾调用的闭包对象
         return str;
     }
 
@@ -75,7 +77,7 @@ class Memory {
     public NewHandle(handle: Handle, isStatic: boolean | void): void {
         isStatic = isStatic || false;
         this.data.set(handle, null);
-        this.metadata.set(handle, this.MetaString(isStatic, false, "allocated"));
+        this.metadata.set(handle, this.MetaString(isStatic, false, "allocated", false));
     }
 
     // 动态分配堆对象把柄
@@ -87,17 +89,32 @@ class Memory {
             handle = "&" + HashString([handle]);
         }
         this.data.set(handle, null);
-        this.metadata.set(handle, this.MetaString(isStatic, false, "allocated"));
+        this.metadata.set(handle, this.MetaString(isStatic, false, "allocated", false));
         this.handleCounter++;
         return handle;
     }
 
     // 动态回收堆对象把柄：删除堆中相应位置
     public DeleteHandle (handle: Handle): void {
+        if (this.metadata[handle][3] === "A") { // metadata的keepalive标记
+            console.warn(`[Memory.DeleteHandle] 把柄 ${handle} 声明为keepalive，不可删除`);
+            return;
+        }
         delete this.data[handle];
         delete this.metadata[handle];
         // this.data.set(handle, undefined);
         // this.metadata.set(handle, this.MetaString(false, false, "free"));
+    }
+
+    public SetKeepalive(handle: Handle, isKeepalive: boolean): any {
+        if(this.metadata.has(handle)) {
+            let meta = this.metadata[handle];
+            let new_meta = [meta[0], meta[1], meta[2], ((isKeepalive === true) ? "A" : "_")].join("");
+            this.metadata[handle] = new_meta;
+        }
+        else {
+            throw `[Memory.SetKeepalive] 空把柄:${handle}`;
+        }
     }
 
     // 根据把柄获取对象
@@ -122,7 +139,7 @@ class Memory {
         else if(metadata[0] === "S") {
             // console.warn(`[Warn] 修改了静态对象:${handle}`);
         }
-        this.metadata.set(handle, this.MetaString((metadata[0] === "S"), false, "modified"));
+        this.metadata.set(handle, this.MetaString((metadata[0] === "S"), false, "modified", false));
         this.data.set(handle, value);
     }
 

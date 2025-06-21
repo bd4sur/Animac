@@ -171,57 +171,80 @@ class Process {
     }
 
     public GC() {
-        // 获取当前所有闭包空间的全部绑定、以及操作数栈内的把柄，作为可达性分析的根节点
+        // NOTE 可达性分析的根节点有哪些？
+        // - 当前闭包
+        // - 当前闭包和函数调用栈对应闭包内的变量绑定
+        // - 操作数栈内的把柄
+        // - 函数调用栈内所有栈帧对应的闭包把柄
+        // - 所有continuation中保留的上面的各项
+
         let gcroots: Array<any> = new Array();
+        let currentProcess = this;
+
+        function GCRoot(currentClosureHandle: Handle, OPSTACK: Array<any>, FSTACK: Array<StackFrame>) {
+            let currentClosure = currentProcess.heap.Get(currentClosureHandle);
+            gcroots.push(currentClosureHandle);
+    
+            for(let bound in currentClosure.boundVariables) {
+                let boundValue = currentClosure.GetBoundVariable(bound);
+                if(TypeOfToken(boundValue) === "HANDLE") {
+                    gcroots.push(boundValue);
+                }
+            }
+            for(let free in currentClosure.freeVariables) {
+                let freeValue = currentClosure.GetFreeVariable(free);
+                if(TypeOfToken(freeValue) === "HANDLE") {
+                    gcroots.push(freeValue);
+                }
+            }
+    
+            for(let r of OPSTACK) {
+                if(TypeOfToken(r) === "HANDLE") {
+                    gcroots.push(r);
+                }
+            }
+    
+            for(let f of FSTACK) {
+                let closure = currentProcess.heap.Get(f.closureHandle);
+                if(closure.type === "CLOSURE") {
+                    gcroots.push(f.closureHandle);
+                    let currentClosure = closure;
+                    for(let bound in currentClosure.boundVariables) {
+                        let boundValue = currentClosure.GetBoundVariable(bound);
+                        if(TypeOfToken(boundValue) === "HANDLE") {
+                            gcroots.push(boundValue);
+                        }
+                    }
+                    for(let free in currentClosure.freeVariables) {
+                        let freeValue = currentClosure.GetFreeVariable(free);
+                        if(TypeOfToken(freeValue) === "HANDLE") {
+                            gcroots.push(freeValue);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 分析虚拟机基础环境中的GC根
+        GCRoot(this.currentClosureHandle, this.OPSTACK, this.FSTACK);
 
         this.heap.ForEach((hd)=> {
             let obj = this.heap.Get(hd);
-            if(obj.type === "CLOSURE") {
-                let currentClosure = obj;
-                for(let bound in currentClosure.boundVariables) {
-                    let boundValue = currentClosure.GetBoundVariable(bound);
-                    if(TypeOfToken(boundValue) === "HANDLE") {
-                        gcroots.push(boundValue);
-                    }
-                }
-                for(let free in currentClosure.freeVariables) {
-                    let freeValue = currentClosure.GetFreeVariable(free);
-                    if(TypeOfToken(freeValue) === "HANDLE") {
-                        gcroots.push(freeValue);
-                    }
-                }
+            if(obj.type === "CONTINUATION") {
+                // 获取续体，并反序列化之
+                let cont: Continuation = obj;
+                let newConfiguration: any = JSON.parse(cont.partialEnvironmentJson);
+                // 将续体内部环境加入GC根
+                GCRoot(newConfiguration.currentClosureHandle, newConfiguration.OPSTACK, newConfiguration.FSTACK);
             }
+            else return;
         });
-
-        for(let r of this.OPSTACK) {
-            if(TypeOfToken(r) === "HANDLE") {
-                gcroots.push(r);
-            }
-        }
-
-        for(let f of this.FSTACK) {
-            let closure = this.heap.Get(f.closureHandle);
-            if(closure.type === "CLOSURE") {
-                let currentClosure = closure;
-                for(let bound in currentClosure.boundVariables) {
-                    let boundValue = currentClosure.GetBoundVariable(bound);
-                    if(TypeOfToken(boundValue) === "HANDLE") {
-                        gcroots.push(boundValue);
-                    }
-                }
-                for(let free in currentClosure.freeVariables) {
-                    let freeValue = currentClosure.GetFreeVariable(free);
-                    if(TypeOfToken(freeValue) === "HANDLE") {
-                        gcroots.push(freeValue);
-                    }
-                }
-            }
-        }
 
         // 仅标记列表和字符串，不处理闭包和续延。清除也是。
         let alives: HashMap<string, boolean> = new HashMap();
         let thisProcess = this;
         function GCMark(handle) {
+            if(alives.has(handle)) return;
             if(TypeOfToken(handle) !== "HANDLE") return;
             else if(thisProcess.heap.HasHandle(handle) !== true) return; // 被清理掉的对象
             let obj = thisProcess.heap.Get(handle);
@@ -234,11 +257,31 @@ class Process {
             else if(obj.type === "STRING"){
                 alives.set(handle, true);
             }
+            else if(obj.type === "CLOSURE"){
+                alives.set(handle, true);
+
+                let currentClosure = obj;
+                GCMark(currentClosure.parent);
+                for(let bound in currentClosure.boundVariables) {
+                    let boundValue = currentClosure.GetBoundVariable(bound);
+                    if(TypeOfToken(boundValue) === "HANDLE") {
+                        GCMark(boundValue);
+                    }
+                }
+                for(let free in currentClosure.freeVariables) {
+                    let freeValue = currentClosure.GetFreeVariable(free);
+                    if(TypeOfToken(freeValue) === "HANDLE") {
+                        GCMark(freeValue);
+                    }
+                }
+            }
         }
 
         for(let root of gcroots) {
             GCMark(root);
         }
+
+        // console.log(alives);
 
         // 凡是上位节点存活的，标记为存活
         // this.heap.ForEach((hd)=> {
@@ -261,15 +304,16 @@ class Process {
             let obj = this.heap.Get(hd);
             let isStatic = (this.heap.metadata.get(hd).charAt(0) === "S");
             if(isStatic) return;
-            else if(obj.type === "QUOTE" || obj.type === "QUASIQUOTE" || obj.type === "UNQUOTE" || obj.type === "STRING") {
+            else if(obj.type === "QUOTE" || obj.type === "QUASIQUOTE" || obj.type === "UNQUOTE" || obj.type === "STRING" || obj.type === "CLOSURE") {
                 if(alives.get(hd) !== true) {
                     this.heap.DeleteHandle(hd);
+                    // console.info(`[GC] 回收对象 ${hd}。`);
                     gcount++;
                 }
             }
             else return;
         });
-        if(gcount > 0) {
+        if(ANIMAC_CONFIG.is_debug === true && gcount > 0) {
             console.info(`[GC] 已回收 ${gcount} / ${count} 个对象。`);
         }
     }

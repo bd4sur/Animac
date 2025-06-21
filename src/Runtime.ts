@@ -22,6 +22,8 @@ class Runtime {
 
     public asyncCallback: ()=>any;       // 异步事件回调（主要是用于REPL中处理异步事件返回对控制台的刷新操作）
 
+    public tickCounter = 0;              // 虚拟机调度机计数器：用于计量时间片切换（Tick）的次数
+
     constructor(workingDir: string) {
         this.processPool = new Array();
         this.processQueue = new Array();
@@ -75,8 +77,9 @@ class Runtime {
         }
         // 后处理
         if(currentProcess.state === ProcessState.RUNNING) {
+            // 定期垃圾回收
+            currentProcess.GC();
             // 仍在运行的进程加入队尾
-            // currentProcess.GC(); // TODO 垃圾回收仍然不完善
             currentProcess.state = ProcessState.READY;
             this.processQueue.push(currentPID);
         }
@@ -106,6 +109,7 @@ class Runtime {
             let COMPUTATION_PHASE_LENGTH = 100; // TODO 这个值可以调整
             while(COMPUTATION_PHASE_LENGTH >= 0) {
                 let avmState = this.Tick(1000);
+                this.tickCounter++;
                 COMPUTATION_PHASE_LENGTH--;
                 if(avmState === VMState.IDLE) {
                     clearInterval(CLOCK);
