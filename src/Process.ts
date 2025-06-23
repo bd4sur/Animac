@@ -138,34 +138,30 @@ class Process {
     // 变量解引用（解引/用引）
     public Dereference(variableName: string): any {
         let currentClosure: Closure = this.GetCurrentClosure();
-        // 首先查找约束变量
+        // 查找约束变量
         if(currentClosure.HasBoundVariable(variableName)) {
             return currentClosure.GetBoundVariable(variableName);
         }
-        // 然后查找自由变量
-        let freeVarValue: any = null;
-        if(currentClosure.HasFreeVariable(variableName)) {
-            freeVarValue = currentClosure.GetFreeVariable(variableName);
-        }
-        // 上溯闭包
+        // 查找自由变量：上溯闭包，找到词法定义环境（约束变量绑定所在的闭包），根据脏标记状态决定选取 当前闭包的自由变量取值 或者 词法定义环境的约束变量取值
         let closureHandle = this.currentClosureHandle;
+        let closure = null;
         while(closureHandle !== TOP_NODE_HANDLE) {
-            currentClosure = this.GetClosure(closureHandle);
-            if(currentClosure.HasBoundVariable(variableName)) {
-                // 比对这个值与freeVar的值，如果一致则直接返回，如果不一致，以上溯的结果为准
-                let boundVal: any = currentClosure.GetBoundVariable(variableName);
-                if(freeVarValue !== boundVal) {
-                    // 检查脏标记：
-                    if(currentClosure.IsDirtyVariable(variableName)) {
-                        return boundVal;
+            closure = this.GetClosure(closureHandle);
+            if(closure.HasBoundVariable(variableName)) {
+                // 检查脏标记：如果约束变量绑定带了脏标记，意味着这个变量已经在其他衍生环境中被修改（并波及到词法定义位置），因此需要使用约束变量绑定中的（新）值
+                if(closure.IsDirtyVariable(variableName)) {
+                    return closure.GetBoundVariable(variableName);
+                }
+                else {
+                    if(currentClosure.HasFreeVariable(variableName)) {
+                        return currentClosure.GetFreeVariable(variableName);
                     }
                     else {
-                        return freeVarValue;
+                        throw `[Error] 自由变量'${variableName}' at Closure${closureHandle}不存在（不合理的情况）`;
                     }
                 }
-                return boundVal;
             }
-            closureHandle = currentClosure.parent;
+            closureHandle = closure.parent;
         }
         throw `[Error] 变量'${variableName}' at Closure${this.currentClosureHandle}未定义`;
     }
@@ -280,21 +276,6 @@ class Process {
         for(let root of gcroots) {
             GCMark(root);
         }
-
-        // console.log(alives);
-
-        // 凡是上位节点存活的，标记为存活
-        // this.heap.ForEach((hd)=> {
-        //     let obj = this.heap.Get(hd);
-        //     let isStatic = (this.heap.metadata.get(hd).charAt(0) === "S");
-        //     if(isStatic) return;
-        //     else if(obj.type === "QUOTE" || obj.type === "QUASIQUOTE" || obj.type === "UNQUOTE") {
-        //         if(alives.get(obj.parent) === true) {
-        //             alives.set(hd, true);
-        //         }
-        //     }
-        //     else return;
-        // });
 
         // 清理
         let gcount = 0;

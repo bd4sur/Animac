@@ -189,12 +189,10 @@ ANIMAC_VFS["/test/man_or_boy_test.scm"] = `(define A
 (define thunk_0  (lambda () 0))
 
 (display "Man or Boy Test")(newline)
-(display "A[10] = ") (display (A 10 thunk_1 thunk_m1 thunk_m1 thunk_1 thunk_0)) (newline)
-(display "A[11] = ") (display (A 11 thunk_1 thunk_m1 thunk_m1 thunk_1 thunk_0)) (newline)
-(display "A[12] = ") (display (A 12 thunk_1 thunk_m1 thunk_m1 thunk_1 thunk_0)) (newline)
-(display "A[13] = ") (display (A 13 thunk_1 thunk_m1 thunk_m1 thunk_1 thunk_0)) (newline)
-(display "A[14] = ") (display (A 14 thunk_1 thunk_m1 thunk_m1 thunk_1 thunk_0)) (newline)
-(display "A[15] = ") (display (A 15 thunk_1 thunk_m1 thunk_m1 thunk_1 thunk_0)) (newline)`;
+(display "A[10] = ") (display (A 10 thunk_1 thunk_m1 thunk_m1 thunk_1 thunk_0)) (display " / 期望-67") (newline)
+(display "A[11] = ") (display (A 11 thunk_1 thunk_m1 thunk_m1 thunk_1 thunk_0)) (display " / 期望-138") (newline)
+(display "A[12] = ") (display (A 12 thunk_1 thunk_m1 thunk_m1 thunk_1 thunk_0)) (display " / 期望-291") (newline)
+`;
 
 ANIMAC_VFS["/test/brainfuck.scm"] = `(native String)
 

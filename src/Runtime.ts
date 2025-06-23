@@ -253,13 +253,10 @@ class Runtime {
         let rightValue = PROCESS.PopOperand();
         // 修改当前闭包内部的绑定
         let currentClosure = PROCESS.GetCurrentClosure();
-        if(currentClosure.HasBoundVariable(variable)) {
-            PROCESS.GetCurrentClosure().SetBoundVariable(variable, rightValue); // 带脏标记
-        }
         if(currentClosure.HasFreeVariable(variable)) {
             PROCESS.GetCurrentClosure().SetFreeVariable(variable, rightValue); // 带脏标记
         }
-        // 沿闭包链上溯，直到找到该变量作为约束变量所在的上级闭包，修改绑定
+        // 沿闭包链上溯，直到找到该变量的词法定义环境（作为约束变量所在的上级闭包），修改绑定
         let currentClosureHandle: Handle = PROCESS.currentClosureHandle;
         while(currentClosureHandle !== TOP_NODE_HANDLE && PROCESS.heap.HasHandle(currentClosureHandle)) {
             let currentClosure = PROCESS.GetClosure(currentClosureHandle);
