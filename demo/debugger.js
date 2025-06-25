@@ -58,20 +58,22 @@ function renderDebugInfo(res) {
         html.push(`<div class="ilcode" id="ilcode${i}" style="${color}"><span class="lineNum">${i}</span>${instructions[i]}</div>`);
     }
     $('#ilcode').html(html.join(""));
-    $(".ilcode_column").scrollTop($(".ilcode").height() * (process.PC - 15));
+    $(".ilcode_column").scrollTop($(".ilcode").height() * (process.PC - 10));
 
     // 渲染FSTACK
     html = new Array();
     for(let i = FSTACK.length - 1; i >= 0; i--) {
-        html.push(`
-        <span class="lineNum">${i}</span><span class="fstack_closure">${esc(FSTACK[i].closureHandle)}</span><span class="fstack_retaddr">${FSTACK[i].returnTargetAddress}</span><br>`);
+        html.push(`<div class="fstack_line">
+        <div class="lineNum">${i}</div>
+        <div class="fstack_closure">${esc(FSTACK[i].closureHandle)}</div>
+        <div class="fstack_retaddr">${FSTACK[i].returnTargetAddress}</div></div>`);
     }
     $('#fstack').html(html.join(""));
 
     // 渲染OPSTACK
     html = new Array();
     for(let i = OPSTACK.length - 1; i >= 0; i--) {
-        html.push(`<span class="lineNum">${i}</span>${esc(OPSTACK[i])}<br>`);
+        html.push(`<div class="opstack_line"><div class="lineNum">${i}</div><div class="opstack_item">${esc(OPSTACK[i])}</div></div>`);
     }
     $('#opstack').html(html.join(""));
 

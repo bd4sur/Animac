@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
 <link rel="stylesheet" type="text/css" href="./demo/codemirror.css" charset="utf-8"/>
 <link rel="stylesheet" type="text/css" href="./demo/debugger.css" charset="utf-8"/>
+<link rel="stylesheet" type="text/css" href="./demo/xp.css" charset="utf-8"/>
 <title>Animac Scheme Interpreter - BD4SUR</title>
 
 <!--页面自定义样式开始-->
@@ -39,96 +40,102 @@ a:hover {
 
 <!--页面内容开始-->
 
-<div class="Header">
-    <div style="display: flex; align-items: center;">
-        <div class="AnimacLogoContainer"><img class="AnimacLogo" src="./doc/logo.svg"></div>
-        <div class="HeaderTitle"><b>Animac · 灵机</b></div>
-    </div>
-</div>
 
-<div class="Center">
 
-    <div class="Left">
-        <div class="FilenameTagContainer">
-            <div class="FilenameTag" id="sample_0">Man or boy test</div>
-            <div class="FilenameTag" id="sample_1">Quine</div>
-            <div class="FilenameTag" id="sample_2">快速排序</div>
-            <div class="FilenameTag" id="sample_3">Brainfuck解释器</div>
-            <div class="FilenameTag" id="sample_4">FFT</div>
-            <div class="FilenameTag" id="sample_5">利用FFT计算整数乘法</div>
-            <div class="FilenameTag" id="sample_6">矩阵乘法</div>
-            <div class="FilenameTag" id="sample_7">阴阳谜题</div>
-            <div class="FilenameTag" id="sample_8">TLS解释器</div>
-            <div class="FilenameTag" id="sample_9">Quasi-quote</div>
-            <div class="FilenameTag" id="sample_10">日历</div>
-            <div class="FilenameTag" id="sample_11">Church编码</div>
-            <div class="FilenameTag" id="sample_12">阶乘</div>
-            <div class="FilenameTag" id="sample_13">中缀表达式解析</div>
-            <div class="FilenameTag" id="sample_14">生成器</div>
-            <div class="FilenameTag" id="sample_15">协程</div>
-            <div class="FilenameTag" id="sample_16">死锁</div>
-            <div class="FilenameTag" id="sample_17">异步回调</div>
+<div class="window" style="max-width: 900px; margin: 10px auto 0 auto;">
+    <div class="title-bar">
+        <div class="title-bar-text" style="display: flex; flex-direction: row; align-items: center;">
+            <img class="AnimacLogo" src="./doc/logo.svg" style="height: 16px; margin-right: 5px;">
+            <div>Animac Scheme</div>
         </div>
+        <div class="title-bar-controls">
+            <button aria-label="Help"></button>
+            <button aria-label="Minimize"></button>
+            <button aria-label="Maximize"></button>
+            <button aria-label="Close"></button>
+        </div>
+    </div>
 
-        <div class="CodeEditor">
-            <div id="CodeMirrorContainer">
-                <textarea id="cmEditor" name="code"></textarea>
+    <div class="Header">
+        <div style="display: flex; align-items: center;">
+            <div class="AnimacLogoContainer"><img class="AnimacLogo" src="./doc/logo.svg"></div>
+            <div class="HeaderTitle"><b>Animac · 灵机</b></div>
+        </div>
+        <div style="display: flex; align-items: center;">
+            Made by BD4SUR
+            <a style="border-bottom: none; display: flex;" href="https://github.com/bd4sur/Animac"><img alt="GitHub stars" height="16px" style="margin-left: 6px;" src="https://img.shields.io/github/stars/bd4sur/Animac?style=social"></a>
+        </div>
+    </div>
+
+    <div class="window-body">
+
+        <div class="Buttons" style="display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center; margin: 10px auto;">
+            <div>
+                选择测试用例：<select id="sample_list"></select>
+            </div>
+            <div>
+                <button class="DebuggerButton" id="execute"><span>执行</span></button>
+                <button class="DebuggerButton" id="step"><span>单步</span></button>
+                <button class="DebuggerButton" id="stepbystep"><span>连续步进</span></button>
+                <button class="DebuggerButton" id="reset"><span>复位</span></button>
+                <button class="DebuggerButton" id="clear"><span>清除</span></button>
             </div>
         </div>
 
-        
-        <div class="Buttons" style="display: flex; justify-content: center; margin: 10px auto;">
-            <button class="ButtonRun" id="execute">执行</button>
-            <button class="ButtonConfirm" id="step">单步</button>
-            <button class="ButtonConfirm" id="stepbystep">连续步进</button>
-            <button class="ButtonCancel" id="reset">复位</button>
-            <button class="ButtonDefault" id="clear">清除</button>
-            <button class="ButtonDefault" id="toggle_debugger">打开调试器</button>
-        </div>
+        <section class="tabs">
+            <menu role="tablist" aria-label="Sample Tabs">
+                <button role="tab" aria-selected="true" aria-controls="tab-A">代码编辑器</button>
+                <button role="tab" aria-controls="tab-B">调试器</button>
+            </menu>
+            <!-- the tab content -->
+            <article role="tabpanel" id="tab-A" style="padding: 0 0 0 0;">
+                <div class="CodeEditor">
+                    <div id="CodeMirrorContainer">
+                        <textarea id="cmEditor" name="code"></textarea>
+                    </div>
+                </div>
+            </article>
+            <article role="tabpanel" hidden id="tab-B" style="padding: 0;">
+                <div class="Debugger">
+                    <div class="debugger_col_container">
+                        <div class="ilcode_column">
+                            <div class="col_header">中间语言指令序列</div>
+                            <div class="ilcode_list" id="ilcode"></div>
+                        </div>
+                        <div class="debugger_right_column">
+                            <div class="heap_column">
+                                <div class="col_header">存储（堆）</div>
+                                <div class="heap_map" id="heap_map"></div>
+                                <div class="heap_obj_info" id="heap_obj_info"></div>
+                            </div>
+                            <div class="stack_column">
+                                <div class="fstack_column">
+                                    <div class="col_header">函数调用栈</div>
+                                    <div class="fstack_list" id="fstack"></div>
+                                </div>
+                                <div class="opstack_column">
+                                    <div class="col_header">操作数栈</div>
+                                    <div class="opstack_list" id="opstack"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </article>
+
+        </section>
 
         <div class="ConsoleContainer">
             <div class="Console" id="output"></div>
         </div>
+
     </div>
 
-    <div class="Right" style="display: flex;">
-        <div class="Debugger">
-
-            <div class="debugger_col_container">
-                <div class="ilcode_column">
-                    <div class="col_header">中间语言指令序列</div>
-                    <div class="ilcode_list" id="ilcode"></div>
-                </div>
-
-                <div class="debugger_right_column">
-                    <div class="heap_column">
-                        <div class="col_header">存储（堆）</div>
-                        <div class="heap_map" id="heap_map"></div>
-                        <div class="heap_obj_info" id="heap_obj_info"></div>
-                    </div>
-
-                    <div class="stack_column">
-                        <div class="fstack_column">
-                            <div class="col_header">函数调用栈</div>
-                            <div class="fstack_list" id="fstack"></div>
-                        </div>
-                        <div class="opstack_column">
-                            <div class="col_header">操作数栈</div>
-                            <div class="opstack_list" id="opstack"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-        </div>
+    <div class="status-bar">
+        <p class="status-bar-field">版权所有 © 2018～2025 <a href="https://bd4sur.com" target="_blank">BD4SUR</a></p>
+        <p class="status-bar-field">版本：202506</p>
     </div>
 
-</div>
-
-
-<div class="Footer">
-    <div style="margin: 0 10px 0 5px;">版权所有 © 2018～2025 <a href="https://bd4sur.com" target="_blank">BD4SUR</a></div>
-    <a style="border-bottom: none; display: flex;" href="https://github.com/bd4sur/Animac"><img alt="GitHub stars" height="16px" style="margin-left: 6px; filter: opacity(0.5);" src="https://img.shields.io/github/stars/bd4sur/Animac?style=social"></a>
 </div>
 
 </div>
@@ -148,16 +155,48 @@ a:hover {
 
 <script>
 
+const tabs = document.querySelectorAll("menu[role=tablist]");
+
+for (let i = 0; i < tabs.length; i++) {
+    const tab = tabs[i];
+
+    const tabButtons = tab.querySelectorAll("menu[role=tablist] > button");
+
+    tabButtons.forEach((btn) =>
+        btn.addEventListener("click", (e) => {
+            e.preventDefault();
+
+            tabButtons.forEach((button) => {
+                if (
+                    button.getAttribute("aria-controls") ===
+                    e.target.getAttribute("aria-controls")
+                ) {
+                    button.setAttribute("aria-selected", true);
+                    openTab(e, tab);
+                } else {
+                    button.setAttribute("aria-selected", false);
+                }
+            });
+        })
+    );
+}
+
+function openTab(event, tab) {
+    const articles = tab.parentNode.querySelectorAll('[role="tabpanel"]');
+    articles.forEach((p) => {
+        p.setAttribute("hidden", true);
+    });
+    const article = tab.parentNode.querySelector(
+        `[role="tabpanel"]#${event.target.getAttribute("aria-controls")}`
+    );
+    article.removeAttribute("hidden");
+}
+
 // 页面整体布局
 function layout(leftWidth, rightWidth, bottomHeight) {
     let clientWidth = window.innerWidth;
-    $(".Left").width(`${String(leftWidth)}px`);
-    $(".Right").width(`${String(rightWidth)}px`);
-    $(".Bottom").width(`${String(clientWidth)}px`);
-
     let clientHeight = window.innerHeight;
     let headerHeight = $(".Header").outerHeight(true);
-    let footerHeight = $(".Footer").outerHeight(true);
     let centerHeight = clientHeight - headerHeight - footerHeight;
     $(".Center").height(`${String(centerHeight)}px`);
     $(".Bottom").height(`${String(bottomHeight)}px`);
@@ -176,15 +215,7 @@ function initCMEditor() {
         highlightSelectionMatches: {showToken: /[^\s\(\)]+/}
     });
 
-    let clientHeight = window.innerHeight;
-    let headerHeight = $(".Header").outerHeight(true);
-    let footerHeight = $(".Footer").outerHeight(true);
-    let centerHeight = clientHeight - headerHeight - footerHeight;
-    let filenamesHeight = $(".FilenameTagContainer").outerHeight(true);
-    let buttonsHeight = $(".Buttons").outerHeight(true);
-    let consoleHeight = $(".Console").outerHeight(true);
-
-    let cmEditorHeight = `${String(centerHeight - filenamesHeight - buttonsHeight - consoleHeight - 10)}px`;
+    let cmEditorHeight = `360px`;
     cmEditor.setSize('auto', cmEditorHeight);
     $(".CodeEditor").height(cmEditorHeight);
 
@@ -195,8 +226,6 @@ function initCMEditor() {
 let cmEditor = initCMEditor();
 let DEBUGGER_CLOCK = 0;
 let DEBUGGER_STATE = "ready";
-
-let is_debugger_show = false;
 
 let OUTPUT_BUFFER = "";
 
@@ -214,29 +243,18 @@ function Init() {
         clearInterval(DEBUGGER_CLOCK);
     }
 
-    let layoutObserver = new MutationObserver((mutations, observer) => {
-        if (is_debugger_show) {
-            $(".Right").show();
-            layout(800, 600, 200);
-        }
-        else {
-            $(".Right").hide();
-            let leftWidth = Math.min(window.innerWidth, 800);
-            layout(leftWidth, 0, 200);
-        }
-    });
-    layoutObserver.observe(document.getElementsByTagName('html')[0], {attributes: true, characterData: true, childList: true, subtree: true});
-
-    $("#toggle_debugger").on("click", ()=>{
-        if (is_debugger_show === true) {
-            is_debugger_show = false;
-            $("#toggle_debugger").html('打开调试器');
-        }
-        else {
-            is_debugger_show = true;
-            $("#toggle_debugger").html('关闭调试器');
-        }
-    });
+    // let layoutObserver = new MutationObserver((mutations, observer) => {
+    //     if (is_debugger_show) {
+    //         $(".Right").show();
+    //         layout(800, 600, 200);
+    //     }
+    //     else {
+    //         $(".Right").hide();
+    //         let leftWidth = Math.min(window.innerWidth, 800);
+    //         layout(leftWidth, 0, 200);
+    //     }
+    // });
+    // layoutObserver.observe(document.getElementsByTagName('html')[0], {attributes: true, characterData: true, childList: true, subtree: true});
 
     $("#clear").on("click", ()=>{
         pause();
@@ -339,26 +357,58 @@ function Init() {
 
 Init();
 
+const samples = {
+    "sample_0": "/test/man_or_boy_test.scm",
+    "sample_1": "/test/quine.scm",
+    "sample_2": "/test/quicksort.scm",
+    "sample_3": "/test/brainfuck.scm",
+    "sample_4": "/test/fft.scm",
+    "sample_5": "/test/bigint.scm",
+    "sample_6": "/test/matmul.scm",
+    "sample_7": "/test/yinyang.scm",
+    "sample_8": "/test/interpreter.scm",
+    "sample_9": "/test/quasiquote.scm",
+    "sample_10": "/test/calendar.scm",
+    "sample_11": "/test/church_encoding.scm",
+    "sample_12": "/test/factorial.scm",
+    "sample_13": "/test/calculator.scm",
+    "sample_14": "/test/generator.scm",
+    "sample_15": "/test/coroutine.scm",
+    "sample_16": "/test/deadlock.scm",
+    "sample_17": "/test/async_callback.scm",
+};
 
-$("#sample_0").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/man_or_boy_test.scm"]); });
-$("#sample_1").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/quine.scm"]); });
-$("#sample_2").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/quicksort.scm"]); });
-$("#sample_3").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/brainfuck.scm"]); });
-$("#sample_4").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/fft.scm"] + "\n(run)\n"); });
-$("#sample_5").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/bigint.scm"] + "\n(run)\n"); });
-$("#sample_6").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/matmul.scm"]); });
-$("#sample_7").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/yinyang.scm"]); });
-$("#sample_8").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/interpreter.scm"]); });
-$("#sample_9").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/quasiquote.scm"]); });
-$("#sample_10").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/calendar.scm"]); });
-$("#sample_11").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/church_encoding.scm"]); });
-$("#sample_12").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/factorial.scm"]); });
-$("#sample_13").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/calculator.scm"]); });
-$("#sample_14").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/generator.scm"]); });
-$("#sample_15").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/coroutine.scm"]); });
-$("#sample_16").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/deadlock.scm"]); });
-$("#sample_17").on("click", function (e) { cmEditor.setValue(ANIMAC_VFS["/test/async_callback.scm"]); });
+const SAMPLES = [
+    ["/test/man_or_boy_test.scm", "Man or boy test", ""],
+    ["/test/quine.scm", "Quine", ""],
+    ["/test/quicksort.scm", "快速排序", ""],
+    ["/test/brainfuck.scm", "Brainfuck解释器", ""],
+    ["/test/fft.scm", "快速傅里叶变换（FFT）", "(run)"],
+    ["/test/bigint.scm", "利用FFT计算整数乘法", "(run)"],
+    ["/test/matmul.scm", "矩阵乘法", ""],
+    ["/test/interpreter.scm", "The Little Schemer 书中的解释器", ""],
+    ["/test/quasiquote.scm", "Quasi-quote", ""],
+    ["/test/calendar.scm", "日历", ""],
+    ["/test/church_encoding.scm", "Church编码", ""],
+    ["/test/factorial.scm", "阶乘", ""],
+    ["/test/calculator.scm", "中缀表达式解析", ""],
+    ["/test/generator.scm", "生成器", ""],
+    ["/test/coroutine.scm", "协程", ""],
+    ["/test/async_callback.scm", "异步回调", ""],
+    ["/test/yinyang.scm", "阴阳谜题（不停机）", ""],
+    ["/test/deadlock.scm", "死锁（不停机）", ""],
+];
 
+for (let i = 0; i < SAMPLES.length; i++) {
+    $("#sample_list").append(`<option value="${SAMPLES[i][0]}" data-entry="${SAMPLES[i][2]}">${SAMPLES[i][1]}</option>`);
+}
+
+$("#sample_list").change(function() {
+    const sample_vfs_path = $(this).val();
+    const sample_entry = $(this).children(":selected").attr("data-entry");
+    console.log(sample_entry);
+    cmEditor.setValue(ANIMAC_VFS[sample_vfs_path] + sample_entry);
+});
 
 
 </script>

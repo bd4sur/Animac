@@ -7,14 +7,16 @@ pre {
 .Header {
     display: flex;
     background-color: transparent;
-    margin: 20px 0;
+    padding: 5px 16px;
     height: 40px;
+    background-color: #fff;
+    margin: 0 3px;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
 }
 .HeaderTitle {
     color: #394359;
-    font-size: 20px;
+    font-size: 16px;
     line-height: 40px;
     padding-left: 10px;
     letter-spacing: 0.5px;
@@ -23,14 +25,14 @@ pre {
     display: flex;
     justify-content: center;
     align-items: center;
-    border-radius: 14px;
+    border-radius: 11px;
     background: linear-gradient(0deg, #00d0ff, #5d00ff);
-    width: 36px;
-    height: 36px;
+    width: 26px;
+    height: 26px;
 }
 .AnimacLogo {
     display: inline-block;
-    height: 24px;
+    height: 17px;
 }
 
 
@@ -48,8 +50,9 @@ pre {
 .Debugger {
     display: flex;
     overflow: auto;
-    margin: 10px;
-    box-shadow: 0 0px #e5e5e5, 0 0 15px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.05);
+    margin: 0px;
+    /* box-shadow: 0 0px #e5e5e5, 0 0 15px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.05); */
+    height: 360px;
 }
 .Bottom {
     display: flex;
@@ -83,12 +86,12 @@ pre {
 
 
 .CodeEditor {
-    border-radius: 8px;
+    /* border-radius: 8px; */
     overflow: hidden;
     height: 400px;
     font-size: 13px;
     line-height: 1.3;
-    box-shadow: 0 0px #e5e5e5, 0 0 15px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.05);
+    /* box-shadow: 0 0px #e5e5e5, 0 0 15px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.05); */
 }
 
 .Console {
@@ -155,7 +158,7 @@ pre {
 
 
 #CodeMirrorContainer {
-    font-size: 13px;
+    font-size: 12px;
     line-height: 1.5;
 }
 
@@ -177,7 +180,7 @@ pre {
     border-bottom: 1px solid #e2e5e8;
 }
 
-.button {
+/* .button {
     display: inline-block;
     background-color: #fff;
     height: 24px;
@@ -199,7 +202,7 @@ pre {
 }
 .btn-start {
     color: #3f8300;
-}
+} */
 
 
 
@@ -219,6 +222,7 @@ pre {
     font-size: 11px;
     display: flex;
     align-items: flex-start;
+    background: #fff;
 }
 .debugger_right_column {
     width: 100%;
@@ -238,7 +242,7 @@ pre {
     text-overflow: ellipsis;
 }
 .ilcode_column {
-    min-width: 270px;
+    min-width: 200px;
     border-right: 1px solid #e2e5e8;
     overflow: auto;
     height: 100%;
@@ -271,25 +275,49 @@ pre {
 }
 .fstack_list {
     font-family: monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    flex-wrap: nowrap;
 }
 .opstack_list {
     font-family: monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    flex-wrap: nowrap;
 }
 .heap_obj_info {
     font-family: monospace;
 }
 
+.fstack_line {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+}
 .fstack_number {
     color: #777d81;
-    padding-right: 5px;
+    /* padding-right: 5px; */
 }
 .fstack_closure {
     color: #222;
-    padding-left: 5px; padding-right: 5px;
+    /* padding-left: 5px; padding-right: 5px; */
 }
 .fstack_retaddr {
     font-weight: bold; color: #15e;
-    padding-left: 5px; padding-right: 5px;
+    padding-left: 5px;
+}
+
+.opstack_line {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+}
+.opstack_item {
+    color: #222;
 }
 
 .heap_map {
@@ -364,9 +392,13 @@ pre {
     text-align: left;
 }
 
+.DebuggerButton {
+    margin: 2px 2px;
+    height: 24px;
+    line-height: 23px;
+}
 
-
-
+/*
 .ButtonConfirm {
     display: inline-block;
     margin: 5px;
@@ -446,3 +478,4 @@ pre {
     background: #e6e9ef;
     box-shadow: none;
 }
+*/
