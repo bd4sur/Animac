@@ -22,10 +22,10 @@ class REPL {
             let proc = new Process(mod);
             proc.PID = 0;
 
-            this.RUNTIME.asyncCallback = callback;  // NOTE 用于文件读写等异步操作结束之后执行
+            this.RUNTIME.callbackOnHalt = callback;  // NOTE 用于文件读写等异步操作结束之后执行
             this.RUNTIME.processPool[0] = proc;
             this.RUNTIME.AddProcess(proc);
-            this.RUNTIME.StartClock(callback);
+            this.RUNTIME.StartClock();
 
             // TODO 仅保留有副作用的语句
             if(/define|set!|native|import/gi.test(input)) {

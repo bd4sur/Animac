@@ -10,6 +10,7 @@ pre {
     padding: 5px 16px;
     height: 40px;
     background-color: #fff;
+    border-bottom: 1px solid #d7d7d7;
     margin: 0 3px;
     align-items: center;
     justify-content: space-between;

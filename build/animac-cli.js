@@ -3,7 +3,8 @@
 const ANIMAC_CONFIG = {
     "version": "2025.6",
     "env_type": "cli", // 运行环境："cli" or "web"
-    "is_debug": false
+    "is_debug": false,
+    "is_gc_enabled": true, // 是否启用GC
 };
 let ANIMAC_STDOUT_CALLBACK = console.log;
 let ANIMAC_STDERR_CALLBACK = console.error;
@@ -30,7 +31,6 @@ Options:
   -c, --compile     compile Scheme code file <input> to Animac VM executable file <output>.
                       will not execute the compiled executable.
                       default <output> is in the curent working directory.
-  -d, --debug       activate built-in web IDE (debugger) server.
   -e, --eval        evaluate code string <input>
   -h, --help        print help and copyright information.
   -i, --intp        interpret Animac VM executable file <input>.
@@ -41,7 +41,8 @@ Options:
 const TOP_NODE_HANDLE = "&TOP_NODE";
 // 关键字集合
 const KEYWORDS = [
-    "car", "cdr", "cons", "cond", "if", "else", "begin", "while",
+    "car", "cdr", "cons", "get_item", "set_item",
+    "cond", "if", "else", "begin", "while", "break", "continue",
     "+", "-", "*", "/", "=", "%", "pow",
     "and", "or", "not", ">", "<", ">=", "<=", "eq?",
     "define", "set!", "null?", "atom?", "list?", "number?",
@@ -340,7 +341,7 @@ function set_timeout(PROCESS, RUNTIME) {
             // 恢复进程状态
             PROCESS.SetState("RUNNING");
             RUNTIME.AddProcess(PROCESS);
-            RUNTIME.StartClock(RUNTIME.asyncCallback);
+            RUNTIME.StartClock();
         }
         // 若进程尚未执行完毕，直接调用回调
         else {
@@ -370,7 +371,7 @@ function set_interval(PROCESS, RUNTIME) {
             // 恢复进程状态
             PROCESS.SetState("RUNNING");
             RUNTIME.AddProcess(PROCESS);
-            RUNTIME.StartClock(RUNTIME.asyncCallback);
+            RUNTIME.StartClock();
         }
         // 若进程尚未执行完毕，直接调用回调
         else {
@@ -3559,10 +3560,13 @@ class Runtime {
         this.processPool = new Array();
         this.processQueue = new Array();
         this.ports = new HashMap();
-        this.asyncCallback = () => { };
-        this.outputBuffer = "";
-        this.errorBuffer = "";
+        this.outputFIFO = new Array();
+        this.errorFIFO = new Array();
         this.workingDir = workingDir;
+        this.callbackOnTick = (rt) => null;
+        this.callbackOnEvent = (rt) => null;
+        this.callbackOnHalt = (rt) => null;
+        this.callbackOnError = (rt) => null;
     }
     AllocatePID() {
         return this.processPool.length;
@@ -3604,12 +3608,11 @@ class Runtime {
         }
         // 后处理
         if (currentProcess.state === ProcessState.RUNNING) {
-            // 定期垃圾回收
-            currentProcess.GC();
             // 仍在运行的进程加入队尾
             currentProcess.state = ProcessState.READY;
             this.processQueue.push(currentPID);
         }
+        this.callbackOnTick(this);
         if (this.processQueue.length <= 0) {
             return VMState.IDLE;
         }
@@ -3617,7 +3620,7 @@ class Runtime {
             return VMState.RUNNING;
         }
     }
-    StartClock(callback) {
+    StartClock() {
         /* NOTE 【执行时钟设计说明】为什么要用setInterval？
             设想两个进程，其中一个是常驻的无限循环进程，另一个是需要执行某Node.js异步操作的进程。
             根据Node.js的事件循环特性，如果单纯使用while(1)实现，则异步操作永远得不到执行。
@@ -3630,23 +3633,40 @@ class Runtime {
             如果COMPUTATION_PHASE_LENGTH=∞，则退化为完全由while控制的执行时钟，性能最佳，但异步事件得不到执行。
         */
         function Run() {
+            let vmState = VMState.IDLE;
             let COMPUTATION_PHASE_LENGTH = 100; // TODO 这个值可以调整
             while (COMPUTATION_PHASE_LENGTH >= 0) {
-                let avmState = this.Tick(1000);
+                vmState = this.Tick(1000);
                 this.tickCounter++;
                 COMPUTATION_PHASE_LENGTH--;
-                if (avmState === VMState.IDLE) {
-                    clearInterval(CLOCK);
-                    callback();
+                if (vmState === VMState.IDLE) {
                     break;
                 }
             }
+            // 对所有进程执行垃圾回收
+            if (ANIMAC_CONFIG.is_gc_enabled === true) {
+                for (let i = 0; i < this.processQueue.length; i++) {
+                    let pid = this.processQueue[i];
+                    let process = this.processPool[pid];
+                    process.GC();
+                    // console.log(`[GC] 进程${pid}已完成GC`);
+                }
+            }
+            return vmState;
         }
         let CLOCK = setInterval(() => {
             try {
-                Run.call(this);
+                let vmState = Run.call(this);
+                if (vmState === VMState.IDLE) {
+                    clearInterval(CLOCK);
+                    this.callbackOnHalt(this);
+                }
+                else {
+                    this.callbackOnEvent(this);
+                }
             }
             catch (e) {
+                this.callbackOnError(this);
                 this.Error(e.toString());
                 this.Error(`\n`);
             }
@@ -3657,11 +3677,11 @@ class Runtime {
     //=================================================================
     Output(str) {
         StdIOUtils.stdout(str);
-        this.outputBuffer += str;
+        this.outputFIFO.push(str);
     }
     Error(str) {
         StdIOUtils.stderr(str);
-        this.errorBuffer += str;
+        this.errorFIFO.push(str);
     }
     //=================================================================
     //                  以下是AIL指令实现（封装成函数）
@@ -4707,7 +4727,7 @@ class Runtime {
         else if (mnemonic === 'halt') {
             this.AIL_HALT(argument, PROCESS, RUNTIME);
         }
-        else if (mnemonic === 'set-child!') {
+        else if (mnemonic === 'set_item') {
             this.AIL_SETCHILD(argument, PROCESS, RUNTIME);
         }
         else if (mnemonic === 'concat') {
@@ -4810,10 +4830,10 @@ class REPL {
             let mod = LoadModuleFromCode(code, PathUtils.Join(this.RUNTIME.workingDir, "repl.scm"));
             let proc = new Process(mod);
             proc.PID = 0;
-            this.RUNTIME.asyncCallback = callback; // NOTE 用于文件读写等异步操作结束之后执行
+            this.RUNTIME.callbackOnHalt = callback; // NOTE 用于文件读写等异步操作结束之后执行
             this.RUNTIME.processPool[0] = proc;
             this.RUNTIME.AddProcess(proc);
-            this.RUNTIME.StartClock(callback);
+            this.RUNTIME.StartClock();
             // TODO 仅保留有副作用的语句
             if (/define|set!|native|import/gi.test(input)) {
                 this.allCode.push(input);
@@ -4898,152 +4918,6 @@ class REPL {
         process.stdin.on("data", (input) => { this.ReadEvalPrint(input.toString()); });
     }
 }
-const http = require('http');
-const url = require('url');
-const DebugServerConfig = {
-    'portNumber': 8088,
-    'MIME': {
-        "css": "text/css",
-        "jpg": "image/jpeg",
-        "jpeg": "image/jpeg",
-        "png": "image/png",
-        "gif": "image/gif",
-        "bmp": "image/bmp",
-        "webp": "image/webp",
-        "js": "text/javascript",
-        "ico": "image/vnd.microsoft.icon",
-        "mp3": "audio/mpeg",
-        "woff": "application/font-woff",
-        "woff2": "font/woff2",
-        "ttf": "application/x-font-truetype",
-        "otf": "application/x-font-opentype",
-        "mp4": "video/mp4",
-        "webm": "video/webm",
-        "svg": "image/svg+xml"
-    },
-};
-// 启动调试服务器
-function StartDebugServer() {
-    let RUNTIME = new Runtime(process.cwd());
-    function loadCode(codefiles, baseModuleID) {
-        let mod = LoadModuleFromCode(`((lambda () ${codefiles[0]}))`, baseModuleID);
-        let proc = new Process(mod);
-        proc.PID = 0;
-        RUNTIME.asyncCallback = () => { };
-        RUNTIME.processPool[0] = proc;
-        RUNTIME.AddProcess(proc);
-    }
-    // 工具函数：用于判断某字符串是否以另一个字符串结尾
-    function IsEndWith(test, endPattern) {
-        let reg = new RegExp(endPattern + '$', 'i');
-        return reg.test(test);
-    }
-    http.createServer((request, response) => {
-        // 请求数据
-        let incomeData = '';
-        // 响应结构
-        let res = {
-            process: null,
-            outputBuffer: null
-        };
-        // 解析请求，包括文件名
-        let reqPath = url.parse(request.url).pathname.substr(1);
-        let filePath = path.join(process.cwd(), "ide", url.parse(request.url).pathname);
-        request.on('data', (chunk) => {
-            incomeData += chunk;
-        });
-        request.on('end', () => {
-            let now = new Date();
-            console.log(`${now.toLocaleDateString()} ${now.toLocaleTimeString()} 收到请求：${request.url}`);
-            // 默认主页
-            if (reqPath === '') {
-                readFileSystem(filePath + "index.html");
-            }
-            else if (reqPath === "load") {
-                let codefiles = JSON.parse(incomeData);
-                loadCode(codefiles, "ADB");
-            }
-            else if (reqPath === "execute") {
-                RUNTIME.StartClock(() => {
-                    res.process = RUNTIME.processPool[0];
-                    res.outputBuffer = RUNTIME.outputBuffer;
-                    response.writeHead(200, { 'Content-Type': 'application/json' });
-                    response.write(JSON.stringify(res));
-                    response.end();
-                });
-            }
-            else if (reqPath === "step") {
-                RUNTIME.Tick(0);
-                res.process = RUNTIME.processPool[0];
-                res.outputBuffer = RUNTIME.outputBuffer;
-                response.writeHead(200, { 'Content-Type': 'application/json' });
-                response.write(JSON.stringify(res));
-                response.end();
-            }
-            else if (reqPath === "reset") {
-                RUNTIME.outputBuffer = "";
-                RUNTIME.errorBuffer = "";
-                RUNTIME.processPool = new Array();
-                RUNTIME.processQueue = new Array();
-                res.process = RUNTIME.processPool[0];
-                res.outputBuffer = RUNTIME.outputBuffer;
-                response.writeHead(200, { 'Content-Type': 'application/json' });
-                response.write(JSON.stringify(res));
-                response.end();
-            }
-            else {
-                readFileSystem(decodeURI(filePath));
-            }
-            // 从文件系统读取相应的数据，向客户端返回
-            function readFileSystem(reqPath) {
-                fs.readFile(reqPath, function (err, data) {
-                    // 处理404，返回预先设置好的404页
-                    if (err) {
-                        console.log("404 ERROR");
-                        fs.readFile('404.html', function (err, data) {
-                            // 如果连404页都找不到
-                            if (err) {
-                                response.writeHead(404, { 'Content-Type': 'text/html' });
-                                response.write('<head><meta charset="utf-8"/></head><h1>真·404</h1>');
-                            }
-                            else {
-                                response.writeHead(404, { 'Content-Type': 'text/html' });
-                                response.write(data.toString());
-                            }
-                            response.end(); // 响应
-                        });
-                        return;
-                    }
-                    else {
-                        // 默认MIME标记
-                        let defaultFlag = true;
-                        // 根据后缀，检查所有的已有的MIME类型（如果可以硬编码是不是好一点？可能要用到所谓的元编程了）
-                        for (let suffix in DebugServerConfig.MIME) {
-                            if (IsEndWith(reqPath, '.' + suffix)) {
-                                defaultFlag = false;
-                                let mimeType = DebugServerConfig.MIME[suffix];
-                                response.writeHead(200, { 'Content-Type': mimeType });
-                                if ((mimeType.split('/'))[0] === 'text') {
-                                    response.write(data.toString());
-                                }
-                                else {
-                                    response.write(data);
-                                }
-                            }
-                        }
-                        // 默认MIME类型：text
-                        if (defaultFlag === true) {
-                            response.writeHead(200, { 'Content-Type': 'text/html' });
-                            response.write(data.toString());
-                        }
-                    }
-                    response.end(); // 响应
-                });
-            }
-        });
-    }).listen(DebugServerConfig.portNumber);
-    console.log(`Animac调试服务器已启动，正在监听端口：${DebugServerConfig.portNumber}`);
-}
 ///////////////////////////////////////////////
 // Main.ts
 // 系统入口（外壳）
@@ -5061,7 +4935,7 @@ function runFromExecutable(execAbsPath) {
     let PROCESS = new Process(moduleJson);
     let RUNTIME = new Runtime(workingDir);
     RUNTIME.AddProcess(PROCESS);
-    RUNTIME.StartClock(() => { });
+    RUNTIME.StartClock();
 }
 function runFromFile(srcAbsPath) {
     // 以代码所在路径为工作路径
@@ -5071,7 +4945,7 @@ function runFromFile(srcAbsPath) {
     let PROCESS = new Process(linkedModule);
     let RUNTIME = new Runtime(workingDir);
     RUNTIME.AddProcess(PROCESS);
-    RUNTIME.StartClock(() => { });
+    RUNTIME.StartClock();
 }
 function runFromCode(code) {
     let workingDir = process.cwd();
@@ -5081,7 +4955,7 @@ function runFromCode(code) {
     let PROCESS = new Process(linkedModule);
     let RUNTIME = new Runtime(workingDir);
     RUNTIME.AddProcess(PROCESS);
-    RUNTIME.StartClock(() => { });
+    RUNTIME.StartClock();
 }
 function shellPrompt() {
 }
@@ -5121,9 +4995,6 @@ function Main() {
         }
         compileCodeToExecutable(inputPath, outputPath);
         console.log(`Compiled Animac VM executable file saved at: ${outputPath}\n`);
-    }
-    else if (option === "-d" || option === "--debug") {
-        StartDebugServer();
     }
     else if (option === "-e" || option === "--eval") {
         let code = TrimQuotes(argv[1]);

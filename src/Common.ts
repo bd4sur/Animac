@@ -27,7 +27,6 @@ Options:
   -c, --compile     compile Scheme code file <input> to Animac VM executable file <output>.
                       will not execute the compiled executable.
                       default <output> is in the curent working directory.
-  -d, --debug       activate built-in web IDE (debugger) server.
   -e, --eval        evaluate code string <input>
   -h, --help        print help and copyright information.
   -i, --intp        interpret Animac VM executable file <input>.
@@ -40,10 +39,11 @@ const TOP_NODE_HANDLE: Handle = "&TOP_NODE";
 
 // 关键字集合
 const KEYWORDS = [
-    "car",    "cdr",    "cons",    "cond",    "if",    "else",    "begin", "while",
-    "+",      "-",      "*",       "/",       "=",     "%",       "pow",
-    "and",     "or",    "not",     ">",       "<",     ">=",      "<=",    "eq?",
-    "define", "set!",   "null?",   "atom?",   "list?", "number?",
+    "car",    "cdr",    "cons",    "get_item", "set_item",
+    "cond",    "if",    "else",    "begin",    "while",  "break",   "continue",
+    "+",      "-",      "*",       "/",        "=",      "%",       "pow",
+    "and",     "or",    "not",     ">",        "<",      ">=",      "<=",    "eq?",
+    "define", "set!",   "null?",   "atom?",    "list?",  "number?",
     "display","newline",
     "write",  "read",
     "call/cc",

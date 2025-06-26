@@ -4,9 +4,9 @@
 
 **灵机 · Animac**是[Scheme](https://zh.wikipedia.org/wiki/Scheme)程序语言的一个实现。Animac将Scheme代码编译为中间语言代码，并且在虚拟机上执行。Animac不遵守R<sup>5</sup>RS标准。目前，Animac使用TypeScript开发，能够在Web浏览器和Node.js环境中运行。
 
-[立即体验](https://bd4sur.com/Animac) | [B站视频：调试器演示](https://www.bilibili.com/video/BV1xu4y1v7Ks)
+▶ [立即体验](https://bd4sur.com/Animac) | [B站视频：调试器演示](https://www.bilibili.com/video/BV1xu4y1v7Ks)
 
-![Debugger](./doc/debugger.png)
+![Demo](./doc/demo.png)
 
 ## 特性
 
@@ -190,3 +190,9 @@ Animac是什么？不是什么？
 版权所有 &copy; 2018~2025 BD4SUR，保留所有权利。
 
 本系统“按原样”提供，采用MIT协议授权。本系统为作者个人以学习和自用目的所创作的作品。作者不对本系统的质量作任何承诺。作者不保证提供有关本系统的任何形式的解释、维护或支持。作者不为任何人使用此系统所造成的任何正面的或负面的后果负责。
+
+**以部分或全部代码形式集成的开源软件**
+
+- [jQuery](https://jquery.com/license/)
+- [codemirror](https://codemirror.net/5/LICENSE)
+- [XP.css](https://github.com/botoxparty/XP.css)

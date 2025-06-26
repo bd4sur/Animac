@@ -20,7 +20,6 @@
         "src/Runtime.ts",
         "src/Instruction.ts",
         "src/REPL.ts",
-        "src/DebugServer.ts",
         "src/Main.ts"
     ]
 }

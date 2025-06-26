@@ -16,7 +16,7 @@ function set_timeout(PROCESS, RUNTIME) {
             // 恢复进程状态
             PROCESS.SetState("RUNNING");
             RUNTIME.AddProcess(PROCESS);
-            RUNTIME.StartClock(RUNTIME.asyncCallback);
+            RUNTIME.StartClock();
         }
         // 若进程尚未执行完毕，直接调用回调
         else {
@@ -46,7 +46,7 @@ function set_interval(PROCESS, RUNTIME) {
             // 恢复进程状态
             PROCESS.SetState("RUNNING");
             RUNTIME.AddProcess(PROCESS);
-            RUNTIME.StartClock(RUNTIME.asyncCallback);
+            RUNTIME.StartClock();
         }
         // 若进程尚未执行完毕，直接调用回调
         else {

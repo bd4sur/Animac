@@ -3,10 +3,11 @@
 const ANIMAC_CONFIG = {
     "version": "2025.6",
     "env_type": "web", // 运行环境："cli" or "web"
-    "is_debug": false
+    "is_debug": false,
+    "is_gc_enabled": true, // 是否启用GC
 };
-let ANIMAC_STDOUT_CALLBACK = console.log;
-let ANIMAC_STDERR_CALLBACK = console.error;
+let ANIMAC_STDOUT_CALLBACK = (x) => { };
+let ANIMAC_STDERR_CALLBACK = (x) => { };
 // Utility.ts
 // 工具函数
 // 虚拟文件系统
@@ -30,7 +31,6 @@ Options:
   -c, --compile     compile Scheme code file <input> to Animac VM executable file <output>.
                       will not execute the compiled executable.
                       default <output> is in the curent working directory.
-  -d, --debug       activate built-in web IDE (debugger) server.
   -e, --eval        evaluate code string <input>
   -h, --help        print help and copyright information.
   -i, --intp        interpret Animac VM executable file <input>.
@@ -41,7 +41,8 @@ Options:
 const TOP_NODE_HANDLE = "&TOP_NODE";
 // 关键字集合
 const KEYWORDS = [
-    "car", "cdr", "cons", "cond", "if", "else", "begin", "while",
+    "car", "cdr", "cons", "get_item", "set_item",
+    "cond", "if", "else", "begin", "while", "break", "continue",
     "+", "-", "*", "/", "=", "%", "pow",
     "and", "or", "not", ">", "<", ">=", "<=", "eq?",
     "define", "set!", "null?", "atom?", "list?", "number?",
@@ -340,7 +341,7 @@ function set_timeout(PROCESS, RUNTIME) {
             // 恢复进程状态
             PROCESS.SetState("RUNNING");
             RUNTIME.AddProcess(PROCESS);
-            RUNTIME.StartClock(RUNTIME.asyncCallback);
+            RUNTIME.StartClock();
         }
         // 若进程尚未执行完毕，直接调用回调
         else {
@@ -370,7 +371,7 @@ function set_interval(PROCESS, RUNTIME) {
             // 恢复进程状态
             PROCESS.SetState("RUNNING");
             RUNTIME.AddProcess(PROCESS);
-            RUNTIME.StartClock(RUNTIME.asyncCallback);
+            RUNTIME.StartClock();
         }
         // 若进程尚未执行完毕，直接调用回调
         else {
@@ -3559,10 +3560,13 @@ class Runtime {
         this.processPool = new Array();
         this.processQueue = new Array();
         this.ports = new HashMap();
-        this.asyncCallback = () => { };
-        this.outputBuffer = "";
-        this.errorBuffer = "";
+        this.outputFIFO = new Array();
+        this.errorFIFO = new Array();
         this.workingDir = workingDir;
+        this.callbackOnTick = (rt) => null;
+        this.callbackOnEvent = (rt) => null;
+        this.callbackOnHalt = (rt) => null;
+        this.callbackOnError = (rt) => null;
     }
     AllocatePID() {
         return this.processPool.length;
@@ -3604,12 +3608,11 @@ class Runtime {
         }
         // 后处理
         if (currentProcess.state === ProcessState.RUNNING) {
-            // 定期垃圾回收
-            currentProcess.GC();
             // 仍在运行的进程加入队尾
             currentProcess.state = ProcessState.READY;
             this.processQueue.push(currentPID);
         }
+        this.callbackOnTick(this);
         if (this.processQueue.length <= 0) {
             return VMState.IDLE;
         }
@@ -3617,7 +3620,7 @@ class Runtime {
             return VMState.RUNNING;
         }
     }
-    StartClock(callback) {
+    StartClock() {
         /* NOTE 【执行时钟设计说明】为什么要用setInterval？
             设想两个进程，其中一个是常驻的无限循环进程，另一个是需要执行某Node.js异步操作的进程。
             根据Node.js的事件循环特性，如果单纯使用while(1)实现，则异步操作永远得不到执行。
@@ -3630,23 +3633,40 @@ class Runtime {
             如果COMPUTATION_PHASE_LENGTH=∞，则退化为完全由while控制的执行时钟，性能最佳，但异步事件得不到执行。
         */
         function Run() {
+            let vmState = VMState.IDLE;
             let COMPUTATION_PHASE_LENGTH = 100; // TODO 这个值可以调整
             while (COMPUTATION_PHASE_LENGTH >= 0) {
-                let avmState = this.Tick(1000);
+                vmState = this.Tick(1000);
                 this.tickCounter++;
                 COMPUTATION_PHASE_LENGTH--;
-                if (avmState === VMState.IDLE) {
-                    clearInterval(CLOCK);
-                    callback();
+                if (vmState === VMState.IDLE) {
                     break;
                 }
             }
+            // 对所有进程执行垃圾回收
+            if (ANIMAC_CONFIG.is_gc_enabled === true) {
+                for (let i = 0; i < this.processQueue.length; i++) {
+                    let pid = this.processQueue[i];
+                    let process = this.processPool[pid];
+                    process.GC();
+                    // console.log(`[GC] 进程${pid}已完成GC`);
+                }
+            }
+            return vmState;
         }
         let CLOCK = setInterval(() => {
             try {
-                Run.call(this);
+                let vmState = Run.call(this);
+                if (vmState === VMState.IDLE) {
+                    clearInterval(CLOCK);
+                    this.callbackOnHalt(this);
+                }
+                else {
+                    this.callbackOnEvent(this);
+                }
             }
             catch (e) {
+                this.callbackOnError(this);
                 this.Error(e.toString());
                 this.Error(`\n`);
             }
@@ -3657,11 +3677,11 @@ class Runtime {
     //=================================================================
     Output(str) {
         StdIOUtils.stdout(str);
-        this.outputBuffer += str;
+        this.outputFIFO.push(str);
     }
     Error(str) {
         StdIOUtils.stderr(str);
-        this.errorBuffer += str;
+        this.errorFIFO.push(str);
     }
     //=================================================================
     //                  以下是AIL指令实现（封装成函数）
@@ -4707,7 +4727,7 @@ class Runtime {
         else if (mnemonic === 'halt') {
             this.AIL_HALT(argument, PROCESS, RUNTIME);
         }
-        else if (mnemonic === 'set-child!') {
+        else if (mnemonic === 'set_item') {
             this.AIL_SETCHILD(argument, PROCESS, RUNTIME);
         }
         else if (mnemonic === 'concat') {
@@ -4796,61 +4816,45 @@ class Instruction {
         }
     }
 }
-function runFromCode(code) {
-    let workingDir = "/test";
-    let virtualFilename = "a.scm";
-    code = `((lambda () (display { ${code} }) (newline) ))\n`;
-    let linkedModule = LoadModuleFromCode(code, PathUtils.Join(workingDir, virtualFilename));
-    let PROCESS = new Process(linkedModule);
-    let RUNTIME = new Runtime(workingDir);
-    RUNTIME.AddProcess(PROCESS);
-    RUNTIME.StartClock(() => { });
+// 创建新的VM实例：其中workingDir是VM的工作目录，默认为/test
+function AnimacInstance(workingDir) {
+    this.RUNTIME = new Runtime(workingDir);
 }
-function runFromFile(srcAbsPath, callback) {
-    // 以代码所在路径为工作路径
-    let workingDir = PathUtils.DirName(srcAbsPath);
-    let linkedModule = LoadModule(srcAbsPath, workingDir);
-    let PROCESS = new Process(linkedModule);
-    let RUNTIME = new Runtime(workingDir);
-    RUNTIME.AddProcess(PROCESS);
-    RUNTIME.StartClock(callback);
-}
-let RUNTIME = new Runtime("/test");
-function show_state(state) {
-    console.log(state);
-}
-function loadFile(srcAbsPath, callback) {
-    // 以代码所在路径为工作路径
-    let workingDir = PathUtils.DirName(srcAbsPath);
-    let linkedModule = LoadModule(srcAbsPath, workingDir);
-    let PROCESS = new Process(linkedModule);
-    PROCESS.PID = 0;
-    RUNTIME.asyncCallback = callback;
-    RUNTIME.processPool[0] = PROCESS;
-    RUNTIME.AddProcess(PROCESS);
-}
-function execute() {
-    RUNTIME.StartClock(() => {
-        show_state({
-            process: RUNTIME.processPool[0],
-            outputBuffer: RUNTIME.outputBuffer
-        });
-    });
-}
-function step() {
-    RUNTIME.Tick(0);
-    show_state({
-        process: RUNTIME.processPool[0],
-        outputBuffer: RUNTIME.outputBuffer
-    });
-}
-function reset() {
-    RUNTIME.outputBuffer = "";
-    RUNTIME.errorBuffer = "";
-    RUNTIME.processPool = new Array();
-    RUNTIME.processQueue = new Array();
-    show_state({
-        process: RUNTIME.processPool[0],
-        outputBuffer: RUNTIME.outputBuffer
-    });
-}
+AnimacInstance.prototype = {
+    loadFromFile: function (srcAbsPath, pid) {
+        let workingDir = PathUtils.DirName(srcAbsPath); // 以代码所在路径为工作路径
+        let linkedModule = LoadModule(srcAbsPath, workingDir);
+        let PROCESS = new Process(linkedModule);
+        PROCESS.PID = pid;
+        this.RUNTIME.AddProcess(PROCESS);
+    },
+    loadFromString: function (code, mockAbsPath, pid) {
+        code = `((lambda () (display { ${code} }) (newline) ))\n`;
+        let linkedModule = LoadModuleFromCode(code, mockAbsPath);
+        let PROCESS = new Process(linkedModule);
+        PROCESS.PID = pid;
+        this.RUNTIME.AddProcess(PROCESS);
+    },
+    start: function () {
+        this.RUNTIME.StartClock();
+    },
+    step: function () {
+        let vmState = this.RUNTIME.Tick(0);
+        // 对所有进程执行垃圾回收
+        if (ANIMAC_CONFIG.is_gc_enabled === true) {
+            for (let i = 0; i < this.RUNTIME.processQueue.length; i++) {
+                let pid = this.RUNTIME.processQueue[i];
+                let process = this.RUNTIME.processPool[pid];
+                process.GC();
+                // console.log(`[GC] 进程${pid}已完成GC`);
+            }
+        }
+        return vmState;
+    },
+    setCallback: function (callbackOnTick, callbackOnEvent, callbackOnHalt, callbackOnError) {
+        this.RUNTIME.callbackOnTick = callbackOnTick;
+        this.RUNTIME.callbackOnEvent = callbackOnEvent;
+        this.RUNTIME.callbackOnHalt = callbackOnHalt;
+        this.RUNTIME.callbackOnError = callbackOnError;
+    }
+};

@@ -18,7 +18,7 @@ function runFromExecutable(execAbsPath: string) {
     let PROCESS = new Process(moduleJson);
     let RUNTIME = new Runtime(workingDir);
     RUNTIME.AddProcess(PROCESS);
-    RUNTIME.StartClock(()=>{});
+    RUNTIME.StartClock();
 }
 
 function runFromFile(srcAbsPath: string) {
@@ -32,7 +32,7 @@ function runFromFile(srcAbsPath: string) {
     let RUNTIME = new Runtime(workingDir);
 
     RUNTIME.AddProcess(PROCESS);
-    RUNTIME.StartClock(()=>{});
+    RUNTIME.StartClock();
 }
 
 function runFromCode(code: string) {
@@ -47,7 +47,7 @@ function runFromCode(code: string) {
     let RUNTIME = new Runtime(workingDir);
 
     RUNTIME.AddProcess(PROCESS);
-    RUNTIME.StartClock(()=>{});
+    RUNTIME.StartClock();
 }
 
 function shellPrompt() {
@@ -92,9 +92,6 @@ function Main() {
         }
         compileCodeToExecutable(inputPath, outputPath);
         console.log(`Compiled Animac VM executable file saved at: ${outputPath}\n`);
-    }
-    else if(option === "-d" || option === "--debug") {
-        StartDebugServer();
     }
     else if(option === "-e" || option === "--eval") {
         let code = TrimQuotes(argv[1]);

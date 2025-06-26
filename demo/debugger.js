@@ -47,7 +47,7 @@ function renderDebugInfo(res) {
     let instructions = process.instructions;
 
     // Console
-    $("#output").html(res.outputBuffer);
+    $("#output").html(res.output);
 
     // 渲染IL代码
     let html = new Array();
@@ -113,4 +113,13 @@ function renderDebugInfo(res) {
 
     scroll_to_bottom();
 
+}
+
+function clearDebugger() {
+    $("#output").html("");
+    $('#ilcode').html("");
+    $('#fstack').html("");
+    $('#opstack').html("");
+    $('#heap_map').html("");
+    $("#heap_obj_info").html("");
 }

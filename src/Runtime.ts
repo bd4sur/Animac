@@ -15,12 +15,15 @@ class Runtime {
 
     public ports: HashMap<string, any>;  // 端口：对进程间共享资源的抽象 TODO 增加PortObject类
 
-    public outputBuffer: string;
-    public errorBuffer: string;
+    public outputFIFO: Array<string>;    // 模拟stdout的FIFO
+    public errorFIFO: Array<string>;     // 模拟stderr的FIFO
 
     public workingDir: string;           // 系统当前的工作目录（用于模块相对路径的定位）
 
-    public asyncCallback: ()=>any;       // 异步事件回调（主要是用于REPL中处理异步事件返回对控制台的刷新操作）
+    public callbackOnTick: (x: Runtime)=>any;     // 时间片回调（每个Tick即时间片结束后触发）
+    public callbackOnEvent: (x: Runtime)=>any;    // 事件循环回调（计算相结束时触发）
+    public callbackOnHalt: (x: Runtime)=>any;     // 虚拟机终止回调（虚拟机所有进程执行结束、进入IDLE状态后触发）
+    public callbackOnError: (x: Runtime)=>any;    // 错误回调（虚拟机捕获异常时回调）
 
     public tickCounter = 0;              // 虚拟机调度机计数器：用于计量时间片切换（Tick）的次数
 
@@ -28,10 +31,13 @@ class Runtime {
         this.processPool = new Array();
         this.processQueue = new Array();
         this.ports = new HashMap();
-        this.asyncCallback = ()=>{};
-        this.outputBuffer = "";
-        this.errorBuffer = "";
+        this.outputFIFO = new Array();
+        this.errorFIFO = new Array();
         this.workingDir = workingDir;
+        this.callbackOnTick = (rt)=>null;
+        this.callbackOnEvent = (rt)=>null;
+        this.callbackOnHalt = (rt)=>null;
+        this.callbackOnError = (rt)=>null;
     }
 
     public AllocatePID(): number {
@@ -77,12 +83,12 @@ class Runtime {
         }
         // 后处理
         if(currentProcess.state === ProcessState.RUNNING) {
-            // 定期垃圾回收
-            currentProcess.GC();
             // 仍在运行的进程加入队尾
             currentProcess.state = ProcessState.READY;
             this.processQueue.push(currentPID);
         }
+
+        this.callbackOnTick(this);
 
         if(this.processQueue.length <= 0) {
             return VMState.IDLE;
@@ -92,7 +98,7 @@ class Runtime {
         }
     }
 
-    public StartClock(callback: ()=>any) {
+    public StartClock() {
         /* NOTE 【执行时钟设计说明】为什么要用setInterval？
             设想两个进程，其中一个是常驻的无限循环进程，另一个是需要执行某Node.js异步操作的进程。
             根据Node.js的事件循环特性，如果单纯使用while(1)实现，则异步操作永远得不到执行。
@@ -106,24 +112,43 @@ class Runtime {
         */
 
         function Run() {
+            let vmState = VMState.IDLE;
             let COMPUTATION_PHASE_LENGTH = 100; // TODO 这个值可以调整
             while(COMPUTATION_PHASE_LENGTH >= 0) {
-                let avmState = this.Tick(1000);
+                vmState = this.Tick(1000);
                 this.tickCounter++;
                 COMPUTATION_PHASE_LENGTH--;
-                if(avmState === VMState.IDLE) {
-                    clearInterval(CLOCK);
-                    callback();
+                if(vmState === VMState.IDLE) {
                     break;
                 }
             }
+
+            // 对所有进程执行垃圾回收
+            if (ANIMAC_CONFIG.is_gc_enabled === true) {
+                for (let i = 0; i < this.processQueue.length; i++) {
+                    let pid = this.processQueue[i];
+                    let process = this.processPool[pid];
+                    process.GC();
+                    // console.log(`[GC] 进程${pid}已完成GC`);
+                }
+            }
+
+            return vmState;
         }
 
         let CLOCK = setInterval(()=>{
             try {
-                Run.call(this);
+                let vmState = Run.call(this);
+                if (vmState === VMState.IDLE) {
+                    clearInterval(CLOCK);
+                    this.callbackOnHalt(this);
+                }
+                else {
+                    this.callbackOnEvent(this);
+                }
             }
             catch(e) {
+                this.callbackOnError(this);
                 this.Error(e.toString());
                 this.Error(`\n`);
             }
@@ -137,12 +162,12 @@ class Runtime {
 
     public Output(str: string): void {
         StdIOUtils.stdout(str);
-        this.outputBuffer += str;
+        this.outputFIFO.push(str);
     }
 
     public Error(str: string): void {
         StdIOUtils.stderr(str);
-        this.errorBuffer += str;
+        this.errorFIFO.push(str);
     }
 
 
@@ -1173,7 +1198,7 @@ class Runtime {
         else if(mnemonic === 'pause')       { this.AIL_PAUSE(argument, PROCESS, RUNTIME); }
         else if(mnemonic === 'halt')        { this.AIL_HALT(argument, PROCESS, RUNTIME); }
 
-        else if(mnemonic === 'set-child!')  { this.AIL_SETCHILD(argument, PROCESS, RUNTIME); }
+        else if(mnemonic === 'set_item')    { this.AIL_SETCHILD(argument, PROCESS, RUNTIME); }
         else if(mnemonic === 'concat')      { this.AIL_CONCAT(argument, PROCESS, RUNTIME); }
         else if(mnemonic === 'duplicate')   { this.AIL_DUPLICATE(argument, PROCESS, RUNTIME); }
     }

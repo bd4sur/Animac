@@ -74,28 +74,31 @@ a:hover {
                 选择测试用例：<select id="sample_list"></select>
             </div>
             <div>
+                <input checked type="checkbox" id="is_gc_enabled">
+                <label for="is_gc_enabled">启用垃圾回收</label>
+            </div>
+            <div>
                 <button class="DebuggerButton" id="execute"><span>执行</span></button>
                 <button class="DebuggerButton" id="step"><span>单步</span></button>
                 <button class="DebuggerButton" id="stepbystep"><span>连续步进</span></button>
                 <button class="DebuggerButton" id="reset"><span>复位</span></button>
-                <button class="DebuggerButton" id="clear"><span>清除</span></button>
             </div>
         </div>
 
         <section class="tabs">
             <menu role="tablist" aria-label="Sample Tabs">
-                <button role="tab" aria-selected="true" aria-controls="tab-A">代码编辑器</button>
-                <button role="tab" aria-controls="tab-B">调试器</button>
+                <button role="tab" aria-selected="true" aria-controls="tab_editor" id="tab_editor_button">代码编辑器</button>
+                <button role="tab" aria-controls="tab_debugger" id="tab_debugger_button">调试器</button>
             </menu>
             <!-- the tab content -->
-            <article role="tabpanel" id="tab-A" style="padding: 0 0 0 0;">
+            <article role="tabpanel" id="tab_editor" style="padding: 0 0 0 0;">
                 <div class="CodeEditor">
                     <div id="CodeMirrorContainer">
                         <textarea id="cmEditor" name="code"></textarea>
                     </div>
                 </div>
             </article>
-            <article role="tabpanel" hidden id="tab-B" style="padding: 0;">
+            <article role="tabpanel" hidden id="tab_debugger" style="padding: 0;">
                 <div class="Debugger">
                     <div class="debugger_col_container">
                         <div class="ilcode_column">
@@ -159,21 +162,16 @@ const tabs = document.querySelectorAll("menu[role=tablist]");
 
 for (let i = 0; i < tabs.length; i++) {
     const tab = tabs[i];
-
     const tabButtons = tab.querySelectorAll("menu[role=tablist] > button");
-
     tabButtons.forEach((btn) =>
         btn.addEventListener("click", (e) => {
             e.preventDefault();
-
             tabButtons.forEach((button) => {
-                if (
-                    button.getAttribute("aria-controls") ===
-                    e.target.getAttribute("aria-controls")
-                ) {
+                if (button.getAttribute("aria-controls") === e.target.getAttribute("aria-controls")) {
                     button.setAttribute("aria-selected", true);
                     openTab(e, tab);
-                } else {
+                }
+                else {
                     button.setAttribute("aria-selected", false);
                 }
             });
@@ -186,10 +184,15 @@ function openTab(event, tab) {
     articles.forEach((p) => {
         p.setAttribute("hidden", true);
     });
-    const article = tab.parentNode.querySelector(
-        `[role="tabpanel"]#${event.target.getAttribute("aria-controls")}`
-    );
+    const tab_id = event.target.getAttribute("aria-controls");
+    const article = tab.parentNode.querySelector(`[role="tabpanel"]#${tab_id}`);
     article.removeAttribute("hidden");
+    if (tab_id === "tab_editor") {
+        // document.querySelector("#step").setAttribute("disabled", true);
+    }
+    else {
+
+    }
 }
 
 // 页面整体布局
@@ -223,17 +226,45 @@ function initCMEditor() {
     return cmEditor;
 }
 
+let startTime = new Date();
+
 let cmEditor = initCMEditor();
 let DEBUGGER_CLOCK = 0;
 let DEBUGGER_STATE = "ready";
 
 let OUTPUT_BUFFER = "";
 
-ANIMAC_STDOUT_CALLBACK = (x) => {
-    OUTPUT_BUFFER += String(x);
+// 全局VM实例
+let ANIMAC_INSTANCE;
+
+let is_gc_enabled = true;
+
+
+// 虚拟机回调
+
+function callbackOnTick(rt) {
+    renderDebugInfo({
+        process: rt.processPool[0],
+        output: rt.outputFIFO.join("")
+    });
+}
+
+function callbackOnEvent(rt) {
+    OUTPUT_BUFFER = rt.outputFIFO.join("");
     document.getElementById('output').innerHTML = OUTPUT_BUFFER;
     scroll_to_bottom();
-};
+}
+
+function callbackOnHalt(rt) {
+    let finishTime = new Date();
+    console.timeEnd("执行计时");
+    OUTPUT_BUFFER = rt.outputFIFO.join("");
+    OUTPUT_BUFFER += '\n<span style="color: #0f0;">执行时间：' + (finishTime-startTime).toFixed(0) + 'ms</span>';
+    document.getElementById('output').innerHTML = OUTPUT_BUFFER;
+    scroll_to_bottom();
+    $('#execute').removeAttr('disabled');
+    $('#execute').html('执行');
+}
 
 function Init() {
 
@@ -243,47 +274,56 @@ function Init() {
         clearInterval(DEBUGGER_CLOCK);
     }
 
-    // let layoutObserver = new MutationObserver((mutations, observer) => {
-    //     if (is_debugger_show) {
-    //         $(".Right").show();
-    //         layout(800, 600, 200);
-    //     }
-    //     else {
-    //         $(".Right").hide();
-    //         let leftWidth = Math.min(window.innerWidth, 800);
-    //         layout(leftWidth, 0, 200);
-    //     }
-    // });
-    // layoutObserver.observe(document.getElementsByTagName('html')[0], {attributes: true, characterData: true, childList: true, subtree: true});
-
-    $("#clear").on("click", ()=>{
+    function reset() {
         pause();
+        OUTPUT_BUFFER = "";
+        ANIMAC_INSTANCE = new AnimacInstance("/test");
+        DEBUGGER_STATE = "ready";
+        clearInterval(DEBUGGER_CLOCK);
+    }
+
+    $("#reset").on("click", ()=>{
+        $("#tab_editor_button").click();
+        $("#sample_list").val("");
         cmEditor.setValue('');
+        clearDebugger();
+        reset();
     });
 
     $("#execute").on("click", ()=>{
-        pause();
+
+        reset();
+
+        $("#tab_editor_button").click();
+
         $('#execute').attr('disabled', 'disabled');
         $('#execute').html('正在执行');
 
-        ANIMAC_VFS["/test/main.scm"] = cmEditor.getValue();
         try {
-            console.time("执行计时");
-            let startTime = new Date();
-            loadFile("/test/main.scm", ()=>{});
             OUTPUT_BUFFER = "";
-            RUNTIME.StartClock(()=>{
-                let finishTime = new Date();
-                console.timeEnd("执行计时");
-                OUTPUT_BUFFER += '\n<span style="color: #0f0;">执行时间：' + (finishTime-startTime).toFixed(0) + 'ms</span>';
-                document.getElementById('output').innerHTML = OUTPUT_BUFFER;
-                scroll_to_bottom();
-                $('#execute').removeAttr('disabled');
-                $('#execute').html('执行');
-            });
+
+            ANIMAC_INSTANCE = new AnimacInstance("/test");
+
+            ANIMAC_INSTANCE.setCallback(
+                (rt)=>{},
+                callbackOnEvent,
+                callbackOnHalt,
+                (rt)=>{}
+            );
+
+            ANIMAC_CONFIG.is_gc_enabled = is_gc_enabled;
+
+            ANIMAC_VFS["/test/main.scm"] = cmEditor.getValue();
+
+            ANIMAC_INSTANCE.loadFromFile("/test/main.scm", 0);
+
+            console.time("执行计时");
+            startTime = new Date();
+
+            ANIMAC_INSTANCE.start();
         }
         catch (e) {
-            document.getElementById('output').innerHTML = '<span style="color: #f00;">执行失败</span>';
+            document.getElementById('output').innerHTML = `<span style="color: #f00;">执行失败</span><br><span>${e}</span>`;
             scroll_to_bottom();
             $('#execute').removeAttr('disabled');
             $('#execute').html('执行');
@@ -291,40 +331,51 @@ function Init() {
     });
 
     $("#step").on("click", ()=>{
+        $("#tab_debugger_button").click();
         if (DEBUGGER_STATE === "ready" || DEBUGGER_STATE === "paused") {
             if (DEBUGGER_STATE === "ready") {
-                ANIMAC_VFS["/test/main.scm"] = cmEditor.getValue();
-                loadFile("/test/main.scm", ()=>{});
                 OUTPUT_BUFFER = "";
+                ANIMAC_INSTANCE = new AnimacInstance("/test");
+                ANIMAC_INSTANCE.setCallback(
+                    callbackOnTick,
+                    callbackOnEvent,
+                    (rt)=>{},
+                    (rt)=>{}
+                );
+                ANIMAC_CONFIG.is_gc_enabled = is_gc_enabled;
+                ANIMAC_VFS["/test/main.scm"] = cmEditor.getValue();
+                ANIMAC_INSTANCE.loadFromFile("/test/main.scm", 0);
             }
             DEBUGGER_STATE = "paused";
-
-            RUNTIME.Tick(0);
-            renderDebugInfo({
-                process: RUNTIME.processPool[0],
-                outputBuffer: RUNTIME.outputBuffer
-            });
+            ANIMAC_INSTANCE.step();
         }
     });
 
     $("#stepbystep").on("click", ()=>{
+        $("#tab_debugger_button").click();
         if (DEBUGGER_STATE === "ready" || DEBUGGER_STATE === "paused") {
             if (DEBUGGER_STATE === "ready") {
-                ANIMAC_VFS["/test/main.scm"] = cmEditor.getValue();
-                loadFile("/test/main.scm", ()=>{});
                 OUTPUT_BUFFER = "";
+                ANIMAC_INSTANCE = new AnimacInstance("/test");
+                ANIMAC_INSTANCE.setCallback(
+                    callbackOnTick,
+                    callbackOnEvent,
+                    (rt)=>{},
+                    (rt)=>{}
+                );
+                ANIMAC_CONFIG.is_gc_enabled = is_gc_enabled;
+                ANIMAC_VFS["/test/main.scm"] = cmEditor.getValue();
+                ANIMAC_INSTANCE.loadFromFile("/test/main.scm", 0);
             }
 
             $("#stepbystep").html("暂停步进");
             DEBUGGER_STATE = "running";
-            // layoutObserver.disconnect();
 
             DEBUGGER_CLOCK = setInterval(()=>{
-                RUNTIME.Tick(0);
-                renderDebugInfo({
-                    process: RUNTIME.processPool[0],
-                    outputBuffer: RUNTIME.outputBuffer
-                });
+                let vmState = ANIMAC_INSTANCE.step();
+                if (vmState === "IDLE") {
+                    reset();
+                }
             }, 0);
         }
         else if (DEBUGGER_STATE === "running") {
@@ -332,26 +383,15 @@ function Init() {
         }
     });
 
-    $("#reset").on("click", ()=>{
-        pause();
-
-        RUNTIME.outputBuffer = "";
-        RUNTIME.errorBuffer = "";
-        RUNTIME.processPool = new Array();
-        RUNTIME.processQueue = new Array();
-
-        ANIMAC_VFS["/test/main.scm"] = cmEditor.getValue();
-        loadFile("/test/main.scm", ()=>{});
-        OUTPUT_BUFFER = "";
-        document.getElementById('output').innerHTML = '';
-        DEBUGGER_STATE = "ready";
-    });
-
     document.onkeydown = (event)=>{
         if(event && event.keyCode === 119){ // F8
             $("#step").click();
         }
     };
+
+    $('#is_gc_enabled').on("change", function() {
+        is_gc_enabled = $(this).prop('checked');
+    });
 
 }
 
@@ -403,7 +443,8 @@ for (let i = 0; i < SAMPLES.length; i++) {
     $("#sample_list").append(`<option value="${SAMPLES[i][0]}" data-entry="${SAMPLES[i][2]}">${SAMPLES[i][1]}</option>`);
 }
 
-$("#sample_list").change(function() {
+$("#sample_list").on("change", function() {
+    $("#tab_editor_button").click();
     const sample_vfs_path = $(this).val();
     const sample_entry = $(this).children(":selected").attr("data-entry");
     console.log(sample_entry);
