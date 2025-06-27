@@ -68,7 +68,6 @@ node build/animac-cli.js
 - 生成器
 - 快速傅里叶变换（FFT）
 - 基于FFT的大整数乘法
-- 矩阵乘法
 
 用例集2 `test/test_2.scm` 包括：
 
@@ -79,6 +78,8 @@ node build/animac-cli.js
 
 - 线程和本地库（文件、HTTPS）测试
 - Yin-yang puzzle ([Wikipedia](https://en.wikipedia.org/wiki/Call-with-current-continuation#Examples))
+
+用例 `test/mlp.scm` 实现了多层感知机模型的训练和验证，用于解决[鸢尾花分类问题](https://en.wikipedia.org/wiki/Iris_flower_data_set)，旨在全面测试整个系统。
 
 用例 `test/test_deadlock.scm` 基于虚拟机提供的多线程机制，实现了一个死锁现象的案例，旨在测试线程调度器和端口操作。
 
