@@ -139,18 +139,16 @@ class Runtime {
         let CLOCK = setInterval(()=>{
             try {
                 let vmState = Run.call(this);
+                this.callbackOnEvent(this);
                 if (vmState === VMState.IDLE) {
                     clearInterval(CLOCK);
                     this.callbackOnHalt(this);
                 }
-                else {
-                    this.callbackOnEvent(this);
-                }
             }
             catch(e) {
-                this.callbackOnError(this);
                 this.Error(e.toString());
                 this.Error(`\n`);
+                this.callbackOnError(this);
             }
         }, 0);
     }
@@ -1054,16 +1052,63 @@ class Runtime {
         PROCESS.SetState(ProcessState.STOPPED);
     }
 
-    // set-child! handle 修改列表元素
-    public AIL_SETCHILD(argument: string, PROCESS: Process, RUNTIME: Runtime): void {
-        let index = PROCESS.PopOperand();
-        let value = PROCESS.PopOperand();
-        if(TypeOfToken(argument) === "HANDLE") {
-            PROCESS.heap.Get(argument).children[parseInt(index)] = value;
+    // get_item 获取列表元素
+    public AIL_GET_ITEM(argument: string, PROCESS: Process, RUNTIME: Runtime): void {
+        let index = PROCESS.PopOperand(); // 参数2
+        let listHandle = PROCESS.PopOperand(); // 参数1
+        if(TypeOfToken(listHandle) === "HANDLE" && TypeOfToken(index) === "NUMBER") {
+            let value = PROCESS.heap.Get(listHandle).children[parseInt(index)];
+            PROCESS.PushOperand(value);
             PROCESS.Step();
         }
         else {
-            throw `[Error] set-child!参数类型不正确`;
+            throw `[Error] get_item参数类型不正确`;
+        }
+    }
+
+    // set_item 修改列表元素（有副作用的原位修改）
+    public AIL_SET_ITEM(argument: string, PROCESS: Process, RUNTIME: Runtime): void {
+        let value = PROCESS.PopOperand(); // 参数3
+        let index = PROCESS.PopOperand(); // 参数2
+        let listHandle = PROCESS.PopOperand(); // 参数1
+        if(TypeOfToken(listHandle) === "HANDLE" && TypeOfToken(index) === "NUMBER") {
+            let listobj = PROCESS.heap.Get(listHandle);
+            if(parseInt(index) >= listobj.children.length) {
+                throw `[Error] set_item!下标越界`;
+            }
+            else {
+                listobj.children[parseInt(index)] = value;
+                PROCESS.Step();
+            }
+        }
+        else {
+            throw `[Error] set_item!参数类型不正确`;
+        }
+    }
+
+    // append 在列表尾部增加元素（有副作用的原位修改）
+    public AIL_APPEND(argument: string, PROCESS: Process, RUNTIME: Runtime): void {
+        let value = PROCESS.PopOperand(); // 参数2
+        let listHandle = PROCESS.PopOperand(); // 参数1
+        if(TypeOfToken(listHandle) === "HANDLE") {
+            PROCESS.heap.Get(listHandle).children.push(value);
+            PROCESS.Step();
+        }
+        else {
+            throw `[Error] append!参数类型不正确`;
+        }
+    }
+
+    // length 获取列表元素
+    public AIL_LENGTH(argument: string, PROCESS: Process, RUNTIME: Runtime): void {
+        let listHandle = PROCESS.PopOperand(); // 参数1
+        if(TypeOfToken(listHandle) === "HANDLE") {
+            let listlen = PROCESS.heap.Get(listHandle).children.length;
+            PROCESS.PushOperand(Number(listlen));
+            PROCESS.Step();
+        }
+        else {
+            throw `[Error] length参数类型不正确`;
         }
     }
 
@@ -1198,7 +1243,9 @@ class Runtime {
         else if(mnemonic === 'pause')       { this.AIL_PAUSE(argument, PROCESS, RUNTIME); }
         else if(mnemonic === 'halt')        { this.AIL_HALT(argument, PROCESS, RUNTIME); }
 
-        else if(mnemonic === 'set_item')    { this.AIL_SETCHILD(argument, PROCESS, RUNTIME); }
+        else if(mnemonic === 'get_item')    { this.AIL_GET_ITEM(argument, PROCESS, RUNTIME); }
+        else if(mnemonic === 'set_item')    { this.AIL_SET_ITEM(argument, PROCESS, RUNTIME); }
+        else if(mnemonic === 'length')      { this.AIL_LENGTH(argument, PROCESS, RUNTIME); }
         else if(mnemonic === 'concat')      { this.AIL_CONCAT(argument, PROCESS, RUNTIME); }
         else if(mnemonic === 'duplicate')   { this.AIL_DUPLICATE(argument, PROCESS, RUNTIME); }
     }

@@ -41,7 +41,7 @@ Options:
 const TOP_NODE_HANDLE = "&TOP_NODE";
 // 关键字集合
 const KEYWORDS = [
-    "car", "cdr", "cons", "get_item", "set_item",
+    "car", "cdr", "cons", "get_item", "set_item!", "length",
     "cond", "if", "else", "begin", "while", "break", "continue",
     "+", "-", "*", "/", "=", "%", "pow",
     "and", "or", "not", ">", "<", ">=", "<=", "eq?",
@@ -57,7 +57,7 @@ const KEYWORDS = [
 const PrimitiveInstruction = {
     "+": "add", "-": "sub", "*": "mul", "/": "div", "%": "mod",
     "=": "eqn", "<": "lt", ">": "gt", "<=": "le", ">=": "ge",
-    "set!": "set"
+    "set!": "set", "set_item!": "set_item"
 };
 // 取数组/栈的栈顶
 function Top(arr) {
@@ -684,7 +684,7 @@ class Memory {
         typeTag = typeTag || "OBJECT";
         let handle = `&${typeTag}_${this.handleCounter}`;
         if (ANIMAC_CONFIG.is_debug !== true) {
-            handle = "&" + HashString([handle]);
+            handle = "&" + HashString([handle, String(Math.random())]);
         }
         this.data.set(handle, null);
         this.metadata.set(handle, this.MetaString(isStatic, false, "allocated", false));
@@ -3657,18 +3657,16 @@ class Runtime {
         let CLOCK = setInterval(() => {
             try {
                 let vmState = Run.call(this);
+                this.callbackOnEvent(this);
                 if (vmState === VMState.IDLE) {
                     clearInterval(CLOCK);
                     this.callbackOnHalt(this);
                 }
-                else {
-                    this.callbackOnEvent(this);
-                }
             }
             catch (e) {
-                this.callbackOnError(this);
                 this.Error(e.toString());
                 this.Error(`\n`);
+                this.callbackOnError(this);
             }
         }, 0);
     }
@@ -4509,16 +4507,60 @@ class Runtime {
     AIL_HALT(argument, PROCESS, RUNTIME) {
         PROCESS.SetState(ProcessState.STOPPED);
     }
-    // set-child! handle 修改列表元素
-    AIL_SETCHILD(argument, PROCESS, RUNTIME) {
-        let index = PROCESS.PopOperand();
-        let value = PROCESS.PopOperand();
-        if (TypeOfToken(argument) === "HANDLE") {
-            PROCESS.heap.Get(argument).children[parseInt(index)] = value;
+    // get_item 获取列表元素
+    AIL_GET_ITEM(argument, PROCESS, RUNTIME) {
+        let index = PROCESS.PopOperand(); // 参数2
+        let listHandle = PROCESS.PopOperand(); // 参数1
+        if (TypeOfToken(listHandle) === "HANDLE" && TypeOfToken(index) === "NUMBER") {
+            let value = PROCESS.heap.Get(listHandle).children[parseInt(index)];
+            PROCESS.PushOperand(value);
             PROCESS.Step();
         }
         else {
-            throw `[Error] set-child!参数类型不正确`;
+            throw `[Error] get_item参数类型不正确`;
+        }
+    }
+    // set_item 修改列表元素（有副作用的原位修改）
+    AIL_SET_ITEM(argument, PROCESS, RUNTIME) {
+        let value = PROCESS.PopOperand(); // 参数3
+        let index = PROCESS.PopOperand(); // 参数2
+        let listHandle = PROCESS.PopOperand(); // 参数1
+        if (TypeOfToken(listHandle) === "HANDLE" && TypeOfToken(index) === "NUMBER") {
+            let listobj = PROCESS.heap.Get(listHandle);
+            if (parseInt(index) >= listobj.children.length) {
+                throw `[Error] set_item!下标越界`;
+            }
+            else {
+                listobj.children[parseInt(index)] = value;
+                PROCESS.Step();
+            }
+        }
+        else {
+            throw `[Error] set_item!参数类型不正确`;
+        }
+    }
+    // append 在列表尾部增加元素（有副作用的原位修改）
+    AIL_APPEND(argument, PROCESS, RUNTIME) {
+        let value = PROCESS.PopOperand(); // 参数2
+        let listHandle = PROCESS.PopOperand(); // 参数1
+        if (TypeOfToken(listHandle) === "HANDLE") {
+            PROCESS.heap.Get(listHandle).children.push(value);
+            PROCESS.Step();
+        }
+        else {
+            throw `[Error] append!参数类型不正确`;
+        }
+    }
+    // length 获取列表元素
+    AIL_LENGTH(argument, PROCESS, RUNTIME) {
+        let listHandle = PROCESS.PopOperand(); // 参数1
+        if (TypeOfToken(listHandle) === "HANDLE") {
+            let listlen = PROCESS.heap.Get(listHandle).children.length;
+            PROCESS.PushOperand(Number(listlen));
+            PROCESS.Step();
+        }
+        else {
+            throw `[Error] length参数类型不正确`;
         }
     }
     // concat 将若干元素连接为新列表，同时修改各子列表的parent字段为自身把柄
@@ -4727,8 +4769,14 @@ class Runtime {
         else if (mnemonic === 'halt') {
             this.AIL_HALT(argument, PROCESS, RUNTIME);
         }
+        else if (mnemonic === 'get_item') {
+            this.AIL_GET_ITEM(argument, PROCESS, RUNTIME);
+        }
         else if (mnemonic === 'set_item') {
-            this.AIL_SETCHILD(argument, PROCESS, RUNTIME);
+            this.AIL_SET_ITEM(argument, PROCESS, RUNTIME);
+        }
+        else if (mnemonic === 'length') {
+            this.AIL_LENGTH(argument, PROCESS, RUNTIME);
         }
         else if (mnemonic === 'concat') {
             this.AIL_CONCAT(argument, PROCESS, RUNTIME);

@@ -47,7 +47,7 @@ function renderDebugInfo(res) {
     let instructions = process.instructions;
 
     // Console
-    $("#output").html(res.output);
+    $("#output").html($("#output").html() + res.output);
 
     // 渲染IL代码
     let html = new Array();

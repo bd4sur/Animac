@@ -247,10 +247,12 @@ function callbackOnTick(rt) {
         process: rt.processPool[0],
         output: rt.outputFIFO.join("")
     });
+    rt.outputFIFO = [];
 }
 
 function callbackOnEvent(rt) {
-    OUTPUT_BUFFER = rt.outputFIFO.join("");
+    OUTPUT_BUFFER += rt.outputFIFO.join("");
+    rt.outputFIFO = [];
     document.getElementById('output').innerHTML = OUTPUT_BUFFER;
     scroll_to_bottom();
 }
@@ -258,12 +260,17 @@ function callbackOnEvent(rt) {
 function callbackOnHalt(rt) {
     let finishTime = new Date();
     console.timeEnd("执行计时");
-    OUTPUT_BUFFER = rt.outputFIFO.join("");
     OUTPUT_BUFFER += '\n<span style="color: #0f0;">执行时间：' + (finishTime-startTime).toFixed(0) + 'ms</span>';
     document.getElementById('output').innerHTML = OUTPUT_BUFFER;
     scroll_to_bottom();
     $('#execute').removeAttr('disabled');
     $('#execute').html('执行');
+}
+
+function callbackOnError(rt) {
+    OUTPUT_BUFFER += `<span style="color: #f00;">${rt.errorFIFO.join("")}</span>`;
+    document.getElementById('output').innerHTML = OUTPUT_BUFFER;
+    scroll_to_bottom();
 }
 
 function Init() {
@@ -277,6 +284,7 @@ function Init() {
     function reset() {
         pause();
         OUTPUT_BUFFER = "";
+        $("#output").html("");
         ANIMAC_INSTANCE = new AnimacInstance("/test");
         DEBUGGER_STATE = "ready";
         clearInterval(DEBUGGER_CLOCK);
@@ -308,7 +316,7 @@ function Init() {
                 (rt)=>{},
                 callbackOnEvent,
                 callbackOnHalt,
-                (rt)=>{}
+                callbackOnError
             );
 
             ANIMAC_CONFIG.is_gc_enabled = is_gc_enabled;
@@ -335,12 +343,13 @@ function Init() {
         if (DEBUGGER_STATE === "ready" || DEBUGGER_STATE === "paused") {
             if (DEBUGGER_STATE === "ready") {
                 OUTPUT_BUFFER = "";
+                $("#output").html("");
                 ANIMAC_INSTANCE = new AnimacInstance("/test");
                 ANIMAC_INSTANCE.setCallback(
                     callbackOnTick,
                     callbackOnEvent,
                     (rt)=>{},
-                    (rt)=>{}
+                    callbackOnError
                 );
                 ANIMAC_CONFIG.is_gc_enabled = is_gc_enabled;
                 ANIMAC_VFS["/test/main.scm"] = cmEditor.getValue();
@@ -356,12 +365,13 @@ function Init() {
         if (DEBUGGER_STATE === "ready" || DEBUGGER_STATE === "paused") {
             if (DEBUGGER_STATE === "ready") {
                 OUTPUT_BUFFER = "";
+                $("#output").html("");
                 ANIMAC_INSTANCE = new AnimacInstance("/test");
                 ANIMAC_INSTANCE.setCallback(
                     callbackOnTick,
                     callbackOnEvent,
                     (rt)=>{},
-                    (rt)=>{}
+                    callbackOnError
                 );
                 ANIMAC_CONFIG.is_gc_enabled = is_gc_enabled;
                 ANIMAC_VFS["/test/main.scm"] = cmEditor.getValue();

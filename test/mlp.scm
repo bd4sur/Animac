@@ -15,7 +15,7 @@
     (if (and (>= row 0) (>= col 0) (< row mat_row) (< col mat_col))
         {
           (define index (+ (* row mat_col) col))
-          (List.ref matrix (+ index 1))
+          (get_item matrix (+ index 1))
         }
         {
           #f
@@ -298,9 +298,9 @@
         (define res '())
         (while (not (null? rem)) {
           (if (= count i)
-              (set! res (cons (List.ref lst j) res))
+              (set! res (cons (get_item lst j) res))
               (if (= count j)
-                  (set! res (cons (List.ref lst i) res))
+                  (set! res (cons (get_item lst i) res))
                   (set! res (cons (car rem) res))))
           (set! count (+ count 1))
           (set! rem (cdr rem))
@@ -331,7 +331,7 @@
     (define res '())
     (while (< i batch_size) {
       (define k (car indexes_rem))
-      (set! res (cons (List.ref dataset k) res))
+      (set! res (cons (get_item dataset k) res))
       (set! indexes_rem (cdr indexes_rem))
       (set! i (+ i 1))
     })
@@ -392,7 +392,7 @@
 (define validate
   (lambda (x_batch y_batch W0 W1 W2 b0 b1 b2)
     (define a (forward x_batch W0 W1 W2 b0 b1 b2))
-    (define y_hat (List.ref a 3))
+    (define y_hat (get_item a 3))
     (define batch_size (car (car x_batch)))
     (define tp_count 0)
     (define cats '())
@@ -433,15 +433,15 @@
         (define y_batch (make_matrix (get_batch y_train batch_indexes BATCH_SIZE)))
 
         (define a (forward x_batch W0 W1 W2 b0 b1 b2))
-        (define a0 (List.ref a 0))  (define a1 (List.ref a 1))  (define a2 (List.ref a 2))  (define a3 (List.ref a 3))
+        (define a0 (get_item a 0))  (define a1 (get_item a 1))  (define a2 (get_item a 2))  (define a3 (get_item a 3))
 
         (define grad (backward a0 a1 a2 a3 y_batch W0 W1 W2))
-        (define grad_W0 (List.ref (car grad) 0))
-        (define grad_W1 (List.ref (car grad) 1))
-        (define grad_W2 (List.ref (car grad) 2))
-        (define grad_b0 (List.ref (car (cdr grad)) 0))
-        (define grad_b1 (List.ref (car (cdr grad)) 1))
-        (define grad_b2 (List.ref (car (cdr grad)) 2))
+        (define grad_W0 (get_item (car grad) 0))
+        (define grad_W1 (get_item (car grad) 1))
+        (define grad_W2 (get_item (car grad) 2))
+        (define grad_b0 (get_item (car (cdr grad)) 0))
+        (define grad_b1 (get_item (car (cdr grad)) 1))
+        (define grad_b2 (get_item (car (cdr grad)) 2))
 
         (define update_with_lr (lambda (x y) (- x (* LEARNING_RATE y))))
 

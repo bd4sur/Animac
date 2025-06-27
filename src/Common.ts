@@ -39,11 +39,11 @@ const TOP_NODE_HANDLE: Handle = "&TOP_NODE";
 
 // 关键字集合
 const KEYWORDS = [
-    "car",    "cdr",    "cons",    "get_item", "set_item",
-    "cond",    "if",    "else",    "begin",    "while",  "break",   "continue",
-    "+",      "-",      "*",       "/",        "=",      "%",       "pow",
-    "and",     "or",    "not",     ">",        "<",      ">=",      "<=",    "eq?",
-    "define", "set!",   "null?",   "atom?",    "list?",  "number?",
+    "car",    "cdr",    "cons",    "get_item", "set_item!", "length",
+    "cond",    "if",    "else",    "begin",    "while",     "break",   "continue",
+    "+",      "-",      "*",       "/",        "=",         "%",       "pow",
+    "and",     "or",    "not",     ">",        "<",         ">=",      "<=",    "eq?",
+    "define", "set!",   "null?",   "atom?",    "list?",     "number?",
     "display","newline",
     "write",  "read",
     "call/cc",
@@ -58,7 +58,7 @@ const KEYWORDS = [
 const PrimitiveInstruction = {
     "+": "add",    "-": "sub",    "*": "mul",    "/": "div",    "%": "mod",
     "=": "eqn",    "<": "lt",     ">": "gt",     "<=": "le",    ">=": "ge",
-    "set!": "set"
+    "set!": "set", "set_item!": "set_item"
 };
 
 
