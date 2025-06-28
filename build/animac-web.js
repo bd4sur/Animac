@@ -1943,7 +1943,10 @@ function Analyse(ast) {
 //
 //////////////////////////////////////////////////
 function Compile(ast) {
+    // 编译得到的中间语言指令序列
     let ILCode = new Array();
+    // while块的标签跟踪栈：用于处理break/continue
+    let whileTagStack = new Array();
     ///////////////////////////////
     //  工具函数
     ///////////////////////////////
@@ -2012,7 +2015,12 @@ function Compile(ast) {
                 }
             }
             else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(bodyType) >= 0 || ast.IsNativeCall(body)) {
-                AddInstruction(`push ${body}`);
+                if (body === "break" || body === "continue") {
+                    throw `[Error] lambda块内不允许出现break和continue。`;
+                }
+                else {
+                    AddInstruction(`push ${body}`);
+                }
             }
             else if (bodyType === "VARIABLE") {
                 AddInstruction(`load ${body}`);
@@ -2091,7 +2099,12 @@ function Compile(ast) {
             }
         }
         else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(rightValueType) >= 0 || ast.IsNativeCall(rightValue)) {
-            AddInstruction(`push ${rightValue}`);
+            if (rightValue === "break" || rightValue === "continue") {
+                throw `[Error] define右值不允许出现break和continue。`;
+            }
+            else {
+                AddInstruction(`push ${rightValue}`);
+            }
         }
         else if (rightValueType === "VARIABLE") {
             AddInstruction(`load ${rightValue}`);
@@ -2141,7 +2154,12 @@ function Compile(ast) {
             }
         }
         else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(rightValueType) >= 0 || ast.IsNativeCall(rightValue)) {
-            AddInstruction(`push ${rightValue}`);
+            if (rightValue === "break" || rightValue === "continue") {
+                throw `[Error] set!右值不允许出现break和continue。`;
+            }
+            else {
+                AddInstruction(`push ${rightValue}`);
+            }
         }
         else if (rightValueType === "VARIABLE") {
             AddInstruction(`load ${rightValue}`);
@@ -2244,7 +2262,12 @@ function Compile(ast) {
                 }
                 // TODO 此处可以作优化
                 else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(predicateType) >= 0 || ast.IsNativeCall(predicate)) {
-                    AddInstruction(`push ${predicate}`);
+                    if (predicate === "break" || predicate === "continue") {
+                        throw `[Error] cond条件表达式不允许出现break和continue。`;
+                    }
+                    else {
+                        AddInstruction(`push ${predicate}`);
+                    }
                 }
                 else if (predicateType === "VARIABLE") {
                     AddInstruction(`load ${predicate}`);
@@ -2285,7 +2308,23 @@ function Compile(ast) {
                 }
             }
             else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(branchType) >= 0 || ast.IsNativeCall(branch)) {
-                AddInstruction(`push ${branch}`);
+                if (branch === "break" || branch === "continue") {
+                    let whileTags = Top(whileTagStack);
+                    if (whileTags !== undefined) {
+                        if (branch === "break") {
+                            AddInstruction(`goto ${whileTags[1]}`); // endTag
+                        }
+                        else {
+                            AddInstruction(`goto ${whileTags[0]}`); // condTag
+                        }
+                    }
+                    else {
+                        throw `[Error] break或continue没有对应的while表达式。`;
+                    }
+                }
+                else {
+                    AddInstruction(`push ${branch}`);
+                }
             }
             else if (branchType === "VARIABLE") {
                 AddInstruction(`load ${branch}`);
@@ -2310,6 +2349,10 @@ function Compile(ast) {
         let node = ast.GetNode(nodeHandle);
         // 注释
         AddInstruction(`;; ✅ IF “${nodeHandle}” BEGIN`);
+        // 标签
+        let uqStr = UniqueString();
+        let trueTag = `@IF_TRUE_${uqStr}`; // true分支标签
+        let endTag = `@IF_END_${uqStr}`; // if语句结束标签
         // 处理分支条件
         let predicate = node.children[1];
         let predicateType = TypeOfToken(predicate);
@@ -2325,7 +2368,12 @@ function Compile(ast) {
         }
         // TODO 此处可以作优化
         else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(predicateType) >= 0 || ast.IsNativeCall(predicate)) {
-            AddInstruction(`push ${predicate}`);
+            if (predicate === "break" || predicate === "continue") {
+                throw `[Error] if条件表达式不允许出现break和continue。`;
+            }
+            else {
+                AddInstruction(`push ${predicate}`);
+            }
         }
         else if (predicateType === "VARIABLE") {
             AddInstruction(`load ${predicate}`);
@@ -2333,85 +2381,127 @@ function Compile(ast) {
         else {
             throw `[Error] 意外的if分支条件。`;
         }
-        // 认为取f分支的概率较大，因此使用iftrue指令
-        let uqStr = UniqueString();
-        let trueTag = `@IF_TRUE_${uqStr}`; // true分支标签
-        let endTag = `@IF_END_${uqStr}`; // if语句结束标签
-        AddInstruction(`iftrue ${trueTag}`);
-        // 处理false分支
-        let falseBranch = node.children[3];
-        let falseBranchType = TypeOfToken(falseBranch);
-        if (falseBranchType === "HANDLE") {
-            let falseBranchNode = ast.GetNode(falseBranch);
-            if (falseBranchNode.type === "LAMBDA") {
-                AddInstruction(`loadclosure @${falseBranch}`); // 返回闭包
+        // 两个分支（children[2]和children[3]）既可以同时存在，也可以只存在t分支，但是t分支是必须存在的。
+        if (node.children[2] !== undefined) {
+            // 如果t分支和f分支同时存在，则认为取f分支的概率较大，使用iftrue指令，将f分支的IL指令放在t分支前面
+            if (node.children[3] !== undefined) {
+                AddInstruction(`iftrue ${trueTag}`);
+                // 处理false分支
+                let falseBranch = node.children[3];
+                let falseBranchType = TypeOfToken(falseBranch);
+                if (falseBranchType === "HANDLE") {
+                    let falseBranchNode = ast.GetNode(falseBranch);
+                    if (falseBranchNode.type === "LAMBDA") {
+                        AddInstruction(`loadclosure @${falseBranch}`); // 返回闭包
+                    }
+                    else if (falseBranchNode.type === "QUOTE") {
+                        AddInstruction(`push ${falseBranch}`);
+                    }
+                    else if (falseBranchNode.type === "QUASIQUOTE") {
+                        CompileQuasiquote(falseBranch);
+                    }
+                    else if (falseBranchNode.type === "STRING") {
+                        AddInstruction(`push ${falseBranch}`);
+                    }
+                    else if (falseBranchNode.type === "APPLICATION" || falseBranchNode.type === "UNQUOTE") {
+                        CompileApplication(falseBranch);
+                    }
+                    else {
+                        throw `[Error] 意外的if-false分支。`;
+                    }
+                }
+                else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(falseBranchType) >= 0 || ast.IsNativeCall(falseBranch)) {
+                    if (falseBranch === "break" || falseBranch === "continue") {
+                        let whileTags = Top(whileTagStack);
+                        if (whileTags !== undefined) {
+                            if (falseBranch === "break") {
+                                AddInstruction(`goto ${whileTags[1]}`); // endTag
+                            }
+                            else {
+                                AddInstruction(`goto ${whileTags[0]}`); // condTag
+                            }
+                        }
+                        else {
+                            throw `[Error] break或continue没有对应的while表达式。`;
+                        }
+                    }
+                    else {
+                        AddInstruction(`push ${falseBranch}`);
+                    }
+                }
+                else if (falseBranchType === "VARIABLE") {
+                    AddInstruction(`load ${falseBranch}`);
+                }
+                else {
+                    throw `[Error] 意外的if-false分支。`;
+                }
+                // 跳转到结束标签
+                AddInstruction(`goto ${endTag}`);
+                // 添加true分支标签
+                AddInstruction(trueTag);
             }
-            else if (falseBranchNode.type === "QUOTE") {
-                AddInstruction(`push ${falseBranch}`);
-            }
-            else if (falseBranchNode.type === "QUASIQUOTE") {
-                CompileQuasiquote(falseBranch);
-            }
-            else if (falseBranchNode.type === "STRING") {
-                AddInstruction(`push ${falseBranch}`);
-            }
-            else if (falseBranchNode.type === "APPLICATION" || falseBranchNode.type === "UNQUOTE") {
-                CompileApplication(falseBranch);
-            }
+            // 或者，如果只存在t分支，f分支不存在，则在t分支前添加一个条件跳转指令
+            //   NOTE 只有t分支的形式(if p t)等效于(and p t)
             else {
-                throw `[Error] 意外的if-false分支。`;
+                AddInstruction(`iffalse ${endTag}`);
             }
-        }
-        else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(falseBranchType) >= 0 || ast.IsNativeCall(falseBranch)) {
-            AddInstruction(`push ${falseBranch}`);
-        }
-        else if (falseBranchType === "VARIABLE") {
-            AddInstruction(`load ${falseBranch}`);
-        }
-        else {
-            throw `[Error] 意外的if-false分支。`;
-        }
-        // 跳转到结束标签
-        AddInstruction(`goto ${endTag}`);
-        // 添加true分支标签
-        AddInstruction(trueTag);
-        // 处理true分支
-        let trueBranch = node.children[2];
-        let trueBranchType = TypeOfToken(trueBranch);
-        if (trueBranchType === "HANDLE") {
-            let trueBranchNode = ast.GetNode(trueBranch);
-            if (trueBranchNode.type === "LAMBDA") {
-                AddInstruction(`loadclosure @${trueBranch}`); // 返回闭包
+            // 以下编译t分支（true分支必须存在）
+            let trueBranch = node.children[2];
+            let trueBranchType = TypeOfToken(trueBranch);
+            if (trueBranchType === "HANDLE") {
+                let trueBranchNode = ast.GetNode(trueBranch);
+                if (trueBranchNode.type === "LAMBDA") {
+                    AddInstruction(`loadclosure @${trueBranch}`); // 返回闭包
+                }
+                else if (trueBranchNode.type === "QUOTE") {
+                    AddInstruction(`push ${trueBranch}`);
+                }
+                else if (trueBranchNode.type === "QUASIQUOTE") {
+                    CompileQuasiquote(trueBranch);
+                }
+                else if (trueBranchNode.type === "STRING") {
+                    AddInstruction(`push ${trueBranch}`);
+                }
+                else if (trueBranchNode.type === "APPLICATION" || trueBranchNode.type === "UNQUOTE") {
+                    CompileApplication(trueBranch);
+                }
+                else {
+                    throw `[Error] 意外的if-true分支。`;
+                }
             }
-            else if (trueBranchNode.type === "QUOTE") {
-                AddInstruction(`push ${trueBranch}`);
+            else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(trueBranchType) >= 0 || ast.IsNativeCall(trueBranch)) {
+                if (trueBranch === "break" || trueBranch === "continue") {
+                    let whileTags = Top(whileTagStack);
+                    if (whileTags !== undefined) {
+                        if (trueBranch === "break") {
+                            AddInstruction(`goto ${whileTags[1]}`); // endTag
+                        }
+                        else {
+                            AddInstruction(`goto ${whileTags[0]}`); // condTag
+                        }
+                    }
+                    else {
+                        throw `[Error] break或continue没有对应的while表达式。`;
+                    }
+                }
+                else {
+                    AddInstruction(`push ${trueBranch}`);
+                }
             }
-            else if (trueBranchNode.type === "QUASIQUOTE") {
-                CompileQuasiquote(trueBranch);
-            }
-            else if (trueBranchNode.type === "STRING") {
-                AddInstruction(`push ${trueBranch}`);
-            }
-            else if (trueBranchNode.type === "APPLICATION" || trueBranchNode.type === "UNQUOTE") {
-                CompileApplication(trueBranch);
+            else if (trueBranchType === "VARIABLE") {
+                AddInstruction(`load ${trueBranch}`);
             }
             else {
                 throw `[Error] 意外的if-true分支。`;
             }
-        }
-        else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(trueBranchType) >= 0 || ast.IsNativeCall(trueBranch)) {
-            AddInstruction(`push ${trueBranch}`);
-        }
-        else if (trueBranchType === "VARIABLE") {
-            AddInstruction(`load ${trueBranch}`);
+            // 结束标签
+            AddInstruction(endTag);
+            AddInstruction(`;; 🛑 IF “${nodeHandle}” END   `);
+            AddInstruction(`;;`);
         }
         else {
-            throw `[Error] 意外的if-true分支。`;
+            throw `[Error] if表达式中不存在true分支。`;
         }
-        // 结束标签
-        AddInstruction(endTag);
-        AddInstruction(`;; 🛑 IF “${nodeHandle}” END   `);
-        AddInstruction(`;;`);
     }
     // 编译while
     function CompileWhile(nodeHandle) {
@@ -2422,6 +2512,8 @@ function Compile(ast) {
         let uqStr = UniqueString();
         let condTag = `@WHILE_COND_${uqStr}`; // 循环条件标签
         let endTag = `@WHILE_END_${uqStr}`; // 循环结束标签
+        // 进入while块，将标签压入while块标签跟踪栈，用于处理块内本级的break/continue
+        whileTagStack.push([condTag, endTag]);
         // 添加循环条件标签
         AddInstruction(condTag);
         // 循环条件
@@ -2474,7 +2566,23 @@ function Compile(ast) {
             }
         }
         else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(loopBodyType) >= 0 || ast.IsNativeCall(loopBody)) {
-            AddInstruction(`push ${loopBody}`);
+            if (loopBody === "break" || loopBody === "continue") {
+                let whileTags = Top(whileTagStack);
+                if (whileTags !== undefined) {
+                    if (loopBody === "break") {
+                        AddInstruction(`goto ${whileTags[1]}`); // endTag
+                    }
+                    else {
+                        AddInstruction(`goto ${whileTags[0]}`); // condTag
+                    }
+                }
+                else {
+                    throw `[Error] break或continue没有对应的while表达式。`;
+                }
+            }
+            else {
+                AddInstruction(`push ${loopBody}`);
+            }
         }
         else if (loopBodyType === "VARIABLE") {
             AddInstruction(`load ${loopBody}`);
@@ -2486,6 +2594,8 @@ function Compile(ast) {
         AddInstruction(`goto ${condTag}`);
         // 结束标签
         AddInstruction(endTag);
+        // 退出while块，标签从while块标签跟踪栈弹出
+        whileTagStack.pop();
         AddInstruction(`;; 🛑 WHILE “${nodeHandle}” END   `);
         AddInstruction(`;;`);
     }
@@ -2525,7 +2635,23 @@ function Compile(ast) {
             }
             // TODO 此处可以作优化（短路）
             else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(clauseType) >= 0 || ast.IsNativeCall(clause)) {
-                AddInstruction(`push ${clause}`);
+                if (clause === "break" || clause === "continue") {
+                    let whileTags = Top(whileTagStack);
+                    if (whileTags !== undefined) {
+                        if (clause === "break") {
+                            AddInstruction(`goto ${whileTags[1]}`); // endTag
+                        }
+                        else {
+                            AddInstruction(`goto ${whileTags[0]}`); // condTag
+                        }
+                    }
+                    else {
+                        throw `[Error] break或continue没有对应的while表达式。`;
+                    }
+                }
+                else {
+                    AddInstruction(`push ${clause}`);
+                }
             }
             else if (clauseType === "VARIABLE") {
                 AddInstruction(`load ${clause}`);
@@ -2583,7 +2709,23 @@ function Compile(ast) {
             }
             // TODO 此处可以作优化（短路）
             else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(clauseType) >= 0 || ast.IsNativeCall(clause)) {
-                AddInstruction(`push ${clause}`);
+                if (clause === "break" || clause === "continue") {
+                    let whileTags = Top(whileTagStack);
+                    if (whileTags !== undefined) {
+                        if (clause === "break") {
+                            AddInstruction(`goto ${whileTags[1]}`); // endTag
+                        }
+                        else {
+                            AddInstruction(`goto ${whileTags[0]}`); // condTag
+                        }
+                    }
+                    else {
+                        throw `[Error] break或continue没有对应的while表达式。`;
+                    }
+                }
+                else {
+                    AddInstruction(`push ${clause}`);
+                }
             }
             else if (clauseType === "VARIABLE") {
                 AddInstruction(`load ${clause}`);
@@ -2623,7 +2765,12 @@ function Compile(ast) {
                 }
             }
             else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(TypeOfToken(child)) >= 0 || ast.IsNativeCall(child)) {
-                AddInstruction(`push ${child}`);
+                if (child === "break" || child === "continue") {
+                    throw `[Error] quasiquote内部不允许出现break和continue。`;
+                }
+                else {
+                    AddInstruction(`push ${child}`);
+                }
             }
             else if (TypeOfToken(child) === "VARIABLE") {
                 AddInstruction(`load ${child}`);
@@ -2695,7 +2842,23 @@ function Compile(ast) {
                 }
             }
             else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(childType) >= 0 || ast.IsNativeCall(child)) {
-                AddInstruction(`push ${child}`);
+                if (child === "break" || child === "continue") {
+                    let whileTags = Top(whileTagStack);
+                    if (whileTags !== undefined) {
+                        if (child === "break") {
+                            AddInstruction(`goto ${whileTags[1]}`); // endTag
+                        }
+                        else {
+                            AddInstruction(`goto ${whileTags[0]}`); // condTag
+                        }
+                    }
+                    else {
+                        throw `[Error] break或continue没有对应的while表达式。`;
+                    }
+                }
+                else {
+                    AddInstruction(`push ${child}`);
+                }
             }
             else if (childType === "VARIABLE") {
                 AddInstruction(`load ${child}`);
@@ -2795,7 +2958,23 @@ function Compile(ast) {
                     }
                 }
                 else if (["NUMBER", "BOOLEAN", "SYMBOL", "STRING", "KEYWORD", "PORT"].indexOf(childType) >= 0 || ast.IsNativeCall(child)) {
-                    AddInstruction(`push ${child}`);
+                    if (child === "break" || child === "continue") {
+                        let whileTags = Top(whileTagStack);
+                        if (whileTags !== undefined) {
+                            if (child === "break") {
+                                AddInstruction(`goto ${whileTags[1]}`); // endTag
+                            }
+                            else {
+                                AddInstruction(`goto ${whileTags[0]}`); // condTag
+                            }
+                        }
+                        else {
+                            throw `[Error] break或continue没有对应的while表达式。`;
+                        }
+                    }
+                    else {
+                        AddInstruction(`push ${child}`);
+                    }
                 }
                 else if (childType === "VARIABLE") {
                     AddInstruction(`load ${child}`);
@@ -2811,7 +2990,10 @@ function Compile(ast) {
             // 3、处理尾递归
             // Primitive
             if (firstType === "KEYWORD") {
-                if (first !== 'begin') { // begin不加入指令序列
+                if (first === "break" || first === "continue") {
+                    throw `[Error] break和continue不可出现在列表的第一项。`;
+                }
+                else if (first !== 'begin') { // begin不加入指令序列
                     if (first in PrimitiveInstruction) {
                         AddInstruction(`${PrimitiveInstruction[first]}`);
                     }
