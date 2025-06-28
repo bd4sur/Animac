@@ -15,7 +15,7 @@
         "src/Parser.ts",
         "src/Analyser.ts",
         "src/Compiler.ts",
-        "src/ModuleLoader.ts",
+        "src/Linker.ts",
         "src/Process.ts",
         "src/Runtime.ts",
         "src/Instruction.ts",

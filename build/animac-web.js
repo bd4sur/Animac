@@ -3057,8 +3057,8 @@ function Compile(ast) {
     CompileAll();
     return ILCode;
 }
-// ModuleLoader.ts
-// 模块加载器
+// Linker.ts
+// 模块链接器：从一份代码（文件或者字符串）出发，递归查找所有依赖模块，并将其全部链接为一个完整的模块
 // 模块
 class Module {
 }

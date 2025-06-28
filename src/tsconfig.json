@@ -15,7 +15,7 @@
         "Parser.ts",
         "Analyser.ts",
         "Compiler.ts",
-        "ModuleLoader.ts",
+        "Linker.ts",
         "Process.ts",
         "Runtime.ts",
         "Instruction.ts",
