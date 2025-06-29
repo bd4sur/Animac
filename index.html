@@ -222,7 +222,7 @@ function initCMEditor() {
     cmEditor.setSize('auto', cmEditorHeight);
     $(".CodeEditor").height(cmEditorHeight);
 
-    cmEditor.setValue(ANIMAC_VFS["/test/man_or_boy_test.scm"]);
+    cmEditor.setValue(ANIMAC_VFS["/test/nano_llm.scm"]);
     return cmEditor;
 }
 
@@ -429,6 +429,7 @@ const samples = {
 };
 
 const SAMPLES = [
+    ["/test/nano_llm.scm", "Nano语言模型", ""],
     ["/test/man_or_boy_test.scm", "Man or boy test", ""],
     ["/test/quine.scm", "Quine", ""],
     ["/test/quicksort.scm", "快速排序", ""],
