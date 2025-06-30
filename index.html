@@ -284,7 +284,6 @@ function Init() {
     function reset() {
         pause();
         OUTPUT_BUFFER = "";
-        $("#output").html("");
         ANIMAC_INSTANCE = new AnimacInstance("/test");
         DEBUGGER_STATE = "ready";
         clearInterval(DEBUGGER_CLOCK);
@@ -295,11 +294,13 @@ function Init() {
         $("#sample_list").val("");
         cmEditor.setValue('');
         clearDebugger();
+        $("#output").html("");
         reset();
     });
 
     $("#execute").on("click", ()=>{
 
+        $("#output").html("");
         reset();
 
         $("#tab_editor_button").click();

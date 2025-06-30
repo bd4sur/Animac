@@ -2486,9 +2486,9 @@ ANIMAC_VFS["/test/nano_llm.scm"] = `;; 自研Nano语言模型适配 Animac Schem
     (while (<= i 256) {
       (define output (LLM.generate))
       (define output_len (String.length output))
-      (if (or (<= output_len 0) (= (- output_len prev_output_len) 0)) continue)
+      (if (<= output_len 0) continue)
       (if (String.equals output "<|eos|>") { (display "<|eos|>") break })
-      (display (String.slice output prev_output_len output_len))
+      (display (String.slice output (if (>= prev_output_len output_len) 0 prev_output_len) output_len))
       (if (= 0 (% (+ i 1) 36)) (newline))
       (set! prev_output_len output_len)
       (set! i (+ i 1))
