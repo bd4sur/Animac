@@ -1,6 +1,8 @@
 ANIMAC_VFS["/test/list.scm"] = `;; 应用库
 ;; 几个高阶函数
 
+(native Math)
+
 ;; 判断list是不是lat（list of atoms）
 (define lat?
   (lambda (list)
@@ -121,6 +123,42 @@ ANIMAC_VFS["/test/list.scm"] = `;; 应用库
     (if (null? b)
         a
         (concat (append (car b) a) (cdr b)))))
+
+;; 生成遍历[0,n)的乱序列表
+(define shuffle
+  (lambda (n)
+    (define swap
+      (lambda (lst i j)
+        (define count 0)
+        (define rem lst)
+        (define res '())
+        (while (not (null? rem)) {
+          (if (= count i)
+              (set! res (cons (get_item lst j) res))
+              (if (= count j)
+                  (set! res (cons (get_item lst i) res))
+                  (set! res (cons (car rem) res))))
+          (set! count (+ count 1))
+          (set! rem (cdr rem))
+        })
+        res))
+    ;; 生成[0,n)顺序序列
+    (define seq '())
+    (define count (- n 1))
+    (while (>= count 0) {
+      (set! seq (cons count seq))
+      (set! count (- count 1))
+    })
+    ;; 随机打乱（Fisher-Yates算法）
+    (define res seq)
+    (define index 0)
+    (set! count (- n 1))
+    (while (> count 0) {
+      (set! index (Math.floor (* (Math.random) (+ count 1))))
+      (set! res (swap res count index))
+      (set! count (- count 1))
+    })
+    res))
 `;
 
 ANIMAC_VFS["/test/quine.scm"] = `(display "Quine测试：")(newline)
@@ -890,42 +928,6 @@ ANIMAC_VFS["/test/mlp.scm"] = `;; 多层感知机训练与推理
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; 生成遍历[0,n)的乱序列表
-(define shuffle
-  (lambda (n)
-    (define swap
-      (lambda (lst i j)
-        (define count 0)
-        (define rem lst)
-        (define res '())
-        (while (not (null? rem)) {
-          (if (= count i)
-              (set! res (cons (get_item lst j) res))
-              (if (= count j)
-                  (set! res (cons (get_item lst i) res))
-                  (set! res (cons (car rem) res))))
-          (set! count (+ count 1))
-          (set! rem (cdr rem))
-        })
-        res))
-    ;; 生成[0,n)顺序序列
-    (define seq '())
-    (define count (- n 1))
-    (while (>= count 0) {
-      (set! seq (cons count seq))
-      (set! count (- count 1))
-    })
-    ;; 随机打乱（Fisher-Yates算法）
-    (define res seq)
-    (define index 0)
-    (set! count (- n 1))
-    (while (> count 0) {
-      (set! index (Math.floor (* (Math.random) (+ count 1))))
-      (set! res (swap res count index))
-      (set! count (- count 1))
-    })
-    res))
-
 (define get_batch
   (lambda (dataset indexes batch_size)
     (define i 0)
@@ -1026,7 +1028,7 @@ ANIMAC_VFS["/test/mlp.scm"] = `;; 多层感知机训练与推理
     (while (< epoch 1000) {
       (display "Epoch ") (display epoch) (display " (") (display (/ trainset_size BATCH_SIZE)) (display " iterations) ")
       (set! iter 0)
-      (define indexes (shuffle trainset_size))
+      (define indexes (List.shuffle trainset_size))
       (while (< iter (/ trainset_size BATCH_SIZE)) {
         (display ".")
 
@@ -2347,6 +2349,117 @@ ANIMAC_VFS["/test/async_callback.scm"] = `;; 异步回调演示
 
 
 
+`;
+
+ANIMAC_VFS["/test/shudu.scm"] = `;; 解数独：用于测试语言核心、call/cc和列表原位操作
+;; 2025-06-30
+
+(import List "/test/list.scm")
+
+(define board '(
+  (1 2 3 0 0 0 0 0 0)
+  (4 5 6 0 0 0 0 0 0)
+  (7 8 9 0 0 0 0 0 0)
+  (0 0 0 1 2 3 0 0 0)
+  (0 0 0 4 5 6 0 0 0)
+  (0 0 0 7 8 9 0 0 0)
+  (0 0 0 0 0 0 1 2 3)
+  (0 0 0 0 0 0 4 5 6)
+  (0 0 0 0 0 0 7 8 9)
+))
+
+(define RANK 9)
+
+(define get_cell (lambda (board i j) (get_item (get_item board i) j)))
+(define set_cell (lambda (board i j n) (set_item! (get_item board i) j n)))
+
+(define show
+  (lambda (board)
+    (define i 0)
+    (while (< i RANK) {
+        (display "\t")
+        (display (get_item board i))
+        (newline)
+        (set! i (+ i 1))
+    })))
+
+(define check
+  (lambda (board i j n)
+    (call/cc
+      (lambda (return)
+        ;; 检查行
+        (define count 0)
+        (while (< count RANK) {
+            (if (= (get_cell board i count) n) (return #f))
+            (set! count (+ count 1))
+        })
+        ;; 检查列
+        (set! count 0)
+        (while (< count RANK) {
+            (if (= (get_cell board count j) n) (return #f))
+            (set! count (+ count 1))
+        })
+        ;; 检查所在宫格
+        (define row_from (if (< i 3) 0 (if (< i 6) 3 (if (< i 9) 6 (return #f)))))
+        (define col_from (if (< j 3) 0 (if (< j 6) 3 (if (< j 9) 6 (return #f)))))
+        (define count_i row_from)
+        (define count_j col_from)
+        (while (< count_i (+ row_from 3)) {
+            (set! count_j col_from)
+            (while (< count_j (+ col_from 3)) {
+                (if (= (get_cell board count_i count_j) n) (return #f))
+                (set! count_j (+ count_j 1))
+            })
+            (set! count_i (+ count_i 1))
+        })
+        #t))))
+
+(define solve_shudu
+  (lambda (board)
+    (call/cc
+      (lambda (return)
+        (define i 0)
+        (define j 0)
+        (define n 0)
+        (while (< i RANK) {
+            (set! j 0)
+            (while (< j RANK) {
+                (if (= 0 (get_cell board i j)) {
+                    (define nlist (List.shuffle RANK)) ;; [0,RANK)的乱序列表
+                    (set! n 0)
+                    (while (< n RANK) {
+                        (define rn (+ 1 (get_item nlist n)))
+                        (if (check board i j rn) {
+                            (set_cell board i j rn)
+                            (if (solve_shudu board) (return #t))
+                            (set_cell board i j 0)
+                        })
+                        (set! n (+ n 1))
+                    })
+                    (return #f)
+                })
+                (set! j (+ j 1))
+            })
+            (set! i (+ i 1))
+        })
+        #t))))
+
+(define run
+  (lambda () {
+    (display "是否有解？")
+    (if (solve_shudu board) {
+        (display "有解，解为：")
+        (newline)
+        (show board)
+        (newline)
+    } {
+        (display "无解。")
+        (newline)
+    })
+  })
+)
+
+(run)
 `;
 
 ANIMAC_VFS["/test/nano_llm.scm"] = `;; 自研Nano语言模型适配 Animac Scheme 的宿主接口

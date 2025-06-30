@@ -288,42 +288,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; 生成遍历[0,n)的乱序列表
-(define shuffle
-  (lambda (n)
-    (define swap
-      (lambda (lst i j)
-        (define count 0)
-        (define rem lst)
-        (define res '())
-        (while (not (null? rem)) {
-          (if (= count i)
-              (set! res (cons (get_item lst j) res))
-              (if (= count j)
-                  (set! res (cons (get_item lst i) res))
-                  (set! res (cons (car rem) res))))
-          (set! count (+ count 1))
-          (set! rem (cdr rem))
-        })
-        res))
-    ;; 生成[0,n)顺序序列
-    (define seq '())
-    (define count (- n 1))
-    (while (>= count 0) {
-      (set! seq (cons count seq))
-      (set! count (- count 1))
-    })
-    ;; 随机打乱（Fisher-Yates算法）
-    (define res seq)
-    (define index 0)
-    (set! count (- n 1))
-    (while (> count 0) {
-      (set! index (Math.floor (* (Math.random) (+ count 1))))
-      (set! res (swap res count index))
-      (set! count (- count 1))
-    })
-    res))
-
 (define get_batch
   (lambda (dataset indexes batch_size)
     (define i 0)
@@ -424,7 +388,7 @@
     (while (< epoch 1000) {
       (display "Epoch ") (display epoch) (display " (") (display (/ trainset_size BATCH_SIZE)) (display " iterations) ")
       (set! iter 0)
-      (define indexes (shuffle trainset_size))
+      (define indexes (List.shuffle trainset_size))
       (while (< iter (/ trainset_size BATCH_SIZE)) {
         (display ".")
 

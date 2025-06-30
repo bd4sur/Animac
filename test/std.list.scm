@@ -1,6 +1,8 @@
 ;; 应用库
 ;; 几个高阶函数
 
+(native Math)
+
 ;; 判断list是不是lat（list of atoms）
 (define lat?
   (lambda (list)
@@ -121,6 +123,43 @@
     (if (null? b)
         a
         (concat (append (car b) a) (cdr b)))))
+
+;; 生成遍历[0,n)的乱序列表
+(define shuffle
+  (lambda (n)
+    (define swap
+      (lambda (lst i j)
+        (define count 0)
+        (define rem lst)
+        (define res '())
+        (while (not (null? rem)) {
+          (if (= count i)
+              (set! res (cons (get_item lst j) res))
+              (if (= count j)
+                  (set! res (cons (get_item lst i) res))
+                  (set! res (cons (car rem) res))))
+          (set! count (+ count 1))
+          (set! rem (cdr rem))
+        })
+        res))
+    ;; 生成[0,n)顺序序列
+    (define seq '())
+    (define count (- n 1))
+    (while (>= count 0) {
+      (set! seq (cons count seq))
+      (set! count (- count 1))
+    })
+    ;; 随机打乱（Fisher-Yates算法）
+    (define res seq)
+    (define index 0)
+    (set! count (- n 1))
+    (while (> count 0) {
+      (set! index (Math.floor (* (Math.random) (+ count 1))))
+      (set! res (swap res count index))
+      (set! count (- count 1))
+    })
+    res))
+
 
 (define run
   (lambda () {
