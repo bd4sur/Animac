@@ -78,6 +78,10 @@ a:hover {
                 <label for="is_gc_enabled">启用垃圾回收</label>
             </div>
             <div>
+                <input checked type="checkbox" id="is_console_wrap">
+                <label for="is_console_wrap">输出自动折行</label>
+            </div>
+            <div>
                 <button class="DebuggerButton" id="execute"><span>执行</span></button>
                 <button class="DebuggerButton" id="step"><span>单步</span></button>
                 <button class="DebuggerButton" id="stepbystep"><span>连续步进</span></button>
@@ -89,6 +93,7 @@ a:hover {
             <menu role="tablist" aria-label="Sample Tabs">
                 <button role="tab" aria-selected="true" aria-controls="tab_editor" id="tab_editor_button">代码编辑器</button>
                 <button role="tab" aria-controls="tab_debugger" id="tab_debugger_button">调试器</button>
+                <button role="tab" aria-controls="tab_doc" id="tab_doc_button">文档</button>
             </menu>
             <!-- the tab content -->
             <article role="tabpanel" id="tab_editor" style="padding: 0 0 0 0;">
@@ -123,6 +128,11 @@ a:hover {
                             </div>
                         </div>
                     </div>
+                </div>
+            </article>
+            <article role="tabpanel" hidden id="tab_doc" style="padding: 0 0 0 0;">
+                <div style="margin: 10px auto; display: flex; justify-content: center;">
+                    <img src="./doc/sysarch.png" style="max-width: 100%; max-height: 340px;"></img>
                 </div>
             </article>
 
@@ -238,7 +248,7 @@ let OUTPUT_BUFFER = "";
 let ANIMAC_INSTANCE;
 
 let is_gc_enabled = true;
-
+let is_console_wrap = true;
 
 // 虚拟机回调
 
@@ -402,6 +412,16 @@ function Init() {
 
     $('#is_gc_enabled').on("change", function() {
         is_gc_enabled = $(this).prop('checked');
+    });
+
+    $('#is_console_wrap').on("change", function() {
+        is_console_wrap = $(this).prop('checked');
+        if (is_console_wrap) {
+            $("#output").css("white-space", "pre-wrap");
+        }
+        else {
+            $("#output").css("white-space", "pre");
+        }
     });
 
 }
