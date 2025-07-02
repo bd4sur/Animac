@@ -84,6 +84,8 @@ node build/animac-cli.js
 
 用例 `test/nano_llm.scm` 实现了[自制Nano语言模型](https://github.com/bd4sur/Nano)的推理，旨在测试比较复杂的宿主接口。
 
+用例 `test/sleepsort.scm` 实现了“睡眠排序”，这是一种幽默的排序算法，旨在测试异步回调函数。
+
 用例 `test/test_deadlock.scm` 基于虚拟机提供的多线程机制，实现了一个死锁现象的案例，旨在测试线程调度器和端口操作。
 
 用例 `test/test_cr.scm` 基于`call/cc`实现了一个简单的协程机制，借助典型的生产者消费者问题来演示单个虚拟机线程内实现关键资源的无锁并发操作。
