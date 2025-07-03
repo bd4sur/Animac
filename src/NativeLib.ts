@@ -88,6 +88,23 @@ function PI(PROCESS, RUNTIME) {
     PROCESS.Step();
 }
 
+// (Math.pow base:Number exponent:Number) : Number
+function pow(PROCESS, RUNTIME) {
+    let exponent = PROCESS.PopOperand();
+    let base = PROCESS.PopOperand();
+    let res = Math.pow(Number(base), Number(exponent));
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
+// (Math.sqrt x:Number) : Number
+function sqrt(PROCESS, RUNTIME) {
+    let x = PROCESS.PopOperand();
+    let res = Math.sqrt(Number(x));
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
 // (Math.exp x:Number) : Number
 function exp(PROCESS, RUNTIME) {
     let x = PROCESS.PopOperand();
@@ -192,6 +209,8 @@ function random(PROCESS, RUNTIME) {
 }
 
 module.exports.PI = PI;
+module.exports.pow = pow;
+module.exports.sqrt = sqrt;
 module.exports.exp = exp;
 module.exports.log = log;
 module.exports.log10 = log10;

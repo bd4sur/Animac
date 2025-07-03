@@ -3,6 +3,9 @@
 
 (native LLM)
 (native String)
+(native Math)
+
+(import List "std.list.scm")
 
 ;; NOTE 将模型转换成Base64字符串
 ;; const fs = require('fs'); const buffer = fs.readFileSync('psycho_90k.bin');
@@ -48,4 +51,387 @@
   })
 )
 
-(run)
+;; (run)
+
+(LLM.init PSYCHO_90K_MODEL)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 模型结构参数
+
+(define llm_config (LLM.get_config))
+
+(define block_size (get_item llm_config 0))
+(define vocab_size (get_item llm_config 1))
+(define n_layer    (get_item llm_config 2))
+(define n_embd     (get_item llm_config 3))
+(define n_head     (get_item llm_config 4))
+(define n_kv_head  (get_item llm_config 5))
+(define head_dim   (get_item llm_config 6))
+(define n_hidden   (get_item llm_config 7))
+(define is_shared_classifier (get_item llm_config 8))
+
+(define kv_dim (* n_kv_head head_dim))
+(define kv_mul (/ n_head n_kv_head))
+
+(display "    block_size = ") (display block_size) (newline)
+(display "    vocab_size = ") (display vocab_size) (newline)
+(display "    n_layer = ") (display n_layer) (newline)
+(display "    n_embd = ") (display n_embd) (newline)
+(display "    n_head = ") (display n_head) (newline)
+(display "    n_kv_head = ") (display n_kv_head) (newline)
+(display "    head_dim = ") (display head_dim) (newline)
+(display "    n_hidden = ") (display n_hidden) (newline)
+(display "    is_shared_classifier = ") (display is_shared_classifier) (newline)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 模型权重
+
+(define param (LLM.get_param))
+
+(define token_embedding  (get_item param 0))  ;; (vocab_size, n_embd)
+(define rms_norm_attn    (get_item param 1))  ;; (n_layer, n_embd)
+(define wq               (get_item param 2))  ;; (n_layer, n_embd, n_embd)
+(define wk               (get_item param 3))  ;; (n_layer, n_embd, kv_dim)
+(define wv               (get_item param 4))  ;; (n_layer, n_embd, kv_dim)
+(define wo               (get_item param 5))  ;; (n_layer, n_embd, n_embd)
+(define rms_norm_ffn     (get_item param 6))  ;; (n_layer, n_embd)
+(define w1               (get_item param 7))  ;; (n_layer, n_hidden, n_embd)
+(define w2               (get_item param 8))  ;; (n_layer, n_embd, n_hidden)
+(define w3               (get_item param 9))  ;; (n_layer, n_hidden, n_embd)
+(define rms_norm_final   (get_item param 10)) ;; (n_embd)
+(define token_classifier (get_item param 11)) ;; (vocab_size, n_embd)
+(define freq_cis_real    (get_item param 12)) ;; (block_size, head_dim/2)
+(define freq_cis_imag    (get_item param 13)) ;; (block_size, head_dim/2)
+
+(display (List.map param (lambda (sublist) (length sublist)))) (newline)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 激活值中间缓冲区
+
+(define new_buffer
+  (lambda (len)
+    (define iter
+      (lambda (buf i)
+        (if (= i 0) buf (iter (cons 0 buf) (- i 1)))))
+    (iter '() len)))
+
+(define x   (new_buffer n_embd))
+(define xb  (new_buffer n_embd))
+(define xba (new_buffer n_embd)) ;; (q_dim == n_embd)
+(define xb2 (new_buffer n_embd))
+(define hb  (new_buffer n_hidden))
+(define hb2 (new_buffer n_hidden))
+(define q   (new_buffer n_embd))
+
+(define k_cache (new_buffer n_layer)) ;; '(n_layer * (block_size, kv_dim))
+(define v_cache (new_buffer n_layer)) ;; '(n_layer * (block_size, kv_dim))
+(define i 0)
+(while (< i n_layer) {
+  (set_item! k_cache i (new_buffer (* block_size kv_dim)))
+  (set_item! v_cache i (new_buffer (* block_size kv_dim)))
+  (set! i (+ i 1))
+})
+
+(define att (new_buffer (* n_head block_size))) ;; '(n_head, block_size)
+
+;; (define att (new_buffer n_head)) ;; '(n_head, block_size)
+;; (set! i 0)
+;; (while (< i n_head) {
+;;   (set_item! att i (new_buffer block_size))
+;;   (set! i (+ i 1))
+;; })
+
+(define logits (new_buffer vocab_size))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 基础算子
+
+(define accum
+  (lambda (a b size)
+    (define i 0)
+    (while (< i size) {
+      (set_item! a i (+ (get_item a i) (get_item b i)))
+      (set! i (+ i 1))
+    })))
+
+(define scale
+  (lambda (a k size)
+    (define i 0)
+    (while (< i size) {
+      (set_item! a i (* (get_item a i) k))
+      (set! i (+ i 1))
+    })))
+
+(define rms_norm
+  (lambda (out x weight weight_offset size)
+    (define ss 0)
+    (define i 0)
+    (define xi 0)
+    (while (< i size) {
+      (set! xi (get_item x i))
+      (set! ss (+ ss (* xi xi)))
+      (set! i (+ i 1))
+    })
+    (set! ss (/ ss size))
+    (set! ss (+ ss 0.00001)) ;; 1e-5
+    (set! ss (/ 1.0 (Math.sqrt ss)))
+    (set! i 0)
+    (while (< i size) {
+      (set_item! out i (* (get_item weight (+ weight_offset i)) (* ss (get_item x i))))
+      (set! i (+ i 1))
+    })))
+
+(define softmax
+  (lambda (x x_offset size)
+    (define max_val -10000000) ;; TODO
+    (define xi 0)
+    (define i 0)
+    (while (< i size) {
+      (set! xi (get_item x (+ x_offset i)))
+      (if (> xi max_val) (set! max_val xi))
+      (set! i (+ i 1))
+    })
+    (define sum 0)
+    (set! i 0)
+    (while (< i size) {
+      (set! xi (Math.exp (- (get_item x (+ x_offset i)) max_val)))
+      (set_item! x (+ x_offset i) xi)
+      (set! sum (+ sum xi))
+      (set! i (+ i 1))
+    })
+    (set! i 0)
+    (while (< i size) {
+      (set_item! x (+ x_offset i) (/ (get_item x (+ x_offset i)) sum))
+      (set! i (+ i 1))
+    })))
+
+(define matmul
+  (lambda (xout x w xout_offset w_offset n d)
+    (define i 0)
+    (define j 0)
+    (define val 0)
+    (while (< i d) {
+      (set! val 0)
+      (set! j 0)
+      (while (< j n) {
+        (set! val (+ val (* (get_item w (+ w_offset (+ (* i n) j))) (get_item x j))))
+        (set! j (+ j 1))
+      })
+      (set_item! xout (+ xout_offset i) val)
+      (set! i (+ i 1))
+    })))
+
+
+;; w  = torch.tensor([[11,12,13,14], [21,22,23,24], [31,32,33,34]])
+;; xx = torch.tensor([[1],[2],[3],[4]])
+;; xout = w @ xx  # [[130],[230],[330]]
+
+;; (define w '(11 12 13 14 21 22 23 24 31 32 33 34)) ;; (3, 4)
+;; (define xx '(1 2 3 4)) ;; (4, 1)
+;; (define xout (new_buffer 3)) ;; (3, 1)
+;; (matmul xout xx w 0 0 4 3)
+;; (display xout)
+
+(define rope
+  (lambda (q k pos k_offset)
+    (define h 0)
+    (define i 0)
+    (define offset 0)
+    (define freq_offset (* pos (/ head_dim 2)))
+    (define val0 0) (define val1 0)
+    (define fcr 0)  (define fci 0)
+    ;; q = RoPE(q)
+    (set! h 0)
+    (while (< h n_head) {
+      (set! offset (* h head_dim))
+      (set! i 0)
+      (while (< i head_dim) {
+        (set! val0 (get_item q (+ offset i)))
+        (set! val1 (get_item q (+ offset (+ i 1))))
+        (set! fcr  (get_item freq_cis_real (+ freq_offset (/ i 2))))
+        (set! fci  (get_item freq_cis_imag (+ freq_offset (/ i 2))))
+        (set_item! q (+ offset i)       (- (* val0 fcr) (* val1 fci)))
+        (set_item! q (+ offset (+ i 1)) (+ (* val0 fci) (* val1 fcr)))
+        (set! i (+ i 2))
+      })
+      (set! h (+ h 1))
+    })
+    ;; k = RoPE(k)
+    (set! h 0)
+    (while (< h n_kv_head) {
+      (set! offset (+ k_offset (* h head_dim)))
+      (set! i 0)
+      (while (< i head_dim) {
+        (set! val0 (get_item k (+ offset i)))
+        (set! val1 (get_item k (+ offset (+ i 1))))
+        (set! fcr  (get_item freq_cis_real (+ freq_offset (/ i 2))))
+        (set! fci  (get_item freq_cis_imag (+ freq_offset (/ i 2))))
+        (set_item! k (+ offset i)       (- (* val0 fcr) (* val1 fci)))
+        (set_item! k (+ offset (+ i 1)) (+ (* val0 fci) (* val1 fcr)))
+        (set! i (+ i 2))
+      })
+      (set! h (+ h 1))
+    })
+  ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 完整的前向传播
+
+(define llm_forward
+  (lambda (token pos)
+
+    (define layer 0)
+    (define i 0)
+    (define h 0)
+    (define m 0)
+    (define t 0)
+
+    (define k #f)
+    (define v #f)
+    (define kv_pos_offset 0)
+
+    (define wq_offset 0)
+    (define wkv_offset 0)
+    (define wo_offset 0)
+
+    (define q_head_offset 0)
+    (define k_head_offset 0)
+    (define v_head_offset 0)
+
+    (define att_head_offset 0)
+    (define xba_head_offset 0)
+
+    (define score 0)
+
+    ;; copy the token embedding into x
+    (set! i 0)
+    (while (< i n_embd) {
+      (set_item! x i (get_item token_embedding (+ (* token n_embd) i)))
+      (set! i (+ i 1))
+    })
+
+    ;; forward all the layers
+    (set! layer 0)
+    (while (< layer n_layer) {
+
+      ;; attention rmsnorm
+      (rms_norm xb x rms_norm_attn (* layer n_embd) n_embd)
+
+      ;; kv_cache at current layer
+      (set! k (get_item k_cache layer)) ;; (block_size, kv_dim)
+      (set! v (get_item v_cache layer)) ;; (block_size, kv_dim)
+
+      ;; qkv matmuls for this position
+      (set! wq_offset  (* layer (* n_embd n_embd)))
+      (set! wkv_offset (* layer (* n_embd kv_dim)))
+      (set! kv_pos_offset (* pos kv_dim))
+      (matmul  q  xb  wq  0              wq_offset   n_embd  n_embd)
+      (matmul  k  xb  wk  kv_pos_offset  wkv_offset  n_embd  kv_dim)
+      (matmul  v  xb  wv  kv_pos_offset  wkv_offset  n_embd  kv_dim)
+
+      ;; RoPE on q k
+      (rope q k pos kv_pos_offset)
+
+      ;; GQA-MHA: iterate over all heads
+      (set! h 0)
+      (while (< h n_head) {
+        (set! m (Math.floor (/ h kv_mul)))
+        (set! q_head_offset (* h head_dim))
+        ;; iterate over all timesteps, including the current one
+        (set! att_head_offset (* h block_size))
+        (set! t 0)
+        (while (<= t pos) {
+          (set! k_head_offset (+ (* t kv_dim) (* m head_dim)))
+          ;; calculate the attention score as the dot product of q and k
+          (set! score 0)
+          (set! i 0)
+          (while (< i head_dim) {
+            (set! score
+                  (+ score (* (get_item q (+ q_head_offset i))
+                              (get_item k (+ k_head_offset i)))))
+            (set! i (+ i 1))
+          })
+          (set! score (/ score (Math.sqrt head_dim)))
+          ;; save the score to the attention buffer
+          (set_item! att (+ att_head_offset t) score)
+
+          (set! t (+ t 1))
+        })
+
+        ;; softmax the scores to get attention weights, from 0..pos inclusively
+        (softmax att att_head_offset (+ pos 1))
+
+        ;; weighted sum of the values, store back into xba
+        (set! xba_head_offset (* h head_dim))
+        (set! i 0)
+        (while (< i head_dim) {
+          (set! score 0)
+          (set! t 0)
+          (while (<= t pos) {
+            (set! v_head_offset (+ (* t kv_dim) (* m head_dim)))
+            (set! score
+                  (+ score
+                     (* (get_item att (+ att_head_offset t))
+                        (get_item v (+ v_head_offset i)))))
+            (set! t (+ t 1))
+          })
+          (set_item! xba (+ xba_head_offset i) score)
+          (set! i (+ i 1))
+        })
+
+        (set! h (+ h 1))
+      })
+
+      ;; final matmul to get the output of the attention
+      (set! wo_offset (* layer (* n_embd n_embd)))
+      (matmul  xb2  xba  wo  0  wo_offset  n_embd  n_embd)
+
+      ;; residual connection back into x
+      (accum x xb2 n_embd)
+
+      ;; ffn rmsnorm
+      (rms_norm xb x rms_norm_ffn (* layer n_embd) n_embd)
+
+      ;; FFN matmul
+      (matmul  hb  xb  w1  0  (* layer (* n_hidden n_embd))  n_embd  n_hidden)
+      (matmul  hb2 xb  w3  0  (* layer (* n_hidden n_embd))  n_embd  n_hidden)
+
+      ;; SwiGLU
+      (set! i 0)
+      (set! score 0)
+      (while (< i n_hidden) {
+        (set! score (get_item hb i))
+        (set! score (* score (/ 1.0 (+ 1.0 (Math.exp (- 0 score))))))
+        (set! score (* score (get_item hb2 i)))
+        (set_item! hb i score)
+        (set! i (+ i 1))
+      })
+
+      ;; final matmul to get the output of the ffn
+      (matmul  xb  hb  w2  0  (* layer (* n_embd n_hidden))  n_hidden  n_embd)
+
+      ;; residual connection
+      (accum x xb n_embd)
+
+      (set! layer (+ layer 1))
+    })
+
+    ;; final rmsnorm
+    (rms_norm x x rms_norm_final 0 n_embd)
+
+    ;; classifier into logits
+    (matmul logits x token_classifier 0 0 n_embd vocab_size)
+
+    ;; return logits
+    logits
+
+  )) ;; end of llm_forward
+
+
+(llm_forward 8 0)
+(display (llm_forward 9 1))
+
+
+
+
+
