@@ -160,6 +160,73 @@
     })
     res))
 
+;; 冒泡排序（原位）
+;; 2025-07-04
+(define bubble_sort
+  (lambda (lst compare)
+    (define N (length lst))
+    (define i 0)
+    (define j 0)
+    (define temp #f)
+    (define swapped #f)
+    (while (< i (- N 1)) {
+      (set! swapped #f)
+      (set! j 0)
+      (while (< j (- (- N 1) i)) {
+        (if (compare (get_item lst j) (get_item lst (+ j 1))) {
+          (set! temp (get_item lst j))
+          (set_item! lst j (get_item lst (+ j 1)))
+          (set_item! lst (+ j 1) temp)
+          (set! swapped #t)
+        })
+        (set! j (+ j 1))
+      })
+      (if (not swapped) break)
+      (set! i (+ i 1))
+    })))
+
+;; 堆排序（原位）
+;; 2025-07-04
+(define heap_sort
+  (lambda (lst compare)
+    (define heapify
+      (lambda (lst compare size root)
+        (define max root)
+        (define left  (+ (* root 2) 1))
+        (define right (+ (* root 2) 2))
+        (define left_elem  (get_item lst left))
+        (define right_elem (get_item lst right))
+        (define max_elem   (get_item lst max))
+        (if (and (< left size) (compare left_elem max_elem)) {
+          (set! max left)
+        })
+        (set! max_elem (get_item lst max))
+        (if (and (< right size) (compare right_elem max_elem)) {
+          (set! max right)
+        })
+        (define temp #f)
+        (if (not (= max root)) {
+          (set! temp (get_item lst root))
+          (set_item! lst root (get_item lst max))
+          (set_item! lst max temp)
+          (heapify lst compare size max)
+        })))
+    (define N (length lst))
+    (define i (- (Math.floor (/ N 2)) 1))
+    (while (>= i 0) {
+      (heapify lst compare N i)
+      (set! i (- i 1))
+    })
+    (define temp #f)
+    (set! i (- N 1))
+    (while (> i 0) {
+      (set! temp (get_item lst 0))
+      (set_item! lst 0 (get_item lst i))
+      (set_item! lst i temp)
+      (heapify lst compare i 0)
+      (set! i (- i 1))
+    })))
+
 
 (define run
   (lambda () {

@@ -232,7 +232,7 @@ function initCMEditor() {
     cmEditor.setSize('auto', cmEditorHeight);
     $(".CodeEditor").height(cmEditorHeight);
 
-    cmEditor.setValue(ANIMAC_VFS["/test/nano_llm.scm"]);
+    cmEditor.setValue(ANIMAC_VFS["/test/nano_llm_infer.scm"]);
     return cmEditor;
 }
 
@@ -263,7 +263,7 @@ function callbackOnTick(rt) {
 function callbackOnEvent(rt) {
     OUTPUT_BUFFER += rt.outputFIFO.join("");
     rt.outputFIFO = [];
-    document.getElementById('output').innerHTML = OUTPUT_BUFFER;
+    console_output(OUTPUT_BUFFER, false);
     scroll_to_bottom();
 }
 
@@ -271,7 +271,7 @@ function callbackOnHalt(rt) {
     let finishTime = new Date();
     console.timeEnd("执行计时");
     OUTPUT_BUFFER += '\n<span style="color: #0f0;">执行时间：' + (finishTime-startTime).toFixed(0) + 'ms</span>';
-    document.getElementById('output').innerHTML = OUTPUT_BUFFER;
+    console_output(OUTPUT_BUFFER, false);
     scroll_to_bottom();
     $('#execute').removeAttr('disabled');
     $('#execute').html('执行');
@@ -279,7 +279,7 @@ function callbackOnHalt(rt) {
 
 function callbackOnError(rt) {
     OUTPUT_BUFFER += `<span style="color: #f00;">${rt.errorFIFO.join("")}</span>`;
-    document.getElementById('output').innerHTML = OUTPUT_BUFFER;
+    console_output(OUTPUT_BUFFER, false);
     scroll_to_bottom();
 }
 
@@ -342,7 +342,7 @@ function Init() {
             ANIMAC_INSTANCE.start();
         }
         catch (e) {
-            document.getElementById('output').innerHTML = `<span style="color: #f00;">执行失败</span><br><span>${e}</span>`;
+            console_output(`<span style="color: #f00;">执行失败</span><br><span>${e}</span>`, false);
             scroll_to_bottom();
             $('#execute').removeAttr('disabled');
             $('#execute').html('执行');
@@ -450,9 +450,11 @@ const samples = {
 };
 
 const SAMPLES = [
-    ["/test/nano_llm.scm", "Nano语言模型", ""],
+    ["/test/nano_llm_infer.scm", "Nano语言模型（Scheme实现）", ""],
+    ["/test/nano_llm_infer_native.scm", "Nano语言模型（本地宿主接口）", ""],
     ["/test/man_or_boy_test.scm", "Man or boy test", ""],
     ["/test/quine.scm", "Quine", ""],
+    ["/test/list.scm", "列表操作", ""],
     ["/test/quicksort.scm", "快速排序", ""],
     ["/test/brainfuck.scm", "Brainfuck解释器", ""],
     ["/test/fft.scm", "快速傅里叶变换（FFT）", "(run)"],

@@ -69,11 +69,11 @@ function TrimQuotes(str) {
         return "";
     if (str[0] === '"' && str[str.length - 1] === '"') {
         str = str.substring(1, str.length - 1);
-        str = str.replace(/\\n/gi, "\n").replace(/\\r/gi, "\r").replace(/\\"/gi, '"').replace(/\\t/gi, '\t');
+        str = str.replace(/\\n/gi, "\n").replace(/\\r/gi, "\r").replace(/\\"/gi, '"').replace(/\\t/gi, '\t').replace(/\\b/gi, '\b');
         return str;
     }
     else {
-        str = str.replace(/\\n/gi, "\n").replace(/\\r/gi, "\r").replace(/\\"/gi, '"').replace(/\\t/gi, '\t');
+        str = str.replace(/\\n/gi, "\n").replace(/\\r/gi, "\r").replace(/\\"/gi, '"').replace(/\\t/gi, '\t').replace(/\\b/gi, '\b');
         return str;
     }
 }
@@ -1276,7 +1276,7 @@ TrieTree.prototype.tokenize = function(text) {
 };
 
 // 字符串 → 词元编码序列
-function encode(text) {
+function encode_string_to_ids(text) {
     let tlist = TOKENIZER.trie.tokenize(text);
     let idlist = [];
     let vocab = TOKENIZER.config.stoi;
@@ -1293,7 +1293,7 @@ function encode(text) {
 }
 
 // 词元编码序列 → 字符串
-function decode(idlist) {
+function decode_ids_to_string(idlist) {
     let tlist = [];
     for(let i = 0; i < idlist.length; i++) {
         id = idlist[i];
@@ -1396,100 +1396,6 @@ function sample_top_p(probabilities, n, top_p) {
     return probindex[last_idx].index; // in case of rounding errors
 }
 
-// ===============================================================================
-// 文本生成
-// ===============================================================================
-
-async function generate(prompt, args, on_ready, on_running, on_finished) {
-    if(is_generating) {
-        return;
-    }
-    is_generating = true;
-
-    on_ready();
-
-    let elpased = [];
-    let status = "";
-
-    // right now we cannot run for more than cfg.block_size steps
-    if (args.max_seq_len <= 0 || args.max_seq_len > LLM.config.block_size) {
-        args.max_seq_len = LLM.config.block_size;
-    }
-
-    if(args.repetition_penalty <= 0) {
-        args.repetition_penalty = 1;
-    }
-
-    let output_ids = [];
-    let prompt_tokens = encode(prompt);
-    let next_token = prompt_tokens[0] || 0;
-    let pos = 0;
-
-    while (pos < args.max_seq_len) {
-        if(is_generating === false) break;
-
-        const t_0 = performance.now();
-        llm_forward(next_token, pos, LLM, LoRA, FWD_BUFFER);
-
-        // Pre-fill: if we are still processing the input prompt, force the next prompt token
-        if(pos < prompt_tokens.length - 1) {
-            status = "Pre-filling...";
-            next_token = prompt_tokens[pos + 1];
-        }
-        // Auto-regressive Decode
-        else {
-            status = "Decoding...";
-            // 复读惩罚：对过往出现过的词元施加惩罚，词元出现得越多，概率越低: ref arxiv:1909.05858
-            let tokenset = new Set(output_ids);
-            for(tk of tokenset.keys()) {
-                FWD_BUFFER.logits[tk] /= args.repetition_penalty;
-            }
-
-            // 温度采样：当温度设为0时，退化为贪心采样
-            if(args.temperature == 0.0) {
-                // greedy argmax sampling
-                next_token = sample_argmax(FWD_BUFFER.logits, LLM.config.vocab_size);
-            }
-            else {
-                for (let q = 0; q < LLM.config.vocab_size; q++) {
-                    FWD_BUFFER.logits[q] /= args.temperature;
-                }
-
-                softmax(FWD_BUFFER.logits, LLM.config.vocab_size);
-
-                if(args.top_p > 0 && args.top_p < 1) {
-                    next_token = sample_top_p(FWD_BUFFER.logits, LLM.config.vocab_size, args.top_p);
-                }
-                else if(args.top_k > 0) {
-                    next_token = sample_top_k(FWD_BUFFER.logits, LLM.config.vocab_size, args.top_k);
-                }
-                else {
-                    next_token = sample_multinomial(FWD_BUFFER.logits, LLM.config.vocab_size);
-                }
-            }
-
-            output_ids.push(next_token);
-        }
-
-        pos++;
-
-        // report achieved tok/s
-        const t_1 = performance.now();
-        elpased.push(1 / (t_1 - t_0) * 1000);
-        let tps_now = elpased.slice(-1)[0];
-
-        let is_continue = on_running(decode(output_ids), prompt_tokens.length, pos, status, tps_now);
-        if(is_continue !== true) break;
-
-        await new Promise(resolve => setTimeout(resolve, 0));
-    }
-
-    is_generating = false;
-
-    const tps_avg = elpased.reduce((a, b) => a + b) / elpased.length;
-    on_finished(tps_avg);
-}
-
 
 // ===============================================================================
 // 会话相关API，依赖于全局状态
@@ -1513,7 +1419,7 @@ function llm_session_init(prompt, max_seq_len, repetition_penalty, temperature, 
         GENERATION_ARGS.max_seq_len = LLM.config.block_size;
     }
 
-    let prompt_tokens = encode(prompt);
+    let prompt_tokens = encode_string_to_ids(prompt);
 
     SESSION = {
         prompt: prompt,
@@ -1587,7 +1493,7 @@ function llm_session_step() {
 
         if (SESSION.is_prefilling === false) {
             SESSION.output_ids.push(SESSION.next_token);
-            SESSION.output_text = decode(SESSION.output_ids);
+            SESSION.output_text = decode_ids_to_string(SESSION.output_ids);
         }
 
         SESSION.pos++;
@@ -1696,9 +1602,229 @@ function step(PROCESS, RUNTIME) {
     PROCESS.Step(); // 退出，执行下一指令
 }
 
+// 返回语言模型的结构参数
+//   返回值是一个S列表的把柄，S列表各项分别为
+//  '(block_size, vocab_size, n_layer, n_embd, n_head, n_kv_head, head_dim, n_hidden, is_shared_classifier)
+function get_config(PROCESS, RUNTIME) {
+    // 构造列表对象
+    let newListHandle = PROCESS.heap.AllocateHandle("QUOTE", false);
+    let newList = {
+        type: "QUOTE",
+        parent: null,
+        children: [
+            LLM.config.block_size,
+            LLM.config.vocab_size,
+            LLM.config.n_layer,
+            LLM.config.n_embd,
+            LLM.config.n_head,
+            LLM.config.n_kv_head,
+            LLM.config.n_embd / LLM.config.n_head,
+            LLM.config.n_hidden,
+            LLM.config.is_shared_classifier
+        ],
+    }
+    PROCESS.heap.Set(newListHandle, newList);
+    PROCESS.OPSTACK.push(newListHandle);
+
+    PROCESS.Step(); // 退出，执行下一指令
+}
+
+
+// 返回语言模型的参数
+//   返回值是一个嵌套S列表的把柄，S列表各项分别为
+//    0                1              2   3   4   5   6             7   8   9   10              11                12             13
+//  '(token_embedding, rms_norm_attn, wq, wk, wv, wo, rms_norm_ffn, w1, w2, w3, rms_norm_final, token_classifier, freq_cis_real, freq_cis_imag)
+function get_param(PROCESS, RUNTIME) {
+
+    // token_embedding
+    let token_embedding_handle = PROCESS.heap.AllocateHandle("QUOTE", false);
+    let token_embedding_obj = {
+        type: "QUOTE",
+        parent: null,
+        children: Array.from(LLM.param.token_embedding),
+    }
+    PROCESS.heap.Set(token_embedding_handle, token_embedding_obj);
+
+    // rms_norm_attn
+    let rms_norm_attn_handle = PROCESS.heap.AllocateHandle("QUOTE", false);
+    let rms_norm_attn_obj = {
+        type: "QUOTE",
+        parent: null,
+        children: Array.from(LLM.param.rms_norm_attn),
+    }
+    PROCESS.heap.Set(rms_norm_attn_handle, rms_norm_attn_obj);
+
+    // wq
+    let wq_handle = PROCESS.heap.AllocateHandle("QUOTE", false);
+    let wq_obj = {
+        type: "QUOTE",
+        parent: null,
+        children: Array.from(LLM.param.wq),
+    }
+    PROCESS.heap.Set(wq_handle, wq_obj);
+
+    // wk
+    let wk_handle = PROCESS.heap.AllocateHandle("QUOTE", false);
+    let wk_obj = {
+        type: "QUOTE",
+        parent: null,
+        children: Array.from(LLM.param.wk),
+    }
+    PROCESS.heap.Set(wk_handle, wk_obj);
+
+    // wv
+    let wv_handle = PROCESS.heap.AllocateHandle("QUOTE", false);
+    let wv_obj = {
+        type: "QUOTE",
+        parent: null,
+        children: Array.from(LLM.param.wv),
+    }
+    PROCESS.heap.Set(wv_handle, wv_obj);
+
+    // wo
+    let wo_handle = PROCESS.heap.AllocateHandle("QUOTE", false);
+    let wo_obj = {
+        type: "QUOTE",
+        parent: null,
+        children: Array.from(LLM.param.wo),
+    }
+    PROCESS.heap.Set(wo_handle, wo_obj);
+
+    // rms_norm_ffn
+    let rms_norm_ffn_handle = PROCESS.heap.AllocateHandle("QUOTE", false);
+    let rms_norm_ffn_obj = {
+        type: "QUOTE",
+        parent: null,
+        children: Array.from(LLM.param.rms_norm_ffn),
+    }
+    PROCESS.heap.Set(rms_norm_ffn_handle, rms_norm_ffn_obj);
+
+    // w1
+    let w1_handle = PROCESS.heap.AllocateHandle("QUOTE", false);
+    let w1_obj = {
+        type: "QUOTE",
+        parent: null,
+        children: Array.from(LLM.param.w1),
+    }
+    PROCESS.heap.Set(w1_handle, w1_obj);
+
+    // w2
+    let w2_handle = PROCESS.heap.AllocateHandle("QUOTE", false);
+    let w2_obj = {
+        type: "QUOTE",
+        parent: null,
+        children: Array.from(LLM.param.w2),
+    }
+    PROCESS.heap.Set(w2_handle, w2_obj);
+
+    // w3
+    let w3_handle = PROCESS.heap.AllocateHandle("QUOTE", false);
+    let w3_obj = {
+        type: "QUOTE",
+        parent: null,
+        children: Array.from(LLM.param.w3),
+    }
+    PROCESS.heap.Set(w3_handle, w3_obj);
+
+    // rms_norm_final
+    let rms_norm_final_handle = PROCESS.heap.AllocateHandle("QUOTE", false);
+    let rms_norm_final_obj = {
+        type: "QUOTE",
+        parent: null,
+        children: Array.from(LLM.param.rms_norm_final),
+    }
+    PROCESS.heap.Set(rms_norm_final_handle, rms_norm_final_obj);
+
+    // freq_cis_real
+    let freq_cis_real_handle = PROCESS.heap.AllocateHandle("QUOTE", false);
+    let freq_cis_real_obj = {
+        type: "QUOTE",
+        parent: null,
+        children: Array.from(LLM.param.freq_cis_real),
+    }
+    PROCESS.heap.Set(freq_cis_real_handle, freq_cis_real_obj);
+
+    // freq_cis_imag
+    let freq_cis_imag_handle = PROCESS.heap.AllocateHandle("QUOTE", false);
+    let freq_cis_imag_obj = {
+        type: "QUOTE",
+        parent: null,
+        children: Array.from(LLM.param.freq_cis_imag),
+    }
+    PROCESS.heap.Set(freq_cis_imag_handle, freq_cis_imag_obj);
+    
+    // 构造列表对象
+    let newListHandle = PROCESS.heap.AllocateHandle("QUOTE", false);
+    let newList = {
+        type: "QUOTE",
+        parent: null,
+        children: [
+            token_embedding_handle,
+            rms_norm_attn_handle,
+            wq_handle,
+            wk_handle,
+            wv_handle,
+            wo_handle,
+            rms_norm_ffn_handle,
+            w1_handle,
+            w2_handle,
+            w3_handle,
+            rms_norm_final_handle,
+            token_embedding_handle, // token_classifier === token_embedding
+            freq_cis_real_handle,
+            freq_cis_imag_handle
+        ],
+    }
+    PROCESS.heap.Set(newListHandle, newList);
+    PROCESS.OPSTACK.push(newListHandle);
+
+    PROCESS.Step(); // 退出，执行下一指令
+}
+
+function encode(PROCESS, RUNTIME) {
+    let promptHandle = PROCESS.PopOperand();
+    let prompt = TrimQuotes(PROCESS.heap.Get(promptHandle).content);
+    let ids = encode_string_to_ids(prompt);
+
+    // 构造列表对象
+    let idListHandle = PROCESS.heap.AllocateHandle("QUOTE", false);
+    let idListObj = {
+        type: "QUOTE",
+        parent: null,
+        children: ids,
+    }
+    PROCESS.heap.Set(idListHandle, idListObj);
+    PROCESS.OPSTACK.push(idListHandle);
+
+    PROCESS.Step(); // 退出，执行下一指令
+}
+
+function decode(PROCESS, RUNTIME) {
+    let token_id = PROCESS.PopOperand();
+    let tk = decode_ids_to_string([token_id]);
+
+    // 构造字符串对象
+    let tokenStrHandle = PROCESS.heap.AllocateHandle("STRING", false);
+    let tokenStrObject = {
+        type: "STRING",
+        content: String(tk)
+    };
+    PROCESS.heap.Set(tokenStrHandle, tokenStrObject);
+    PROCESS.OPSTACK.push(tokenStrHandle);
+
+    PROCESS.Step();
+}
+
 module.exports.init = init;
 module.exports.new_session = new_session;
 module.exports.step = step;
+
+module.exports.get_config = get_config;
+module.exports.get_param = get_param;
+
+module.exports.encode = encode;
+module.exports.decode = decode;
+
 `;
 // Memory.ts
 // 内存管理

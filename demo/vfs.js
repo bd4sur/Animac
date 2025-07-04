@@ -159,6 +159,73 @@ ANIMAC_VFS["/test/list.scm"] = `;; 应用库
       (set! count (- count 1))
     })
     res))
+
+;; 冒泡排序（原位）
+;; 2025-07-04
+(define bubble_sort
+  (lambda (lst compare)
+    (define N (length lst))
+    (define i 0)
+    (define j 0)
+    (define temp #f)
+    (define swapped #f)
+    (while (< i (- N 1)) {
+      (set! swapped #f)
+      (set! j 0)
+      (while (< j (- (- N 1) i)) {
+        (if (compare (get_item lst j) (get_item lst (+ j 1))) {
+          (set! temp (get_item lst j))
+          (set_item! lst j (get_item lst (+ j 1)))
+          (set_item! lst (+ j 1) temp)
+          (set! swapped #t)
+        })
+        (set! j (+ j 1))
+      })
+      (if (not swapped) break)
+      (set! i (+ i 1))
+    })))
+
+;; 堆排序（原位）
+;; 2025-07-04
+(define heap_sort
+  (lambda (lst compare)
+    (define heapify
+      (lambda (lst compare size root)
+        (define max root)
+        (define left  (+ (* root 2) 1))
+        (define right (+ (* root 2) 2))
+        (define left_elem  (get_item lst left))
+        (define right_elem (get_item lst right))
+        (define max_elem   (get_item lst max))
+        (if (and (< left size) (compare left_elem max_elem)) {
+          (set! max left)
+        })
+        (set! max_elem (get_item lst max))
+        (if (and (< right size) (compare right_elem max_elem)) {
+          (set! max right)
+        })
+        (define temp #f)
+        (if (not (= max root)) {
+          (set! temp (get_item lst root))
+          (set_item! lst root (get_item lst max))
+          (set_item! lst max temp)
+          (heapify lst compare size max)
+        })))
+    (define N (length lst))
+    (define i (- (Math.floor (/ N 2)) 1))
+    (while (>= i 0) {
+      (heapify lst compare N i)
+      (set! i (- i 1))
+    })
+    (define temp #f)
+    (set! i (- N 1))
+    (while (> i 0) {
+      (set! temp (get_item lst 0))
+      (set_item! lst 0 (get_item lst i))
+      (set_item! lst i temp)
+      (heapify lst compare i 0)
+      (set! i (- i 1))
+    })))
 `;
 
 ANIMAC_VFS["/test/quine.scm"] = `(display "Quine测试：")(newline)
@@ -2487,13 +2554,7 @@ ANIMAC_VFS["/test/shudu.scm"] = `;; 解数独：用于测试语言核心、call/
 (run)
 `;
 
-ANIMAC_VFS["/test/nano_llm.scm"] = `;; 自研Nano语言模型适配 Animac Scheme 的宿主接口
-;; 2025-06-30
-
-(native LLM)
-(native String)
-
-;; NOTE 将模型转换成Base64字符串
+ANIMAC_VFS["/test/nano_llm_model.scm"] = `;; NOTE 将模型转换成Base64字符串
 ;; const fs = require('fs'); const buffer = fs.readFileSync('psycho_90k.bin');
 ;; const uint8Array = new Uint8Array(buffer); const base64Data = Buffer.from(uint8Array).toString('base64');
 
@@ -2503,7 +2564,563 @@ ANIMAC_VFS["/test/nano_llm.scm"] = `;; 自研Nano语言模型适配 Animac Schem
 ;; 在TinyStories数据集上训练的只有3k参数的极小模型
 (define TINYSTORIES_3K_MODEL "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")
 
-(define llm_generate
+`;
+
+ANIMAC_VFS["/test/nano_llm_infer.scm"] = `;; 自研Nano语言模型推理
+;; 2025-07-04
+
+(native LLM)
+(native String)
+(native Math)
+
+(import List "/test/list.scm")
+(import NanoModels "/test/nano_llm_model.scm")
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 从base64加载模型
+
+(LLM.init NanoModels.PSYCHO_90K_MODEL)
+; (LLM.init NanoModels.TINYSTORIES_3K_MODEL)
+
+(display "Loading LLM...") (newline)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 模型结构参数
+
+(define llm_config (LLM.get_config))
+
+(define block_size (get_item llm_config 0))
+(define vocab_size (get_item llm_config 1))
+(define n_layer    (get_item llm_config 2))
+(define n_embd     (get_item llm_config 3))
+(define n_head     (get_item llm_config 4))
+(define n_kv_head  (get_item llm_config 5))
+(define head_dim   (get_item llm_config 6))
+(define n_hidden   (get_item llm_config 7))
+(define is_shared_classifier (get_item llm_config 8))
+
+(define kv_dim (* n_kv_head head_dim))
+(define kv_mul (/ n_head n_kv_head))
+
+(display "    block_size = ") (display block_size) (newline)
+(display "    vocab_size = ") (display vocab_size) (newline)
+(display "    n_layer = ") (display n_layer) (newline)
+(display "    n_embd = ") (display n_embd) (newline)
+(display "    n_head = ") (display n_head) (newline)
+(display "    n_kv_head = ") (display n_kv_head) (newline)
+(display "    head_dim = ") (display head_dim) (newline)
+(display "    n_hidden = ") (display n_hidden) (newline)
+(display "    is_shared_classifier = ") (display is_shared_classifier) (newline)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 模型权重
+
+(define param (LLM.get_param))
+
+(define token_embedding  (get_item param 0))  ;; (vocab_size, n_embd)
+(define rms_norm_attn    (get_item param 1))  ;; (n_layer, n_embd)
+(define wq               (get_item param 2))  ;; (n_layer, n_embd, n_embd)
+(define wk               (get_item param 3))  ;; (n_layer, n_embd, kv_dim)
+(define wv               (get_item param 4))  ;; (n_layer, n_embd, kv_dim)
+(define wo               (get_item param 5))  ;; (n_layer, n_embd, n_embd)
+(define rms_norm_ffn     (get_item param 6))  ;; (n_layer, n_embd)
+(define w1               (get_item param 7))  ;; (n_layer, n_hidden, n_embd)
+(define w2               (get_item param 8))  ;; (n_layer, n_embd, n_hidden)
+(define w3               (get_item param 9))  ;; (n_layer, n_hidden, n_embd)
+(define rms_norm_final   (get_item param 10)) ;; (n_embd)
+(define token_classifier (get_item param 11)) ;; (vocab_size, n_embd)
+(define freq_cis_real    (get_item param 12)) ;; (block_size, head_dim/2)
+(define freq_cis_imag    (get_item param 13)) ;; (block_size, head_dim/2)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 激活值中间缓冲区
+
+(define new_buffer
+  (lambda (len)
+    (define iter
+      (lambda (buf i)
+        (if (= i 0) buf (iter (cons 0 buf) (- i 1)))))
+    (iter '() len)))
+
+(define x   (new_buffer n_embd))
+(define xb  (new_buffer n_embd))
+(define xba (new_buffer n_embd)) ;; (q_dim == n_embd)
+(define xb2 (new_buffer n_embd))
+(define hb  (new_buffer n_hidden))
+(define hb2 (new_buffer n_hidden))
+(define q   (new_buffer n_embd))
+
+(define k_cache (new_buffer n_layer)) ;; '(n_layer * (block_size, kv_dim))
+(define v_cache (new_buffer n_layer)) ;; '(n_layer * (block_size, kv_dim))
+(define i 0)
+(while (< i n_layer) {
+  (set_item! k_cache i (new_buffer (* block_size kv_dim)))
+  (set_item! v_cache i (new_buffer (* block_size kv_dim)))
+  (set! i (+ i 1))
+})
+
+(define att (new_buffer (* n_head block_size))) ;; '(n_head, block_size)
+
+(define logits (new_buffer vocab_size))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 基础算子
+
+(define accum
+  (lambda (a b size)
+    (define i 0)
+    (while (< i size) {
+      (set_item! a i (+ (get_item a i) (get_item b i)))
+      (set! i (+ i 1))
+    })))
+
+(define scale
+  (lambda (a k size)
+    (define i 0)
+    (while (< i size) {
+      (set_item! a i (* (get_item a i) k))
+      (set! i (+ i 1))
+    })))
+
+(define rms_norm
+  (lambda (out x weight weight_offset size)
+    (define ss 0)
+    (define i 0)
+    (define xi 0)
+    (while (< i size) {
+      (set! xi (get_item x i))
+      (set! ss (+ ss (* xi xi)))
+      (set! i (+ i 1))
+    })
+    (set! ss (/ ss size))
+    (set! ss (+ ss 0.00001)) ;; 1e-5
+    (set! ss (/ 1.0 (Math.sqrt ss)))
+    (set! i 0)
+    (while (< i size) {
+      (set_item! out i (* (get_item weight (+ weight_offset i)) (* ss (get_item x i))))
+      (set! i (+ i 1))
+    })))
+
+(define softmax
+  (lambda (x x_offset size)
+    (define max_val -10000000) ;; TODO
+    (define xi 0)
+    (define i 0)
+    (while (< i size) {
+      (set! xi (get_item x (+ x_offset i)))
+      (if (> xi max_val) (set! max_val xi))
+      (set! i (+ i 1))
+    })
+    (define sum 0)
+    (set! i 0)
+    (while (< i size) {
+      (set! xi (Math.exp (- (get_item x (+ x_offset i)) max_val)))
+      (set_item! x (+ x_offset i) xi)
+      (set! sum (+ sum xi))
+      (set! i (+ i 1))
+    })
+    (set! i 0)
+    (while (< i size) {
+      (set_item! x (+ x_offset i) (/ (get_item x (+ x_offset i)) sum))
+      (set! i (+ i 1))
+    })))
+
+(define matmul
+  (lambda (xout x w xout_offset w_offset n d)
+    (define i 0)
+    (define j 0)
+    (define val 0)
+    (while (< i d) {
+      (set! val 0)
+      (set! j 0)
+      (while (< j n) {
+        (set! val (+ val (* (get_item w (+ w_offset (+ (* i n) j))) (get_item x j))))
+        (set! j (+ j 1))
+      })
+      (set_item! xout (+ xout_offset i) val)
+      (set! i (+ i 1))
+    })))
+
+(define rope
+  (lambda (q k pos k_offset)
+    (define h 0)
+    (define i 0)
+    (define offset 0)
+    (define freq_offset (* pos (/ head_dim 2)))
+    (define val0 0) (define val1 0)
+    (define fcr 0)  (define fci 0)
+    ;; q = RoPE(q)
+    (set! h 0)
+    (while (< h n_head) {
+      (set! offset (* h head_dim))
+      (set! i 0)
+      (while (< i head_dim) {
+        (set! val0 (get_item q (+ offset i)))
+        (set! val1 (get_item q (+ offset (+ i 1))))
+        (set! fcr  (get_item freq_cis_real (+ freq_offset (/ i 2))))
+        (set! fci  (get_item freq_cis_imag (+ freq_offset (/ i 2))))
+        (set_item! q (+ offset i)       (- (* val0 fcr) (* val1 fci)))
+        (set_item! q (+ offset (+ i 1)) (+ (* val0 fci) (* val1 fcr)))
+        (set! i (+ i 2))
+      })
+      (set! h (+ h 1))
+    })
+    ;; k = RoPE(k)
+    (set! h 0)
+    (while (< h n_kv_head) {
+      (set! offset (+ k_offset (* h head_dim)))
+      (set! i 0)
+      (while (< i head_dim) {
+        (set! val0 (get_item k (+ offset i)))
+        (set! val1 (get_item k (+ offset (+ i 1))))
+        (set! fcr  (get_item freq_cis_real (+ freq_offset (/ i 2))))
+        (set! fci  (get_item freq_cis_imag (+ freq_offset (/ i 2))))
+        (set_item! k (+ offset i)       (- (* val0 fcr) (* val1 fci)))
+        (set_item! k (+ offset (+ i 1)) (+ (* val0 fci) (* val1 fcr)))
+        (set! i (+ i 2))
+      })
+      (set! h (+ h 1))
+    })
+  ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 语言模型前向传播
+
+(define llm_forward
+  (lambda (token pos)
+
+    (define layer 0)
+    (define i 0)
+    (define h 0)
+    (define m 0)
+    (define t 0)
+
+    (define k #f)
+    (define v #f)
+    (define kv_pos_offset 0)
+
+    (define wq_offset 0)
+    (define wkv_offset 0)
+    (define wo_offset 0)
+
+    (define q_head_offset 0)
+    (define k_head_offset 0)
+    (define v_head_offset 0)
+
+    (define att_head_offset 0)
+    (define xba_head_offset 0)
+
+    (define score 0)
+
+    ;; copy the token embedding into x
+    (set! i 0)
+    (while (< i n_embd) {
+      (set_item! x i (get_item token_embedding (+ (* token n_embd) i)))
+      (set! i (+ i 1))
+    })
+
+    ;; forward all the layers
+    (set! layer 0)
+    (while (< layer n_layer) {
+
+      ;; attention rmsnorm
+      (rms_norm xb x rms_norm_attn (* layer n_embd) n_embd)
+
+      ;; kv_cache at current layer
+      (set! k (get_item k_cache layer)) ;; (block_size, kv_dim)
+      (set! v (get_item v_cache layer)) ;; (block_size, kv_dim)
+
+      ;; qkv matmuls for this position
+      (set! wq_offset  (* layer (* n_embd n_embd)))
+      (set! wkv_offset (* layer (* n_embd kv_dim)))
+      (set! kv_pos_offset (* pos kv_dim))
+      (matmul  q  xb  wq  0              wq_offset   n_embd  n_embd)
+      (matmul  k  xb  wk  kv_pos_offset  wkv_offset  n_embd  kv_dim)
+      (matmul  v  xb  wv  kv_pos_offset  wkv_offset  n_embd  kv_dim)
+
+      ;; RoPE on q k
+      (rope q k pos kv_pos_offset)
+
+      ;; GQA-MHA: iterate over all heads
+      (set! h 0)
+      (while (< h n_head) {
+        (set! m (Math.floor (/ h kv_mul)))
+        (set! q_head_offset (* h head_dim))
+        ;; iterate over all timesteps, including the current one
+        (set! att_head_offset (* h block_size))
+        (set! t 0)
+        (while (<= t pos) {
+          (set! k_head_offset (+ (* t kv_dim) (* m head_dim)))
+          ;; calculate the attention score as the dot product of q and k
+          (set! score 0)
+          (set! i 0)
+          (while (< i head_dim) {
+            (set! score
+                  (+ score (* (get_item q (+ q_head_offset i))
+                              (get_item k (+ k_head_offset i)))))
+            (set! i (+ i 1))
+          })
+          (set! score (/ score (Math.sqrt head_dim)))
+          ;; save the score to the attention buffer
+          (set_item! att (+ att_head_offset t) score)
+
+          (set! t (+ t 1))
+        })
+
+        ;; softmax the scores to get attention weights, from 0..pos inclusively
+        (softmax att att_head_offset (+ pos 1))
+
+        ;; weighted sum of the values, store back into xba
+        (set! xba_head_offset (* h head_dim))
+        (set! i 0)
+        (while (< i head_dim) {
+          (set! score 0)
+          (set! t 0)
+          (while (<= t pos) {
+            (set! v_head_offset (+ (* t kv_dim) (* m head_dim)))
+            (set! score
+                  (+ score
+                     (* (get_item att (+ att_head_offset t))
+                        (get_item v (+ v_head_offset i)))))
+            (set! t (+ t 1))
+          })
+          (set_item! xba (+ xba_head_offset i) score)
+          (set! i (+ i 1))
+        })
+
+        (set! h (+ h 1))
+      })
+
+      ;; final matmul to get the output of the attention
+      (set! wo_offset (* layer (* n_embd n_embd)))
+      (matmul  xb2  xba  wo  0  wo_offset  n_embd  n_embd)
+
+      ;; residual connection back into x
+      (accum x xb2 n_embd)
+
+      ;; ffn rmsnorm
+      (rms_norm xb x rms_norm_ffn (* layer n_embd) n_embd)
+
+      ;; FFN matmul
+      (matmul  hb  xb  w1  0  (* layer (* n_hidden n_embd))  n_embd  n_hidden)
+      (matmul  hb2 xb  w3  0  (* layer (* n_hidden n_embd))  n_embd  n_hidden)
+
+      ;; SwiGLU
+      (set! i 0)
+      (set! score 0)
+      (while (< i n_hidden) {
+        (set! score (get_item hb i))
+        (set! score (* score (/ 1.0 (+ 1.0 (Math.exp (- 0 score))))))
+        (set! score (* score (get_item hb2 i)))
+        (set_item! hb i score)
+        (set! i (+ i 1))
+      })
+
+      ;; final matmul to get the output of the ffn
+      (matmul  xb  hb  w2  0  (* layer (* n_embd n_hidden))  n_hidden  n_embd)
+
+      ;; residual connection
+      (accum x xb n_embd)
+
+      (set! layer (+ layer 1))
+    })
+
+    ;; final rmsnorm
+    (rms_norm x x rms_norm_final 0 n_embd)
+
+    ;; classifier into logits
+    (matmul logits x token_classifier 0 0 n_embd vocab_size)
+
+    ;; return logits
+    logits
+
+  )) ;; end of llm_forward
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 采样
+
+;; 贪心采样：返回概率最大的下标
+(define sample_argmax
+  (lambda (probs vocab_size)
+    (define maxv -100000000) ;; TODO
+    (define maxi 0)
+    (define v 0)
+    (define i 0)
+    (while (< i vocab_size) {
+      (set! v (get_item probs i))
+      (if (> v maxv) {
+        (set! maxv v)
+        (set! maxi i)
+      })
+      (set! i (+ i 1))
+    })
+    maxi))
+
+;; 概率采样：输入的probs必须是积分为1的，也就是softmax的输出
+(define sample_multinomial
+  (lambda (probs vocab_size)
+    (define i 0)
+    (define r (Math.random))
+    (define cdf 0.0)
+    (define ret_index (- vocab_size 1))
+    (set! i 0)
+    (while (< i vocab_size) {
+      (set! cdf (+ cdf (get_item probs i)))
+      (if (> cdf r) {
+        (set! ret_index i)
+        break
+      })
+      (set! i (+ i 1))
+    })
+    ;; return
+    ret_index))
+
+;; 概率采样之改进：Top-K采样，只在概率排名前K个词元中采样
+(define sample_top_k
+  (lambda (probs vocab_size top_k)
+    (define probindex '())
+    (define i 0)
+    (while (< i vocab_size) {
+      (set! probindex (cons \`(,i ,(get_item probs i)) probindex))
+      (set! i (+ i 1))
+    })
+
+    (List.heap_sort probindex (lambda (a b) (> (get_item b 1) (get_item a 1))))
+
+    ;; 取概率最大的前k个，计算累计概率用于归一化
+    (define cumulative_prob 0.0)
+    (set! i 0)
+    (while (< i top_k) {
+      (set! cumulative_prob (+ cumulative_prob (get_item (get_item probindex i) 1)))
+      (set! i (+ i 1))
+    })
+
+    ;; 在只有前K个词元的列表上执行概率采样
+    (define r (* cumulative_prob (Math.random)))
+    (define cdf 0.0)
+    (define ret_index (- vocab_size 1))
+    (set! i 0)
+    (while (< i top_k) {
+      (set! cdf (+ cdf (get_item (get_item probindex i) 1)))
+      (if (> cdf r) {
+        (set! ret_index (get_item (get_item probindex i) 0))
+        break
+      })
+      (set! i (+ i 1))
+    })
+    ;; return
+    ret_index))
+
+;; 核采样（top-p）
+(define sample_top_p
+  (lambda (probs vocab_size top_p)
+    (define cutoff (/ (- 1.0 top_p) (- vocab_size 1)))
+    (define n0 0)
+    (define probindex '())
+    (define i 0)
+    (while (< i vocab_size) {
+      (if (>= (get_item probs i) cutoff) {
+        (set! probindex (cons \`(,i ,(get_item probs i)) probindex))
+        (set! n0 (+ n0 1))
+      })
+      (set! i (+ i 1))
+    })
+
+    (List.heap_sort probindex (lambda (a b) (> (get_item b 1) (get_item a 1))))
+
+    (define cumulative_prob 0.0)
+    (define last_idx (- n0 1))
+    (set! i 0)
+    (while (< i n0) {
+      (set! cumulative_prob (+ cumulative_prob (get_item (get_item probindex i) 1)))
+      (if (> cumulative_prob top_p) {
+        (set! last_idx i)
+        break
+      })
+      (set! i (+ i 1))
+    })
+
+    (define r (* cumulative_prob (Math.random)))
+    (define cdf 0.0)
+    (define ret_index (get_item (get_item probindex last_idx) 0))
+    (set! i 0)
+    (while (<= i last_idx) {
+      (set! cdf (+ cdf (get_item (get_item probindex i) 1)))
+      (if (> cdf r) {
+        (set! ret_index (get_item (get_item probindex i) 0))
+        break
+      })
+      (set! i (+ i 1))
+    })
+    ;; return
+    ret_index))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 自回归生成
+
+(define generate
+  (lambda (prompt max_seq_len repetition_penalty temperature top_p top_k)
+    (define ids (LLM.encode prompt))
+    (define new_token (get_item ids 0))
+    (define probs #f)
+    (define pos 0)
+    (while (< pos max_seq_len) {
+      (display "▁")
+      (set! probs (llm_forward new_token pos))
+      (display "\b")
+      (display "░")
+      (if (< pos (length ids)) {
+        ;; Pre-filling
+        (set! new_token (get_item ids pos))
+      } {
+        ;; Decoding
+        ;; 暂不实现幅度惩罚（待实现字典）
+        ;; 温度采样：当温度设为0时，退化为贪心采样
+        (if (= temperature 0) {
+          (set! new_token (sample_argmax probs vocab_size))
+        } {
+          (set! i 0)
+          (while (< i vocab_size) {
+            (set_item! probs i (/ (get_item probs i) temperature))
+            (set! i (+ i 1))
+          })
+          (softmax probs 0 vocab_size)
+          (cond ((and (> top_p 0) (< top_p 1)) {
+                  (set! new_token (sample_top_p probs vocab_size top_p))
+                })
+                ((> top_k 0) {
+                  (set! new_token (sample_top_k probs vocab_size top_k))
+                })
+                (else {
+                  (set! new_token (sample_multinomial probs vocab_size))
+                }))
+        })
+      })
+      (display "\b")
+      (display (LLM.decode new_token))
+      (set! pos (+ pos 1))
+    })
+  ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 程序入口
+
+(generate "人类的本质是" 256 1.0 1.05 0.5 0)
+
+(newline)
+
+`;
+
+ANIMAC_VFS["/test/nano_llm_infer_native.scm"] = `;; 自研Nano语言模型适配 Animac Scheme 的宿主接口
+;; 2025-06-30
+
+(native LLM)
+(native String)
+
+(import NanoModels "/test/nano_llm_model.scm")
+
+(define llm_generate_native
   (lambda ()
     (define i 0)
     (define prev_output_len 0)
@@ -2526,16 +3143,17 @@ ANIMAC_VFS["/test/nano_llm.scm"] = `;; 自研Nano语言模型适配 Animac Schem
   (lambda () {
     ;; 注意：输入prompt不要含有未登录（OOV）词元
     (display "Psycho_90k:") (newline)
-    (LLM.init PSYCHO_90K_MODEL)
+    (LLM.init NanoModels.PSYCHO_90K_MODEL)
     (LLM.new_session "人类的本质是" 256 1.0 1.0 0.5 20)
-    (llm_generate)
+    (llm_generate_native)
 
     (display "TinyStories_3k:") (newline)
-    (LLM.init TINYSTORIES_3K_MODEL)
+    (LLM.init NanoModels.TINYSTORIES_3K_MODEL)
     (LLM.new_session "Once" 256 1.0 1.0 0.5 20)
-    (llm_generate)
+    (llm_generate_native)
   })
 )
 
 (run)
+
 `;

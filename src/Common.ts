@@ -72,11 +72,11 @@ function TrimQuotes(str: string): string {
     if(str === undefined) return "";
     if(str[0] === '"' && str[str.length-1] === '"') {
         str = str.substring(1, str.length-1);
-        str = str.replace(/\\n/gi, "\n").replace(/\\r/gi, "\r").replace(/\\"/gi, '"').replace(/\\t/gi, '\t');
+        str = str.replace(/\\n/gi, "\n").replace(/\\r/gi, "\r").replace(/\\"/gi, '"').replace(/\\t/gi, '\t').replace(/\\b/gi, '\b');
         return str;
     }
     else {
-        str = str.replace(/\\n/gi, "\n").replace(/\\r/gi, "\r").replace(/\\"/gi, '"').replace(/\\t/gi, '\t');
+        str = str.replace(/\\n/gi, "\n").replace(/\\r/gi, "\r").replace(/\\"/gi, '"').replace(/\\t/gi, '\t').replace(/\\b/gi, '\b');
         return str;
     }
 }

@@ -1,3 +1,24 @@
+// 向终端输出字符串，可处理“\b”控制字符，可选择追加或刷新方式
+function console_output(content, is_append) {
+    let chars = [];
+    for (let i = 0; i < content.length; i++) {
+        if (content[i] !== "\b") {
+            chars.push(content[i]);
+        }
+        else {
+            chars.pop();
+        }
+    }
+    content = chars.join("");
+    if (is_append === true) {
+        $("#output").html($("#output").html() + content);
+    }
+    else {
+        $("#output").html(content);
+    }
+}
+
+
 function scroll_to_bottom() {
     let scrollHeight = $(".Console").prop("scrollHeight");
     $(".Console").animate({scrollTop:scrollHeight}, 0);
@@ -47,7 +68,7 @@ function renderDebugInfo(res) {
     let instructions = process.instructions;
 
     // Console
-    $("#output").html($("#output").html() + res.output);
+    console_output(res.output, true);
 
     // 渲染IL代码
     let html = new Array();
