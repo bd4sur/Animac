@@ -2,7 +2,7 @@
 ;; 2023-08
 
 (native Math)
-(import List "std.list.scm")
+(import List "list.scm")
 
 ;; 把序列按照奇偶分成两部分
 (define sep
@@ -90,4 +90,3 @@
     (newline)
   })
 )
-

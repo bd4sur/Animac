@@ -323,343 +323,300 @@ class StdIOUtils {
         }
     }
 }
-ANIMAC_VFS["/lib/System.js"] = `
-// (System.set_timeout time_ms:Number callback:(void->undefined)) : Number(计时器编号)
-function set_timeout(PROCESS, RUNTIME) {
-    // 从栈中获取参数，注意顺序是反的
-    let callback = PROCESS.PopOperand();
-    let time_ms = PROCESS.PopOperand();
-
-    // 异步回调闭包需要设置为keepalive，防止被GC
-    PROCESS.heap.SetKeepalive(callback, true);
-
-    let timer = setTimeout(() => {
-        // 若进程已经执行完毕，则将其重新加入进程队列，重启时钟，执行回调函数
-        if(PROCESS.state === "STOPPED") {
-            // NOTE 返回到地址为1的指令，即halt指令
-            RUNTIME.CallAsync(1, callback, PROCESS, RUNTIME);
-            // 恢复进程状态
-            PROCESS.SetState("RUNNING");
-            RUNTIME.AddProcess(PROCESS);
-            RUNTIME.StartClock();
-        }
-        // 若进程尚未执行完毕，直接调用回调
-        else {
-            // 返回到中断发生时的PC
-            RUNTIME.CallAsync(PROCESS.PC, callback, PROCESS, RUNTIME);
-        }
-    }, time_ms);
-
-    PROCESS.OPSTACK.push(Number(timer));
-    PROCESS.Step(); // 退出，执行下一指令
+ANIMAC_VFS["/lib/File.js"] = `// 取数组/栈的栈顶
+function Top(arr) {
+    return arr[arr.length - 1];
 }
 
-// (System.set_interval time_ms:Number callback:(void->undefined)) : Number(计时器编号)
-function set_interval(PROCESS, RUNTIME) {
-    // 从栈中获取参数，注意顺序是反的
-    let callback = PROCESS.PopOperand();
-    let time_ms = PROCESS.PopOperand();
-
-    // 异步回调闭包需要设置为keepalive，防止被GC
-    PROCESS.heap.SetKeepalive(callback, true);
-
-    let timer = setInterval(() => {
-        // 若进程已经执行完毕，则将其重新加入进程队列，重启时钟，执行回调函数
-        if(PROCESS.state === "STOPPED") {
-            // NOTE 返回到地址为1的指令，即halt指令
-            RUNTIME.CallAsync(1, callback, PROCESS, RUNTIME);
-            // 恢复进程状态
-            PROCESS.SetState("RUNNING");
-            RUNTIME.AddProcess(PROCESS);
-            RUNTIME.StartClock();
-        }
-        // 若进程尚未执行完毕，直接调用回调
-        else {
-            // 返回到中断发生时的PC
-            RUNTIME.CallAsync(PROCESS.PC, callback, PROCESS, RUNTIME);
-        }
-    }, time_ms);
-
-    PROCESS.OPSTACK.push(Number(timer));
-    PROCESS.Step(); // 退出，执行下一指令
-}
-
-// (System.clear_timeout timer:Number) : void
-function clear_timeout(PROCESS, RUNTIME) {
-    // 从栈中获取参数，注意顺序是反的
-    let timer = PROCESS.PopOperand();
-    clearTimeout(timer);
-    PROCESS.Step(); // 退出，执行下一指令
-}
-
-// (System.clear_interval timer:Number) : void
-function clear_interval(PROCESS, RUNTIME) {
-    // 从栈中获取参数，注意顺序是反的
-    let timer = PROCESS.PopOperand();
-    clearInterval(timer);
-    PROCESS.Step(); // 退出，执行下一指令
-}
-
-module.exports.set_timeout = set_timeout;
-module.exports.set_interval = set_interval;
-module.exports.clear_timeout = clear_timeout;
-module.exports.clear_interval = clear_interval;
-`;
-ANIMAC_VFS["/lib/Math.js"] = `
-// (Math.PI) : Number
-function PI(PROCESS, RUNTIME) {
-    PROCESS.OPSTACK.push(Number(Math.PI));
-    PROCESS.Step();
-}
-
-// (Math.pow base:Number exponent:Number) : Number
-function pow(PROCESS, RUNTIME) {
-    let exponent = PROCESS.PopOperand();
-    let base = PROCESS.PopOperand();
-    let res = Math.pow(Number(base), Number(exponent));
-    PROCESS.OPSTACK.push(res);
-    PROCESS.Step();
-}
-
-// (Math.sqrt x:Number) : Number
-function sqrt(PROCESS, RUNTIME) {
-    let x = PROCESS.PopOperand();
-    let res = Math.sqrt(Number(x));
-    PROCESS.OPSTACK.push(res);
-    PROCESS.Step();
-}
-
-// (Math.exp x:Number) : Number
-function exp(PROCESS, RUNTIME) {
-    let x = PROCESS.PopOperand();
-    let res = Math.exp(Number(x));
-    PROCESS.OPSTACK.push(res);
-    PROCESS.Step();
-}
-
-// (Math.log x:Number) : Number
-function log(PROCESS, RUNTIME) {
-    let x = PROCESS.PopOperand();
-    let res = Math.log(Number(x));
-    PROCESS.OPSTACK.push(res);
-    PROCESS.Step();
-}
-
-// (Math.log10 x:Number) : Number
-function log10(PROCESS, RUNTIME) {
-    let x = PROCESS.PopOperand();
-    let res = Math.log10(Number(x));
-    PROCESS.OPSTACK.push(res);
-    PROCESS.Step();
-}
-
-// (Math.log2 x:Number) : Number
-function log2(PROCESS, RUNTIME) {
-    let x = PROCESS.PopOperand();
-    let res = Math.log2(Number(x));
-    PROCESS.OPSTACK.push(res);
-    PROCESS.Step();
-}
-
-// (Math.sin x:Number) : Number
-function sin(PROCESS, RUNTIME) {
-    let x = PROCESS.PopOperand();
-    let res = Math.sin(Number(x));
-    PROCESS.OPSTACK.push(res);
-    PROCESS.Step();
-}
-
-// (Math.cos x:Number) : Number
-function cos(PROCESS, RUNTIME) {
-    let x = PROCESS.PopOperand();
-    let res = Math.cos(Number(x));
-    PROCESS.OPSTACK.push(res);
-    PROCESS.Step();
-}
-
-// (Math.tan x:Number) : Number
-function tan(PROCESS, RUNTIME) {
-    let x = PROCESS.PopOperand();
-    let res = Math.tan(Number(x));
-    PROCESS.OPSTACK.push(res);
-    PROCESS.Step();
-}
-
-// (Math.atan x:Number) : Number
-function atan(PROCESS, RUNTIME) {
-    let x = PROCESS.PopOperand();
-    let res = Math.atan(Number(x));
-    PROCESS.OPSTACK.push(res);
-    PROCESS.Step();
-}
-
-// (Math.floor x:Number) : Number
-function floor(PROCESS, RUNTIME) {
-    let x = PROCESS.PopOperand();
-    let res = Math.floor(Number(x));
-    PROCESS.OPSTACK.push(res);
-    PROCESS.Step();
-}
-
-// (Math.ceil x:Number) : Number
-function ceil(PROCESS, RUNTIME) {
-    let x = PROCESS.PopOperand();
-    let res = Math.ceil(Number(x));
-    PROCESS.OPSTACK.push(res);
-    PROCESS.Step();
-}
-
-// (Math.round x:Number) : Number
-function round(PROCESS, RUNTIME) {
-    let x = PROCESS.PopOperand();
-    let res = Math.round(Number(x));
-    PROCESS.OPSTACK.push(res);
-    PROCESS.Step();
-}
-
-// (Math.abs x:Number) : Number
-function abs(PROCESS, RUNTIME) {
-    let x = PROCESS.PopOperand();
-    let res = Math.abs(Number(x));
-    PROCESS.OPSTACK.push(res);
-    PROCESS.Step();
-}
-
-// (Math.random) : Number
-function random(PROCESS, RUNTIME) {
-    let res = Math.random();
-    PROCESS.OPSTACK.push(res);
-    PROCESS.Step();
-}
-
-module.exports.PI = PI;
-module.exports.pow = pow;
-module.exports.sqrt = sqrt;
-module.exports.exp = exp;
-module.exports.log = log;
-module.exports.log10 = log10;
-module.exports.log2 = log2;
-module.exports.sin = sin;
-module.exports.cos = cos;
-module.exports.tan = tan;
-module.exports.atan = atan;
-module.exports.floor = floor;
-module.exports.ceil = ceil;
-module.exports.round = round;
-module.exports.abs = abs;
-module.exports.random = random;
-`;
-ANIMAC_VFS["/lib/String.js"] = `
+// 去掉生字符串两端的双引号
 function TrimQuotes(str) {
     if(str === undefined) return "";
     if(str[0] === '"' && str[str.length-1] === '"') {
         str = str.substring(1, str.length-1);
+        str = str.replace(/\\\\n/gi, "\\n").replace(/\\\\r/gi, "\\r").replace(/\\\\"/gi, '"').replace(/\\\\t/gi, '\\t').replace(/\\\\b/gi, '\\b');
+        return str;
     }
-    str = str.replace(/\\\\n/gi, "\\n").replace(/\\\\r/gi, "\\r").replace(/\\\\"/gi, '"').replace(/\\\\t/gi, '\\t');
-    return str;
+    else {
+        str = str.replace(/\\\\n/gi, "\\n").replace(/\\\\r/gi, "\\r").replace(/\\\\"/gi, '"').replace(/\\\\t/gi, '\\t').replace(/\\\\b/gi, '\\b');
+        return str;
+    }
 }
 
-// (String.length str:String) : Number
-function length(PROCESS, RUNTIME) {
-    let strHandle = PROCESS.PopOperand();
-    let str = TrimQuotes(PROCESS.heap.Get(strHandle).content);
-    PROCESS.OPSTACK.push(Number(str.length));
-    PROCESS.Step();
+module.exports.Top = Top;
+module.exports.TrimQuotes = TrimQuotes;
+
+
+
+
+// nativelib/File.js
+// File本地库
+
+
+
+
+
+
+
+
+// (File.read filePath:String callback:(s:String->undefined)) : undefined
+function read(PROCESS, RUNTIME) {
+    // 从栈中获取参数，注意顺序是反的
+    let callback = PROCESS.PopOperand();
+    let filePathHandle = PROCESS.PopOperand();
+
+    // 异步回调闭包需要设置为keepalive，防止被GC
+    PROCESS.heap.SetKeepalive(callback, true);
+
+    let filePath = TrimQuotes(PROCESS.heap.Get(filePathHandle).content);
+    if(path.isAbsolute(filePath) === false) {
+        filePath = path.join(RUNTIME.workingDir, filePath);
+    }
+
+    PROCESS.Step(); // 立刻退出，执行下一指令
+
+    fs.readFile(filePath, {encoding:"utf-8"}, (error, data)=> {
+        if(error) {
+            PROCESS.OPSTACK.push("#f"); // TODO native函数的错误处理仍需细化
+        }
+        else {
+            // 构造字符串对象
+            let strHandle = PROCESS.heap.AllocateHandle("STRING", false);
+            let strObject = {
+                type: "STRING",
+                content: String(data)
+            };
+            PROCESS.heap.Set(strHandle, strObject);
+            PROCESS.OPSTACK.push(strHandle);
+        }
+
+        // 若进程已经执行完毕，则将其重新加入进程队列，重启时钟，执行回调函数
+        if(PROCESS.state === "STOPPED") {
+            // NOTE 返回到地址为1的指令，即halt指令
+            RUNTIME.CallAsync(1, callback, PROCESS, RUNTIME);
+            // 恢复进程状态
+            PROCESS.SetState("RUNNING");
+            RUNTIME.AddProcess(PROCESS);
+            RUNTIME.StartClock();
+        }
+        // 若进程尚未执行完毕，直接调用回调
+        else {
+            // 返回到中断发生时的PC
+            RUNTIME.CallAsync(PROCESS.PC, callback, PROCESS, RUNTIME);
+        }
+    });
 }
 
-// (String.atom_to_string x:Boolean|Number|Symbol) : String
-function atom_to_string(PROCESS, RUNTIME) {
-    let x = PROCESS.PopOperand();
+// (File.readSync filePath:String) : String
+function readSync(PROCESS, RUNTIME) {
+    // 从栈中获取参数，注意顺序是反的
+    let filePathHandle = PROCESS.PopOperand();
+    let filePath = TrimQuotes(PROCESS.heap.Get(filePathHandle).content);
+    if(path.isAbsolute(filePath) === false) {
+        filePath = path.join(RUNTIME.workingDir, filePath);
+    }
+    let data = fs.readFileSync(filePath, {encoding:"utf-8"}).toString();
     // 构造字符串对象
     let strHandle = PROCESS.heap.AllocateHandle("STRING", false);
     let strObject = {
         type: "STRING",
-        content: String(x)
+        content: data
     };
     PROCESS.heap.Set(strHandle, strObject);
     PROCESS.OPSTACK.push(strHandle);
     PROCESS.Step();
 }
 
-// (String.concat str1:String str2:String) : String
-function concat(PROCESS, RUNTIME) {
-    let str2Handle = PROCESS.PopOperand();
-    let str2 = TrimQuotes(PROCESS.heap.Get(str2Handle).content);
-    let str1Handle = PROCESS.PopOperand();
-    let str1 = TrimQuotes(PROCESS.heap.Get(str1Handle).content);
-    // 构造字符串对象
-    let strHandle = PROCESS.heap.AllocateHandle("STRING", false);
-    let strObject = {
-        type: "STRING",
-        content: str1.concat(str2)
-    };
-    PROCESS.heap.Set(strHandle, strObject);
-    PROCESS.OPSTACK.push(strHandle);
+// (File.writeString filePath:String strdata:String flag:String callback:(err->Boolean)) : undefined
+function writeString(PROCESS, RUNTIME) {
+    // 从栈中获取参数，注意顺序是反的
+    let callback = PROCESS.PopOperand();
+    // 异步回调闭包需要设置为keepalive，防止被GC
+    PROCESS.heap.SetKeepalive(callback, true);
+
+    let flagHandle = PROCESS.PopOperand();
+    let flag = TrimQuotes(PROCESS.heap.Get(flagHandle).content) || "w";
+
+    let strdataHandle = PROCESS.PopOperand();
+    let strdata = TrimQuotes(PROCESS.heap.Get(strdataHandle).content);
+
+    let filePathHandle = PROCESS.PopOperand();
+    let filePath = TrimQuotes(PROCESS.heap.Get(filePathHandle).content);
+    if(path.isAbsolute(filePath) === false) {
+        filePath = path.join(RUNTIME.workingDir, filePath);
+    }
+
+    PROCESS.Step(); // 立刻退出，执行下一指令
+
+    fs.writeFile(filePath, strdata, {encoding:"utf-8", flag: flag}, (error)=> {
+        if(error) {
+            PROCESS.OPSTACK.push("#f"); // TODO native函数的错误处理仍需细化
+        }
+        else {
+            PROCESS.OPSTACK.push("#t");
+        }
+
+        // 若进程已经执行完毕，则将其重新加入进程队列，重启时钟，执行回调函数
+        if(PROCESS.state === "STOPPED") {
+            PROCESS.PC = 0; // TODO 此处可优化 NOTE 使得回调函数栈帧的返回地址是地址为1的指令，即halt指令
+            RUNTIME.AIL_CALL(callback, PROCESS, RUNTIME);
+            // 恢复进程状态
+            PROCESS.SetState("RUNNING");
+            RUNTIME.AddProcess(PROCESS);
+            RUNTIME.StartClock();
+        }
+        // 若进程尚未执行完毕，直接调用回调
+        else {
+            RUNTIME.AIL_CALL(callback, PROCESS, RUNTIME);
+        }
+    });
+}
+
+// (File.writeStringSync filePath:String strdata:String flag:String) : undefined
+function writeStringSync(PROCESS, RUNTIME) {
+    // 从栈中获取参数，注意顺序是反的
+    let flagHandle = PROCESS.PopOperand();
+    let flag = TrimQuotes(PROCESS.heap.Get(flagHandle).content) || "w";
+
+    let strdataHandle = PROCESS.PopOperand();
+    let strdata = TrimQuotes(PROCESS.heap.Get(strdataHandle).content);
+
+    let filePathHandle = PROCESS.PopOperand();
+    let filePath = TrimQuotes(PROCESS.heap.Get(filePathHandle).content);
+    if(path.isAbsolute(filePath) === false) {
+        filePath = path.join(RUNTIME.workingDir, filePath);
+    }
+    fs.writeFileSync(filePath, strdata, {encoding:"utf-8", flag: flag});
     PROCESS.Step();
 }
 
-// (String.charCodeAt index:Number str:String) : Number
-function charCodeAt(PROCESS, RUNTIME) {
-    // 注意参数退栈顺序与参数列表顺序相反
-    let strHandle = PROCESS.PopOperand();
-    let str = TrimQuotes(PROCESS.heap.Get(strHandle).content);
-    let index = Number(PROCESS.PopOperand());
-    PROCESS.OPSTACK.push(Number(str.charCodeAt(index)));
-    PROCESS.Step();
-}
-
-// (String.fromCharCode charcode:Number) : String
-function fromCharCode(PROCESS, RUNTIME) {
-    let charcode = PROCESS.PopOperand();
-    // 构造字符串对象
-    let strHandle = PROCESS.heap.AllocateHandle("STRING", false);
-    let strObject = {
-        type: "STRING",
-        content: String.fromCharCode(Number(charcode))
-    };
-    PROCESS.heap.Set(strHandle, strObject);
-    PROCESS.OPSTACK.push(strHandle);
-    PROCESS.Step();
-}
-
-// (String.slice str:String start:Number end:Number) : String
-function slice(PROCESS, RUNTIME) {
-    // 注意参数退栈顺序与参数列表顺序相反
-    let end = Number(PROCESS.PopOperand());
-    let start = Number(PROCESS.PopOperand());
-    let strHandle = PROCESS.PopOperand();
-    let str = TrimQuotes(PROCESS.heap.Get(strHandle).content);
-    // 构造字符串对象
-    let newStrHandle = PROCESS.heap.AllocateHandle("STRING", false);
-    let newStrObject = {
-        type: "STRING",
-        content: String(str.slice(start, end))
-    };
-    PROCESS.heap.Set(newStrHandle, newStrObject);
-    PROCESS.OPSTACK.push(newStrHandle);
-    PROCESS.Step();
-}
-
-// (String.equals str1:String str2:String) : Boolean
-function equals(PROCESS, RUNTIME) {
-    let str2Handle = PROCESS.PopOperand();
-    let str2 = TrimQuotes(PROCESS.heap.Get(str2Handle).content);
-    let str1Handle = PROCESS.PopOperand();
-    let str1 = TrimQuotes(PROCESS.heap.Get(str1Handle).content);
-
-    PROCESS.OPSTACK.push((String(str1) === String(str2)) ? "#t" : "#f");
-    PROCESS.Step();
-}
-
-module.exports.length = length;
-module.exports.atom_to_string = atom_to_string;
-module.exports.concat = concat;
-module.exports.charCodeAt = charCodeAt;
-module.exports.fromCharCode = fromCharCode;
-module.exports.slice = slice;
-module.exports.equals = equals;
+module.exports.read = read;
+module.exports.readSync = readSync;
+module.exports.writeString = writeString;
+module.exports.writeStringSync = writeStringSync;
 `;
-ANIMAC_VFS["/lib/LLM.js"] = `
+ANIMAC_VFS["/lib/HTTPS.js"] = `// 取数组/栈的栈顶
+function Top(arr) {
+    return arr[arr.length - 1];
+}
+
+// 去掉生字符串两端的双引号
+function TrimQuotes(str) {
+    if(str === undefined) return "";
+    if(str[0] === '"' && str[str.length-1] === '"') {
+        str = str.substring(1, str.length-1);
+        str = str.replace(/\\\\n/gi, "\\n").replace(/\\\\r/gi, "\\r").replace(/\\\\"/gi, '"').replace(/\\\\t/gi, '\\t').replace(/\\\\b/gi, '\\b');
+        return str;
+    }
+    else {
+        str = str.replace(/\\\\n/gi, "\\n").replace(/\\\\r/gi, "\\r").replace(/\\\\"/gi, '"').replace(/\\\\t/gi, '\\t').replace(/\\\\b/gi, '\\b');
+        return str;
+    }
+}
+
+module.exports.Top = Top;
+module.exports.TrimQuotes = TrimQuotes;
+
+
+
+
+// nativelib/HTTPS.js
+// HTTPS本地库
+
+
+
+
+
+
+function Request(PROCESS, RUNTIME) {
+    if(PROCESS.STATE === "SLEEPING") {
+        PROCESS.SetState("SLEEPING");
+    }
+    else {
+        // console.log(\`开始阻塞(file)\`);
+        PROCESS.SetState("SLEEPING");
+
+        // 从栈中获取参数，注意顺序是反的
+        let urlHandle = PROCESS.PopOperand();
+        let url = new URL(TrimQuotes(PROCESS.heap.Get(urlHandle).content));
+
+        function callback() {
+            console.log(\`HTTPS执行完毕\`);
+            PROCESS.SetState("RUNNING");
+            PROCESS.Step();
+            // 唤醒
+            RUNTIME.AddProcess(PROCESS);
+            RUNTIME.StartClock();
+        }
+
+        // 响应数据
+        let responseData = '';
+
+        // HTTPS异步请求
+        const req = https.request({
+            hostname: url.hostname,
+            path: url.pathname,
+            port: 443,
+            method: 'GET',
+        }, (res)=> {
+            res.on('data', (data) => {
+                responseData += data;
+            });
+            res.on('end', () => {
+                // TODO ANI所需的接口应当采用恰当的方式暴露给Native库
+                let strHandle = PROCESS.heap.AllocateHandle("STRING", false);
+                let strObject = {
+                    type: "STRING",
+                    content: responseData
+                };
+                PROCESS.heap.Set(strHandle, strObject);
+                PROCESS.OPSTACK.push(strHandle);
+
+                callback();
+            });
+        });
+        req.on('error', (e) => {
+            // TODO ANI所需的接口应当采用恰当的方式暴露给Native库
+            let strHandle = PROCESS.heap.AllocateHandle("STRING", false);
+            let strObject = {
+                type: "STRING",
+                content: e.toString()
+            };
+            PROCESS.heap.Set(strHandle, strObject);
+            PROCESS.OPSTACK.push(strHandle);
+
+            callback();
+            return;
+        });
+        req.end();
+    }
+}
+
+module.exports.Request = Request;
+`;
+ANIMAC_VFS["/lib/LLM.js"] = `// 取数组/栈的栈顶
+function Top(arr) {
+    return arr[arr.length - 1];
+}
+
+// 去掉生字符串两端的双引号
+function TrimQuotes(str) {
+    if(str === undefined) return "";
+    if(str[0] === '"' && str[str.length-1] === '"') {
+        str = str.substring(1, str.length-1);
+        str = str.replace(/\\\\n/gi, "\\n").replace(/\\\\r/gi, "\\r").replace(/\\\\"/gi, '"').replace(/\\\\t/gi, '\\t').replace(/\\\\b/gi, '\\b');
+        return str;
+    }
+    else {
+        str = str.replace(/\\\\n/gi, "\\n").replace(/\\\\r/gi, "\\r").replace(/\\\\"/gi, '"').replace(/\\\\t/gi, '\\t').replace(/\\\\b/gi, '\\b');
+        return str;
+    }
+}
+
+module.exports.Top = Top;
+module.exports.TrimQuotes = TrimQuotes;
+
+
+
 // 
 // Nano Language Model - Inference Engine on Web Browser
 //
@@ -1450,7 +1407,6 @@ function generate_next_token(output_ids, pos, is_prefilling) {
     }
     // Auto-regressive Decode
     else {
-        status = "Decoding...";
         // 复读惩罚：对过往出现过的词元施加惩罚，词元出现得越多，概率越低: ref arxiv:1909.05858
         let tokenset = new Set(output_ids);
         for(tk of tokenset.keys()) {
@@ -1518,18 +1474,7 @@ function llm_session_step() {
 ////////////////////////////////////////////////////////////////////////////
 
 
-function TrimQuotes(str) {
-    if(str === undefined) return "";
-    if(str[0] === '"' && str[str.length-1] === '"') {
-        str = str.substring(1, str.length-1);
-        str = str.replace(/\\\\n/gi, "\\n").replace(/\\\\r/gi, "\\r").replace(/\\\\"/gi, '"').replace(/\\\\t/gi, '\\t');
-        return str;
-    }
-    else {
-        str = str.replace(/\\\\n/gi, "\\n").replace(/\\\\r/gi, "\\r").replace(/\\\\"/gi, '"').replace(/\\\\t/gi, '\\t');
-        return str;
-    }
-}
+
 
 // (LLM.init modelFileBase64:string) : void
 function init(PROCESS, RUNTIME) {
@@ -1590,7 +1535,6 @@ function step(PROCESS, RUNTIME) {
 
     // 构造列表对象
     let newListHandle = PROCESS.heap.AllocateHandle("QUOTE", false);
-    // let newList = new QuoteObject(listHandle);
     let newList = {
         type: "QUOTE",
         parent: null,
@@ -1825,6 +1769,460 @@ module.exports.get_param = get_param;
 module.exports.encode = encode;
 module.exports.decode = decode;
 
+`;
+ANIMAC_VFS["/lib/Math.js"] = `// 取数组/栈的栈顶
+function Top(arr) {
+    return arr[arr.length - 1];
+}
+
+// 去掉生字符串两端的双引号
+function TrimQuotes(str) {
+    if(str === undefined) return "";
+    if(str[0] === '"' && str[str.length-1] === '"') {
+        str = str.substring(1, str.length-1);
+        str = str.replace(/\\\\n/gi, "\\n").replace(/\\\\r/gi, "\\r").replace(/\\\\"/gi, '"').replace(/\\\\t/gi, '\\t').replace(/\\\\b/gi, '\\b');
+        return str;
+    }
+    else {
+        str = str.replace(/\\\\n/gi, "\\n").replace(/\\\\r/gi, "\\r").replace(/\\\\"/gi, '"').replace(/\\\\t/gi, '\\t').replace(/\\\\b/gi, '\\b');
+        return str;
+    }
+}
+
+module.exports.Top = Top;
+module.exports.TrimQuotes = TrimQuotes;
+
+
+
+
+// (Math.PI) : Number
+function PI(PROCESS, RUNTIME) {
+    PROCESS.OPSTACK.push(Number(Math.PI));
+    PROCESS.Step();
+}
+
+// (Math.pow base:Number exponent:Number) : Number
+function pow(PROCESS, RUNTIME) {
+    let exponent = PROCESS.PopOperand();
+    let base = PROCESS.PopOperand();
+    let res = Math.pow(Number(base), Number(exponent));
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
+// (Math.sqrt x:Number) : Number
+function sqrt(PROCESS, RUNTIME) {
+    let x = PROCESS.PopOperand();
+    let res = Math.sqrt(Number(x));
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
+// (Math.exp x:Number) : Number
+function exp(PROCESS, RUNTIME) {
+    let x = PROCESS.PopOperand();
+    let res = Math.exp(Number(x));
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
+// (Math.log x:Number) : Number
+function log(PROCESS, RUNTIME) {
+    let x = PROCESS.PopOperand();
+    let res = Math.log(Number(x));
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
+// (Math.log10 x:Number) : Number
+function log10(PROCESS, RUNTIME) {
+    let x = PROCESS.PopOperand();
+    let res = Math.log10(Number(x));
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
+// (Math.log2 x:Number) : Number
+function log2(PROCESS, RUNTIME) {
+    let x = PROCESS.PopOperand();
+    let res = Math.log2(Number(x));
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
+// (Math.sin x:Number) : Number
+function sin(PROCESS, RUNTIME) {
+    let x = PROCESS.PopOperand();
+    let res = Math.sin(Number(x));
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
+// (Math.cos x:Number) : Number
+function cos(PROCESS, RUNTIME) {
+    let x = PROCESS.PopOperand();
+    let res = Math.cos(Number(x));
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
+// (Math.tan x:Number) : Number
+function tan(PROCESS, RUNTIME) {
+    let x = PROCESS.PopOperand();
+    let res = Math.tan(Number(x));
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
+// (Math.atan x:Number) : Number
+function atan(PROCESS, RUNTIME) {
+    let x = PROCESS.PopOperand();
+    let res = Math.atan(Number(x));
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
+// (Math.floor x:Number) : Number
+function floor(PROCESS, RUNTIME) {
+    let x = PROCESS.PopOperand();
+    let res = Math.floor(Number(x));
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
+// (Math.ceil x:Number) : Number
+function ceil(PROCESS, RUNTIME) {
+    let x = PROCESS.PopOperand();
+    let res = Math.ceil(Number(x));
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
+// (Math.round x:Number) : Number
+function round(PROCESS, RUNTIME) {
+    let x = PROCESS.PopOperand();
+    let res = Math.round(Number(x));
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
+// (Math.abs x:Number) : Number
+function abs(PROCESS, RUNTIME) {
+    let x = PROCESS.PopOperand();
+    let res = Math.abs(Number(x));
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
+// (Math.random) : Number
+function random(PROCESS, RUNTIME) {
+    let res = Math.random();
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
+module.exports.PI = PI;
+module.exports.pow = pow;
+module.exports.sqrt = sqrt;
+module.exports.exp = exp;
+module.exports.log = log;
+module.exports.log10 = log10;
+module.exports.log2 = log2;
+module.exports.sin = sin;
+module.exports.cos = cos;
+module.exports.tan = tan;
+module.exports.atan = atan;
+module.exports.floor = floor;
+module.exports.ceil = ceil;
+module.exports.round = round;
+module.exports.abs = abs;
+module.exports.random = random;
+`;
+ANIMAC_VFS["/lib/String.js"] = `// 取数组/栈的栈顶
+function Top(arr) {
+    return arr[arr.length - 1];
+}
+
+// 去掉生字符串两端的双引号
+function TrimQuotes(str) {
+    if(str === undefined) return "";
+    if(str[0] === '"' && str[str.length-1] === '"') {
+        str = str.substring(1, str.length-1);
+        str = str.replace(/\\\\n/gi, "\\n").replace(/\\\\r/gi, "\\r").replace(/\\\\"/gi, '"').replace(/\\\\t/gi, '\\t').replace(/\\\\b/gi, '\\b');
+        return str;
+    }
+    else {
+        str = str.replace(/\\\\n/gi, "\\n").replace(/\\\\r/gi, "\\r").replace(/\\\\"/gi, '"').replace(/\\\\t/gi, '\\t').replace(/\\\\b/gi, '\\b');
+        return str;
+    }
+}
+
+module.exports.Top = Top;
+module.exports.TrimQuotes = TrimQuotes;
+
+
+
+
+
+
+// (String.length str:String) : Number
+function length(PROCESS, RUNTIME) {
+    let strHandle = PROCESS.PopOperand();
+    let str = TrimQuotes(PROCESS.heap.Get(strHandle).content);
+    PROCESS.OPSTACK.push(Number(str.length));
+    PROCESS.Step();
+}
+
+// (String.atom_to_string x:Boolean|Number|Symbol) : String
+function atom_to_string(PROCESS, RUNTIME) {
+    let x = PROCESS.PopOperand();
+    // 构造字符串对象
+    let strHandle = PROCESS.heap.AllocateHandle("STRING", false);
+    let strObject = {
+        type: "STRING",
+        content: String(x)
+    };
+    PROCESS.heap.Set(strHandle, strObject);
+    PROCESS.OPSTACK.push(strHandle);
+    PROCESS.Step();
+}
+
+// (String.concat str1:String str2:String) : String
+function concat(PROCESS, RUNTIME) {
+    let str2Handle = PROCESS.PopOperand();
+    let str2 = TrimQuotes(PROCESS.heap.Get(str2Handle).content);
+    let str1Handle = PROCESS.PopOperand();
+    let str1 = TrimQuotes(PROCESS.heap.Get(str1Handle).content);
+    // 构造字符串对象
+    let strHandle = PROCESS.heap.AllocateHandle("STRING", false);
+    let strObject = {
+        type: "STRING",
+        content: str1.concat(str2)
+    };
+    PROCESS.heap.Set(strHandle, strObject);
+    PROCESS.OPSTACK.push(strHandle);
+    PROCESS.Step();
+}
+
+// (String.charCodeAt index:Number str:String) : Number
+function charCodeAt(PROCESS, RUNTIME) {
+    // 注意参数退栈顺序与参数列表顺序相反
+    let strHandle = PROCESS.PopOperand();
+    let str = TrimQuotes(PROCESS.heap.Get(strHandle).content);
+    let index = Number(PROCESS.PopOperand());
+    PROCESS.OPSTACK.push(Number(str.charCodeAt(index)));
+    PROCESS.Step();
+}
+
+// (String.fromCharCode charcode:Number) : String
+function fromCharCode(PROCESS, RUNTIME) {
+    let charcode = PROCESS.PopOperand();
+    // 构造字符串对象
+    let strHandle = PROCESS.heap.AllocateHandle("STRING", false);
+    let strObject = {
+        type: "STRING",
+        content: String.fromCharCode(Number(charcode))
+    };
+    PROCESS.heap.Set(strHandle, strObject);
+    PROCESS.OPSTACK.push(strHandle);
+    PROCESS.Step();
+}
+
+// (String.slice str:String start:Number end:Number) : String
+function slice(PROCESS, RUNTIME) {
+    // 注意参数退栈顺序与参数列表顺序相反
+    let end = Number(PROCESS.PopOperand());
+    let start = Number(PROCESS.PopOperand());
+    let strHandle = PROCESS.PopOperand();
+    let str = TrimQuotes(PROCESS.heap.Get(strHandle).content);
+    // 构造字符串对象
+    let newStrHandle = PROCESS.heap.AllocateHandle("STRING", false);
+    let newStrObject = {
+        type: "STRING",
+        content: String(str.slice(start, end))
+    };
+    PROCESS.heap.Set(newStrHandle, newStrObject);
+    PROCESS.OPSTACK.push(newStrHandle);
+    PROCESS.Step();
+}
+
+// (String.equals str1:String str2:String) : Boolean
+function equals(PROCESS, RUNTIME) {
+    let str2Handle = PROCESS.PopOperand();
+    let str2 = TrimQuotes(PROCESS.heap.Get(str2Handle).content);
+    let str1Handle = PROCESS.PopOperand();
+    let str1 = TrimQuotes(PROCESS.heap.Get(str1Handle).content);
+
+    PROCESS.OPSTACK.push((String(str1) === String(str2)) ? "#t" : "#f");
+    PROCESS.Step();
+}
+
+module.exports.length = length;
+module.exports.atom_to_string = atom_to_string;
+module.exports.concat = concat;
+module.exports.charCodeAt = charCodeAt;
+module.exports.fromCharCode = fromCharCode;
+module.exports.slice = slice;
+module.exports.equals = equals;
+`;
+ANIMAC_VFS["/lib/System.js"] = `// 取数组/栈的栈顶
+function Top(arr) {
+    return arr[arr.length - 1];
+}
+
+// 去掉生字符串两端的双引号
+function TrimQuotes(str) {
+    if(str === undefined) return "";
+    if(str[0] === '"' && str[str.length-1] === '"') {
+        str = str.substring(1, str.length-1);
+        str = str.replace(/\\\\n/gi, "\\n").replace(/\\\\r/gi, "\\r").replace(/\\\\"/gi, '"').replace(/\\\\t/gi, '\\t').replace(/\\\\b/gi, '\\b');
+        return str;
+    }
+    else {
+        str = str.replace(/\\\\n/gi, "\\n").replace(/\\\\r/gi, "\\r").replace(/\\\\"/gi, '"').replace(/\\\\t/gi, '\\t').replace(/\\\\b/gi, '\\b');
+        return str;
+    }
+}
+
+module.exports.Top = Top;
+module.exports.TrimQuotes = TrimQuotes;
+
+
+
+
+
+
+
+
+function exec(PROCESS, RUNTIME) {
+    if(PROCESS.STATE === "SLEEPING") {
+        PROCESS.SetState("SLEEPING");
+    }
+    else {
+        // console.log(\`开始阻塞(System)\`);
+        PROCESS.SetState("SLEEPING");
+
+        // 从栈中获取参数，注意顺序是反的
+        let cmdStrHandle = PROCESS.PopOperand();
+        let cmdStr = TrimQuotes(PROCESS.heap.Get(cmdStrHandle).content);
+
+        child_process.exec(cmdStr, {encoding: "UTF-8"}, (error, stdout, stderr)=> {
+            if(error) {
+                console.error(error);
+                // console.warn(\`进程 \${PROCESS.PID} 恢复。\`);
+                PROCESS.SetState("RUNNING");
+                PROCESS.Step();
+                return;
+            }
+            // 恢复进程状态
+            // /console.warn(\`进程 \${PROCESS.PID} 恢复。\`);
+            PROCESS.SetState("RUNNING");
+
+            // 首先构造字符串对象
+            // TODO ANI所需的接口应当采用恰当的方式暴露给Native库
+            let stdoutStrHandle = PROCESS.heap.AllocateHandle("STRING", false);
+            let stdoutStrObject = {
+                type: "STRING",
+                content: stdout.toString()
+            };
+            PROCESS.heap.Set(stdoutStrHandle, stdoutStrObject);
+
+            PROCESS.OPSTACK.push(stdoutStrHandle);
+
+            PROCESS.Step();
+
+            // NOTE 取消异步回调设计。所有涉及阻塞的操作均设计成同步的。
+            // let currentPC = PROCESS.PC;
+            // RUNTIME.AIL_CALL(callback, PROCESS, RUNTIME);
+
+            // 进程重新加入进程队列，并重启时钟
+            RUNTIME.AddProcess(PROCESS);
+            RUNTIME.StartClock();
+        });
+    }
+}
+
+// (System.set_timeout time_ms:Number callback:(void->undefined)) : Number(计时器编号)
+function set_timeout(PROCESS, RUNTIME) {
+    // 从栈中获取参数，注意顺序是反的
+    let callback = PROCESS.PopOperand();
+    let time_ms = PROCESS.PopOperand();
+
+    // 异步回调闭包需要设置为keepalive，防止被GC
+    PROCESS.heap.SetKeepalive(callback, true);
+
+    let timer = setTimeout(() => {
+        // 若进程已经执行完毕，则将其重新加入进程队列，重启时钟，执行回调函数
+        if(PROCESS.state === "STOPPED") {
+            // NOTE 返回到地址为1的指令，即halt指令
+            RUNTIME.CallAsync(1, callback, PROCESS, RUNTIME);
+            // 恢复进程状态
+            PROCESS.SetState("RUNNING");
+            RUNTIME.AddProcess(PROCESS);
+            RUNTIME.StartClock();
+        }
+        // 若进程尚未执行完毕，直接调用回调
+        else {
+            // 返回到中断发生时的PC
+            RUNTIME.CallAsync(PROCESS.PC, callback, PROCESS, RUNTIME);
+        }
+    }, time_ms);
+
+    PROCESS.OPSTACK.push(Number(timer));
+    PROCESS.Step(); // 退出，执行下一指令
+}
+
+// (System.set_interval time_ms:Number callback:(void->undefined)) : Number(计时器编号)
+function set_interval(PROCESS, RUNTIME) {
+    // 从栈中获取参数，注意顺序是反的
+    let callback = PROCESS.PopOperand();
+    let time_ms = PROCESS.PopOperand();
+
+    // 异步回调闭包需要设置为keepalive，防止被GC
+    PROCESS.heap.SetKeepalive(callback, true);
+
+    let timer = setInterval(() => {
+        // 若进程已经执行完毕，则将其重新加入进程队列，重启时钟，执行回调函数
+        if(PROCESS.state === "STOPPED") {
+            // NOTE 返回到地址为1的指令，即halt指令
+            RUNTIME.CallAsync(1, callback, PROCESS, RUNTIME);
+            // 恢复进程状态
+            PROCESS.SetState("RUNNING");
+            RUNTIME.AddProcess(PROCESS);
+            RUNTIME.StartClock();
+        }
+        // 若进程尚未执行完毕，直接调用回调
+        else {
+            // 返回到中断发生时的PC
+            RUNTIME.CallAsync(PROCESS.PC, callback, PROCESS, RUNTIME);
+        }
+    }, time_ms);
+
+    PROCESS.OPSTACK.push(Number(timer));
+    PROCESS.Step(); // 退出，执行下一指令
+}
+
+// (System.clear_timeout timer:Number) : void
+function clear_timeout(PROCESS, RUNTIME) {
+    // 从栈中获取参数，注意顺序是反的
+    let timer = PROCESS.PopOperand();
+    clearTimeout(timer);
+    PROCESS.Step(); // 退出，执行下一指令
+}
+
+// (System.clear_interval timer:Number) : void
+function clear_interval(PROCESS, RUNTIME) {
+    // 从栈中获取参数，注意顺序是反的
+    let timer = PROCESS.PopOperand();
+    clearInterval(timer);
+    PROCESS.Step(); // 退出，执行下一指令
+}
+
+module.exports.exec = exec;
+module.exports.set_timeout = set_timeout;
+module.exports.set_interval = set_interval;
+module.exports.clear_timeout = clear_timeout;
+module.exports.clear_interval = clear_interval;
 `;
 // Memory.ts
 // 内存管理

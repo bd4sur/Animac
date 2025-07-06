@@ -39,5 +39,3 @@
     (llm_generate_native)
   })
 )
-
-(run)

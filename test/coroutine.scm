@@ -8,7 +8,7 @@
 ;;
 ;; 参考：https://www.scheme.com/tspl4/further.html
 
-(import List "std.list.scm")
+(import List "list.scm")
 
 (define PRODUCT_COUNTER 1)      ;; 产品计数器，可以看成是序列号
 (define FINISHED #f)            ;; 全局生产完成标记

@@ -2,7 +2,7 @@
 ;; 2025-06-28
 
 (native Math)
-(import List "std.list.scm")
+(import List "list.scm")
 
 ;; 矩阵的存储格式：M行N列的矩阵A，以线性列表的方式存储，格式为：
 ;;   注：m:=M-1 n:=N-1
@@ -473,5 +473,3 @@
     (train IRIS_TRAINSET_X IRIS_TRAINSET_Y 120 IRIS_VALIDSET_X IRIS_VALIDSET_Y 30)
   })
 )
-
-(run)

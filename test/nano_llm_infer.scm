@@ -5,7 +5,7 @@
 (native String)
 (native Math)
 
-(import List "std.list.scm")
+(import List "list.scm")
 (import NanoModels "nano_llm_model.scm")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

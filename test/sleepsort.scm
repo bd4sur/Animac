@@ -5,7 +5,7 @@
 ;; 由于JS时钟并不精确，因此输出结果有随机性，可以多运行几次
 
 (native System)
-(import List "std.list.scm")
+(import List "list.scm")
 
 (define array '(9 1 8 6 2 7 3 6 0 4 5))
 (define sorted '())

@@ -1,4 +1,3 @@
-(import Utils "utils.scm")
 
 (define fac_cps
 (lambda (cont)
@@ -52,14 +51,14 @@
 (define run
   (lambda () {
 
-    (Utils.show "阶乘测试①：真·CPS阶乘")(newline)
-    (Utils.show "期望结果：3628800")(newline)
-    (Utils.show "实际结果：")
+    (display "阶乘测试①：真·CPS阶乘")(newline)
+    (display "期望结果：3628800")(newline)
+    (display "实际结果：")
     (((fac_cps (lambda (x) x)) 10) (lambda (x) (display x)))
     (newline)
     (newline)
 
-    (Utils.show "阶乘测试②：CPS和set!的结合")(newline)
+    (display "阶乘测试②：CPS和set!的结合")(newline)
     (display "5!（期望120）=")
     (display (fac 5 (lambda (x) x)))
     (newline)
@@ -71,16 +70,16 @@
     (newline)
     (newline)
 
-    (Utils.show "尾调用优化测试：大量的尾递归调用")(newline)
-    (Utils.show "期望结果：5000050000")(newline)
-    (Utils.show "实际结果：")
+    (display "尾调用优化测试：大量的尾递归调用")(newline)
+    (display "期望结果：5000050000")(newline)
+    (display "实际结果：")
     (display (sum_iter 100000 0))
     (newline)
     (newline)
 
-    (Utils.show "快速求幂算法：测试cond语句")(newline)
-    (Utils.show "期望结果：1073741824")(newline)
-    (Utils.show "实际结果：")
+    (display "快速求幂算法：测试cond语句")(newline)
+    (display "期望结果：1073741824")(newline)
+    (display "实际结果：")
     (define power
       (lambda (base exp init)
         (cond ((= exp 0) init)

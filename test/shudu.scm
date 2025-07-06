@@ -1,7 +1,7 @@
 ;; 解数独：用于测试语言核心、call/cc和列表原位操作
 ;; 2025-06-30
 
-(import List "std.list.scm")
+(import List "list.scm")
 
 (define board '(
   (1 2 3 0 0 0 0 0 0)

@@ -102,7 +102,7 @@ node build/animac-cli.js
 **函数作为第一等公民**
 
 ```scheme
-(import List "test/std.list.scm")         ; 引入列表操作高阶函数
+(import List "test/list.scm")         ; 引入列表操作高阶函数
 (native Math)                             ; 声明使用数学本地库
 (List.reduce '(1 2 3 4 5 6 7 8 9 10) + 0) ; 55
 (List.map '(-2 -1 0 1 2) Math.abs)        ; (2 1 0 1 2)

@@ -294,9 +294,26 @@
     (display (list_set '(1 2 3 4) 0 10)) (display " ")
     (display (list_set '(1 2 3 4) 1 20)) (display " ")
     (display (list_set '(1 2 3 4) 2 30)) (display " ")
-    (display (list_set '(1 2 3 4) 3 40)) (display " ")
+    (display (list_set '(1 2 3 4) 3 40)) (display " ") (newline)
 
-    (newline)
+    (display "shuffle 测试\n")
+    (display "实际输出：")
+    (display (shuffle 10)) (newline)
+
+    (display "bubble_sort 测试\n")
+    (display "期望输出：(-3 -3 -2 -1 0 1 2 3 4 5 5 6 6 6 7 8 9)\n")
+    (define array '(6 -3 5 9 -2 6 1 7 -3 5 3 0 4 -1 6 8 2))
+    (bubble_sort array >)
+    (display "实际输出：")
+    (display array) (newline)
+
+    (display "heap_sort 测试\n")
+    (display "期望输出：(-3 -3 -2 -1 0 1 2 3 4 5 5 6 6 6 7 8 9)\n")
+    (set! array '(6 -3 5 9 -2 6 1 7 -3 5 3 0 4 -1 6 8 2))
+    (heap_sort array >)
+    (display "实际输出：")
+    (display array) (newline)
+
     (newline)
   })
 )

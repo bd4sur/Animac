@@ -3,7 +3,7 @@
 
 (native String)
 (native Math)
-(import List "std.list.scm")
+(import List "list.scm")
 (import FFT "fft.scm")
 
 (define charcode_of_zero (String.charCodeAt 0 "0"))

@@ -1,4 +1,3 @@
-(import Utils "utils.scm")
 
 (define A
   (lambda (k x1 x2 x3 x4 x5)
@@ -16,11 +15,10 @@
 
 (define run
   (lambda () {
-    (Utils.show "Man or Boy Test")(newline)
-    (Utils.show "期望结果：-67")(newline)
-    (Utils.show "实际结果：")
-    (Utils.show (A 10 thunk_1 thunk_m1 thunk_m1 thunk_1 thunk_0))
-    (newline)
+    (display "Man or Boy Test")(newline)
+    (display "A[10] = ") (display (A 10 thunk_1 thunk_m1 thunk_m1 thunk_1 thunk_0)) (display " / 期望-67") (newline)
+    (display "A[11] = ") (display (A 11 thunk_1 thunk_m1 thunk_m1 thunk_1 thunk_0)) (display " / 期望-138") (newline)
+    (display "A[12] = ") (display (A 12 thunk_1 thunk_m1 thunk_m1 thunk_1 thunk_0)) (display " / 期望-291") (newline)
     (newline)
   })
 )
