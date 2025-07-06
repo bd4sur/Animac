@@ -3377,3 +3377,39 @@ ANIMAC_VFS["/test/yinyang.scm"] = `(define Yinyang
 )
 
 `;
+ANIMAC_VFS["/test/yinyang_cps.scm"] = `;; Yin-yang puzzle
+;(((lambda (x) (display "@") x) (call/cc (lambda (k) k)))
+; ((lambda (x) (display "*") x) (call/cc (lambda (k) k))))
+
+;; Continuation-passing style Yin-yang puzzle
+(
+(lambda (cont)
+  ((lambda (cont)
+     ((lambda (cont)
+        (cont (lambda (x)
+                (lambda (k)
+                  ((lambda (cont) (begin (display "@") (cont x)))
+                   (lambda (m) (k m)))))))
+      (lambda (m-res)
+        ((lambda (k) (cont k))
+         (lambda (n-res)
+           ((m-res n-res)
+            (lambda (a) (cont a))))))))
+   (lambda (m-res)
+        ((lambda (cont)
+           ((lambda (cont)
+              (cont (lambda (x)
+                      (lambda (k)
+                        ((lambda (cont) (begin (display "*") (cont x)))
+                         (lambda (m) (k m)))))))
+            (lambda (m-res)
+              ((lambda (k) (cont k))
+               (lambda (n-res)
+                 ((m-res n-res)
+                  (lambda (a) (cont a))))))))
+         (lambda (n-res)
+              ((m-res n-res)
+               (lambda (a) (cont a))))))))
+(lambda (x) x))
+
+`;

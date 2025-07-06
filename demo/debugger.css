@@ -105,6 +105,7 @@ pre {
     color: #fff;
     padding: 10px;
     white-space: pre-wrap;
+    line-break: anywhere;
     overflow: auto;
     height: 240px;
     max-height: 240px;

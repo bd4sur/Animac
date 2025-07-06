@@ -40,6 +40,7 @@ let test_shudu = fs.readFileSync("./test/shudu.scm", { "encoding": "utf-8" });
 let test_sleepsort = fs.readFileSync("./test/sleepsort.scm", { "encoding": "utf-8" });
 let test_tls = fs.readFileSync("./test/tls.scm", { "encoding": "utf-8" });
 let test_yinyang = fs.readFileSync("./test/yinyang.scm", { "encoding": "utf-8" });
+let test_yinyang_cps = fs.readFileSync("./test/yinyang_cps.scm", { "encoding": "utf-8" });
 
 let testcases = `
 ANIMAC_VFS["/test/big_int.scm"] = \`${esc(test_big_int)}\n\`;
@@ -67,6 +68,7 @@ ANIMAC_VFS["/test/shudu.scm"] = \`${esc(test_shudu)}\n\`;
 ANIMAC_VFS["/test/sleepsort.scm"] = \`${esc(test_sleepsort)}\n\`;
 ANIMAC_VFS["/test/tls.scm"] = \`${esc(test_tls)}\n\`;
 ANIMAC_VFS["/test/yinyang.scm"] = \`${esc(test_yinyang)}\n\`;
+ANIMAC_VFS["/test/yinyang_cps.scm"] = \`${esc(test_yinyang_cps)}\n\`;
 `;
 
 fs.writeFileSync("./demo/vfs.js", testcases, { "encoding": "utf-8" });
