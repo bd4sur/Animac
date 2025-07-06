@@ -53,72 +53,68 @@ node build/animac-cli.js
 
 全部测试用例位于 [`test`](https://github.com/bd4sur/Animac/tree/master/test) 目录，主要包括3个用例集合和两个较大规模的单独的测试用例，详情如下。
 
-用例集1 `test/test_1.scm` 包括：
+- `big_int.scm`：基于卷积定理的大整数乘法。用于测试本地库和模块机制。
+- `blink.scm`：通过文件操作控制GPIO，使LED闪烁。用于测试文件操作本地库。
+- `brainfuck.scm`：Brainfuck解释器，其中所有循环和递归均通过Y组合子实现。
+- `calculator.scm`：中缀表达式解析器。
+- `calendar.scm`：输出月历。
+- `church_encoding.scm`：λ演算的[Church编码](https://en.wikipedia.org/wiki/Church_encoding)。
+- `coroutine.scm`：生产者消费者问题。通过`call/cc`实现“轻量级进程”机制，借助生产者消费者问题来演示单个虚拟机线程内实现关键资源的无锁并发操作。
+- `deadlock.scm`：死锁模拟。基于虚拟机提供的多线程机制，模拟多个线程在访问共享资源（端口）时产生的死锁现象。
+- `factorial.scm`：阶乘。用于测试语言核心和尾调用优化。
+- `fft.scm`：快速傅里叶变换。用于测试数学本地库和语言核心。
+- `generator.scm`：生成器演示。用于测试`call/cc`。
+- `interpreter.scm`：在 *The Little Schemer* 书中实现的简单解释器。
+- `list.scm`：各类列表操作和排序算法。
+- `man_or_boy.scm`：Knuth提出的 [Man or Boy test](https://en.wikipedia.org/wiki/Man_or_boy_test)。用于测试词法作用域和闭包机制。
+- `mlp.scm`：多层感知机模型的随机梯度下降训练和验证，用于解决[鸢尾花分类问题](https://en.wikipedia.org/wiki/Iris_flower_data_set)。
+- `nano_llm_infer.scm`：[自制Nano语言模型](https://github.com/bd4sur/Nano)推理的纯Scheme实现。
+- `nano_llm_infer_native.scm`：[自制Nano语言模型](https://github.com/bd4sur/Nano)推理的JavaScript本地库实现，通过本地接口机制供Scheme调用。
+- `nano_llm_model.scm`：自制Nano语言模型权重，以base64格式的字符串形式存储在Scheme代码中。
+- `quasiquote.scm`：测试“准引用列表”。
+- `quicksort.scm`：快速排序。
+- `quine.scm`：Quine（蒯因），自己输出自己的程序。
+- `shudu.scm`：基于递归的数独求解算法。
+- `sleepsort.scm`：睡眠排序，这是一种幽默的排序算法，旨在测试异步回调函数。
+- `tls.scm`：在 *The Little Schemer* 书中实现的部分简单函数。
+- `yinyang.scm`：[Yin-yang puzzle](https://en.wikipedia.org/wiki/Call-with-current-continuation#Examples)。
+- `yinyang_cps.scm`：Yin-yang puzzle 的CPS实现。
 
-- 格式化输出日历
-- 简单递归函数
-- 列表操作
-- Man or Boy test ([Wikipedia](https://en.wikipedia.org/wiki/Man_or_boy_test))
-- 使用CPS风格实现的复杂的阶乘
-- 快速排序
-- Quine（自己输出自己的程序）
-- 准引用列表
-- *The Little Schemer* 书中给出的简单解释器
-- 中缀表达式解析器
-- 生成器
-- 快速傅里叶变换（FFT）
-- 基于FFT的大整数乘法
-- 解数独
-
-用例集2 `test/test_2.scm` 包括：
-
-- Church encoding ([Wikipedia](https://en.wikipedia.org/wiki/Church_encoding))
-- Brainfuck解释器
-
-用例集3 `test/test_3.scm` 包括：
-
-- 线程和本地库（文件、HTTPS）测试
-- Yin-yang puzzle ([Wikipedia](https://en.wikipedia.org/wiki/Call-with-current-continuation#Examples))
-
-用例 `test/mlp.scm` 实现了多层感知机模型的训练和验证，用于解决[鸢尾花分类问题](https://en.wikipedia.org/wiki/Iris_flower_data_set)，旨在全面测试整个系统。
-
-用例 `test/nano_llm.scm` 实现了[自制Nano语言模型](https://github.com/bd4sur/Nano)的推理，旨在测试比较复杂的宿主接口。
-
-用例 `test/sleepsort.scm` 实现了“睡眠排序”，这是一种幽默的排序算法，旨在测试异步回调函数。
-
-用例 `test/test_deadlock.scm` 基于虚拟机提供的多线程机制，实现了一个死锁现象的案例，旨在测试线程调度器和端口操作。
-
-用例 `test/test_cr.scm` 基于`call/cc`实现了一个简单的协程机制，借助典型的生产者消费者问题来演示单个虚拟机线程内实现关键资源的无锁并发操作。
-
-**词法作用域**
+**特性速览**
 
 ```scheme
+;; 词法作用域
+
 (define free 100)
 (define foo (lambda () `(,free))) ; 准引用列表也是词法作用域的
 (define bar (lambda (free) (foo)))
 (bar 200) ; 输出(100)，而不是(200)
-```
 
-**函数作为第一等公民**
 
-```scheme
-(import List "test/list.scm")         ; 引入列表操作高阶函数
-(native Math)                             ; 声明使用数学本地库
+;; 函数作为第一等公民
+(import List "list.scm") ; 引入列表操作高阶函数
+(native Math) ; 声明使用数学本地库
 (List.reduce '(1 2 3 4 5 6 7 8 9 10) + 0) ; 55
 (List.map '(-2 -1 0 1 2) Math.abs)        ; (2 1 0 1 2)
 (List.filter '(0 1 2 3)
              (lambda (x) (= 0 (% x 2))))  ; (0 2)
-```
 
-**Quine（自己输出自己的程序）**
 
-```scheme
+;; 循环结构（注意：循环体内并非如同JavaScript的块作用域）
+(define sum 0)
+(define i 1)
+(while (<= i 100) {
+  (set! sum (+ sum i))
+  (set! i (+ i 1))
+})
+(display sum)  ;; 输出5050
+
+
+;; Quine（自己输出自己的程序）
 ((lambda (x) (cons x (cons (cons quote (cons x '())) '()))) (quote (lambda (x) (cons x (cons (cons quote (cons x '())) '())))))
-```
 
-**续体和`call/cc`**
 
-```scheme
+;; 续体和`call/cc`
 ;; Yin-yang puzzle
 ;; see https://en.wikipedia.org/wiki/Call-with-current-continuation
 (((lambda (x) (begin (display "@") x)) (call/cc (lambda (k) k)))

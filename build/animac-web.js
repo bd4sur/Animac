@@ -1906,6 +1906,15 @@ function round(PROCESS, RUNTIME) {
     PROCESS.Step();
 }
 
+// (Math.to_fixed x:Number n:Number) : Number
+function to_fixed(PROCESS, RUNTIME) {
+    let n = PROCESS.PopOperand();
+    let x = PROCESS.PopOperand();
+    let res = Number(x).toFixed(Number(n));
+    PROCESS.OPSTACK.push(res);
+    PROCESS.Step();
+}
+
 // (Math.abs x:Number) : Number
 function abs(PROCESS, RUNTIME) {
     let x = PROCESS.PopOperand();
@@ -1935,6 +1944,7 @@ module.exports.atan = atan;
 module.exports.floor = floor;
 module.exports.ceil = ceil;
 module.exports.round = round;
+module.exports.to_fixed = to_fixed;
 module.exports.abs = abs;
 module.exports.random = random;
 `;
@@ -2218,11 +2228,18 @@ function clear_interval(PROCESS, RUNTIME) {
     PROCESS.Step(); // 退出，执行下一指令
 }
 
+// (System.timestamp) : Number
+function timestamp(PROCESS, RUNTIME) {
+    PROCESS.OPSTACK.push(Number(Date.now()));
+    PROCESS.Step();
+}
+
 module.exports.exec = exec;
 module.exports.set_timeout = set_timeout;
 module.exports.set_interval = set_interval;
 module.exports.clear_timeout = clear_timeout;
 module.exports.clear_interval = clear_interval;
+module.exports.timestamp = timestamp;
 `;
 // Memory.ts
 // 内存管理

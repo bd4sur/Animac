@@ -2446,6 +2446,7 @@ ANIMAC_VFS["/test/nano_llm_infer.scm"] = `;; 自研Nano语言模型推理
 (native LLM)
 (native String)
 (native Math)
+(native System)
 
 (import List "list.scm")
 (import NanoModels "nano_llm_model.scm")
@@ -2933,17 +2934,48 @@ ANIMAC_VFS["/test/nano_llm_infer.scm"] = `;; 自研Nano语言模型推理
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; 自回归生成
 
+(define make_renderer
+  (lambda ()
+    (define is_first #t)
+    (define buffer "")
+    (lambda (tps new_char)
+      ;; 通过退格删除最后附加的TPS统计信息
+      (if (not is_first) {
+        (display "\\b\\b\\b\\b\\b\\b\\b\\b\\b\\b\\b\\b\\b\\b\\b\\b\\b\\b\\b\\b")
+      })
+      (set! is_first #f)
+      (define i (String.length buffer))
+      (while (>= i 0) {
+        (display "\\b")
+        (set! i (- i 1))
+      })
+      (if (String.equals new_char "\\b") {
+        (set! buffer (String.slice buffer 0 (- (String.length buffer) 1)))
+      } {
+        (set! buffer (String.concat buffer new_char))
+      })
+      (display buffer)
+      (display "\\n")
+      (display "TPS = ")
+      (display (Math.to_fixed tps 3))
+      (display " token/s\\n"))))
+
 (define generate
   (lambda (prompt max_seq_len repetition_penalty temperature top_p top_k)
+    (define t_0 0)
+    (define tps 0)
     (define ids (LLM.encode prompt))
     (define new_token (get_item ids 0))
     (define probs #f)
+    (define show (make_renderer))
     (define pos 0)
+    (newline) (newline)
     (while (< pos max_seq_len) {
-      (display "▁")
+      (if (= t_0 0) (set! t_0 (System.timestamp)))
+      (show tps "▁")
       (set! probs (llm_forward new_token pos))
-      (display "\\b")
-      (display "░")
+      (show tps "\\b")
+      (show tps "░")
       (if (< pos (length ids)) {
         ;; Pre-filling
         (set! new_token (get_item ids pos))
@@ -2971,8 +3003,9 @@ ANIMAC_VFS["/test/nano_llm_infer.scm"] = `;; 自研Nano语言模型推理
                 }))
         })
       })
-      (display "\\b")
-      (display (LLM.decode new_token))
+      (show tps "\\b")
+      (show tps (LLM.decode new_token))
+      (set! tps (* (/ pos (- (System.timestamp) t_0)) 1000) 3)
       (set! pos (+ pos 1))
     })
   ))
