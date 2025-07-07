@@ -267,9 +267,9 @@
       (set! wq_offset  (* layer (* n_embd n_embd)))
       (set! wkv_offset (* layer (* n_embd kv_dim)))
       (set! kv_pos_offset (* pos kv_dim))
-      (matmul  q  xb  wq  0              wq_offset   n_embd  n_embd)
-      (matmul  k  xb  wk  kv_pos_offset  wkv_offset  n_embd  kv_dim)
-      (matmul  v  xb  wv  kv_pos_offset  wkv_offset  n_embd  kv_dim)
+      (LLM.matmul  q  xb  wq  0              wq_offset   n_embd  n_embd)
+      (LLM.matmul  k  xb  wk  kv_pos_offset  wkv_offset  n_embd  kv_dim)
+      (LLM.matmul  v  xb  wv  kv_pos_offset  wkv_offset  n_embd  kv_dim)
 
       ;; RoPE on q k
       (rope q k pos kv_pos_offset)
@@ -326,7 +326,7 @@
 
       ;; final matmul to get the output of the attention
       (set! wo_offset (* layer (* n_embd n_embd)))
-      (matmul  xb2  xba  wo  0  wo_offset  n_embd  n_embd)
+      (LLM.matmul  xb2  xba  wo  0  wo_offset  n_embd  n_embd)
 
       ;; residual connection back into x
       (accum x xb2 n_embd)
@@ -335,8 +335,8 @@
       (rms_norm xb x rms_norm_ffn (* layer n_embd) n_embd)
 
       ;; FFN matmul
-      (matmul  hb  xb  w1  0  (* layer (* n_hidden n_embd))  n_embd  n_hidden)
-      (matmul  hb2 xb  w3  0  (* layer (* n_hidden n_embd))  n_embd  n_hidden)
+      (LLM.matmul  hb  xb  w1  0  (* layer (* n_hidden n_embd))  n_embd  n_hidden)
+      (LLM.matmul  hb2 xb  w3  0  (* layer (* n_hidden n_embd))  n_embd  n_hidden)
 
       ;; SwiGLU
       (set! i 0)
@@ -350,7 +350,7 @@
       })
 
       ;; final matmul to get the output of the ffn
-      (matmul  xb  hb  w2  0  (* layer (* n_embd n_hidden))  n_hidden  n_embd)
+      (LLM.matmul  xb  hb  w2  0  (* layer (* n_embd n_hidden))  n_hidden  n_embd)
 
       ;; residual connection
       (accum x xb n_embd)
@@ -362,7 +362,7 @@
     (rms_norm x x rms_norm_final 0 n_embd)
 
     ;; classifier into logits
-    (matmul logits x token_classifier 0 0 n_embd vocab_size)
+    (LLM.matmul logits x token_classifier 0 0 n_embd vocab_size)
 
     ;; return logits
     logits
@@ -530,10 +530,10 @@
     (newline) (newline)
     (while (< pos max_seq_len) {
       (if (= t_0 0) (set! t_0 (System.timestamp)))
-      (show tps "▁")
+      (display "▁")
       (set! probs (llm_forward new_token pos))
-      (show tps "\b")
-      (show tps "░")
+      (display "\b")
+      (display "░")
       (if (< pos (length ids)) {
         ;; Pre-filling
         (set! new_token (get_item ids pos))
@@ -561,11 +561,15 @@
                 }))
         })
       })
-      (show tps "\b")
-      (show tps (LLM.decode new_token))
+      (display "\b")
+      (display (LLM.decode new_token))
       (set! tps (* (/ pos (- (System.timestamp) t_0)) 1000) 3)
       (set! pos (+ pos 1))
     })
+    (display "\n")
+    (display "TPS = ")
+    (display (Math.to_fixed tps 3))
+    (display " token/s\n")
   ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

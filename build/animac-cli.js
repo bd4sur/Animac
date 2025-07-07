@@ -957,7 +957,7 @@ function softmax(x, size) {
 }
 
 // 矩阵乘：绝大多数的计算量都花费在这个算子上面
-function matmul(xout, x, w, n, d) {
+function _matmul(xout, x, w, n, d) {
     // W (d,n) @ x (n,) -> xout (d,)
     for (let i = 0; i < d; i++) {
         let val = 0.0;
@@ -1024,19 +1024,19 @@ function llm_forward(token, pos, llm, lora, buf) {
         s.v = s.v_cache.subarray(loff + pos * kv_dim, loff + (pos + 1) * kv_dim);
 
         // qkv matmuls for this position
-        matmul(s.q, s.xb, w.wq.subarray(l * dim * dim,    (l + 1) * dim * dim),    dim, dim);
-        matmul(s.k, s.xb, w.wk.subarray(l * dim * kv_dim, (l + 1) * dim * kv_dim), dim, kv_dim);
-        matmul(s.v, s.xb, w.wv.subarray(l * dim * kv_dim, (l + 1) * dim * kv_dim), dim, kv_dim);
+        _matmul(s.q, s.xb, w.wq.subarray(l * dim * dim,    (l + 1) * dim * dim),    dim, dim);
+        _matmul(s.k, s.xb, w.wk.subarray(l * dim * kv_dim, (l + 1) * dim * kv_dim), dim, kv_dim);
+        _matmul(s.v, s.xb, w.wv.subarray(l * dim * kv_dim, (l + 1) * dim * kv_dim), dim, kv_dim);
 
         // 计算QKV的低秩分解分支，并将其累加到原来的输出上
         if(use_lora) {
-            matmul(s.q0, s.xb, a.wq_lora_a.subarray(l * lora_rank * dim, (l + 1) * lora_rank * dim), dim, lora_rank);
-            matmul(s.k0, s.xb, a.wk_lora_a.subarray(l * lora_rank * dim, (l + 1) * lora_rank * dim), dim, lora_rank);
-            matmul(s.v0, s.xb, a.wv_lora_a.subarray(l * lora_rank * dim, (l + 1) * lora_rank * dim), dim, lora_rank);
+            _matmul(s.q0, s.xb, a.wq_lora_a.subarray(l * lora_rank * dim, (l + 1) * lora_rank * dim), dim, lora_rank);
+            _matmul(s.k0, s.xb, a.wk_lora_a.subarray(l * lora_rank * dim, (l + 1) * lora_rank * dim), dim, lora_rank);
+            _matmul(s.v0, s.xb, a.wv_lora_a.subarray(l * lora_rank * dim, (l + 1) * lora_rank * dim), dim, lora_rank);
 
-            matmul(s.q1, s.q0, a.wq_lora_b.subarray(l * dim    * lora_rank, (l + 1) * dim    * lora_rank), lora_rank, dim);
-            matmul(s.k1, s.k0, a.wk_lora_b.subarray(l * kv_dim * lora_rank, (l + 1) * kv_dim * lora_rank), lora_rank, kv_dim);
-            matmul(s.v1, s.v0, a.wv_lora_b.subarray(l * kv_dim * lora_rank, (l + 1) * kv_dim * lora_rank), lora_rank, kv_dim);
+            _matmul(s.q1, s.q0, a.wq_lora_b.subarray(l * dim    * lora_rank, (l + 1) * dim    * lora_rank), lora_rank, dim);
+            _matmul(s.k1, s.k0, a.wk_lora_b.subarray(l * kv_dim * lora_rank, (l + 1) * kv_dim * lora_rank), lora_rank, kv_dim);
+            _matmul(s.v1, s.v0, a.wv_lora_b.subarray(l * kv_dim * lora_rank, (l + 1) * kv_dim * lora_rank), lora_rank, kv_dim);
 
             scale(s.q1, (lora_alpha / lora_rank), dim);
             scale(s.k1, (lora_alpha / lora_rank), kv_dim);
@@ -1131,12 +1131,12 @@ function llm_forward(token, pos, llm, lora, buf) {
         }
 
         // final matmul to get the output of the attention
-        matmul(s.xb2, s.xb, w.wo.subarray(l * dim * dim, (l + 1) * dim * dim), dim, dim);
+        _matmul(s.xb2, s.xb, w.wo.subarray(l * dim * dim, (l + 1) * dim * dim), dim, dim);
 
         // 计算output的低秩分解分支，并将其累加到原来的输出上
         if(use_lora) {
-            matmul(s.o0, s.xb, a.wo_lora_a.subarray(l * lora_rank * dim, (l + 1) * lora_rank * dim), dim, lora_rank);
-            matmul(s.o1, s.o0, a.wo_lora_b.subarray(l * dim    * lora_rank, (l + 1) * dim    * lora_rank), lora_rank, dim);
+            _matmul(s.o0, s.xb, a.wo_lora_a.subarray(l * lora_rank * dim, (l + 1) * lora_rank * dim), dim, lora_rank);
+            _matmul(s.o1, s.o0, a.wo_lora_b.subarray(l * dim    * lora_rank, (l + 1) * dim    * lora_rank), lora_rank, dim);
             scale(s.o1, (lora_alpha / lora_rank), dim);
             accum(s.xb2, s.o1, dim);
         }
@@ -1148,8 +1148,8 @@ function llm_forward(token, pos, llm, lora, buf) {
         rms_norm(s.xb, x, w.rms_norm_ffn.subarray(l * dim, (l + 1) * dim), dim);
 
         // Now for FFN in PyTorch we have: self.w2(F.silu(self.w1(x)) * self.w3(x))
-        matmul(s.hb, s.xb, w.w1.subarray(l * dim * hidden_dim, (l + 1) * dim * hidden_dim), dim, hidden_dim);
-        matmul(s.hb2, s.xb, w.w3.subarray(l * dim * hidden_dim, (l + 1) * dim * hidden_dim), dim, hidden_dim);
+        _matmul(s.hb, s.xb, w.w1.subarray(l * dim * hidden_dim, (l + 1) * dim * hidden_dim), dim, hidden_dim);
+        _matmul(s.hb2, s.xb, w.w3.subarray(l * dim * hidden_dim, (l + 1) * dim * hidden_dim), dim, hidden_dim);
 
         // SwiGLU non-linearity
         for (let i = 0; i < hidden_dim; i++) {
@@ -1162,7 +1162,7 @@ function llm_forward(token, pos, llm, lora, buf) {
         }
 
         // final matmul to get the output of the ffn
-        matmul(s.xb, s.hb, w.w2.subarray(l * dim * hidden_dim, (l + 1) * dim * hidden_dim), hidden_dim, dim);
+        _matmul(s.xb, s.hb, w.w2.subarray(l * dim * hidden_dim, (l + 1) * dim * hidden_dim), hidden_dim, dim);
 
         // residual connection
         accum(x, s.xb, dim);
@@ -1172,7 +1172,7 @@ function llm_forward(token, pos, llm, lora, buf) {
     rms_norm(x, x, w.rms_norm_final, dim);
 
     // classifier into logits
-    matmul(s.logits, x, w.token_classifier, cfg.n_embd, cfg.vocab_size);
+    _matmul(s.logits, x, w.token_classifier, cfg.n_embd, cfg.vocab_size);
 
     return s.logits;
 }
@@ -1759,6 +1759,31 @@ function decode(PROCESS, RUNTIME) {
     PROCESS.Step();
 }
 
+// (LLM.matmul xout x w xout_offset w_offset n d)
+function matmul(PROCESS, RUNTIME) {
+    let d = Number(PROCESS.PopOperand());
+    let n = Number(PROCESS.PopOperand());
+    let w_offset = Number(PROCESS.PopOperand());
+    let xout_offset = Number(PROCESS.PopOperand());
+    let w_handle = PROCESS.PopOperand();
+    let x_handle = PROCESS.PopOperand();
+    let xout_handle = PROCESS.PopOperand();
+
+    let xout = PROCESS.heap.Get(xout_handle);
+    let x = PROCESS.heap.Get(x_handle);
+    let w = PROCESS.heap.Get(w_handle);
+
+    for (let i = 0; i < d; i++) {
+        let val = 0;
+        for (let j = 0; j < n; j++) {
+            val += w.children[w_offset + i * n + j] * x.children[j];
+        }
+        xout.children[xout_offset + i] = val;
+    }
+
+    PROCESS.Step();
+}
+
 module.exports.init = init;
 module.exports.new_session = new_session;
 module.exports.step = step;
@@ -1768,6 +1793,8 @@ module.exports.get_param = get_param;
 
 module.exports.encode = encode;
 module.exports.decode = decode;
+
+module.exports.matmul = matmul;
 
 `;
 ANIMAC_VFS["/lib/Math.js"] = `// 取数组/栈的栈顶
