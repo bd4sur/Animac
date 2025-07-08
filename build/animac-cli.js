@@ -1,10 +1,11 @@
 // config.ts
 // 全局配置
 const ANIMAC_CONFIG = {
-    "version": "2025.6",
+    "version": "2025.7",
     "env_type": "cli", // 运行环境："cli" or "web"
     "is_debug": false,
     "is_gc_enabled": true, // 是否启用GC
+    "gc_interval": 5000, // GC时间间隔（ms）
 };
 let ANIMAC_STDOUT_CALLBACK = console.log;
 let ANIMAC_STDERR_CALLBACK = console.error;
@@ -5398,6 +5399,7 @@ var VMState;
 class Runtime {
     constructor(workingDir) {
         this.tickCounter = 0; // 虚拟机调度机计数器：用于计量时间片切换（Tick）的次数
+        this.gcTimestamp = 0; // GC时间戳：用于控制GC的时间频率
         this.processPool = new Array();
         this.processQueue = new Array();
         this.ports = new HashMap();
@@ -5485,7 +5487,9 @@ class Runtime {
                 }
             }
             // 对所有进程执行垃圾回收
-            if (ANIMAC_CONFIG.is_gc_enabled === true) {
+            let currentTimestamp = Date.now();
+            if (ANIMAC_CONFIG.is_gc_enabled === true && currentTimestamp - this.gcTimestamp > ANIMAC_CONFIG.gc_interval) {
+                this.gcTimestamp = currentTimestamp;
                 for (let i = 0; i < this.processQueue.length; i++) {
                     let pid = this.processQueue[i];
                     let process = this.processPool[pid];

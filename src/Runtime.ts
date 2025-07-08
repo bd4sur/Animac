@@ -25,7 +25,8 @@ class Runtime {
     public callbackOnHalt: (x: Runtime)=>any;     // 虚拟机终止回调（虚拟机所有进程执行结束、进入IDLE状态后触发）
     public callbackOnError: (x: Runtime)=>any;    // 错误回调（虚拟机捕获异常时回调）
 
-    public tickCounter = 0;              // 虚拟机调度机计数器：用于计量时间片切换（Tick）的次数
+    public tickCounter: Number = 0;      // 虚拟机调度机计数器：用于计量时间片切换（Tick）的次数
+    public gcTimestamp: Number = 0;      // GC时间戳：用于控制GC的时间频率
 
     constructor(workingDir: string) {
         this.processPool = new Array();
@@ -124,7 +125,9 @@ class Runtime {
             }
 
             // 对所有进程执行垃圾回收
-            if (ANIMAC_CONFIG.is_gc_enabled === true) {
+            let currentTimestamp = Date.now();
+            if (ANIMAC_CONFIG.is_gc_enabled === true && currentTimestamp - this.gcTimestamp > ANIMAC_CONFIG.gc_interval) {
+                this.gcTimestamp = currentTimestamp;
                 for (let i = 0; i < this.processQueue.length; i++) {
                     let pid = this.processQueue[i];
                     let process = this.processPool[pid];

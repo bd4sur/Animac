@@ -93,6 +93,7 @@ a:hover {
             <menu role="tablist" aria-label="Sample Tabs">
                 <button role="tab" aria-selected="true" aria-controls="tab_editor" id="tab_editor_button">代码编辑器</button>
                 <button role="tab" aria-controls="tab_debugger" id="tab_debugger_button">调试器</button>
+                <button role="tab" aria-controls="tab_config" id="tab_config_button">设置</button>
                 <button role="tab" aria-controls="tab_doc" id="tab_doc_button">文档</button>
             </menu>
             <!-- the tab content -->
@@ -130,6 +131,37 @@ a:hover {
                     </div>
                 </div>
             </article>
+
+            <article role="tabpanel" hidden id="tab_config" style="padding: 10px; height: 340px; overflow: auto;">
+                <div style="display: flex; align-items: flex-start; justify-content: center; flex-wrap: wrap; flex-direction: row;">
+                    <fieldset style="margin: 6px;">
+                        <legend>解释器设置</legend>
+                        <div class="field-row" style="width: 100%;">
+                            <label for="range_gc_interval" style="min-width: 100px;">GC时间间隔(秒):</label>
+                            <label for="range_gc_interval">1</label>
+                            <input id="range_gc_interval" type="range" min="1" max="10" value="5" />
+                            <label for="range_gc_interval">10</label>
+                        </div>
+                        <div class="field-row" style="width: 100%;">
+                            <label for="range_gc_interval" style="min-width: 100px;">时间片长度(Ticks):</label>
+                            <label for="range_gc_interval">1</label>
+                            <input id="range_gc_interval" type="range" min="1" max="1000" value="100" />
+                            <label for="range_gc_interval">1000</label>
+                        </div>
+                    </fieldset>
+
+                    <fieldset style="margin: 6px;">
+                        <legend>沙盒设置</legend>
+                        <div class="field-row" style="width: 100%;">
+                            <label for="range_gc_interval" style="min-width: 100px;">输出缓冲区长度:</label>
+                            <label for="range_gc_interval">100</label>
+                            <input id="range_gc_interval" type="range" min="100" max="1000" value="500" />
+                            <label for="range_gc_interval">1000</label>
+                        </div>
+                    </fieldset>
+                </div>
+            </article>
+
             <article role="tabpanel" hidden id="tab_doc" style="padding: 0 0 0 0;">
                 <div style="margin: 10px auto; display: flex; justify-content: center;">
                     <img src="./doc/sysarch.png" style="max-width: 100%; max-height: 340px;"></img>
@@ -146,7 +178,7 @@ a:hover {
 
     <div class="status-bar">
         <p class="status-bar-field">版权所有 © 2018～2025 <a href="https://bd4sur.com" target="_blank">BD4SUR</a></p>
-        <p class="status-bar-field">版本：202506</p>
+        <p class="status-bar-field">版本：202507</p>
     </div>
 
 </div>
