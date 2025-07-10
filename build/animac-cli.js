@@ -2095,6 +2095,33 @@ function equals(PROCESS, RUNTIME) {
     PROCESS.Step();
 }
 
+// (String.charAt str:String index:Number) : String
+function charAt(PROCESS, RUNTIME) {
+    // 注意参数退栈顺序与参数列表顺序相反
+    let index = Number(PROCESS.PopOperand());
+    let strHandle = PROCESS.PopOperand();
+    let str = TrimQuotes(PROCESS.heap.Get(strHandle).content);
+
+    // 构造字符串对象
+    let newStrHandle = PROCESS.heap.AllocateHandle("STRING", false);
+    let newStrObject = {
+        type: "STRING",
+        content: (index < 0 || index >= str.length) ? "" : String(str[index])
+    };
+    PROCESS.heap.Set(newStrHandle, newStrObject);
+    PROCESS.OPSTACK.push(newStrHandle);
+    PROCESS.Step();
+}
+
+// (String.parseNumber x:String) : Number|#undefined
+function parseNumber(PROCESS, RUNTIME) {
+    let strHandle = PROCESS.PopOperand();
+    let str = TrimQuotes(PROCESS.heap.Get(strHandle).content);
+    let num = Number(str);
+    PROCESS.OPSTACK.push(isNaN(num) ? "#undefined" : num);
+    PROCESS.Step();
+}
+
 module.exports.length = length;
 module.exports.atom_to_string = atom_to_string;
 module.exports.concat = concat;
@@ -2102,6 +2129,8 @@ module.exports.charCodeAt = charCodeAt;
 module.exports.fromCharCode = fromCharCode;
 module.exports.slice = slice;
 module.exports.equals = equals;
+module.exports.charAt = charAt;
+module.exports.parseNumber = parseNumber;
 `;
 ANIMAC_VFS["/lib/System.js"] = `// 取数组/栈的栈顶
 function Top(arr) {
