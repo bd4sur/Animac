@@ -9,7 +9,7 @@
 ;;           <term> ::= <factor> <term_tail>
 ;;      <term_tail> ::= [*/] <factor> <term_tail> | ε
 ;;         <factor> ::= <unaried> [^%] <factor> | <unaried>
-;;        <unaried> ::= [!-] <primary> | <primary>
+;;        <unaried> ::= [!-] <unaried> | <primary>
 ;;       <arg_list> ::= <expr_list> | ε
 ;;        <primary> ::= ( <expr> ) | <IDENTIFIER> ( <expr> ) | <literal>
 ;;        <literal> ::= <NUMBER> | <IDENTIFIER>
@@ -208,8 +208,8 @@
       (lambda ()
         (if (or (match "!") (match "-")) {
           (define op (eat))
-          (define primary (parse_primary))
-          `(,op ,primary)
+          (define unaried (parse_unaried))
+          `(,op ,unaried)
         } {
           (parse_primary)
         })))
