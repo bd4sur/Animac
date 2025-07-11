@@ -444,7 +444,23 @@ ANIMAC_VFS["/test/brainfuck.scm"] = `(native String)
 ANIMAC_VFS["/test/calculator.scm"] = `;; 中缀表达式解析器
 ;; 2017, 2025-07-11
 
+;; 中缀表达式文法（BNF）
+;;      <expr_list> ::= <expr> <expr_list_tail>
+;; <expr_list_tail> ::= , <expr> <expr_list_tail> | ε
+;;           <expr> ::= <term> <expr_tail>
+;;      <expr_tail> ::= [+-] <term> <expr_tail> | ε
+;;           <term> ::= <factor> <term_tail>
+;;      <term_tail> ::= [*/] <factor> <term_tail> | ε
+;;         <factor> ::= <unaried> [^%] <factor> | <unaried>
+;;        <unaried> ::= [!-] <primary> | <primary>
+;;       <arg_list> ::= <expr_list> | ε
+;;        <primary> ::= ( <expr> ) | <IDENTIFIER> ( <expr> ) | <literal>
+;;        <literal> ::= <NUMBER> | <IDENTIFIER>
+;;         <NUMBER> ::= [\\+\\-]*\\d+\\.*\\d*
+;;     <IDENTIFIER> ::= [a-zA-Z_][a-zA-Z0-9_]*
+
 (native String)
+(native Math)
 (import List "list.scm")
 
 (define lexer
@@ -454,6 +470,10 @@ ANIMAC_VFS["/test/calculator.scm"] = `;; 中缀表达式解析器
     (define is_sep
       (lambda (ch)
         (or (String.equals ch " ") (String.equals ch "\\t") (String.equals ch "\\n") (String.equals ch "\\r"))))
+
+    (define is_comma
+      (lambda (ch)
+        (String.equals ch ",")))
 
     (define is_operator
       (lambda (ch)
@@ -494,10 +514,15 @@ ANIMAC_VFS["/test/calculator.scm"] = `;; 中缀表达式解析器
       (lambda (start)
         (define end start)
         (define ch 0)
-        (while (and (< end len) (is_letter (String.charAt expr end))) {
-          (set! end (+ end 1))
-        })
-        (String.slice expr start end)))
+        (if (is_letter (String.charAt expr end)) {
+          (set! end (+ start 1))
+          (while (and (< end len) (or (is_letter (String.charAt expr end)) (is_digit (String.charAt expr end)))) {
+            (set! end (+ end 1))
+          })
+          (String.slice expr start end)
+        } {
+          #f
+        })))
 
     ;; 主体部分
     (define tokens '())
@@ -554,6 +579,12 @@ ANIMAC_VFS["/test/calculator.scm"] = `;; 中缀表达式解析器
               (set! tokens (List.append \`(,index 'identifier ,identifier) tokens))
               (set! index (+ index (String.length identifier)))
             })
+            ;; 逗号
+            ((is_comma ch) {
+              (set! is_prev_number #f)
+              (set! tokens (List.append \`(,index 'comma ,ch) tokens))
+              (set! index (+ index 1))
+            })
             (else {
               (display "Unexpected character: ") (display ch) (newline)
               break
@@ -584,9 +615,13 @@ ANIMAC_VFS["/test/calculator.scm"] = `;; 中缀表达式解析器
       (lambda ()
         (eq? 'number (get_item (get_item tokens index) 1))))
 
+    (define is_identifier
+      (lambda ()
+        (eq? 'identifier (get_item (get_item tokens index) 1))))
+
     (define parse_literal
       (lambda ()
-        (if (is_number) (eat) {
+        (if (or (is_number) (is_identifier)) (eat) {
           (display "Error @ <literal>") (newline)
           #f
         })))
@@ -594,27 +629,42 @@ ANIMAC_VFS["/test/calculator.scm"] = `;; 中缀表达式解析器
     (define parse_primary
       (lambda ()
         (define expr 0)
+        (define func 0)
         (cond ((match "(") {
                 (eat)
                 (set! expr (parse_expr))
-                (if (match ")") (eat) {
-                  (display "Error @ <primary>: missing ')'") (newline)
-                  #f
-                })
+                (if (match ")") (eat) { (display "Error @ <primary>: missing ')'") (newline) #f })
                 expr
+              })
+              ((is_identifier) {
+                (set! func (eat))
+                (if (match "(") (eat) { (display "Error @ <primary>: missing '('") (newline) #f })
+                (set! expr (parse_expr))
+                (if (match ")") (eat) { (display "Error @ <primary>: missing ')'") (newline) #f })
+                \`(,func ,expr)
               })
               (else {
                 (parse_literal)
               }))))
 
+    (define parse_unaried
+      (lambda ()
+        (if (or (match "!") (match "-")) {
+          (define op (eat))
+          (define primary (parse_primary))
+          \`(,op ,primary)
+        } {
+          (parse_primary)
+        })))
+
     (define parse_factor
       (lambda ()
-        (define primary (parse_primary))
+        (define unaried (parse_unaried))
         (if (or (match "^") (match "%")) {
           (define op (eat))
-          \`(,op ,primary ,(parse_factor))
+          \`(,op ,unaried ,(parse_factor))
         } {
-          primary
+          unaried
         })))
 
     (define parse_term_tail
@@ -672,7 +722,6 @@ ANIMAC_VFS["/test/calculator.scm"] = `;; 中缀表达式解析器
 (define eval
   (lambda (ast)
     (define tot (type_of_token ast))
-    ;(display ast) (newline)
     (cond ((eq? tot 'number) {
             (String.parseNumber (get_item ast 2))
           })
@@ -681,10 +730,20 @@ ANIMAC_VFS["/test/calculator.scm"] = `;; 中缀表达式解析器
             (define left  (get_item ast 1))
             (define right (get_item ast 2))
             (cond ((String.equals op "+") (+ (eval left) (eval right)))
-                  ((String.equals op "-") (- (eval left) (eval right)))
+                  ((String.equals op "-") (if (eq? #undefined right) (- 0 (eval left)) (- (eval left) (eval right)))) ;; 区分一元和二元运算
                   ((String.equals op "*") (* (eval left) (eval right)))
                   ((String.equals op "/") (/ (eval left) (eval right)))
                   ((String.equals op "%") (% (eval left) (eval right)))
+                  ((String.equals op "^") (pow (eval left) (eval right)))
+                  ((String.equals op "sqrt") (pow (eval left) 0.5))
+                  ((String.equals op "exp") (Math.exp (eval left)))
+                  ((String.equals op "log") (Math.log (eval left)))
+                  ((String.equals op "sin") (Math.sin (eval left)))
+                  ((String.equals op "cos") (Math.cos (eval left)))
+                  ((String.equals op "tan") (Math.tan (eval left)))
+                  ((String.equals op "atan") (Math.atan (eval left)))
+                  ((String.equals op "floor") (Math.floor (eval left)))
+                  ((String.equals op "ceil") (Math.ceil (eval left)))
                   (else { (display "Unsupported operator") #f }))
           })
           (else {
@@ -705,29 +764,29 @@ ANIMAC_VFS["/test/calculator.scm"] = `;; 中缀表达式解析器
 
 (define show_ast
   (lambda (ast level)
-    (if (number? (get_item ast 0)) {
-      (display (get_item ast 2))
-    } {
-      (define i 0)
-      (display "( ")
-      (show_ast (get_item ast 0) (+ level 1))
-      (display "\\n  ")
-      (set! i 0) (while (< i level) { (display "  ") (set! i (+ i 1)) })
-      (show_ast (get_item ast 1) (+ level 1))
-      (display "\\n  ")
-      (set! i 0) (while (< i level) { (display "  ") (set! i (+ i 1)) })
-      (show_ast (get_item ast 2) (+ level 1))
-      (display "\\n")
-      (set! i 0) (while (< i level) { (display "  ") (set! i (+ i 1)) })
-      (display ")")
-    })))
+    (cond ((not (list? ast)) #f)
+          ((number? (get_item ast 0)) (display (get_item ast 2)))
+          (else {
+            (define i 0)
+            (display "( ")
+            (show_ast (get_item ast 0) (+ level 1))
+            (display "\\n  ")
+            (set! i 0) (while (< i level) { (display "  ") (set! i (+ i 1)) })
+            (show_ast (get_item ast 1) (+ level 1))
+            (display "\\n  ")
+            (set! i 0) (while (< i level) { (display "  ") (set! i (+ i 1)) })
+            (show_ast (get_item ast 2) (+ level 1))
+            (display "\\n")
+            (set! i 0) (while (< i level) { (display "  ") (set! i (+ i 1)) })
+            (display ")")
+          }))))
 
 
 (define run
   (lambda () {
     (display "中缀表达式解析：")(newline)
 
-    (define expr "1 +-2 * (3.0 + -4 * (+5 + -6 * (7 + +8 * -9) / 2.5 - 3) / 4) - -5")
+    (define expr "1 +-2 * -(3.0 + -4 * (+5 + -(13 % 7) * -(7 + +8 * -9) / 2.5 + -sqrt(3.0^2)) / 4) - -5")
     (display "表达式：") (display expr) (newline)
 
     (define tokens (lexer expr))
@@ -735,9 +794,10 @@ ANIMAC_VFS["/test/calculator.scm"] = `;; 中缀表达式解析器
     (show_tokens tokens)
     (define ast (parser tokens))
     (display "抽象语法树：") (newline)
-    (show_ast ast 0)
+    ;(show_ast ast 0)
+    (display ast)
     (newline)
-    (display "预期结果：316") (newline)
+    (display "预期结果：320") (newline)
     (display "实际结果：")
     (display (eval ast))
 

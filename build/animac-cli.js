@@ -107,7 +107,7 @@ function TypeOfToken(token) {
     else if (token[0] === '&') {
         return "HANDLE";
     }
-    else if (token[0] === '\'') {
+    else if (token[0] === '\'' || token === '#undefined' || token === '#null') {
         return "SYMBOL";
     }
     else if (token[0] === '@') {
@@ -6387,7 +6387,7 @@ class Runtime {
         let listHandle = PROCESS.PopOperand(); // 参数1
         if (TypeOfToken(listHandle) === "HANDLE" && TypeOfToken(index) === "NUMBER") {
             let value = PROCESS.heap.Get(listHandle).children[parseInt(index)];
-            PROCESS.PushOperand(value);
+            PROCESS.PushOperand((value === undefined) ? "#undefined" : value);
             PROCESS.Step();
         }
         else {

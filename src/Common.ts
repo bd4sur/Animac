@@ -110,7 +110,7 @@ function TypeOfToken(token: any): string {
     else if(token[0] === '&') {
         return "HANDLE";
     }
-    else if(token[0] === '\'') {
+    else if(token[0] === '\'' || token === '#undefined' || token === '#null') {
         return "SYMBOL";
     }
     else if(token[0] === '@') {

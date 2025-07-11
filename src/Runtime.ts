@@ -1061,7 +1061,7 @@ class Runtime {
         let listHandle = PROCESS.PopOperand(); // 参数1
         if(TypeOfToken(listHandle) === "HANDLE" && TypeOfToken(index) === "NUMBER") {
             let value = PROCESS.heap.Get(listHandle).children[parseInt(index)];
-            PROCESS.PushOperand(value);
+            PROCESS.PushOperand((value === undefined) ? "#undefined" : value);
             PROCESS.Step();
         }
         else {
