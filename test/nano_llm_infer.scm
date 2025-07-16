@@ -12,8 +12,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; 从base64加载模型
 
-(LLM.init NanoModels.PSYCHO_90K_MODEL)
 ; (LLM.init NanoModels.TINYSTORIES_3K_MODEL)
+(LLM.init NanoModels.PSYCHO_90K_MODEL)
+; (LLM.init NanoModels.AR_1M_MODEL)
 
 (display "Loading LLM...") (newline)
 
