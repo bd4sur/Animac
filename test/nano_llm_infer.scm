@@ -14,7 +14,7 @@
 
 ; (LLM.init NanoModels.TINYSTORIES_3K_MODEL)
 (LLM.init NanoModels.PSYCHO_90K_MODEL)
-; (LLM.init NanoModels.AR_1M_MODEL)
+; (LLM.init NanoModels.PSYCHO_180K_MODEL)
 
 (display "Loading LLM...") (newline)
 
