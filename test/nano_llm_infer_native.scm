@@ -28,14 +28,9 @@
 (define run
   (lambda () {
     ;; 注意：输入prompt不要含有未登录（OOV）词元
-    (display "Psycho_90k:") (newline)
-    (LLM.init NanoModels.PSYCHO_90K_MODEL)
+    (display "Psycho_230k:") (newline)
+    (LLM.init NanoModels.PSYCHO_230K_MODEL)
     (LLM.new_session "人类的本质是" 256 1.0 1.0 0.5 20)
-    (llm_generate_native)
-
-    (display "TinyStories_3k:") (newline)
-    (LLM.init NanoModels.TINYSTORIES_3K_MODEL)
-    (LLM.new_session "Once" 256 1.0 1.0 0.5 20)
     (llm_generate_native)
   })
 )

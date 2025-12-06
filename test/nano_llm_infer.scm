@@ -12,9 +12,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; 从base64加载模型
 
-; (LLM.init NanoModels.TINYSTORIES_3K_MODEL)
-(LLM.init NanoModels.PSYCHO_90K_MODEL)
-; (LLM.init NanoModels.PSYCHO_180K_MODEL)
+(LLM.init NanoModels.PSYCHO_230K_MODEL)
 
 (display "Loading LLM...") (newline)
 
@@ -51,20 +49,21 @@
 
 (define param (LLM.get_param))
 
-(define token_embedding  (get_item param 0))  ;; (vocab_size, n_embd)
-(define rms_norm_attn    (get_item param 1))  ;; (n_layer, n_embd)
-(define wq               (get_item param 2))  ;; (n_layer, n_embd, n_embd)
-(define wk               (get_item param 3))  ;; (n_layer, n_embd, kv_dim)
-(define wv               (get_item param 4))  ;; (n_layer, n_embd, kv_dim)
-(define wo               (get_item param 5))  ;; (n_layer, n_embd, n_embd)
-(define rms_norm_ffn     (get_item param 6))  ;; (n_layer, n_embd)
-(define w1               (get_item param 7))  ;; (n_layer, n_hidden, n_embd)
-(define w2               (get_item param 8))  ;; (n_layer, n_embd, n_hidden)
-(define w3               (get_item param 9))  ;; (n_layer, n_hidden, n_embd)
-(define rms_norm_final   (get_item param 10)) ;; (n_embd)
-(define token_classifier (get_item param 11)) ;; (vocab_size, n_embd)
-(define freq_cis_real    (get_item param 12)) ;; (block_size, head_dim/2)
-(define freq_cis_imag    (get_item param 13)) ;; (block_size, head_dim/2)
+
+(define rms_norm_attn    (get_item param 0))  ;; (n_layer, n_embd)
+(define rms_norm_ffn     (get_item param 1))  ;; (n_layer, n_embd)
+(define rms_norm_final   (get_item param 2)) ;; (n_embd)
+(define token_embedding  (get_item param 3))  ;; (vocab_size, n_embd)
+(define wq               (get_item param 4))  ;; (n_layer, n_embd, n_embd)
+(define wk               (get_item param 5))  ;; (n_layer, n_embd, kv_dim)
+(define wv               (get_item param 6))  ;; (n_layer, n_embd, kv_dim)
+(define wo               (get_item param 7))  ;; (n_layer, n_embd, n_embd)
+(define w1               (get_item param 8))  ;; (n_layer, n_hidden, n_embd)
+(define w2               (get_item param 9))  ;; (n_layer, n_embd, n_hidden)
+(define w3               (get_item param 10))  ;; (n_layer, n_hidden, n_embd)
+(define freq_cis_real    (get_item param 11)) ;; (block_size, head_dim/2)
+(define freq_cis_imag    (get_item param 12)) ;; (block_size, head_dim/2)
+(define token_classifier (get_item param 13)) ;; (vocab_size, n_embd)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; 激活值中间缓冲区
