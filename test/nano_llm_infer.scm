@@ -1,5 +1,8 @@
-;; 自研Nano语言模型推理
-;; 2025-07-04
+;; 自研Nano语言模型推理 2025-07-04 2025-12-12
+;; 本测试用例展示了自回归文本生成和全局注意力序列生成两类任务。
+;; 前者使用自行训练的230k参数的哲学黑话模型，进行自回归文本生成。
+;; 后者对长度为6的输入序列执行全局自注意力序列生成，输出序列是输入序列的升序排列。
+;; 详见 https://github.com/bd4sur/Nano
 
 (native LLM)
 (native String)
@@ -9,10 +12,18 @@
 (import List "list.scm")
 (import NanoModels "nano_llm_model.scm")
 
+;;; 用于支持多个任务的外层函数：开始 ;;;
+(define LLM_RUN (lambda (task)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; 从base64加载模型
 
-(LLM.init NanoModels.PSYCHO_230K_MODEL)
+(if (= task 0)
+    (LLM.init NanoModels.SORT_6_MODEL)
+    (LLM.init NanoModels.PSYCHO_230K_MODEL)
+)
 
 (display "Loading LLM...") (newline)
 
@@ -27,22 +38,22 @@
 (define n_embd     (get_item llm_config 3))
 (define n_head     (get_item llm_config 4))
 (define n_kv_head  (get_item llm_config 5))
-(define head_dim   (get_item llm_config 6))
-(define n_hidden   (get_item llm_config 7))
-(define is_shared_classifier (get_item llm_config 8))
+(define n_hidden   (get_item llm_config 6))
+(define is_shared_classifier (get_item llm_config 7))
+(define head_dim   (get_item llm_config 8))
 
 (define kv_dim (* n_kv_head head_dim))
 (define kv_mul (/ n_head n_kv_head))
 
-(display "    block_size = ") (display block_size) (newline)
-(display "    vocab_size = ") (display vocab_size) (newline)
-(display "    n_layer = ") (display n_layer) (newline)
-(display "    n_embd = ") (display n_embd) (newline)
-(display "    n_head = ") (display n_head) (newline)
-(display "    n_kv_head = ") (display n_kv_head) (newline)
-(display "    head_dim = ") (display head_dim) (newline)
-(display "    n_hidden = ") (display n_hidden) (newline)
-(display "    is_shared_classifier = ") (display is_shared_classifier) (newline)
+(display "block_size: ") (display block_size)
+(display " | vocab_size: ") (display vocab_size)
+(display " | n_layer: ") (display n_layer)
+(display " | n_embd: ") (display n_embd)
+(display " | n_head: ") (display n_head)
+(display " | n_kv_head: ") (display n_kv_head)
+(display " | head_dim: ") (display head_dim)
+(display " | n_hidden: ") (display n_hidden)
+(display " | is_shared_classifier: ") (display is_shared_classifier) (newline)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; 模型权重
@@ -220,7 +231,7 @@
 ;; 语言模型前向传播
 
 (define llm_forward
-  (lambda (token pos)
+  (lambda (token pos max_seq_len is_causal)
 
     (define layer 0)
     (define i 0)
@@ -244,6 +255,9 @@
     (define xba_head_offset 0)
 
     (define score 0)
+
+    ;; NOTE 用于兼容因果自注意力和全局自注意力
+    (define attn_range (if is_causal (+ pos 1) max_seq_len))
 
     ;; copy the token embedding into x
     (set! i 0)
@@ -282,7 +296,7 @@
         ;; iterate over all timesteps, including the current one
         (set! att_head_offset (* h block_size))
         (set! t 0)
-        (while (<= t pos) {
+        (while (< t attn_range) {
           (set! k_head_offset (+ (* t kv_dim) (* m head_dim)))
           ;; calculate the attention score as the dot product of q and k
           (set! score 0)
@@ -301,7 +315,7 @@
         })
 
         ;; softmax the scores to get attention weights, from 0..pos inclusively
-        (softmax att att_head_offset (+ pos 1))
+        (softmax att att_head_offset attn_range)
 
         ;; weighted sum of the values, store back into xba
         (set! xba_head_offset (* h head_dim))
@@ -309,7 +323,7 @@
         (while (< i head_dim) {
           (set! score 0)
           (set! t 0)
-          (while (<= t pos) {
+          (while (< t attn_range) {
             (set! v_head_offset (+ (* t kv_dim) (* m head_dim)))
             (set! score
                   (+ score
@@ -527,11 +541,11 @@
     (define probs #f)
     (define show (make_renderer))
     (define pos 0)
-    (newline) (newline)
+    (newline)
     (while (< pos max_seq_len) {
       (if (= t_0 0) (set! t_0 (System.timestamp)))
       (display "▁")
-      (set! probs (llm_forward new_token pos))
+      (set! probs (llm_forward new_token pos max_seq_len #t))
       (display "\b")
       (display "░")
       (if (< pos (length ids)) {
@@ -572,10 +586,64 @@
     (display " token/s\n")
   ))
 
+(define ai_sort
+  (lambda (input max_seq_len)
+    (define ids (LLM.encode input))
+    (define new_token 0)
+    (define logits #f)
+    (define pos 0)
+    (define layer 0)
+
+    ;; 阶段1：预填充KVCache。
+    (while (< layer n_layer) {
+      (while (< pos max_seq_len) {
+        (llm_forward (get_item ids pos) pos max_seq_len #f)
+        (set! pos (+ pos 1))
+      })
+      (set! layer (+ layer 1))
+    })
+
+    ;; 阶段2：前向传播与采样
+    (set! pos 0)
+    (while (< pos max_seq_len) {
+      (set! logits (llm_forward (get_item ids pos) pos max_seq_len #f))
+      (set! new_token (sample_argmax logits vocab_size))
+      (display (LLM.decode new_token))
+      (set! pos (+ pos 1))
+    })
+  ))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; 程序入口
 
-(generate "人类的本质是" 256 1.0 1.05 0.5 0)
+(define make_random_list
+  (lambda (len)
+    (define randstr "")
+    (define count 0)
+    (while (< count len) {
+      (set! randstr (String.concat randstr (String.atom_to_string (Math.round (* 10 (Math.random))))))
+      (set! count (+ count 1))
+    })
+    randstr))
+
+(if (= task 0) {
+  (display "序列生成任务：用LLM解决排序问题\n")
+  (define input_seq (make_random_list 6))
+  (display "  排序前：")
+  (display input_seq)
+  (display "\n  排序后：")
+  (ai_sort input_seq 6)
+  (display "\n\n")
+} {
+  (display "自回归文本生成\n")
+  (generate "人类的本质是" 256 1.0 1.05 0.5 0)
+})
 
 (newline)
 
+;;; 用于支持多个任务的外层函数：结束 ;;;
+))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(LLM_RUN 0)
+(LLM_RUN 1)

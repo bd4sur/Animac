@@ -1564,9 +1564,9 @@ function get_config(PROCESS, RUNTIME) {
             LLM.config.n_embd,
             LLM.config.n_head,
             LLM.config.n_kv_head,
-            LLM.config.n_embd / LLM.config.n_head,
             LLM.config.n_hidden,
-            LLM.config.is_shared_classifier
+            LLM.config.is_shared_classifier,
+            LLM.config.head_dim
         ],
     }
     PROCESS.heap.Set(newListHandle, newList);
