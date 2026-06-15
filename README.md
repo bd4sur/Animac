@@ -145,13 +145,13 @@ Animac是什么？不是什么？
 
 ```
     <SourceCode> ::= (lambda () <TERM>*) CRLF
-          <Term> ::= <SList> | <Lambda> | <Quote> | <Unquote> | <Quasiquote> | <Symbol>
+          <Term> ::= <SList> | <Lambda> | <Quote> | <Unquote> | <Quasiquote> | <Identifier>
          <SList> ::= ( <SListSeq> )
       <SListSeq> ::= <Term> <SListSeq> | ε
         <Lambda> ::= ( lambda <ArgList> <Body> )
        <ArgList> ::= ( <ArgListSeq> )
-    <ArgListSeq> ::= <ArgSymbol> <ArgListSeq> | ε
-     <ArgSymbol> ::= <Symbol>
+    <ArgListSeq> ::= <ArgIdentifier> <ArgListSeq> | ε
+ <ArgIdentifier> ::= <Identifier>
           <Body> ::= <BodyTerm> <Body_>
          <Body_> ::= <BodyTerm> <Body_> | ε
       <BodyTerm> ::= <Term>
@@ -161,7 +161,7 @@ Animac是什么？不是什么？
      <QuoteTerm> ::= <Term>
    <UnquoteTerm> ::= <Term>
 <QuasiquoteTerm> ::= <Term>
-        <Symbol> ::= SYMBOL
+    <Identifier> ::= IDENTIFIER
 ```
 
 ## 参考文献

@@ -3052,14 +3052,14 @@ function Parse(code, absolutePath) {
         // console.log(msg);
     }
     // 判断是否为定界符
-    function isSymbol(token) {
+    function isIdentifier(token) {
         if (token === "(" || token === ")" || token === "{" || token === "}" || token === "[" || token === "]") {
             return false;
         }
         if (/^[\'\`\,]/gi.test(token)) {
             return false;
         } // 不允许开头的字符
-        return true; // 其余的都是词法意义上的Symbol
+        return true; // 其余的都是词法意义上的Identifier
     }
     ///////////////////////////////
     //  递归下降分析
@@ -3116,9 +3116,9 @@ function Parse(code, absolutePath) {
             parseLog('<Term> → <SList>');
             return ParseSList(tokens, index);
         }
-        else if (isSymbol(tokens[index].string)) {
-            parseLog('<Term> → <Symbol>');
-            return ParseSymbol(tokens, index);
+        else if (isIdentifier(tokens[index].string)) {
+            parseLog('<Term> → <Identifier>');
+            return ParseIdentifier(tokens, index);
         }
         else {
             throw `<Term>`;
@@ -3145,7 +3145,7 @@ function Parse(code, absolutePath) {
             throw `[Error] SList右侧括号未闭合。`; // TODO 完善错误提示
         let currentToken = tokens[index].string;
         if (currentToken === "(" || currentToken === "'" || currentToken === "," ||
-            currentToken === "`" || isSymbol(currentToken)) {
+            currentToken === "`" || isIdentifier(currentToken)) {
             let nextIndex = ParseTerm(tokens, index);
             // Action：从节点栈顶弹出节点，追加到新栈顶节点的children中。
             let childHandle = NODE_STACK.pop();
@@ -3187,9 +3187,9 @@ function Parse(code, absolutePath) {
         }
     }
     function ParseArgListSeq(tokens, index) {
-        parseLog('<ArgListSeq> → <ArgSymbol> ※ <ArgListSeq> | ε');
-        if (isSymbol(tokens[index].string)) {
-            let nextIndex = ParseArgSymbol(tokens, index);
+        parseLog('<ArgListSeq> → <ArgIdentifier> ※ <ArgListSeq> | ε');
+        if (isIdentifier(tokens[index].string)) {
+            let nextIndex = ParseArgIdentifier(tokens, index);
             // Action：从节点栈顶弹出节点（必须是符号），追加到新栈顶Lambda节点的parameters中。
             let parameter = NODE_STACK.pop();
             ast.GetNode(Top(NODE_STACK)).addParameter(parameter);
@@ -3200,9 +3200,9 @@ function Parse(code, absolutePath) {
             return index;
         }
     }
-    function ParseArgSymbol(tokens, index) {
-        parseLog('<ArgSymbol> → <Symbol>');
-        return ParseSymbol(tokens, index);
+    function ParseArgIdentifier(tokens, index) {
+        parseLog('<ArgIdentifier> → <Identifier>');
+        return ParseIdentifier(tokens, index);
     }
     function ParseBody(tokens, index) {
         parseLog('<Body> → <BodyTerm> ※ <Body_>');
@@ -3217,7 +3217,7 @@ function Parse(code, absolutePath) {
         parseLog('<Body_> → <BodyTerm> ※ <Body_> | ε');
         let currentToken = tokens[index].string;
         if (currentToken === "(" || currentToken === "'" || currentToken === "," ||
-            currentToken === "`" || isSymbol(currentToken)) {
+            currentToken === "`" || isIdentifier(currentToken)) {
             let nextIndex = ParseBodyTerm(tokens, index);
             // Action：从节点栈顶弹出节点，追加到新栈顶Lambda节点的body中。
             let bodyNode = NODE_STACK.pop();
@@ -3272,9 +3272,9 @@ function Parse(code, absolutePath) {
         parseLog('<QuasiquoteTerm> → <Term>');
         return ParseTerm(tokens, index);
     }
-    function ParseSymbol(tokens, index) {
+    function ParseIdentifier(tokens, index) {
         let currentToken = tokens[index].string;
-        if (isSymbol(currentToken)) {
+        if (isIdentifier(currentToken)) {
             // Action
             let state = Top(STATE_STACK);
             if (state === 'QUOTE' || state === 'QUASIQUOTE') {
@@ -3319,7 +3319,7 @@ function Parse(code, absolutePath) {
                     NODE_STACK.push(currentToken); // VARIABLE原样保留，在作用域分析的时候才被录入AST
                 }
                 else {
-                    throw `<Symbol> Illegal symbol.`;
+                    throw `<Identifier> Illegal Identifier.`;
                 }
             }
             else {
@@ -3339,13 +3339,13 @@ function Parse(code, absolutePath) {
                     NODE_STACK.push(currentToken); // VARIABLE原样保留，在作用域分析的时候才被录入AST
                 }
                 else {
-                    throw `<Symbol> Illegal symbol.`;
+                    throw `<Identifier> Illegal Identifier.`;
                 }
             }
             return index + 1;
         }
         else {
-            throw `<Symbol>`;
+            throw `<Identifier>`;
         }
     }
     ///////////////////////////////
