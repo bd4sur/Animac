@@ -83,7 +83,7 @@
     (define loop
       (lambda ()
         ;; 检查时间片是否用完
-        (if (= timer 0) {
+        (if (== timer 0) {
           (display tag) (display " 暂停（时间片用完）\n\n")
           (set! timer timeslice) ;; 暂停之前，重置时间片计数器
           (wait_this_and_start_next)
@@ -111,7 +111,7 @@
     (define loop
       (lambda ()
         ;; 检查时间片是否用完
-        (if (= timer 0) {
+        (if (== timer 0) {
           (display tag) (display " 暂停（时间片用完）\n\n")
           (set! timer timeslice) ;; 暂停之前，重置时间片计数器
           (wait_this_and_start_next)

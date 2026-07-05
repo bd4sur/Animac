@@ -97,7 +97,7 @@ node build/animac-cli.js
 (List.reduce '(1 2 3 4 5 6 7 8 9 10) + 0) ; 55
 (List.map '(-2 -1 0 1 2) Math.abs)        ; (2 1 0 1 2)
 (List.filter '(0 1 2 3)
-             (lambda (x) (= 0 (% x 2))))  ; (0 2)
+             (lambda (x) (== 0 (mod x 2))))  ; (0 2)
 
 
 ;; 循环结构（注意：循环体内并非如同JavaScript的块作用域）

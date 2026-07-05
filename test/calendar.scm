@@ -8,7 +8,7 @@
 
 (define get-value-iter
   (lambda (list i counter)
-    (if (= counter i)
+    (if (== counter i)
         (car list)
         (get-value-iter (cdr list) i (+ counter 1)))))
 
@@ -18,10 +18,10 @@
 
 (define is-leap-year?
   (lambda (year)
-    (cond ((and (= (% year 4) 0)
-                (not (= (% year 100) 0)))
+    (cond ((and (== (mod year 4) 0)
+                (not (== (mod year 100) 0)))
            #t)
-          ((= (% year 400) 0)
+          ((== (mod year 400) 0)
            #t)
           (else
            #f))))
@@ -44,20 +44,20 @@
 ;某月某日是某年的第几天
 (define day-count
   (lambda (year month day)
-    (cond ((= month 0) day)
+    (cond ((== month 0) day)
           (else (+ (days-of-month year (- month 1)) (day-count year (- month 1) day))))))
 
 ;计算两个日期之间的日数差
 (define day-diff
   (lambda (y1 m1 d1 y2 m2 d2)
-    (cond ((= y1 y2) (- (day-count y2 m2 d2) (day-count y1 m1 d1)))
+    (cond ((== y1 y2) (- (day-count y2 m2 d2) (day-count y1 m1 d1)))
           (else (+ (days-of-year (- y2 1)) (day-diff y1 m1 d1 (- y2 1) m2 d2))))))
 
 ;计算某日的星期数
 (define get-week
   (lambda (year month day)
-    (define wk (% (day-diff 2017 1 1 year month day) 7))
-    (if (= wk 0) 7 wk)))
+    (define wk (mod (day-diff 2017 1 1 year month day) 7))
+    (if (== wk 0) 7 wk)))
 
 ;格式输出
 (define print-iter
@@ -68,11 +68,11 @@
              (display "   ")
              (print-iter year month (+ iter 1) blank-flag)}) ;月初空格
           (else
-             (cond ((and (< (- iter (get-week year month 1)) 9) (= blank-flag 0)) {
+             (cond ((and (< (- iter (get-week year month 1)) 9) (== blank-flag 0)) {
                       (display " ")
                       (print-iter year month iter 1)})
                    (else
-                      (cond ((= (% iter 7) 0) {
+                      (cond ((== (mod iter 7) 0) {
                                (display (+ 1 (- iter (get-week year month 1)))) (newline) (print-iter year month (+ iter 1) 0)}) ;行末换行
                             (else {(display (+ 1 (- iter (get-week year month 1)))) (display " ") (print-iter year month (+ iter 1) 0)}))))))))
 

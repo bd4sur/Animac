@@ -71,7 +71,7 @@
   (lambda (lst pos new_value)
     (define list_set_iter
       (lambda (lst pos new_value iter)
-        (cond ((= iter pos) (cons new_value (cdr lst)))
+        (cond ((== iter pos) (cons new_value (cdr lst)))
               (else (cons (car lst) (list_set_iter (cdr lst) pos new_value (+ iter 1)))))))
     (list_set_iter lst pos new_value 0)))
 
@@ -100,7 +100,7 @@
   (lambda (lst index)
     (define iter
       (lambda (l count)
-        (if (= count index)
+        (if (== count index)
             (car l)
             (iter (cdr l) (+ 1 count)))))
     (iter lst 0)))
@@ -133,9 +133,9 @@
         (define rem lst)
         (define res '())
         (while (not (null? rem)) {
-          (if (= count i)
+          (if (== count i)
               (set! res (cons (get_item lst j) res))
-              (if (= count j)
+              (if (== count j)
                   (set! res (cons (get_item lst i) res))
                   (set! res (cons (car rem) res))))
           (set! count (+ count 1))
@@ -205,7 +205,7 @@
           (set! max right)
         })
         (define temp #f)
-        (if (not (= max root)) {
+        (if (not (== max root)) {
           (set! temp (get_item lst root))
           (set_item! lst root (get_item lst max))
           (set_item! lst max temp)

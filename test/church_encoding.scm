@@ -42,7 +42,7 @@
 
 (define NUM_TO_LAMBDA
   (lambda (number)
-    (if (= number 0)
+    (if (== number 0)
         NUM_0
         (INC (NUM_TO_LAMBDA (- number 1))))))
 

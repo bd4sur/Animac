@@ -15,7 +15,7 @@
     (define str2len (String.length str2))
     (define maxlen (* 2 (if (> str1len str2len) str1len str2len)))
     (define loglen (Math.round (Math.log2 maxlen)))
-    (if (= (% loglen 2) 0) (pow 2 (+ 2 loglen)) (pow 2 (+ 1 loglen)))))
+    (if (== (mod loglen 2) 0) (pow 2 (+ 2 loglen)) (pow 2 (+ 1 loglen)))))
 
 ;; 十进制数字字符串转为复数（虚部为0）列表
 (define numstr_to_complex_vector
@@ -24,7 +24,7 @@
     (define complex_vector '())
     (define iter
       (lambda (pos)
-        (if (= pos fftlen)
+        (if (== pos fftlen)
             complex_vector {
             (if (and (>= pos numlen) (< pos fftlen))
                 (set! complex_vector (List.append '(0 0) complex_vector))
@@ -48,8 +48,8 @@
               (if (and (>= c 0)(<= c 9))
                   { (set! numstr (String.concat (String.fromCharCode (+ c charcode_of_zero)) numstr))
                     (set! carry 0) }
-                  { (set! numstr (String.concat (String.fromCharCode (+ (% c 10) charcode_of_zero)) numstr))
-                    (set! carry (Math.round (/ (- c (% c 10)) 10))) })
+                  { (set! numstr (String.concat (String.fromCharCode (+ (mod c 10) charcode_of_zero)) numstr))
+                    (set! carry (Math.round (/ (- c (mod c 10)) 10))) })
               (iter(+ i 1)) })))
     (iter 0)))
 
@@ -61,9 +61,9 @@
     (define iter
       (lambda (i is_leading)
         (define current_digit (- (String.charCodeAt i nstr) charcode_of_zero))
-        (if (= i slen)
+        (if (== i slen)
             s
-            (if (and is_leading (= current_digit 0))
+            (if (and is_leading (== current_digit 0))
                 (iter (+ i 1) #t)
                 { (set! s (String.concat s (String.fromCharCode (+ current_digit charcode_of_zero))))
                   (iter (+ i 1) #f) }))))

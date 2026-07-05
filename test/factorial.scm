@@ -5,7 +5,7 @@
           (lambda (k)
             ((lambda (cont)
                ((lambda (cont)
-                  ((lambda (cont) (cont (lambda (x y) (lambda (k) (k (= x y)))))) ; 内置相等判断
+                  ((lambda (cont) (cont (lambda (x y) (lambda (k) (k (== x y)))))) ; 内置相等判断
                    (lambda (node0)
                      ((node0 0 n)
                       (lambda (res) (cont res))))))
@@ -33,7 +33,7 @@
 (define fac
   (lambda (n cont) (begin
     (set! fac-count (+ fac-count 1))
-    (if (= n 0)
+    (if (== n 0)
         (cont 1)
         (fac (- n 1)
              (lambda (res) (begin
@@ -43,7 +43,7 @@
 
 (define sum_iter
   (lambda (n init)
-    (if (= n 0)
+    (if (== n 0)
         init
         (sum_iter (- n 1) (+ n init)))))
 
@@ -82,8 +82,8 @@
     (display "实际结果：")
     (define power
       (lambda (base exp init)
-        (cond ((= exp 0) init)
-              ((= 0 (% exp 2)) (power (* base base) (/ exp 2) init))
+        (cond ((== exp 0) init)
+              ((== 0 (mod exp 2)) (power (* base base) (/ exp 2) init))
               (else (power base (- exp 1) (* base init))))))
     (display (power 2 30 1))
     (newline)

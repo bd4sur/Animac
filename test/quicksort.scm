@@ -25,7 +25,7 @@
         {
           (set! pivot (car array))
           (concat (quicksort (partition < pivot array))
-                  (concat (partition = pivot array)
+                  (concat (partition == pivot array)
                           (quicksort (partition > pivot array))))
         }
     )

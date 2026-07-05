@@ -2,7 +2,7 @@
 
 (define add1 (lambda (n) (+ n 1)))
 (define sub1 (lambda (n) (- n 1)))
-(define is_zero (lambda (x) (= 0 x)))
+(define is_zero (lambda (x) (== 0 x)))
 
 (define add (lambda (a b) (if (is_zero b) a (add (add1 a) (sub1 b)))))
 (define add_r (lambda (a b) (if (is_zero b) a (add1 (add a (sub1 b))))))

@@ -41,7 +41,7 @@ const TOP_NODE_HANDLE: Handle = "&TOP_NODE";
 const KEYWORDS = [
     "car",    "cdr",    "cons",    "get_item", "set_item!", "length",
     "cond",    "if",    "else",    "begin",    "while",     "break",   "continue",
-    "+",      "-",      "*",       "/",        "=",         "%",       "pow",
+    "+",      "-",      "*",       "/",        "==",        "mod",     "pow",
     "and",     "or",    "not",     ">",        "<",         ">=",      "<=",    "eq?",
     "define", "set!",   "null?",   "atom?",    "list?",     "number?",
     "display","newline",
@@ -56,8 +56,8 @@ const KEYWORDS = [
 // Primitive对应的AIL指令
 
 const PrimitiveInstruction = {
-    "+": "add",    "-": "sub",    "*": "mul",    "/": "div",    "%": "mod",
-    "=": "eqn",    "<": "lt",     ">": "gt",     "<=": "le",    ">=": "ge",
+    "+": "add",    "-": "sub",    "*": "mul",    "/": "div",    "mod": "mod",
+    "==": "eqn",   "<": "lt",     ">": "gt",     "<=": "le",    ">=": "ge",
     "set!": "set", "set_item!": "set_item"
 };
 

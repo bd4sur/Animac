@@ -43,14 +43,14 @@
 
 (define twiddle_factors
   (lambda (N iter)
-    (if (= iter (/ N 2)) ;; 只取前一半
+    (if (== iter (/ N 2)) ;; 只取前一半
         '()
         (cons (W_nk N iter)
               (twiddle_factors N (+ iter 1))))))
 
 (define fft
   (lambda (input N)
-    (if (= N 1)
+    (if (== N 1)
         input
         {
           (define s (sep input))

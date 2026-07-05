@@ -20,7 +20,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; 从base64加载模型
 
-(if (= task 0)
+(if (== task 0)
     (LLM.init NanoModels.SORT_6_MODEL)
     (LLM.init NanoModels.PSYCHO_230K_MODEL)
 )
@@ -83,7 +83,7 @@
   (lambda (len)
     (define iter
       (lambda (buf i)
-        (if (= i 0) buf (iter (cons 0 buf) (- i 1)))))
+        (if (== i 0) buf (iter (cons 0 buf) (- i 1)))))
     (iter '() len)))
 
 (define x   (new_buffer n_embd))
@@ -543,7 +543,7 @@
     (define pos 0)
     (newline)
     (while (< pos max_seq_len) {
-      (if (= t_0 0) (set! t_0 (System.timestamp)))
+      (if (== t_0 0) (set! t_0 (System.timestamp)))
       (display "▁")
       (set! probs (llm_forward new_token pos max_seq_len #t))
       (display "\b")
@@ -555,7 +555,7 @@
         ;; Decoding
         ;; 暂不实现幅度惩罚（待实现字典）
         ;; 温度采样：当温度设为0时，退化为贪心采样
-        (if (= temperature 0) {
+        (if (== temperature 0) {
           (set! new_token (sample_argmax probs vocab_size))
         } {
           (set! i 0)
@@ -626,7 +626,7 @@
     })
     randstr))
 
-(if (= task 0) {
+(if (== task 0) {
   (display "序列生成任务：用LLM解决排序问题\n")
   (define input_seq (make_random_list 6))
   (display "  排序前：")

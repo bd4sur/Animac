@@ -36,7 +36,7 @@
 
     (define dot_product 0)
 
-    (if (= a_col b_row)
+    (if (== a_col b_row)
     {
       (while (< i a_row) {
         (set! j 0)
@@ -366,7 +366,7 @@
       (define y_gt_i (get_row y_batch i))
       (define pred_cat (argmax y_hat_i))
       (define gt_cat (argmax y_gt_i))
-      (set! tp_count (+ tp_count (if (= pred_cat gt_cat) 1 0)))
+      (set! tp_count (+ tp_count (if (== pred_cat gt_cat) 1 0)))
       (set! cats (List.append pred_cat cats))
       (set! i (+ i 1))
     })

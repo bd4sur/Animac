@@ -46,7 +46,7 @@
       (lambda (ch)
         (or (and (>= (String.charCodeAt 0 ch) 97) (<= (String.charCodeAt 0 ch) 122))
             (and (>= (String.charCodeAt 0 ch) 65) (<= (String.charCodeAt 0 ch) 90))
-            (= (String.charCodeAt 0 ch) 95))))
+            (== (String.charCodeAt 0 ch) 95))))
 
     (define read_number
       (lambda (start)
@@ -290,7 +290,7 @@
                   ((String.equals op "-") (if (eq? #undefined right) (- 0 (eval left)) (- (eval left) (eval right)))) ;; 区分一元和二元运算
                   ((String.equals op "*") (* (eval left) (eval right)))
                   ((String.equals op "/") (/ (eval left) (eval right)))
-                  ((String.equals op "%") (% (eval left) (eval right)))
+                  ((String.equals op "%") (mod (eval left) (eval right)))
                   ((String.equals op "^") (pow (eval left) (eval right)))
                   ((String.equals op "sqrt") (pow (eval left) 0.5))
                   ((String.equals op "exp") (Math.exp (eval left)))

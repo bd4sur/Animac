@@ -4,14 +4,14 @@
 ;; 临界区：需要独占端口资源的过程，这里是一段空转延时。
 (define Critical
     (lambda (countdown)
-        (if (= countdown 0)
+        (if (== countdown 0)
             #f
             (Critical (- countdown 1)))))
 
 ;; 请求资源，并在回调中使用申请到的资源。当然回调中也可以申请新的资源。
 (define Request
     (lambda (lock pid callback)
-        (if (= (read lock) 0) {
+        (if (== (read lock) 0) {
             (display "进程 ")(display pid)(display " 获得并占用资源 ")(display lock)(display " ...")(newline)
             (write lock 1)
             (callback)

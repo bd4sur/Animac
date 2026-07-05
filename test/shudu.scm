@@ -37,13 +37,13 @@
         ;; 检查行
         (define count 0)
         (while (< count RANK) {
-            (if (= (get_cell board i count) n) (return #f))
+            (if (== (get_cell board i count) n) (return #f))
             (set! count (+ count 1))
         })
         ;; 检查列
         (set! count 0)
         (while (< count RANK) {
-            (if (= (get_cell board count j) n) (return #f))
+            (if (== (get_cell board count j) n) (return #f))
             (set! count (+ count 1))
         })
         ;; 检查所在宫格
@@ -54,7 +54,7 @@
         (while (< count_i (+ row_from 3)) {
             (set! count_j col_from)
             (while (< count_j (+ col_from 3)) {
-                (if (= (get_cell board count_i count_j) n) (return #f))
+                (if (== (get_cell board count_i count_j) n) (return #f))
                 (set! count_j (+ count_j 1))
             })
             (set! count_i (+ count_i 1))
@@ -71,7 +71,7 @@
         (while (< i RANK) {
             (set! j 0)
             (while (< j RANK) {
-                (if (= 0 (get_cell board i j)) {
+                (if (== 0 (get_cell board i j)) {
                     (define nlist (List.shuffle RANK)) ;; [0,RANK)的乱序列表
                     (set! n 0)
                     (while (< n RANK) {

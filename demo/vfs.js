@@ -16,7 +16,7 @@ ANIMAC_VFS["/test/big_int.scm"] = `;; 基于离散傅里叶变换的大整数乘
     (define str2len (String.length str2))
     (define maxlen (* 2 (if (> str1len str2len) str1len str2len)))
     (define loglen (Math.round (Math.log2 maxlen)))
-    (if (= (% loglen 2) 0) (pow 2 (+ 2 loglen)) (pow 2 (+ 1 loglen)))))
+    (if (== (mod loglen 2) 0) (pow 2 (+ 2 loglen)) (pow 2 (+ 1 loglen)))))
 
 ;; 十进制数字字符串转为复数（虚部为0）列表
 (define numstr_to_complex_vector
@@ -25,7 +25,7 @@ ANIMAC_VFS["/test/big_int.scm"] = `;; 基于离散傅里叶变换的大整数乘
     (define complex_vector '())
     (define iter
       (lambda (pos)
-        (if (= pos fftlen)
+        (if (== pos fftlen)
             complex_vector {
             (if (and (>= pos numlen) (< pos fftlen))
                 (set! complex_vector (List.append '(0 0) complex_vector))
@@ -49,8 +49,8 @@ ANIMAC_VFS["/test/big_int.scm"] = `;; 基于离散傅里叶变换的大整数乘
               (if (and (>= c 0)(<= c 9))
                   { (set! numstr (String.concat (String.fromCharCode (+ c charcode_of_zero)) numstr))
                     (set! carry 0) }
-                  { (set! numstr (String.concat (String.fromCharCode (+ (% c 10) charcode_of_zero)) numstr))
-                    (set! carry (Math.round (/ (- c (% c 10)) 10))) })
+                  { (set! numstr (String.concat (String.fromCharCode (+ (mod c 10) charcode_of_zero)) numstr))
+                    (set! carry (Math.round (/ (- c (mod c 10)) 10))) })
               (iter(+ i 1)) })))
     (iter 0)))
 
@@ -62,9 +62,9 @@ ANIMAC_VFS["/test/big_int.scm"] = `;; 基于离散傅里叶变换的大整数乘
     (define iter
       (lambda (i is_leading)
         (define current_digit (- (String.charCodeAt i nstr) charcode_of_zero))
-        (if (= i slen)
+        (if (== i slen)
             s
-            (if (and is_leading (= current_digit 0))
+            (if (and is_leading (== current_digit 0))
                 (iter (+ i 1) #t)
                 { (set! s (String.concat s (String.fromCharCode (+ current_digit charcode_of_zero))))
                   (iter (+ i 1) #f) }))))
@@ -102,24 +102,24 @@ ANIMAC_VFS["/test/blink.scm"] = `;; 用 Scheme 控制路由器上的LED使其闪
 
 (define Delay
     (lambda (countdown)
-        (if (= countdown 0)
+        (if (== countdown 0)
             #f
             (Delay (- countdown 1)))))
 
 (define ToStr
   (lambda (num01)
-    (cond ((= num01 0) "0")
-          ((= num01 1) "1")
+    (cond ((== num01 0) "0")
+          ((== num01 1) "1")
           (else "1"))))
 
 (define counter 0)
 
 (define Blink
   (lambda () {
-      (File.writeStringSync "/sys/devices/platform/leds/leds/yellow:network/brightness" (ToStr (% counter 2)) "w")
-      (display (ToStr (% counter 2)))
+      (File.writeStringSync "/sys/devices/platform/leds/leds/yellow:network/brightness" (ToStr (mod counter 2)) "w")
+      (display (ToStr (mod counter 2)))
       (set! counter (+ counter 1))
-      (if (= (% counter 2) 0)
+      (if (== (mod counter 2) 0)
           (Delay 1000)
           (Delay 2000))
       (Blink)
@@ -172,9 +172,9 @@ ANIMAC_VFS["/test/brainfuck.scm"] = `(native String)
 (define env_constructer
   (lambda (dp_init cp_init code_str)
     (lambda (iter)
-        (if (= iter 0)
+        (if (== iter 0)
             (cons dp_init ((env_constructer dp_init cp_init code_str) (+ iter 1)))
-            (if (= iter 1)
+            (if (== iter 1)
                 (cons cp_init ((env_constructer dp_init cp_init code_str) (+ iter 1)))
                 (if (<= iter (+ 1 cp_init))
                     (cons 0 ((env_constructer dp_init cp_init code_str) (+ iter 1)))
@@ -219,7 +219,7 @@ ANIMAC_VFS["/test/brainfuck.scm"] = `(native String)
     (((Y (lambda (f)
            (lambda (e)
              (lambda (iter)
-               (if (= index iter)
+               (if (== index iter)
                    '()
                    (cons (List.ref e iter) ((f e) (+ iter 1)))
                ))))) env) 0)))
@@ -230,7 +230,7 @@ ANIMAC_VFS["/test/brainfuck.scm"] = `(native String)
     (((Y (lambda (f)
            (lambda (e)
              (lambda (iter)
-               (if (= 0 iter)
+               (if (== 0 iter)
                    e
                    ((f (cdr e)) (- iter 1))
                 ))))) env) (+ index 1))))
@@ -294,10 +294,10 @@ ANIMAC_VFS["/test/brainfuck.scm"] = `(native String)
             (lambda (e)
               (lambda (cindex)
                 (lambda (flag)
-                  (if (= (List.ref env cindex) 93)
+                  (if (== (List.ref env cindex) 93)
                       (((f env) (- cindex 1)) (+ flag 1))
-                      (if (= (List.ref env cindex) 91)
-                          (if (= flag 0)
+                      (if (== (List.ref env cindex) 91)
+                          (if (== flag 0)
                               cindex
                               (((f env) (- cindex 1)) (- flag 1)))
                           (((f env) (- cindex 1)) flag)))
@@ -311,10 +311,10 @@ ANIMAC_VFS["/test/brainfuck.scm"] = `(native String)
             (lambda (e)
               (lambda (cindex)
                 (lambda (flag)
-                  (if (= (List.ref env cindex) 91)
+                  (if (== (List.ref env cindex) 91)
                       (((f env) (+ cindex 1)) (+ flag 1))
-                      (if (= (List.ref env cindex) 93)
-                          (if (= flag 0)
+                      (if (== (List.ref env cindex) 93)
+                          (if (== flag 0)
                               (+ cindex 1)
                               (((f env) (+ cindex 1)) (- flag 1)))
                           (((f env) (+ cindex 1)) flag)))
@@ -366,7 +366,7 @@ ANIMAC_VFS["/test/brainfuck.scm"] = `(native String)
 ; [
 (define loopl
   (lambda (env)
-    (if (= 0 (read_data env))
+    (if (== 0 (read_data env))
         (modify_code_offset (- (pass_index env) 2) env) ;直接跳出
         (cp++ env) ;下条指令
     )))
@@ -385,21 +385,21 @@ ANIMAC_VFS["/test/brainfuck.scm"] = `(native String)
 (define step
   (lambda (env)
     ;(BF_DEBUG env)
-    (if (= (read_code env) 43) ;+
+    (if (== (read_code env) 43) ;+
         (++ env)
-        (if (= (read_code env) 45) ;-
+        (if (== (read_code env) 45) ;-
             (-- env)
-            (if (= (read_code env) 62) ;>
+            (if (== (read_code env) 62) ;>
                 (p> env)
-                (if (= (read_code env) 60) ;<
+                (if (== (read_code env) 60) ;<
                     (p< env)
-                    (if (= (read_code env) 46) ;.
+                    (if (== (read_code env) 46) ;.
                         (o env)
-                        (if (= (read_code env) 44) ;,
+                        (if (== (read_code env) 44) ;,
                             (p> env) ;暂未实现
-                            (if (= (read_code env) 91) ;[
+                            (if (== (read_code env) 91) ;[
                                 (loopl env)
-                                (if (= (read_code env) 93) ;]
+                                (if (== (read_code env) 93) ;]
                                     (loopr env)
                                     env ; 未知指令，不执行任何动作
                                 ))))))))))
@@ -408,7 +408,7 @@ ANIMAC_VFS["/test/brainfuck.scm"] = `(native String)
 ;   读取到空白字符（32）时停止，并输出调试信息
 (define bf_interpreter
   (lambda (env cnt)
-    (if (= (read_code env) (String.charCodeAt 0 " "))
+    (if (== (read_code env) (String.charCodeAt 0 " "))
         {
             (BF_DEBUG env)
             (display "iteration steps = ")
@@ -489,7 +489,7 @@ ANIMAC_VFS["/test/calculator.scm"] = `;; 中缀表达式解析器
       (lambda (ch)
         (or (and (>= (String.charCodeAt 0 ch) 97) (<= (String.charCodeAt 0 ch) 122))
             (and (>= (String.charCodeAt 0 ch) 65) (<= (String.charCodeAt 0 ch) 90))
-            (= (String.charCodeAt 0 ch) 95))))
+            (== (String.charCodeAt 0 ch) 95))))
 
     (define read_number
       (lambda (start)
@@ -733,7 +733,7 @@ ANIMAC_VFS["/test/calculator.scm"] = `;; 中缀表达式解析器
                   ((String.equals op "-") (if (eq? #undefined right) (- 0 (eval left)) (- (eval left) (eval right)))) ;; 区分一元和二元运算
                   ((String.equals op "*") (* (eval left) (eval right)))
                   ((String.equals op "/") (/ (eval left) (eval right)))
-                  ((String.equals op "%") (% (eval left) (eval right)))
+                  ((String.equals op "%") (mod (eval left) (eval right)))
                   ((String.equals op "^") (pow (eval left) (eval right)))
                   ((String.equals op "sqrt") (pow (eval left) 0.5))
                   ((String.equals op "exp") (Math.exp (eval left)))
@@ -817,7 +817,7 @@ ANIMAC_VFS["/test/calendar.scm"] = `;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define get-value-iter
   (lambda (list i counter)
-    (if (= counter i)
+    (if (== counter i)
         (car list)
         (get-value-iter (cdr list) i (+ counter 1)))))
 
@@ -827,10 +827,10 @@ ANIMAC_VFS["/test/calendar.scm"] = `;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define is-leap-year?
   (lambda (year)
-    (cond ((and (= (% year 4) 0)
-                (not (= (% year 100) 0)))
+    (cond ((and (== (mod year 4) 0)
+                (not (== (mod year 100) 0)))
            #t)
-          ((= (% year 400) 0)
+          ((== (mod year 400) 0)
            #t)
           (else
            #f))))
@@ -853,20 +853,20 @@ ANIMAC_VFS["/test/calendar.scm"] = `;;;;;;;;;;;;;;;;;;;;;;;;;
 ;某月某日是某年的第几天
 (define day-count
   (lambda (year month day)
-    (cond ((= month 0) day)
+    (cond ((== month 0) day)
           (else (+ (days-of-month year (- month 1)) (day-count year (- month 1) day))))))
 
 ;计算两个日期之间的日数差
 (define day-diff
   (lambda (y1 m1 d1 y2 m2 d2)
-    (cond ((= y1 y2) (- (day-count y2 m2 d2) (day-count y1 m1 d1)))
+    (cond ((== y1 y2) (- (day-count y2 m2 d2) (day-count y1 m1 d1)))
           (else (+ (days-of-year (- y2 1)) (day-diff y1 m1 d1 (- y2 1) m2 d2))))))
 
 ;计算某日的星期数
 (define get-week
   (lambda (year month day)
-    (define wk (% (day-diff 2017 1 1 year month day) 7))
-    (if (= wk 0) 7 wk)))
+    (define wk (mod (day-diff 2017 1 1 year month day) 7))
+    (if (== wk 0) 7 wk)))
 
 ;格式输出
 (define print-iter
@@ -877,11 +877,11 @@ ANIMAC_VFS["/test/calendar.scm"] = `;;;;;;;;;;;;;;;;;;;;;;;;;
              (display "   ")
              (print-iter year month (+ iter 1) blank-flag)}) ;月初空格
           (else
-             (cond ((and (< (- iter (get-week year month 1)) 9) (= blank-flag 0)) {
+             (cond ((and (< (- iter (get-week year month 1)) 9) (== blank-flag 0)) {
                       (display " ")
                       (print-iter year month iter 1)})
                    (else
-                      (cond ((= (% iter 7) 0) {
+                      (cond ((== (mod iter 7) 0) {
                                (display (+ 1 (- iter (get-week year month 1)))) (newline) (print-iter year month (+ iter 1) 0)}) ;行末换行
                             (else {(display (+ 1 (- iter (get-week year month 1)))) (display " ") (print-iter year month (+ iter 1) 0)}))))))))
 
@@ -951,7 +951,7 @@ ANIMAC_VFS["/test/church_encoding.scm"] = `;; 丘奇编码
 
 (define NUM_TO_LAMBDA
   (lambda (number)
-    (if (= number 0)
+    (if (== number 0)
         NUM_0
         (INC (NUM_TO_LAMBDA (- number 1))))))
 
@@ -1333,7 +1333,7 @@ ANIMAC_VFS["/test/coroutine.scm"] = `;; 利用call/cc实现协程（生产者消
     (define loop
       (lambda ()
         ;; 检查时间片是否用完
-        (if (= timer 0) {
+        (if (== timer 0) {
           (display tag) (display " 暂停（时间片用完）\\n\\n")
           (set! timer timeslice) ;; 暂停之前，重置时间片计数器
           (wait_this_and_start_next)
@@ -1361,7 +1361,7 @@ ANIMAC_VFS["/test/coroutine.scm"] = `;; 利用call/cc实现协程（生产者消
     (define loop
       (lambda ()
         ;; 检查时间片是否用完
-        (if (= timer 0) {
+        (if (== timer 0) {
           (display tag) (display " 暂停（时间片用完）\\n\\n")
           (set! timer timeslice) ;; 暂停之前，重置时间片计数器
           (wait_this_and_start_next)
@@ -1409,14 +1409,14 @@ ANIMAC_VFS["/test/deadlock.scm"] = `
 ;; 临界区：需要独占端口资源的过程，这里是一段空转延时。
 (define Critical
     (lambda (countdown)
-        (if (= countdown 0)
+        (if (== countdown 0)
             #f
             (Critical (- countdown 1)))))
 
 ;; 请求资源，并在回调中使用申请到的资源。当然回调中也可以申请新的资源。
 (define Request
     (lambda (lock pid callback)
-        (if (= (read lock) 0) {
+        (if (== (read lock) 0) {
             (display "进程 ")(display pid)(display " 获得并占用资源 ")(display lock)(display " ...")(newline)
             (write lock 1)
             (callback)
@@ -1460,7 +1460,7 @@ ANIMAC_VFS["/test/factorial.scm"] = `
           (lambda (k)
             ((lambda (cont)
                ((lambda (cont)
-                  ((lambda (cont) (cont (lambda (x y) (lambda (k) (k (= x y)))))) ; 内置相等判断
+                  ((lambda (cont) (cont (lambda (x y) (lambda (k) (k (== x y)))))) ; 内置相等判断
                    (lambda (node0)
                      ((node0 0 n)
                       (lambda (res) (cont res))))))
@@ -1488,7 +1488,7 @@ ANIMAC_VFS["/test/factorial.scm"] = `
 (define fac
   (lambda (n cont) (begin
     (set! fac-count (+ fac-count 1))
-    (if (= n 0)
+    (if (== n 0)
         (cont 1)
         (fac (- n 1)
              (lambda (res) (begin
@@ -1498,7 +1498,7 @@ ANIMAC_VFS["/test/factorial.scm"] = `
 
 (define sum_iter
   (lambda (n init)
-    (if (= n 0)
+    (if (== n 0)
         init
         (sum_iter (- n 1) (+ n init)))))
 
@@ -1537,8 +1537,8 @@ ANIMAC_VFS["/test/factorial.scm"] = `
     (display "实际结果：")
     (define power
       (lambda (base exp init)
-        (cond ((= exp 0) init)
-              ((= 0 (% exp 2)) (power (* base base) (/ exp 2) init))
+        (cond ((== exp 0) init)
+              ((== 0 (mod exp 2)) (power (* base base) (/ exp 2) init))
               (else (power base (- exp 1) (* base init))))))
     (display (power 2 30 1))
     (newline)
@@ -1593,14 +1593,14 @@ ANIMAC_VFS["/test/fft.scm"] = `;; 递归实现快速傅里叶变换
 
 (define twiddle_factors
   (lambda (N iter)
-    (if (= iter (/ N 2)) ;; 只取前一半
+    (if (== iter (/ N 2)) ;; 只取前一半
         '()
         (cons (W_nk N iter)
               (twiddle_factors N (+ iter 1))))))
 
 (define fft
   (lambda (input N)
-    (if (= N 1)
+    (if (== N 1)
         input
         {
           (define s (sep input))
@@ -1858,14 +1858,14 @@ ANIMAC_VFS["/test/interpreter.scm"] = `
           ((eq? name 'null?) (null? (first vals)))
           ((eq? name 'eq?)   (eq? (first vals) (second vals)))
           ((eq? name 'atom?) (isAtom (first vals)))
-          ((eq? name 'zero?) (= (first vals) 0))
+          ((eq? name 'zero?) (== (first vals) 0))
           ((eq? name 'add1)  (+ 1 (first vals)))
           ((eq? name 'sub1)  (- (first vals) 1))
           ((eq? name '+)     (+ (first vals) (second vals)))
           ((eq? name '-)     (- (first vals) (second vals)))
           ((eq? name '*)     (* (first vals) (second vals)))
           ((eq? name '/)     (/ (first vals) (second vals)))
-          ((eq? name '=)     (= (first vals) (second vals)))
+          ((eq? name '=)     (== (first vals) (second vals)))
           ((eq? name 'begin)   (second vals))
           ((eq? name 'display) (display (first vals)))
           ((eq? name 'number?) (number? (first vals)))
@@ -1973,7 +1973,7 @@ ANIMAC_VFS["/test/list.scm"] = `;; 应用库
   (lambda (lst pos new_value)
     (define list_set_iter
       (lambda (lst pos new_value iter)
-        (cond ((= iter pos) (cons new_value (cdr lst)))
+        (cond ((== iter pos) (cons new_value (cdr lst)))
               (else (cons (car lst) (list_set_iter (cdr lst) pos new_value (+ iter 1)))))))
     (list_set_iter lst pos new_value 0)))
 
@@ -2002,7 +2002,7 @@ ANIMAC_VFS["/test/list.scm"] = `;; 应用库
   (lambda (lst index)
     (define iter
       (lambda (l count)
-        (if (= count index)
+        (if (== count index)
             (car l)
             (iter (cdr l) (+ 1 count)))))
     (iter lst 0)))
@@ -2035,9 +2035,9 @@ ANIMAC_VFS["/test/list.scm"] = `;; 应用库
         (define rem lst)
         (define res '())
         (while (not (null? rem)) {
-          (if (= count i)
+          (if (== count i)
               (set! res (cons (get_item lst j) res))
-              (if (= count j)
+              (if (== count j)
                   (set! res (cons (get_item lst i) res))
                   (set! res (cons (car rem) res))))
           (set! count (+ count 1))
@@ -2107,7 +2107,7 @@ ANIMAC_VFS["/test/list.scm"] = `;; 应用库
           (set! max right)
         })
         (define temp #f)
-        (if (not (= max root)) {
+        (if (not (== max root)) {
           (set! temp (get_item lst root))
           (set_item! lst root (get_item lst max))
           (set_item! lst max temp)
@@ -2285,7 +2285,7 @@ ANIMAC_VFS["/test/mlp.scm"] = `;; 多层感知机训练与推理
 
     (define dot_product 0)
 
-    (if (= a_col b_row)
+    (if (== a_col b_row)
     {
       (while (< i a_row) {
         (set! j 0)
@@ -2615,7 +2615,7 @@ ANIMAC_VFS["/test/mlp.scm"] = `;; 多层感知机训练与推理
       (define y_gt_i (get_row y_batch i))
       (define pred_cat (argmax y_hat_i))
       (define gt_cat (argmax y_gt_i))
-      (set! tp_count (+ tp_count (if (= pred_cat gt_cat) 1 0)))
+      (set! tp_count (+ tp_count (if (== pred_cat gt_cat) 1 0)))
       (set! cats (List.append pred_cat cats))
       (set! i (+ i 1))
     })
@@ -2784,7 +2784,7 @@ ANIMAC_VFS["/test/nano_llm_infer.scm"] = `;; 自研Nano语言模型推理 2025-0
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; 从base64加载模型
 
-(if (= task 0)
+(if (== task 0)
     (LLM.init NanoModels.SORT_6_MODEL)
     (LLM.init NanoModels.PSYCHO_230K_MODEL)
 )
@@ -2847,7 +2847,7 @@ ANIMAC_VFS["/test/nano_llm_infer.scm"] = `;; 自研Nano语言模型推理 2025-0
   (lambda (len)
     (define iter
       (lambda (buf i)
-        (if (= i 0) buf (iter (cons 0 buf) (- i 1)))))
+        (if (== i 0) buf (iter (cons 0 buf) (- i 1)))))
     (iter '() len)))
 
 (define x   (new_buffer n_embd))
@@ -3307,7 +3307,7 @@ ANIMAC_VFS["/test/nano_llm_infer.scm"] = `;; 自研Nano语言模型推理 2025-0
     (define pos 0)
     (newline)
     (while (< pos max_seq_len) {
-      (if (= t_0 0) (set! t_0 (System.timestamp)))
+      (if (== t_0 0) (set! t_0 (System.timestamp)))
       (display "▁")
       (set! probs (llm_forward new_token pos max_seq_len #t))
       (display "\\b")
@@ -3319,7 +3319,7 @@ ANIMAC_VFS["/test/nano_llm_infer.scm"] = `;; 自研Nano语言模型推理 2025-0
         ;; Decoding
         ;; 暂不实现幅度惩罚（待实现字典）
         ;; 温度采样：当温度设为0时，退化为贪心采样
-        (if (= temperature 0) {
+        (if (== temperature 0) {
           (set! new_token (sample_argmax probs vocab_size))
         } {
           (set! i 0)
@@ -3390,7 +3390,7 @@ ANIMAC_VFS["/test/nano_llm_infer.scm"] = `;; 自研Nano语言模型推理 2025-0
     })
     randstr))
 
-(if (= task 0) {
+(if (== task 0) {
   (display "序列生成任务：用LLM解决排序问题\\n")
   (define input_seq (make_random_list 6))
   (display "  排序前：")
@@ -3507,7 +3507,7 @@ ANIMAC_VFS["/test/quicksort.scm"] = `
         {
           (set! pivot (car array))
           (concat (quicksort (partition < pivot array))
-                  (concat (partition = pivot array)
+                  (concat (partition == pivot array)
                           (quicksort (partition > pivot array))))
         }
     )
@@ -3585,13 +3585,13 @@ ANIMAC_VFS["/test/shudu.scm"] = `;; 解数独：用于测试语言核心、call/
         ;; 检查行
         (define count 0)
         (while (< count RANK) {
-            (if (= (get_cell board i count) n) (return #f))
+            (if (== (get_cell board i count) n) (return #f))
             (set! count (+ count 1))
         })
         ;; 检查列
         (set! count 0)
         (while (< count RANK) {
-            (if (= (get_cell board count j) n) (return #f))
+            (if (== (get_cell board count j) n) (return #f))
             (set! count (+ count 1))
         })
         ;; 检查所在宫格
@@ -3602,7 +3602,7 @@ ANIMAC_VFS["/test/shudu.scm"] = `;; 解数独：用于测试语言核心、call/
         (while (< count_i (+ row_from 3)) {
             (set! count_j col_from)
             (while (< count_j (+ col_from 3)) {
-                (if (= (get_cell board count_i count_j) n) (return #f))
+                (if (== (get_cell board count_i count_j) n) (return #f))
                 (set! count_j (+ count_j 1))
             })
             (set! count_i (+ count_i 1))
@@ -3619,7 +3619,7 @@ ANIMAC_VFS["/test/shudu.scm"] = `;; 解数独：用于测试语言核心、call/
         (while (< i RANK) {
             (set! j 0)
             (while (< j RANK) {
-                (if (= 0 (get_cell board i j)) {
+                (if (== 0 (get_cell board i j)) {
                     (define nlist (List.shuffle RANK)) ;; [0,RANK)的乱序列表
                     (set! n 0)
                     (while (< n RANK) {
@@ -3704,7 +3704,7 @@ ANIMAC_VFS["/test/tls.scm"] = `;; The Little Schemer 第四章
 
 (define add1 (lambda (n) (+ n 1)))
 (define sub1 (lambda (n) (- n 1)))
-(define is_zero (lambda (x) (= 0 x)))
+(define is_zero (lambda (x) (== 0 x)))
 
 (define add (lambda (a b) (if (is_zero b) a (add (add1 a) (sub1 b)))))
 (define add_r (lambda (a b) (if (is_zero b) a (add1 (add a (sub1 b))))))

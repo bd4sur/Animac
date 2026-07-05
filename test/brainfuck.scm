@@ -41,9 +41,9 @@
 (define env_constructer
   (lambda (dp_init cp_init code_str)
     (lambda (iter)
-        (if (= iter 0)
+        (if (== iter 0)
             (cons dp_init ((env_constructer dp_init cp_init code_str) (+ iter 1)))
-            (if (= iter 1)
+            (if (== iter 1)
                 (cons cp_init ((env_constructer dp_init cp_init code_str) (+ iter 1)))
                 (if (<= iter (+ 1 cp_init))
                     (cons 0 ((env_constructer dp_init cp_init code_str) (+ iter 1)))
@@ -88,7 +88,7 @@
     (((Y (lambda (f)
            (lambda (e)
              (lambda (iter)
-               (if (= index iter)
+               (if (== index iter)
                    '()
                    (cons (List.ref e iter) ((f e) (+ iter 1)))
                ))))) env) 0)))
@@ -99,7 +99,7 @@
     (((Y (lambda (f)
            (lambda (e)
              (lambda (iter)
-               (if (= 0 iter)
+               (if (== 0 iter)
                    e
                    ((f (cdr e)) (- iter 1))
                 ))))) env) (+ index 1))))
@@ -163,10 +163,10 @@
             (lambda (e)
               (lambda (cindex)
                 (lambda (flag)
-                  (if (= (List.ref env cindex) 93)
+                  (if (== (List.ref env cindex) 93)
                       (((f env) (- cindex 1)) (+ flag 1))
-                      (if (= (List.ref env cindex) 91)
-                          (if (= flag 0)
+                      (if (== (List.ref env cindex) 91)
+                          (if (== flag 0)
                               cindex
                               (((f env) (- cindex 1)) (- flag 1)))
                           (((f env) (- cindex 1)) flag)))
@@ -180,10 +180,10 @@
             (lambda (e)
               (lambda (cindex)
                 (lambda (flag)
-                  (if (= (List.ref env cindex) 91)
+                  (if (== (List.ref env cindex) 91)
                       (((f env) (+ cindex 1)) (+ flag 1))
-                      (if (= (List.ref env cindex) 93)
-                          (if (= flag 0)
+                      (if (== (List.ref env cindex) 93)
+                          (if (== flag 0)
                               (+ cindex 1)
                               (((f env) (+ cindex 1)) (- flag 1)))
                           (((f env) (+ cindex 1)) flag)))
@@ -235,7 +235,7 @@
 ; [
 (define loopl
   (lambda (env)
-    (if (= 0 (read_data env))
+    (if (== 0 (read_data env))
         (modify_code_offset (- (pass_index env) 2) env) ;直接跳出
         (cp++ env) ;下条指令
     )))
@@ -254,21 +254,21 @@
 (define step
   (lambda (env)
     ;(BF_DEBUG env)
-    (if (= (read_code env) 43) ;+
+    (if (== (read_code env) 43) ;+
         (++ env)
-        (if (= (read_code env) 45) ;-
+        (if (== (read_code env) 45) ;-
             (-- env)
-            (if (= (read_code env) 62) ;>
+            (if (== (read_code env) 62) ;>
                 (p> env)
-                (if (= (read_code env) 60) ;<
+                (if (== (read_code env) 60) ;<
                     (p< env)
-                    (if (= (read_code env) 46) ;.
+                    (if (== (read_code env) 46) ;.
                         (o env)
-                        (if (= (read_code env) 44) ;,
+                        (if (== (read_code env) 44) ;,
                             (p> env) ;暂未实现
-                            (if (= (read_code env) 91) ;[
+                            (if (== (read_code env) 91) ;[
                                 (loopl env)
-                                (if (= (read_code env) 93) ;]
+                                (if (== (read_code env) 93) ;]
                                     (loopr env)
                                     env ; 未知指令，不执行任何动作
                                 ))))))))))
@@ -277,7 +277,7 @@
 ;   读取到空白字符（32）时停止，并输出调试信息
 (define bf_interpreter
   (lambda (env cnt)
-    (if (= (read_code env) (String.charCodeAt 0 " "))
+    (if (== (read_code env) (String.charCodeAt 0 " "))
         {
             (BF_DEBUG env)
             (display "iteration steps = ")
