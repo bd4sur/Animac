@@ -1,10 +1,8 @@
 <p align="center"><img src="./doc/logo2.png" width="400"></p>
 
-<h1 align="center">Animac · 灵机</h1>
+**灵机 · Animac**是[Scheme](https://www.scheme.org/)程序语言的一个解释器实现，由C语言和TypeScript编写，能够在MCU、Web浏览器、Node.js等各类环境中运行。Animac不遵守R<sup>n</sup>RS标准。
 
-**灵机 · Animac**是[Scheme](https://zh.wikipedia.org/wiki/Scheme)程序语言的一个实现。Animac将Scheme代码编译为中间语言代码，并且在虚拟机上执行。Animac不遵守R<sup>5</sup>RS标准。目前，Animac使用TypeScript开发，能够在Web浏览器和Node.js环境中运行。
-
-▶ [立即体验](https://bd4sur.com/Animac) | [B站视频：调试器演示](https://www.bilibili.com/video/BV1xu4y1v7Ks)
+▶ [立即体验](https://bd4sur.com/Animac) | B站视频：[2019调试器演示](https://www.bilibili.com/video/BV1xu4y1v7Ks) | [2025调试器演示](https://www.bilibili.com/video/BV1MfKYzCERW) | [LLM推理演示](https://www.bilibili.com/video/BV1rNgCzNE84)
 
 ![Demo](./doc/demo.png)
 
@@ -12,8 +10,8 @@
 
 ### Scheme语言特性
 
-- **参考但是不遵守R<sup>5</sup>RS标准**。
-- 支持Scheme核心子集，包括S表达式、第一等（first-class）的函数、词法作用域和列表操作等。
+- **参考但是不遵守[R<sup>n</sup>RS标准](https://standards.scheme.org/)**。
+- 支持Scheme核心子集，包括S表达式、第一等（first-class）的函数、词法作用域和列表等。
 - 第一等的计算续体（continuation）和`call/cc`。
 - 自动尾调用优化。
 - 模块机制。
@@ -23,15 +21,32 @@
 ![System Architecture](./doc/sysarch.png)
 
 - 基于栈的虚拟机。Scheme代码被编译成中间语言代码，在虚拟机上执行。
-- 虚拟机层次上的（用户态）多线程。
-- 通过“端口”机制实现线程间通信。
-- 自动垃圾回收（定期执行标记-清除）。
+- 虚拟机层次上的（用户态）多线程和事件循环机制，不依赖操作系统。
+- 通过VM内建FIFO实现线程间通信。
+- 基于预分配内存池的自动内存管理和垃圾回收（标记-清除和标记-压缩）。
 
-### 宿主接口和可扩展性
+### 外部函数接口(FFI)
 
-- 本地宿主接口机制。类似于JNI，用于实现Animac与宿主环境的互操作。
+- 提供本地宿主接口机制。类似于JNI，用于实现Animac与宿主环境的互操作。
+- 提供字符串、散列表、数学函数、系统工具等多种预置本地宿主函数库。
 
 ## 构建与使用
+
+### C语言实现
+
+```
+# 拉取仓库到本地
+git clone https://github.com/bd4sur/Animac.git
+cd Animac
+
+# 构建
+make
+
+# 运行
+./main <path/to/code.scm>
+```
+
+### TypeScript实现
 
 请先安装最新版Node.js和TypeScript编译器。
 
@@ -43,7 +58,7 @@ cd Animac
 # 构建
 node build.js
 
-# 执行
+# 运行
 node build/animac-cli.js
 ```
 
@@ -60,7 +75,7 @@ node build/animac-cli.js
 - `calendar.scm`：输出月历。
 - `church_encoding.scm`：λ演算的[Church编码](https://en.wikipedia.org/wiki/Church_encoding)。
 - `coroutine.scm`：生产者消费者问题。通过`call/cc`实现“轻量级进程”机制，借助生产者消费者问题来演示单个虚拟机线程内实现关键资源的无锁并发操作。
-- `deadlock.scm`：死锁模拟。基于虚拟机提供的多线程机制，模拟多个线程在访问共享资源（端口）时产生的死锁现象。
+- `deadlock.scm`：（废弃）死锁模拟。基于虚拟机提供的多线程机制，模拟多个线程在访问共享资源（端口）时产生的死锁现象。
 - `factorial.scm`：阶乘。用于测试语言核心和尾调用优化。
 - `fft.scm`：快速傅里叶变换。用于测试数学本地库和语言核心。
 - `generator.scm`：生成器演示。用于测试`call/cc`。
@@ -68,7 +83,7 @@ node build/animac-cli.js
 - `list.scm`：各类列表操作和排序算法。
 - `man_or_boy.scm`：Knuth提出的 [Man or Boy test](https://en.wikipedia.org/wiki/Man_or_boy_test)。用于测试词法作用域和闭包机制。
 - `mlp.scm`：多层感知机模型的随机梯度下降训练和验证，用于解决[鸢尾花分类问题](https://en.wikipedia.org/wiki/Iris_flower_data_set)。
-- `nano_llm_infer.scm`：[自制Nano语言模型](https://github.com/bd4sur/Nano)推理的纯Scheme实现。
+- `nano_llm_infer.scm`：[自制Nano语言模型](https://github.com/bd4sur/Nano)推理的纯Scheme实现，包括自回归文本生成和AI排序算法。
 - `nano_llm_infer_native.scm`：[自制Nano语言模型](https://github.com/bd4sur/Nano)推理的JavaScript本地库实现，通过本地接口机制供Scheme调用。
 - `nano_llm_model.scm`：自制Nano语言模型权重，以base64格式的字符串形式存储在Scheme代码中。
 - `quasiquote.scm`：测试“准引用列表”。
@@ -136,10 +151,20 @@ Animac是什么？不是什么？
 |----|-----|----|
 |数学库和CAS|★★★|正在研究|
 |字符串标准库|★★☆|挂起|
-|C语言重构|★★☆|挂起|
 |自动CPS变换|★★☆|挂起|
 |卫生宏和模式匹配|★☆☆|挂起|
 |显式类型和类型系统|★☆☆|挂起|
+
+## 研发历程
+
+- 2017~2018年：预先研究，开发多个技术验证原型，覆盖Eval-Apply直译AST、Scheme翻译到JavaScript、中间语言VM等技术路线。
+- 2019年1月：Animac启动开发，使用JavaScript。
+- 2019年10月5日：发布TS版第1个基线版本。
+- 2023年9月2日：发布TS版第2个基线版本。这一版增加了若干重要本地库。
+- 2025年7月：实现自动垃圾回收、网页可视化调试器，增加LLM等大量测试用例。
+- 2026年6月10日：启动Animac的C语言开发。这是第一个完全AI辅助开发的个人项目。
+- 2026年7月上旬：C语言重写基本完成，成功在ESP32上部署运行。
+
 
 ## 形式语法（BNF表示）
 
