@@ -1,6 +1,6 @@
 <p align="center"><img src="./doc/logo2.png" width="400"></p>
 
-**灵机 · Animac**是[Scheme](https://www.scheme.org/)程序语言的一个解释器实现，由C语言和TypeScript编写，能够在MCU、Web浏览器、Node.js等各类环境中运行。Animac不遵守R<sup>n</sup>RS标准。
+**灵机 · Animac**是[Scheme](https://www.scheme.org/)程序语言的一个解释器实现，由C语言和TypeScript编写，能够在MCU、Web浏览器、Node.js等各类环境中运行。Animac不遵守R<sup>n</sup>RS标准。Animac可将JavaScript子集转译为Scheme解释执行。
 
 ▶ [立即体验](https://bd4sur.com/Animac) | B站视频：[2019调试器演示](https://www.bilibili.com/video/BV1xu4y1v7Ks) | [2025调试器演示](https://www.bilibili.com/video/BV1MfKYzCERW) | [LLM推理演示](https://www.bilibili.com/video/BV1rNgCzNE84)
 
@@ -11,18 +11,25 @@
 ### Scheme语言特性
 
 - **参考但是不遵守[R<sup>n</sup>RS标准](https://standards.scheme.org/)**。
-- 支持Scheme核心子集，包括S表达式、第一等（first-class）的函数、词法作用域和列表等。
-- 第一等的计算续体（continuation）和`call/cc`。
+- 支持Scheme核心子集，包括S表达式、作为一等公民的函数、词法作用域和列表等。
+- 作为一等公民的计算续体（continuation）和`call/cc`。
+- 卫生宏（`syntax-rules`）。
 - 自动尾调用优化。
 - 模块机制。
+
+### JavaScript语言特性
+
+- 作为一等公民的函数、词法作用域、数组。
+- `if`条件结构、`while`循环结构。
+- 暂不支持语法层面的Object。
 
 ### 运行时系统
 
 ![System Architecture](./doc/sysarch.png)
 
-- 基于栈的虚拟机。Scheme代码被编译成中间语言代码，在虚拟机上执行。
-- 虚拟机层次上的（用户态）多线程和事件循环机制，不依赖操作系统。
-- 通过VM内建FIFO实现线程间通信。
+- 双栈式虚拟机。Scheme代码被编译成中间语言代码，在虚拟机上执行。
+- 基于VM内建事件循环的异步多任务（虚拟机进程）机制。
+- 通过VM内建FIFO实现进程间通信。
 - 基于预分配内存池的自动内存管理和垃圾回收（标记-清除和标记-压缩）。
 
 ### 外部函数接口(FFI)
@@ -98,6 +105,12 @@ node build/animac-cli.js
 **特性速览**
 
 ```scheme
+; 引入列表操作高阶函数
+(import List "list.scm")
+; 声明使用本地库
+(native System)
+(native Math)
+
 ;; 词法作用域
 
 (define free 100)
@@ -107,15 +120,15 @@ node build/animac-cli.js
 
 
 ;; 函数作为第一等公民
-(import List "list.scm") ; 引入列表操作高阶函数
-(native Math) ; 声明使用数学本地库
+
 (List.reduce '(1 2 3 4 5 6 7 8 9 10) + 0) ; 55
 (List.map '(-2 -1 0 1 2) Math.abs)        ; (2 1 0 1 2)
 (List.filter '(0 1 2 3)
              (lambda (x) (== 0 (mod x 2))))  ; (0 2)
 
 
-;; 循环结构（注意：循环体内并非如同JavaScript的块作用域）
+;; 原生循环结构（注意：循环体内并非如同JavaScript的块作用域）
+
 (define sum 0)
 (define i 1)
 (while (<= i 100) {
@@ -126,15 +139,33 @@ node build/animac-cli.js
 
 
 ;; Quine（自己输出自己的程序）
+
 ((lambda (x) (cons x (cons (cons quote (cons x '())) '()))) (quote (lambda (x) (cons x (cons (cons quote (cons x '())) '())))))
 
 
 ;; 续体和`call/cc`
+
 ;; Yin-yang puzzle
 ;; see https://en.wikipedia.org/wiki/Call-with-current-continuation
 (((lambda (x) (begin (display "@") x)) (call/cc (lambda (k) k)))
  ((lambda (x) (begin (display "*") x)) (call/cc (lambda (k) k))))
 ; Output @*@**@***@**** ...
+
+
+
+;; 卫生宏
+
+(define-syntax swap!
+  (syntax-rules ()
+    ((swap! a b)
+     ((lambda (tmp)
+        (set! a b)
+        (set! b tmp))
+      a))))
+
+(define a 1)
+(define b 2)
+(swap! a b) ;; 交换后 a=2 b=1
 ```
 
 ## 研发方针
@@ -150,9 +181,7 @@ Animac是什么？不是什么？
 |特性|优先级|状态|
 |----|-----|----|
 |数学库和CAS|★★★|正在研究|
-|字符串标准库|★★☆|挂起|
 |自动CPS变换|★★☆|挂起|
-|卫生宏和模式匹配|★☆☆|挂起|
 |显式类型和类型系统|★☆☆|挂起|
 
 ## 研发历程
@@ -163,7 +192,7 @@ Animac是什么？不是什么？
 - 2023年9月2日：发布TS版第2个基线版本。这一版增加了若干重要本地库。
 - 2025年7月：实现自动垃圾回收、网页可视化调试器，增加LLM等大量测试用例。
 - 2026年6月10日：启动Animac的C语言开发。这是第一个完全AI辅助开发的个人项目。
-- 2026年7月上旬：C语言重写基本完成，成功在ESP32上部署运行。
+- 2026年7月上旬：C语言重写基本完成，增加大量重要特性，成功在ESP32上部署运行。
 
 
 ## 形式语法（BNF表示）
