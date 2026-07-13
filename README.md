@@ -12,7 +12,7 @@
 
 - **参考但是不遵守[R<sup>n</sup>RS标准](https://standards.scheme.org/)**。
 - 支持Scheme核心子集，包括S表达式、作为一等公民的函数、词法作用域和列表等。
-- 作为一等公民的计算续体（continuation）和`call/cc`。
+- 作为一等公民的计算续体（continuation）、`call/cc`和`dynamic-wind`。
 - 卫生宏（`syntax-rules`）。
 - 自动尾调用优化。
 - 模块机制。
