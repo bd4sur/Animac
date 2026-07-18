@@ -1,10 +1,18 @@
 <p align="center"><img src="./doc/logo2.png" width="400"></p>
 
-**灵机 · Animac**是[Scheme](https://www.scheme.org/)程序语言的一个解释器实现，由C语言和TypeScript编写，能够在MCU、Web浏览器、Node.js等各类环境中运行。Animac不遵守R<sup>n</sup>RS标准。Animac可将JavaScript子集转译为Scheme解释执行。
+**灵机 · Animac**是[Scheme](https://www.scheme.org/)程序语言的一个解释器实现，能够在MCU、Web浏览器、PC和服务器等各类宿主环境中运行。Animac不遵守R<sup>n</sup>RS标准。Animac可将JavaScript子集转译为Scheme解释执行。
 
-▶ [立即体验](https://bd4sur.com/Animac) | B站视频：[2019调试器演示](https://www.bilibili.com/video/BV1xu4y1v7Ks) | [2025调试器演示](https://www.bilibili.com/video/BV1MfKYzCERW) | [LLM推理演示](https://www.bilibili.com/video/BV1rNgCzNE84)
+▶ [立即体验](https://bd4sur.com/Animac) | B站视频：[2019调试器演示](https://www.bilibili.com/video/BV1xu4y1v7Ks) | [2025调试器演示](https://www.bilibili.com/video/BV1MfKYzCERW) | [LLM推理](https://www.bilibili.com/video/BV1rNgCzNE84) | [手持终端](https://www.bilibili.com/video/BV1aPNr6JEMq)
 
-![Demo](./doc/demo.png)
+| |
+|:--:|
+|🔻运行在 M5 Tab5 (ESP32-P4) 上的手持终端 |
+|![Demo](./doc/console.jpg)|
+|🔻运行在浏览器上的编辑器和调试器|
+|![Demo](./doc/demo.png)|
+|🔻系统框图|
+|![System Architecture](./doc/sysarch.png)|
+
 
 ## 特性
 
@@ -17,6 +25,71 @@
 - 自动尾调用优化。
 - 模块机制。
 
+
+**Scheme语言特性速览**
+
+```scheme
+; 引入列表操作高阶函数
+(import List "list.scm")
+
+; 声明使用本地库
+(native System)
+(native Math)
+
+;; 词法作用域
+
+(define free 100)
+(define foo (lambda () `(,free))) ; 准引用列表也是词法作用域的
+(define bar (lambda (free) (foo)))
+(bar 200) ; 输出(100)，而不是(200)
+
+
+;; 函数作为第一等公民
+
+(List.reduce '(1 2 3 4 5 6 7 8 9 10) + 0) ; 55
+(List.map '(-2 -1 0 1 2) Math.abs)        ; (2 1 0 1 2)
+(List.filter '(0 1 2 3) (lambda (x) (== 0 (mod x 2))))  ; (0 2)
+
+
+;; 原生循环结构和花括号表达式（begin的语法糖）
+;; 注意：循环体内并非如同JavaScript的块作用域
+
+(define sum 0)
+(define i 1)
+(while (<= i 100) {
+  (set! sum (+ sum i))
+  (set! i (+ i 1))
+})
+(display sum)  ;; 输出5050
+
+
+;; Quine（自己输出自己的程序）
+
+((lambda (x) (cons x (cons (cons quote (cons x '())) '()))) (quote (lambda (x) (cons x (cons (cons quote (cons x '())) '())))))
+
+
+;; 续体和`call/cc` (Yin-yang puzzle)
+
+(((lambda (x) (begin (display "@") x)) (call/cc (lambda (k) k)))
+ ((lambda (x) (begin (display "*") x)) (call/cc (lambda (k) k))))
+; Output @*@**@***@**** ...
+
+
+;; 卫生宏。注意Animac原生不支持各种let
+
+(define-syntax mylet
+  (syntax-rules ()
+    ((mylet ((name val) ...) body1 body2 ...)
+     ((lambda (name ...) body1 body2 ...) val ...))))
+
+(mylet ((a "人类的本质") (b "是") (c "复读机"))
+  (display a)
+  (display b)
+  (display c)) ;; 人类的本质是复读机
+
+```
+
+
 ### JavaScript语言特性
 
 - 作为一等公民的函数、词法作用域、数组。
@@ -24,8 +97,6 @@
 - 暂不支持语法层面的Object。
 
 ### 运行时系统
-
-![System Architecture](./doc/sysarch.png)
 
 - 双栈式虚拟机。Scheme代码被编译成中间语言代码，在虚拟机上执行。
 - 基于VM内建事件循环的异步多任务（虚拟机进程）机制。
@@ -101,72 +172,6 @@ node build/animac-cli.js
 - `tls.scm`：在 *The Little Schemer* 书中实现的部分简单函数。
 - `yinyang.scm`：[Yin-yang puzzle](https://en.wikipedia.org/wiki/Call-with-current-continuation#Examples)。
 - `yinyang_cps.scm`：Yin-yang puzzle 的CPS实现。
-
-**特性速览**
-
-```scheme
-; 引入列表操作高阶函数
-(import List "list.scm")
-; 声明使用本地库
-(native System)
-(native Math)
-
-;; 词法作用域
-
-(define free 100)
-(define foo (lambda () `(,free))) ; 准引用列表也是词法作用域的
-(define bar (lambda (free) (foo)))
-(bar 200) ; 输出(100)，而不是(200)
-
-
-;; 函数作为第一等公民
-
-(List.reduce '(1 2 3 4 5 6 7 8 9 10) + 0) ; 55
-(List.map '(-2 -1 0 1 2) Math.abs)        ; (2 1 0 1 2)
-(List.filter '(0 1 2 3)
-             (lambda (x) (== 0 (mod x 2))))  ; (0 2)
-
-
-;; 原生循环结构（注意：循环体内并非如同JavaScript的块作用域）
-
-(define sum 0)
-(define i 1)
-(while (<= i 100) {
-  (set! sum (+ sum i))
-  (set! i (+ i 1))
-})
-(display sum)  ;; 输出5050
-
-
-;; Quine（自己输出自己的程序）
-
-((lambda (x) (cons x (cons (cons quote (cons x '())) '()))) (quote (lambda (x) (cons x (cons (cons quote (cons x '())) '())))))
-
-
-;; 续体和`call/cc`
-
-;; Yin-yang puzzle
-;; see https://en.wikipedia.org/wiki/Call-with-current-continuation
-(((lambda (x) (begin (display "@") x)) (call/cc (lambda (k) k)))
- ((lambda (x) (begin (display "*") x)) (call/cc (lambda (k) k))))
-; Output @*@**@***@**** ...
-
-
-
-;; 卫生宏
-
-(define-syntax swap!
-  (syntax-rules ()
-    ((swap! a b)
-     ((lambda (tmp)
-        (set! a b)
-        (set! b tmp))
-      a))))
-
-(define a 1)
-(define b 2)
-(swap! a b) ;; 交换后 a=2 b=1
-```
 
 ## 研发方针
 
