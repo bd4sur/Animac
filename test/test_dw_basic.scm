@@ -1,0 +1,11 @@
+(define x 0)
+(dynamic-wind
+  (lambda () (set! x (+ x 1)))
+  (lambda () (set! x (+ x 10)))
+  (lambda () (set! x (+ x 100))))
+(display "basic: x expected 111, actual ")
+(display x)
+(newline)
+(if (== x 111)
+    (display "✅ PASS basic\n")
+    (display "❌ FAIL basic\n"))

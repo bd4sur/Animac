@@ -1,0 +1,22 @@
+(define k #f)
+(define count 0)
+(define reentered #f)
+(dynamic-wind
+  (lambda () (set! count (+ count 1)) (display "before\n"))
+  (lambda ()
+    (call/cc (lambda (c) (set! k c)))
+    (display "thunk\n"))
+  (lambda () (set! count (+ count 10)) (display "after\n")))
+
+(display "calling k\n")
+(if (not reentered)
+    (begin
+      (set! reentered #t)
+      (k #f)))
+(display "done\n")
+(display "count expected 22, actual ")
+(display count)
+(newline)
+(if (== count 22)
+    (display "✅ PASS call/cc simple\n")
+    (display "❌ FAIL call/cc simple\n"))
