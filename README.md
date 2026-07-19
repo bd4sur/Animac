@@ -2,10 +2,9 @@
 
 **灵机 · Animac**是[Scheme](https://www.scheme.org/)程序语言的一个解释器实现，能够在MCU、Web浏览器、PC和服务器等各类宿主环境中运行。Animac不遵守R<sup>n</sup>RS标准。Animac可将JavaScript子集转译为Scheme解释执行。
 
-▶ [立即体验](https://bd4sur.com/Animac) | B站视频：[2019调试器演示](https://www.bilibili.com/video/BV1xu4y1v7Ks) | [2025调试器演示](https://www.bilibili.com/video/BV1MfKYzCERW) | [LLM推理](https://www.bilibili.com/video/BV1rNgCzNE84) | [手持终端](https://www.bilibili.com/video/BV1aPNr6JEMq)
-
-| |
+|【[立即体验](https://bd4sur.com/Animac)】|
 |:--:|
+|B站视频：[2019调试器演示](https://www.bilibili.com/video/BV1xu4y1v7Ks) / [2025调试器演示](https://www.bilibili.com/video/BV1MfKYzCERW) / [LLM推理](https://www.bilibili.com/video/BV1rNgCzNE84) / [手持终端](https://www.bilibili.com/video/BV1aPNr6JEMq)|
 |🔻运行在 M5 Tab5 (ESP32-P4) 上的手持终端 |
 |![Demo](./doc/console.jpg)|
 |🔻运行在浏览器上的编辑器和调试器|
@@ -131,7 +130,9 @@ make
 ```
 # 拉取仓库到本地
 git clone https://github.com/bd4sur/Animac.git
-cd Animac
+
+# 进入typescript目录
+cd Animac/typescript
 
 # 构建
 node build.js
@@ -248,7 +249,7 @@ Animac是什么？不是什么？
 
 ## 权利声明
 
-版权所有 &copy; 2018~2025 BD4SUR，保留所有权利。
+版权所有 &copy; 2018~2026 BD4SUR，保留所有权利。
 
 本系统“按原样”提供，采用MIT协议授权。本系统为作者个人以学习和自用目的所创作的作品。作者不对本系统的质量作任何承诺。作者不保证提供有关本系统的任何形式的解释、维护或支持。作者不为任何人使用此系统所造成的任何正面的或负面的后果负责。
 
