@@ -12,7 +12,7 @@
 
 (define make_promise
   (lambda (i)
-    (System.set_timeout (+ 10 (* 20 (get_item array i))) ;; 因时钟分辨率有限，延时至少10ms
+    (System.set_timeout (+ 20 (* 50 (get_item array i))) ;; 因时钟分辨率有限，增加基础延时
       (lambda ()
         (set! sorted (List.append (get_item array i) sorted))))))
 

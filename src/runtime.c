@@ -3,11 +3,11 @@
 #include <string.h>
 #include <stdio.h>
 #include <wchar.h>
-#include <time.h>
 #include <math.h>
 #include <stdbool.h>
 
 #include "runtime.h"
+#include "platform.h"
 #include "native.h"
 #include "closure.h"
 #include "continuation.h"
@@ -2431,20 +2431,13 @@ int32_t am_runtime_destroy(am_runtime_t *rt) {
 
 // 获取当前时间戳（毫秒）。优先使用 POSIX clock_gettime，失败则回退到 time()。
 am_timestamp_t am_runtime_now_ms(void) {
-    struct timespec ts;
-    if (clock_gettime(CLOCK_REALTIME, &ts) == 0) {
-        return (am_timestamp_t)ts.tv_sec * 1000 + (am_timestamp_t)ts.tv_nsec / 1000000;
-    }
-    return (am_timestamp_t)time(NULL) * 1000;
+    return (am_timestamp_t)am_current_timestamp_in_ms();
 }
 
 
 // 短时睡眠（毫秒）。
 static void runtime_sleep_ms(am_timestamp_t ms) {
-    struct timespec ts;
-    ts.tv_sec = (time_t)(ms / 1000);
-    ts.tv_nsec = (long)((ms % 1000) * 1000000);
-    nanosleep(&ts, NULL);
+    am_sleep_in_ms((uint64_t)ms);
 }
 
 

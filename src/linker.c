@@ -13,6 +13,7 @@
 #include "list.h"
 #include "object.h"
 #include "wstring.h"
+#include "platform.h"
 #include "utils.h"
 
 
