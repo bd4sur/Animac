@@ -6288,6 +6288,165 @@ OK，按照轻量的AST 级快速路径预检思路开始优化。注意使变�
 
 ---------------------
 
+# 2026-07-21
+
+请先阅读 @doc/AGENTS.md 。
+
+本项目是一个完整的非标准Scheme解释器，采取编译器+中间语言VM架构。请阅读项目C语言代码和 doc 目录下的文档，分析本解释器的内存使用如何优化。我的愿望是：面向ESP32等只有几百kB内存的MCU部署REPL或者代码解释器，尽可能降低代码编译期的峰值内存占用，并设法降低运行时的静态和基础内存占用。
+
+系统中安装了WSL（Ubuntu 24.04），具备gcc、make、gdb等工具。你可以使用WSL结合工具进行编译和内存分析。请给出详尽的优化方案，不得修改代码。
+
+
+
+
+所有分析、实测已完成。以下是完整的内存优化方案报告。
+
+---
+
+# Animac 面向 ESP32 级 MCU 的内存优化方案
+
+> 分析方法：通读全部 C 源码与 doc 文档；在 WSL 中用 gcc 13 构建，编写带内存采样的独立驱动（不改项目代码）实测 `am_allocator_pool_vm_used/heap_used`；用 valgrind massif 测池外分配；用 `size/nm` 做静态段分析。
+> 注意：以下实测值为 **64 位桌面构建**；ESP32 为 32 位（`am_value_t`/`size_t`/指针 = 4B），指针密集型结构开销近似减半，文中给出 32 位口径。
+
+## 一、现状实测数据
+
+### 1.1 编译期峰值（VM 工作区占用，64 位）
+
+| 用例 | 源码 | token 数 | parse 后 | compile 后（峰值） | module dump |
+|---|---|---|---|---|---|
+| factorial | 2.8 KB | 628 | 410 KB | **429 KB** | 34 KB |
+| coroutine | 4.1 KB | 725 | 444 KB | 746 KB | 121 KB |
+| brainfuck | 8.4 KB | 1520 | 846 KB | 1.17 MB | 171 KB |
+| cas | 9.6 KB | 2137 | 928 KB | 1.01 MB | 100 KB |
+| calculator | 11.5 KB | 2278 | 1.05 MB | **1.43 MB** | 191 KB |
+| mlp | 16.6 KB | 4754 | 1.65 MB | **2.07 MB** | 257 KB |
+
+**规律：编译期峰值 ≈ 源码字符数的 80~130 倍，约 430~630 B/token（64 位）。** 最小可用池实测：quicksort 在 512 KB 池下可运行，factorial 需 ~1 MB，calculator 需 ~8 MB。32 位下估算减半（约 250~350 B/token），但编译一个 10 KB 源码仍需 ~1 MB 量级——**ESP32 片内 SRAM（~320~520 KB）无法承担中等规模源码的设备端编译**。
+
+### 1.2 运行时基线（64 位）
+
+| 阶段 | vm_used | heap_used |
+|---|---|---|
+| runtime 创建（空） | ~1.4 KB | 0 |
+| 最小进程加载（quicksort） | **55 KB** | 23 KB |
+| calculator 进程加载 | 394 KB | 328 KB |
+| calculator 运行后（GC+compact 后） | 394 KB | 134 KB |
+
+进程基线的主要构成：`fstack` 固定 2048×8B = **16 KB**、strindex 初始 512 槽 ≈ 8.2 KB、opstack、ilcode 副本、AST 静态节点堆、6 张编译期表副本。池外（libc malloc）分配峰值仅 ~36 KB（massif 实测，主要是 module dump 缓冲和 locale）。
+
+### 1.3 静态内存（-O2 逐文件编译，text 段）
+
+总计 **~280 KB text + ~40 KB rodata + data 3.1 KB + bss 1.9 KB**。按功能分组：
+
+| 分组 | text | 组成 |
+|---|---|---|
+| 编译工具链 | **~98 KB** | macro 31.4K + parser 22.9K + ast 18.3K + compiler 12.1K + lexer 6.4K + linker 6K + scope 1.2K |
+| VM 运行时核心 | **~88 KB** | runtime 32K + process 15.9K + allocator 8.8K + heap 5.8K + module 5.5K + wstring 4.3K + map 4.2K + list 3.3K + closure 2.9K + vocab 2K + continuation 1.2K + 其他 |
+| native 库 | ~38 KB | System 18.3K + LLM 8.6K + String 4.8K + Math 4.2K + Table 2.8K |
+| 可整体剔除 | **~50 KB** | js2scm 18.3K + repl 17.2K + debug 12K + highlight 1.6K |
+
+## 二、内存消耗的八大根源
+
+1. **token 数组过度预分配**：`parser.c:1981` 按 `wcslen(code)+1` 分配 tokens，每 token 56B（64位）/40B（32位），即 **56 B/源码字符**，是编译期最大单块分配，实际利用率仅 1/3~1/5。token 里 16B 的 `am_object_t` 头完全无用（token 从不入堆）。
+2. **AST 节点初始容量 32**：`ast.c:952,998` 每个 list 节点至少 304B（64位）/156B（32位），典型节点只有 2~4 个 children，**~85% 槽位空置**；外加每节点堆 entry 16B + node_token_mapping entry 16B。
+3. **模块把编译期产物全量打包**：`am_module_dump` 序列化整个 AST 上下文（nodes 堆、vocab、strindex、scopes、var_arn_mapping、node_token_mapping、lambda/tailcall_handles），其中相当部分（scopes 悬空映射、ARN 映射、token 映射、非字面量语法树节点）运行时并不使用。calculator 的 dump 191 KB 中 ilcode 只占 33 KB。
+4. **ARN 长变量名膨胀 var_vocab**：每个换名变量追加 `"V.module_id.lambda_handle.var"` 长字符串（ast.c:1530），旧名不删，macro 又追加 `$expansion_id` 新名；macro 深拷贝产生的孤儿节点无 GC 可回收。
+5. **wstring 每字符一个 `am_value_t`**：8B/字符（64位）/4B/字符（32位），全解释器密度最低的数据结构。
+6. **运行时硬编码大容量**：fstack 固定 2048（16/8 KB）、gcroots 初始 2048（16/8 KB）、strindex 512（8.2/4.1 KB）、闭包默认 16 binding（432/220 B/次调用）、堆 metadata map 是空 stub 却与 table 同容量（heap.c:64，纯浪费）。
+7. **REPL 是"全量重放"模型**（repl.c:1063 `repl_ctx_submit`）：每轮输入都对**整个 session 历史**重新 parse→link→compile，session 字符串无限增长，编译峰值随历史线性增长、时间 O(n²)。此模型是 MCU 上 REPL 的最大障碍。
+8. **GC 每次事件循环全量执行 + 每次 GC 后 compact**（`AM_HEAP_COMPACT_INTERVAL=1`），且 GC 临时数组（gcroots、compact 的 live_entry/reloc）走系统 malloc 在池外；`am_process_gc_mark` 是 C 递归。这些在小内存 MCU 上既是内存风险也是栈风险。
+
+## 三、优化方案
+
+### 方案 A（最高优先级）：部署架构——AOT 编译，设备端只做 load+run
+
+项目已有的 `am_module_dump/am_module_load`（main.c:187-256 的 dump→reset_vm→load 流程）天然支持 **"PC 上编译，MCU 只加载 module.bin"**：
+
+- **裁掉整个编译工具链**（lexer/parser/ast/macro/compiler/linker/scope，~98 KB text）以及 js2scm/debug/highlight（~32 KB），固件立省 **~130 KB flash**，设备端**编译期内存归零**。
+- 配套必须做（文档 prompt.md:4080-4140 已指出）：**dump 格式改为定长字段、指针无关的可移植二进制格式**，否则 64 位 PC dump 的模块无法在 32 位 MCU load（当前是 memcpy 内存快照，强依赖字长/对齐/绝对指针，`am_vocab_dump` 还直接写入运行时地址）。同时实现 memo.md:139 已计划的 **opcode 压成 uint8 + 变长操作数编码**，ilcode 体积可再降 30~50%。
+- 设备端 REPL 见方案 G。
+
+预期效果：**ESP32 固件只保留 ~88 KB VM 核心 + 所需 native 库；运行内存 = 池（可 64~256 KB）+ 少量池外缓冲。**
+
+### 方案 B：编译期峰值优化（设备端仍需编译能力时）
+
+按收益排序：
+
+1. **token 数组改为两遍扫描或动态扩容**（parser.c:1981）：先扫一遍计数再精确分配，或直接 lexer 流式接入 parser（省掉整个 token 数组）。收益：**省 ~56 B/字符 → ~15 B/字符**，编译峰值降 40% 以上。同时删除 token 内 16B 对象头，56B→40B（64位）。
+2. **AST 节点初始容量 32→4**（ast.c:952,998）：典型节点 2~4 children，配合既有的 ×2 扩容。收益：AST 内存降 **~60%**（每节点 304B→~100B@64位 / 156B→~44B@32位）。scope 初始容量 16→4 同理（312B→120B/lambda）。
+3. **编译完成后显式丢弃编译期产物**：清空 scopes/var_arn_mapping/node_token_mapping/lambda_handles/tailcall_handles，dump 时跳过；`cleanup_scope_objects` 后 scopes map 里的悬空 handle 应清除（当前被白白序列化）。
+4. **ARN 变量名轻量化**：`"V.module_id.lambda_handle.var"` 长字符串改为短编码（如 `"v<handle>.<varid>"`，或直接给 varid 计数器不发新名），var_vocab 字符串体积可降 5~10 倍；macro 卫生改名同理。
+5. **macro 展开加深度/次数上限**（当前无上限，递归宏可耗尽内存），并复用 subst map 而非每 clause `am_map_copy`。
+6. **opstack 深度分析的 `best_depth[icount]`**（compiler.c:1218，8B/指令）改为位图或分段复用；其 DFS 递归与 parser/macro/compiler 的 C 递归在 MCU 上要限制嵌套深度或改迭代（ESP32 任务栈默认仅几 KB）。
+7. **避免 REPL 式全量重编译**（见方案 G）。
+
+综合 1~4，设备端编译峰值可从 ~500 B/token 降到 **~150~200 B/token（32 位）**，使 256 KB 池可编译 ~1 KB 规模的源码片段（够交互式 REPL 的单条表达式，不够整文件）。
+
+### 方案 C：运行时基础内存优化
+
+1. **池大小**：`AM_ALLOCATOR_POOL_SIZE`（main.c:53、repl.c:20）改为 MCU 预算，如 **192~256 KB**（ESP32-P4 有 PSRAM 时可放大并用 `heap_caps_malloc(MALLOC_CAP_SPIRAM)` 分配池——当前代码无任何 PSRAM 处理）。建议池分配收敛到 `platform.c` 的平台抽象里。
+2. **硬编码容量宏化并调小**（收益直接）：
+
+| 参数 | 现值 | 建议值 | 位置 | 节省（32 位） |
+|---|---|---|---|---|
+| fstack 容量 | 2048 | 256~512（可配置） | process.c:385 | 6~7.5 KB/进程 |
+| gcroots 初始 | 2048 | 128~256 | process.c:1546 | ~7.5 KB/GC |
+| strindex 初始 | 512 | 64~128 | ast.c:150 / process | ~3.5 KB |
+| 闭包默认 binding | 16 | 4~8 | process.c:591 | 每次调用 220B→~80B |
+| opstack 默认 | 256 | 64~128 + 有界扩容上限 | process.c:374 | ~0.5 KB |
+| `AM_PROCESS_STRINDEX_MAX_LEN` | 32 | 16 或关 | process.h:120 | 降 GC 根压力 |
+
+3. **删除堆 metadata map**（heap.c:64，set/get 是空 stub，与 table 同容量翻倍浪费）：每堆省 48B + capacity×8B（32 位）。
+4. **压缩对象头**：`am_object_t` 16B 中 hash 仅 wstring 用、header/gcmark 只用了 3 bit。32 位下可压成 8B（hash 移入 wstring 自身字段，flag 位合并），全部堆对象省 8B/个。
+5. **wstring 改 packed 存储**：`content[]` 从 `am_value_t[]` 改为 `uint32_t[]`（32 位下无收益）或更进一步 **UTF-8**（ASCII 场景省 4 倍）；词汇表 strings 同理。收益视程序字符串密度，对 symbol/var 名密集的模块 dump 体积可降 30%+。
+6. **ilcode 瘦身**：指令 `{uint32 opcode, am_value_t operand}` 16/8B 定长 → 1B opcode + 变长操作数；或至少 32 位下把 opcode 塞进 operand 未用的 tag 空间。module 体积与运行时 ilcode 副本同步受益。
+7. **GC 策略**：恢复基于压力/时间的 GC 节流（runtime.c:3096 被注释的 `AM_GC_INTERVAL` 与 50% 堆压力检查），`AM_HEAP_COMPACT_INTERVAL` 从 1 调到 4~8，避免每个 event loop 都全量 mark-sweep-compact（小池下极度频繁）；GC/compact 临时数组从系统 malloc 改为池内或静态缓冲，消除池外峰值；`gc_mark` 递归改显式栈迭代，规避 MCU 栈溢出。
+8. **continuation 整栈复制**：call/cc 成本 = 全栈快照；MCU 上若无此需求，可用编译开关裁掉 capturecc/dynamic-wind（prompt.md:5481 提到的 `AM_FEATURE_DYNAMIC_WIND=0` 思路），省 continuation.c + wind 跳板字段（每进程 ~10 个字段）。
+
+### 方案 D：静态内存（flash/RAM）优化
+
+1. **按功能裁剪编译单元**（Makefile 层面选择 SRCS）：
+   - AOT 纯运行时：剔除 lexer/parser/ast/macro/compiler/linker/scope/js2scm/debug/highlight/repl → **省 ~147 KB text**；
+   - native_LLM（8.6 KB text + 词表/权重等大缓冲）默认剔除；native_System 里 fork/eval 等大函数按需裁；
+   - `-Os -ffunction-sections -fdata-sections -Wl,--gc-sections`，预计再省 10~20%。
+2. **rodata 表**：55 个 native entry + 37 个 builtin 宽字符串表都在 rodata（flash，可接受）；native 查找是 wcscmp 线性扫描，无需改内存。
+3. **libc 隐性成本**：宽字符 IO（swprintf/fwprintf/setlocale）在 ESP32 newlib 下拉入可观 flash 与栈（runtime.c:2902 等处 `wchar_t errmsg[256]` = 1 KB 栈/处）。建议：错误信息改窄字符或错误码；`token_text()` 的 256 wchar 静态缓冲（lexer.c:311，1 KB BSS）改小或消除。
+4. 裁剪后估算（与 prompt.md:4044-4054 一致）：**AOT 运行时固件 ~90~110 KB flash，32 位空载 RAM ~60~80 KB（含 128 KB 池时总 ~140~200 KB）**。
+
+### 方案 E：ESP32 平台落地事项
+
+1. 池用 `heap_caps_malloc` 显式选择内部 SRAM 或 PSRAM；多实例时注意 `g_heap_handle_counter`（heap.c:13）等全局状态。
+2. 补全平台抽象：`am_path_dirname` 在 platform_esp32.cpp 未实现（目前链接会缺）；递归深度（parser/gc_mark/opstack DFS）与 FreeRTOS 任务栈匹配，建议 VM 任务栈 ≥ 8~16 KB。
+3. `wchar_t`=4B 假设成立（utils.c:9），但 wide libc 函数在 newlib 下的可用性需逐个核对（mbstowcs/wcstombs/swprintf）。
+4. 无文件系统场景：`am_read_file_to_wchar` 已支持 SD 分块读；AOT 模式下 module.bin 可放 flash 分区，配合 mmap 式加载可进一步省 RAM（ilcode 直接从 flash 执行需改寻址，可作为远期项）。
+
+### 方案 F：MCU 上的 REPL 模型重构（如必须设备端 REPL）
+
+当前"每轮全量重编译 session"（repl.c:1063）必须放弃，改为：
+
+- **增量求值**：每条完整表达式单独 parse→compile 成独立 ilcode 片段，追加到进程 ilcode 尾部执行，顶层 define 直接写入全局闭包（项目已有 `evalcleanup`/eval 机制可复用，runtime.c:1636）；编译单元 = 单条表达式（几十~几百 token），按方案 B 优化后峰值可控制在 **~50~100 KB**；
+- 配合方案 B-3 的"编译后丢弃编译期产物"，每轮编译结束即归还 VM 区；
+- session 历史不再作为编译输入，仅为显示保留（可选截断）。
+
+### 方案 G：实施路线与验证
+
+1. **第一阶段（不改语义，纯配置）**：调小 `AM_ALLOCATOR_POOL_SIZE`、宏化并调小 §C-2 各容量、删 metadata map、裁 native_LLM/js2scm/debug/highlight、`-Os --gc-sections`。预期：128 KB 池可跑 factorial/quicksort 级程序（实测 64 位 512 KB 池已可跑 quicksort，32 位约需 256~384 KB）。
+2. **第二阶段（AOT 管线）**：可移植 dump 格式 + PC 端编译器 + MCU 纯运行时裁剪。预期达到 prompt.md 估算的 **32 位空载 ~200 KB 总 RAM 下限**，且编译期内存需求归零。
+3. **第三阶段（结构优化）**：token 流式化、AST 容量、ARN 短名、对象头/wstring/ilcode 编码压缩、GC 节流与迭代化、增量 REPL。
+4. **验证手段**（现状已具备）：native 函数 `System.memstat`、`-DAM_ALLOCATOR_PRINT_COMPACT_REPORT=1`、本文使用的池扫描法（用不同 `AM_ALLOCATOR_POOL_SIZE` 二分最小可运行池）+ massif 池外分析 + test/ 全量回归（test.scm、mlp、yinyang、test_dw_gc_stress 等）。
+
+## 四、量化结论
+
+| 目标 | 现状（64 位默认） | 优化后预期（32 位 ESP32） |
+|---|---|---|
+| 固件 text | ~338 KB（-O3 全量） | **~90~110 KB**（AOT 运行时 + gc-sections） |
+| 运行时基线 RAM | 池 256 MB + 进程 ~85 KB | **池 128~256 KB + 进程 ~15~30 KB** |
+| 编译期峰值 | ~500~630 B/token | 设备端 AOT = **0**；设备端增量 REPL ≈ **150~200 B/token（单表达式）** |
+| 可运行程序规模 | 任意 | AOT：受 module.bin/池限制，KB~数十 KB 源码级；设备端编译：~1 KB 片段级 |
+
+核心结论一句话：**项目在架构上已为 AOT 铺好了路（dump/load + reset_vm），面向 ESP32 的正确姿势是"PC 编译、MCU 运行"，把编译工具链整体裁掉；设备端 REPL 则必须先把"全量重放"改为"增量求值"，再叠加 token/AST/容量类优化，才能把编译峰值压进几百 KB 量级。**
+
+（说明：分析过程中未修改任何项目文件；测量脚本与探针均在 WSL 用户目录 `~/am_probe/` 下。）
 
 ---------------------
 
