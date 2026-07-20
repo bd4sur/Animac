@@ -1,4 +1,8 @@
+#include <stdint.h>
+#include <stdlib.h>
+
 #include <Arduino.h>
+#include <SD.h>
 
 #include "platform.h"
 #include "utils.h"

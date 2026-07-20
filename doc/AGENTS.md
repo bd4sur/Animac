@@ -12,7 +12,7 @@ Animac（灵机）是一款Scheme解释器，支持Scheme语言的子集和某�
 - include/：C语言头文件
 - src/：C语言实现（代码）文件
 - test/：C语言测试实现文件
-- typescript/：本项目早期原型项目，由TypeScript实现。除非明确提到参考TypeScript已有实现，一般无需阅读。
+- typescript/：本项目早期原型项目，由TypeScript实现。除非明确要求，否则应忽略该目录，不要主动阅读 typescript 目录下的内容，以免干扰上下文。
 
 ## 术语约定
 

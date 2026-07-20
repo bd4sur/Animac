@@ -15,6 +15,7 @@
 #include "module.h"
 #include "heap.h"
 #include "ast.h"
+#include "utils.h"
 
 
 // 前向声明：System.eval 的辅助函数，供 System.exec 复用
@@ -107,20 +108,15 @@ static bool native_pop_wstring_as_mb(am_process_t *proc, char **out) {
     wchar_t *wbuf = wstring_content_to_buffer(proc, ws);
     if (ws->length > 0 && !wbuf) return false;
 
-    size_t mb_len = wcstombs(NULL, wbuf ? wbuf : L"", 0);
-    if (mb_len == (size_t)-1) {
-        if (wbuf) am_free(proc->heap_alloc, wbuf);
-        return false;
-    }
-
-    char *mb_buf = (char *)am_malloc(proc->heap_alloc, mb_len + 1);
+    // UTF-8 最坏情况每个码点 4 字节
+    size_t buf_size = (wbuf ? wcslen(wbuf) : 0) * 4 + 1;
+    char *mb_buf = (char *)am_malloc(proc->heap_alloc, buf_size);
     if (!mb_buf) {
         if (wbuf) am_free(proc->heap_alloc, wbuf);
         return false;
     }
 
-    wcstombs(mb_buf, wbuf ? wbuf : L"", mb_len + 1);
-    mb_buf[mb_len] = '\0';
+    am_wcstombs(mb_buf, wbuf ? wbuf : L"", (uint32_t)buf_size);
 
     if (wbuf) am_free(proc->heap_alloc, wbuf);
     *out = mb_buf;
