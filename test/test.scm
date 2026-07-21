@@ -41,6 +41,8 @@
 
 (memstat)
 
+(display "灵机一动，Animac！") (newline) (newline)
+
 (display "======================== Animac 测试用例 ========================\n")
 (BigInt.run)
 (display "======================== Animac 测试用例 ========================\n")

@@ -5,6 +5,7 @@
 #include "object.h"
 #include "allocator.h"
 #include "wstring.h"
+#include "diskio.h"
 
 
 // 创建并初始化一个字符串对象。字符串对象是不可变的。
@@ -70,10 +71,10 @@ size_t am_wstring_size(am_allocator_t *alloc, am_wstring_t *obj) {
 }
 
 
-// 转储格式：
-//   [sizeof(am_object_t) bytes] 对象基类头（含type=AM_OBJECT_TYPE_WSTRING）
-//   [sizeof(size_t) bytes] 字符串长度（字符个数）
-//   [length * sizeof(am_value_t) bytes] 字符内容（每个字符为一个am_value_t）
+// 磁盘格式（平台无关固定宽度，小端；详见 include/diskio.h）：
+//   [16B] 对象基类头（type=AM_OBJECT_TYPE_WSTRING）
+//   [uvarint] length（字符个数）
+//   [length * uvarint] 字符内容（每个字符以其 Unicode 码点存储，省去逐字符类型标签）
 
 // 功能说明：将字符串对象序列化成二进制序列，并转储到buffer[offset]
 // 实现说明：offset是写入buffer的起点offset。成功则返回向buffer新增字节数，失败则返回SIZE_MAX。
@@ -82,20 +83,20 @@ size_t am_wstring_dump(am_allocator_t *alloc, am_wstring_t *obj, uint8_t *buffer
     (void)alloc;
     if (!obj) return SIZE_MAX;
 
-    size_t content_size = obj->length * sizeof(am_value_t);
-    size_t total_size = sizeof(am_object_t) + sizeof(size_t) + content_size;
-
+    size_t pos = offset;
     if (buffer != NULL && offset != SIZE_MAX) {
-        // 写入对象基类头
-        am_wstring_t *dump = (am_wstring_t *)&buffer[offset];
-        dump->base = obj->base;
-        dump->length = obj->length;
-        if (content_size > 0) {
-            memcpy(dump->content, obj->content, content_size);
-        }
+        am_disk_write_base(buffer, pos, &obj->base);
+    }
+    pos += AM_DISK_BASE_SIZE;
+    pos += am_disk_write_uvarint(buffer, pos, (uint64_t)obj->length);
+
+    for (size_t i = 0; i < obj->length; i++) {
+        am_value_t ch = obj->content[i];
+        if (!am_value_is_wchar(ch)) return SIZE_MAX;
+        pos += am_disk_write_uvarint(buffer, pos, (uint64_t)am_value_to_wchar(ch));
     }
 
-    return total_size;
+    return pos - offset;
 }
 
 
@@ -104,17 +105,35 @@ size_t am_wstring_dump(am_allocator_t *alloc, am_wstring_t *obj, uint8_t *buffer
 am_wstring_t *am_wstring_load(am_allocator_t *alloc, uint8_t *buffer, size_t offset) {
     if (!alloc || !buffer) return NULL;
 
-    am_wstring_t *dump = (am_wstring_t *)&buffer[offset];
-    if (dump->base.type != AM_OBJECT_TYPE_WSTRING) return NULL;
+    size_t pos = offset;
+    am_object_t base;
+    am_disk_read_base(buffer, pos, &base);
+    pos += AM_DISK_BASE_SIZE;
+    if (base.type != AM_OBJECT_TYPE_WSTRING) return NULL;
 
-    size_t length = dump->length;
-    am_wstring_t *ws = (am_wstring_t *)am_malloc(alloc, sizeof(am_wstring_t) + length * sizeof(am_value_t));
+    uint64_t length = 0;
+    size_t n;
+    if (!(n = am_disk_read_uvarint(buffer, pos, &length))) return NULL;
+    pos += n;
+    if (length > (uint64_t)((SIZE_MAX - sizeof(am_wstring_t)) / sizeof(am_value_t))) return NULL;
+
+    am_wstring_t *ws = (am_wstring_t *)am_malloc(alloc, sizeof(am_wstring_t) + (size_t)length * sizeof(am_value_t));
     if (!ws) return NULL;
 
-    ws->base = dump->base;
-    ws->length = length;
-    if (length > 0) {
-        memcpy(ws->content, dump->content, length * sizeof(am_value_t));
+    ws->base = base;
+    ws->length = (size_t)length;
+    for (size_t i = 0; i < ws->length; i++) {
+        uint64_t cp = 0;
+        if (!(n = am_disk_read_uvarint(buffer, pos, &cp))) {
+            am_free(alloc, ws);
+            return NULL;
+        }
+        pos += n;
+        if (cp > (uint64_t)0x10FFFF) { // Unicode 码点上界
+            am_free(alloc, ws);
+            return NULL;
+        }
+        ws->content[i] = am_make_value_of_wchar((am_wchar_t)cp);
     }
     return ws;
 }
@@ -354,31 +373,33 @@ size_t am_strindex_size(am_allocator_t *alloc, am_strindex_t *obj) {
 // 实现说明：offset是写入buffer的起点offset。成功则返回向buffer新增字节数，失败则返回SIZE_MAX。
 // 注意：若buffer设为NULL，或者offset设为SIZE_MAX，则仅计算转储后的二进制序列的字节数，不实际写入buffer。
 //       压缩对象，将capacity压缩到跟length一致，丢弃墓碑和空闲槽位。
+// 磁盘格式（平台无关固定宽度，小端；详见 include/diskio.h）：
+//   [16B] 对象基类头（type=AM_OBJECT_TYPE_STRINDEX）
+//   [uvarint] length（有效表项数量；capacity/墓碑/空槽均不落盘）
+//   [length * (u32 hash, dvalue value)] 有效表项
 size_t am_strindex_dump(am_allocator_t *alloc, am_strindex_t *obj, uint8_t *buffer, size_t offset) {
     (void)alloc;
     if (!obj) return SIZE_MAX;
 
-    size_t dump_size = sizeof(am_strindex_t) + obj->length * sizeof(am_strindex_entry_t);
+    size_t pos = offset;
     if (buffer != NULL && offset != SIZE_MAX) {
-        am_strindex_t *dump = (am_strindex_t *)&buffer[offset];
-        dump->base = obj->base;
-        dump->length = obj->length;
-        dump->capacity = obj->length;
-        dump->mask = (obj->length > 0) ? (obj->length - 1) : 0;
-        dump->tombstones = 0;
+        am_disk_write_base(buffer, pos, &obj->base);
+    }
+    pos += AM_DISK_BASE_SIZE;
+    pos += am_disk_write_uvarint(buffer, pos, (uint64_t)obj->length);
 
-        size_t idx = 0;
-        for (size_t i = 0; i < obj->capacity; i++) {
-            if (obj->slots[i].hash != AM_STRINDEX_KEY_EMPTY &&
-                obj->slots[i].hash != AM_STRINDEX_KEY_TOMBSTONE) {
-                dump->slots[idx].hash = obj->slots[i].hash;
-                dump->slots[idx].value = obj->slots[i].value;
-                idx++;
+    for (size_t i = 0; i < obj->capacity; i++) {
+        if (obj->slots[i].hash != AM_STRINDEX_KEY_EMPTY &&
+            obj->slots[i].hash != AM_STRINDEX_KEY_TOMBSTONE) {
+            if (buffer != NULL && offset != SIZE_MAX) {
+                am_disk_write_u32(buffer, pos, obj->slots[i].hash);
             }
+            pos += 4;
+            pos += am_disk_write_value(buffer, pos, obj->slots[i].value);
         }
     }
 
-    return dump_size;
+    return pos - offset;
 }
 
 // 功能说明：转储（dump）操作的逆操作。从二进制字节序列buffer[offset]开始，读取转储的对象，构造对象并返回其指针。
@@ -386,15 +407,39 @@ size_t am_strindex_dump(am_allocator_t *alloc, am_strindex_t *obj, uint8_t *buff
 am_strindex_t *am_strindex_load(am_allocator_t *alloc, uint8_t *buffer, size_t offset) {
     if (!alloc || !buffer) return NULL;
 
-    am_strindex_t *dump = (am_strindex_t *)&buffer[offset];
-    if (dump->base.type != AM_OBJECT_TYPE_STRINDEX) return NULL;
+    size_t pos = offset;
+    am_object_t base;
+    am_disk_read_base(buffer, pos, &base);
+    pos += AM_DISK_BASE_SIZE;
+    if (base.type != AM_OBJECT_TYPE_STRINDEX) return NULL;
+
+    uint64_t length = 0;
+    size_t n;
+    if (!(n = am_disk_read_uvarint(buffer, pos, &length))) return NULL;
+    pos += n;
+    if (length > (uint64_t)(SIZE_MAX / sizeof(am_strindex_entry_t))) return NULL;
 
     // dump 中 capacity 与 length 一致，创建功能表时使用稍大的容量，确保有空槽。
-    am_strindex_t *si = am_strindex_create(alloc, dump->length);
+    am_strindex_t *si = am_strindex_create(alloc, (size_t)length);
     if (!si) return NULL;
+    si->base = base;
 
     // 直接从 dump 的 hash/value 重建，不重新计算字符串 hash。
-    for (size_t i = 0; i < dump->length; i++) {
+    for (size_t i = 0; i < (size_t)length; i++) {
+        uint32_t hash = am_disk_read_u32(buffer, pos);
+        pos += 4;
+        am_value_t value = 0;
+        if (!(n = am_disk_read_value(buffer, pos, &value))) {
+            am_strindex_destroy(alloc, si);
+            return NULL;
+        }
+        pos += n;
+
+        if (hash == AM_STRINDEX_KEY_EMPTY || hash == AM_STRINDEX_KEY_TOMBSTONE) {
+            am_strindex_destroy(alloc, si);
+            return NULL;
+        }
+
         if ((si->length + si->tombstones + 1) * 4 > si->capacity * 3) {
             am_strindex_t *new_si = am_strindex_resize(alloc, si, si->capacity * 2);
             if (!new_si) {
@@ -404,12 +449,12 @@ am_strindex_t *am_strindex_load(am_allocator_t *alloc, uint8_t *buffer, size_t o
             si = new_si;
         }
 
-        size_t insert_idx = am_strindex_find_insert_slot(si, dump->slots[i].hash);
+        size_t insert_idx = am_strindex_find_insert_slot(si, hash);
         if (si->slots[insert_idx].hash == AM_STRINDEX_KEY_TOMBSTONE) {
             si->tombstones--;
         }
-        si->slots[insert_idx].hash = dump->slots[i].hash;
-        si->slots[insert_idx].value = dump->slots[i].value;
+        si->slots[insert_idx].hash = hash;
+        si->slots[insert_idx].value = value;
         si->length++;
     }
 

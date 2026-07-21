@@ -11,44 +11,170 @@
 #include "vocab.h"
 #include "list.h"
 #include "map.h"
+#include "diskio.h"
 
 #define MODULE_MAGIC     "BD4SURAM"
-#define MODULE_VERSION   (202607ULL)
-#define MODULE_ALIGNMENT (8)
+#define MODULE_VERSION   ((uint32_t)202607u)
 
-#define MODULE_ALIGN_UP(x) (((x) + MODULE_ALIGNMENT - 1) & ~(MODULE_ALIGNMENT - 1))
+// flags 位定义：目前格式固定为小端序（bit0=0），其余位保留
+#define MODULE_FLAGS_LITTLE_ENDIAN ((uint32_t)0u)
 
-#pragma pack(push, 1)
+// 模块磁盘格式（平台无关固定宽度，小端；详见 include/diskio.h）。
+// 头部为以下定宽字段的顺序拼接（所有多字节整数小端），总长 104 字节：
+//   [8]  magic "BD4SURAM"
+//   [u32] version
+//   [u32] flags（bit0=0：小端）
+//   [u32] total_size（模块转储总字节数）
+//   [i32] base_type / [u32] base_hash / [u32] base_gcmark
+//   [u64] header（保留元数据）
+//   [u32] opstack_depth
+//   [u32] ilcode_length（指令条数）
+//   [u32] ilcode_offset
+//   [u32] nodes_heap_offset
+//   [u32] var_vocab_offset / symbol_vocab_offset / var_type_offset
+//   [u32] natives_offset / dependencies_offset / scopes_offset
+//   [u32] var_arn_mapping_offset / node_token_mapping_offset
+//   [u32] lambda_handles_offset / tailcall_handles_offset / var_top_offset
+//   [u32] strindex_offset
+// 各区段在头部之后紧密排列（无对齐填充），偏移量相对于模块转储起点，0 表示该区段不存在。
+// ilcode 区段：每条指令为 [u8 opcode, dvalue operand]。
+
 typedef struct {
-    char     magic[8];
-    uint64_t version;
-    uint64_t total_size;
+    uint32_t total_size;
 
     int32_t  base_type;
     uint32_t base_hash;
     uint32_t base_gcmark;
     uint64_t header;
 
-    size_t   opstack_depth;
-    am_iaddr_t ilcode_length;
+    uint32_t opstack_depth;
+    uint32_t ilcode_length;
 
-    size_t   ilcode_offset;
-    size_t   nodes_heap_offset;
+    uint32_t ilcode_offset;
+    uint32_t nodes_heap_offset;
 
-    size_t   var_vocab_offset;
-    size_t   symbol_vocab_offset;
-    size_t   var_type_offset;
-    size_t   natives_offset;
-    size_t   dependencies_offset;
-    size_t   scopes_offset;
-    size_t   var_arn_mapping_offset;
-    size_t   node_token_mapping_offset;
-    size_t   lambda_handles_offset;
-    size_t   tailcall_handles_offset;
-    size_t   var_top_offset;
-    size_t   strindex_offset;
+    uint32_t var_vocab_offset;
+    uint32_t symbol_vocab_offset;
+    uint32_t var_type_offset;
+    uint32_t natives_offset;
+    uint32_t dependencies_offset;
+    uint32_t scopes_offset;
+    uint32_t var_arn_mapping_offset;
+    uint32_t node_token_mapping_offset;
+    uint32_t lambda_handles_offset;
+    uint32_t tailcall_handles_offset;
+    uint32_t var_top_offset;
+    uint32_t strindex_offset;
 } module_header_t;
-#pragma pack(pop)
+
+#define MODULE_HEADER_DISK_SIZE (104)
+
+// 将模块头写入 buffer（字段逐个小端写入，与宿主字节序/填充无关）
+static void module_header_write(uint8_t *buffer, size_t offset, const module_header_t *hdr) {
+    size_t pos = offset;
+    memcpy(buffer + pos, MODULE_MAGIC, 8);            pos += 8;
+    am_disk_write_u32(buffer, pos, MODULE_VERSION);   pos += 4;
+    am_disk_write_u32(buffer, pos, MODULE_FLAGS_LITTLE_ENDIAN); pos += 4;
+    am_disk_write_u32(buffer, pos, hdr->total_size);  pos += 4;
+    am_disk_write_u32(buffer, pos, (uint32_t)hdr->base_type);   pos += 4;
+    am_disk_write_u32(buffer, pos, hdr->base_hash);   pos += 4;
+    am_disk_write_u32(buffer, pos, hdr->base_gcmark); pos += 4;
+    am_disk_write_u64(buffer, pos, hdr->header);      pos += 8;
+    am_disk_write_u32(buffer, pos, hdr->opstack_depth);  pos += 4;
+    am_disk_write_u32(buffer, pos, hdr->ilcode_length);  pos += 4;
+    am_disk_write_u32(buffer, pos, hdr->ilcode_offset);  pos += 4;
+    am_disk_write_u32(buffer, pos, hdr->nodes_heap_offset); pos += 4;
+    am_disk_write_u32(buffer, pos, hdr->var_vocab_offset);  pos += 4;
+    am_disk_write_u32(buffer, pos, hdr->symbol_vocab_offset); pos += 4;
+    am_disk_write_u32(buffer, pos, hdr->var_type_offset);   pos += 4;
+    am_disk_write_u32(buffer, pos, hdr->natives_offset);    pos += 4;
+    am_disk_write_u32(buffer, pos, hdr->dependencies_offset); pos += 4;
+    am_disk_write_u32(buffer, pos, hdr->scopes_offset);     pos += 4;
+    am_disk_write_u32(buffer, pos, hdr->var_arn_mapping_offset); pos += 4;
+    am_disk_write_u32(buffer, pos, hdr->node_token_mapping_offset); pos += 4;
+    am_disk_write_u32(buffer, pos, hdr->lambda_handles_offset);  pos += 4;
+    am_disk_write_u32(buffer, pos, hdr->tailcall_handles_offset); pos += 4;
+    am_disk_write_u32(buffer, pos, hdr->var_top_offset);    pos += 4;
+    am_disk_write_u32(buffer, pos, hdr->strindex_offset);   pos += 4;
+}
+
+// 从 buffer 读取模块头。成功返回 0，失败（magic/version/flags 不匹配）返回 -1。
+static int32_t module_header_read(const uint8_t *buffer, size_t offset, module_header_t *hdr) {
+    size_t pos = offset;
+    if (memcmp(buffer + pos, MODULE_MAGIC, 8) != 0) {
+        fprintf(stderr, "[module_load] bad magic\n");
+        return -1;
+    }
+    pos += 8;
+    uint32_t version = am_disk_read_u32(buffer, pos); pos += 4;
+    if (version != MODULE_VERSION) {
+        fprintf(stderr, "[module_load] unsupported version %u\n", version);
+        return -1;
+    }
+    uint32_t flags = am_disk_read_u32(buffer, pos); pos += 4;
+    if (flags != MODULE_FLAGS_LITTLE_ENDIAN) {
+        fprintf(stderr, "[module_load] unsupported flags %u\n", flags);
+        return -1;
+    }
+
+    hdr->total_size    = am_disk_read_u32(buffer, pos); pos += 4;
+    hdr->base_type     = (int32_t)am_disk_read_u32(buffer, pos); pos += 4;
+    hdr->base_hash     = am_disk_read_u32(buffer, pos); pos += 4;
+    hdr->base_gcmark   = am_disk_read_u32(buffer, pos); pos += 4;
+    hdr->header        = am_disk_read_u64(buffer, pos); pos += 8;
+    hdr->opstack_depth = am_disk_read_u32(buffer, pos); pos += 4;
+    hdr->ilcode_length = am_disk_read_u32(buffer, pos); pos += 4;
+    hdr->ilcode_offset = am_disk_read_u32(buffer, pos); pos += 4;
+    hdr->nodes_heap_offset = am_disk_read_u32(buffer, pos); pos += 4;
+    hdr->var_vocab_offset  = am_disk_read_u32(buffer, pos); pos += 4;
+    hdr->symbol_vocab_offset = am_disk_read_u32(buffer, pos); pos += 4;
+    hdr->var_type_offset   = am_disk_read_u32(buffer, pos); pos += 4;
+    hdr->natives_offset    = am_disk_read_u32(buffer, pos); pos += 4;
+    hdr->dependencies_offset = am_disk_read_u32(buffer, pos); pos += 4;
+    hdr->scopes_offset     = am_disk_read_u32(buffer, pos); pos += 4;
+    hdr->var_arn_mapping_offset = am_disk_read_u32(buffer, pos); pos += 4;
+    hdr->node_token_mapping_offset = am_disk_read_u32(buffer, pos); pos += 4;
+    hdr->lambda_handles_offset  = am_disk_read_u32(buffer, pos); pos += 4;
+    hdr->tailcall_handles_offset = am_disk_read_u32(buffer, pos); pos += 4;
+    hdr->var_top_offset    = am_disk_read_u32(buffer, pos); pos += 4;
+    hdr->strindex_offset   = am_disk_read_u32(buffer, pos); pos += 4;
+    return 0;
+}
+
+// 计算 ilcode 区段的磁盘字节数（每条指令：u8 opcode + dvalue operand）
+static size_t module_ilcode_disk_size(am_module_t *mod) {
+    size_t size = 0;
+    for (am_iaddr_t i = 0; i < mod->ilcode_length; i++) {
+        size += 1 + am_disk_value_size(mod->ilcode[i].operand);
+    }
+    return size;
+}
+
+// 转储 ilcode 区段。返回写入字节数。buffer 为 NULL 时仅计算字节数。
+static size_t module_ilcode_dump(am_module_t *mod, uint8_t *buffer, size_t offset) {
+    size_t pos = offset;
+    for (am_iaddr_t i = 0; i < mod->ilcode_length; i++) {
+        if (buffer) buffer[pos] = (uint8_t)mod->ilcode[i].opcode;
+        pos += 1;
+        pos += am_disk_write_value(buffer, pos, mod->ilcode[i].operand);
+    }
+    return pos - offset;
+}
+
+// 加载 ilcode 区段。成功返回 0，失败返回 -1。
+static int32_t module_ilcode_load(am_module_t *mod, const uint8_t *buffer, size_t offset) {
+    size_t pos = offset;
+    for (am_iaddr_t i = 0; i < mod->ilcode_length; i++) {
+        mod->ilcode[i].opcode = (uint32_t)buffer[pos];
+        pos += 1;
+        am_value_t operand = 0;
+        size_t n = am_disk_read_value(buffer, pos, &operand);
+        if (!n) return -1;
+        pos += n;
+        mod->ilcode[i].operand = operand;
+    }
+    return 0;
+}
 
 static void module_free_ast(am_allocator_t *container_alloc,
                             am_allocator_t *obj_alloc,
@@ -95,123 +221,133 @@ size_t am_module_dump(am_allocator_t *container_alloc,
 
     am_ast_t *ast = mod->ast;
 
+    if (mod->ilcode_length > UINT32_MAX || mod->opstack_depth > UINT32_MAX) {
+        fprintf(stderr, "[module_dump] module too large\n");
+        return SIZE_MAX;
+    }
+
     module_header_t hdr;
     memset(&hdr, 0, sizeof(hdr));
-    memcpy(hdr.magic, MODULE_MAGIC, 8);
-    hdr.version = MODULE_VERSION;
     hdr.base_type = mod->base.type;
     hdr.base_hash = mod->base.hash;
     hdr.base_gcmark = mod->base.gcmark;
     hdr.header = mod->header;
-    hdr.opstack_depth = mod->opstack_depth;
-    hdr.ilcode_length = mod->ilcode_length;
+    hdr.opstack_depth = (uint32_t)mod->opstack_depth;
+    hdr.ilcode_length = (uint32_t)mod->ilcode_length;
 
-    size_t off = MODULE_ALIGN_UP(offset + sizeof(hdr));
+    /* 各区段在头部之后紧密排列（无对齐填充，加载端全部按字节解码） */
+    size_t off = offset + MODULE_HEADER_DISK_SIZE;
 
     /* IL code */
-    hdr.ilcode_offset = off - offset;
-    size_t il_size = mod->ilcode_length * sizeof(am_instruction_t);
-    off = MODULE_ALIGN_UP(off + il_size);
+    hdr.ilcode_offset = (uint32_t)(off - offset);
+    size_t il_size = module_ilcode_disk_size(mod);
+    off += il_size;
 
     /* AST nodes heap (deep dump) */
-    hdr.nodes_heap_offset = off - offset;
+    hdr.nodes_heap_offset = (uint32_t)(off - offset);
     size_t nodes_size = am_heap_deep_dump(ast->alloc, ast->alloc, ast->nodes, NULL, 0);
     if (nodes_size == SIZE_MAX) {
         fprintf(stderr, "[module_dump] failed to compute nodes heap size\n");
         return SIZE_MAX;
     }
-    off = MODULE_ALIGN_UP(off + nodes_size);
+    off += nodes_size;
 
     /* symbol / variable vocabularies */
     if (ast->var_vocab) {
-        hdr.var_vocab_offset = off - offset;
+        hdr.var_vocab_offset = (uint32_t)(off - offset);
         size_t sz = am_vocab_dump(ast->alloc, ast->var_vocab, NULL, 0);
         if (sz == SIZE_MAX) return SIZE_MAX;
-        off = MODULE_ALIGN_UP(off + sz);
+        off += sz;
     }
     if (ast->symbol_vocab) {
-        hdr.symbol_vocab_offset = off - offset;
+        hdr.symbol_vocab_offset = (uint32_t)(off - offset);
         size_t sz = am_vocab_dump(ast->alloc, ast->symbol_vocab, NULL, 0);
         if (sz == SIZE_MAX) return SIZE_MAX;
-        off = MODULE_ALIGN_UP(off + sz);
+        off += sz;
     }
 
     /* var_type list */
     if (ast->var_type) {
-        hdr.var_type_offset = off - offset;
+        hdr.var_type_offset = (uint32_t)(off - offset);
         size_t sz = am_list_dump(ast->alloc, ast->var_type, NULL, 0);
         if (sz == SIZE_MAX) return SIZE_MAX;
-        off = MODULE_ALIGN_UP(off + sz);
+        off += sz;
     }
 
     /* maps */
     if (ast->natives) {
-        hdr.natives_offset = off - offset;
+        hdr.natives_offset = (uint32_t)(off - offset);
         size_t sz = am_map_dump(ast->alloc, ast->natives, NULL, 0);
         if (sz == SIZE_MAX) return SIZE_MAX;
-        off = MODULE_ALIGN_UP(off + sz);
+        off += sz;
     }
     if (ast->dependencies) {
-        hdr.dependencies_offset = off - offset;
+        hdr.dependencies_offset = (uint32_t)(off - offset);
         size_t sz = am_map_dump(ast->alloc, ast->dependencies, NULL, 0);
         if (sz == SIZE_MAX) return SIZE_MAX;
-        off = MODULE_ALIGN_UP(off + sz);
+        off += sz;
     }
     if (ast->scopes) {
-        hdr.scopes_offset = off - offset;
+        hdr.scopes_offset = (uint32_t)(off - offset);
         size_t sz = am_map_dump(ast->alloc, ast->scopes, NULL, 0);
         if (sz == SIZE_MAX) return SIZE_MAX;
-        off = MODULE_ALIGN_UP(off + sz);
+        off += sz;
     }
     if (ast->var_arn_mapping) {
-        hdr.var_arn_mapping_offset = off - offset;
+        hdr.var_arn_mapping_offset = (uint32_t)(off - offset);
         size_t sz = am_map_dump(ast->alloc, ast->var_arn_mapping, NULL, 0);
         if (sz == SIZE_MAX) return SIZE_MAX;
-        off = MODULE_ALIGN_UP(off + sz);
+        off += sz;
     }
     if (ast->node_token_mapping) {
-        hdr.node_token_mapping_offset = off - offset;
+        hdr.node_token_mapping_offset = (uint32_t)(off - offset);
         size_t sz = am_map_dump(ast->alloc, ast->node_token_mapping, NULL, 0);
         if (sz == SIZE_MAX) return SIZE_MAX;
-        off = MODULE_ALIGN_UP(off + sz);
+        off += sz;
     }
 
     /* lists */
     if (ast->lambda_handles) {
-        hdr.lambda_handles_offset = off - offset;
+        hdr.lambda_handles_offset = (uint32_t)(off - offset);
         size_t sz = am_list_dump(ast->alloc, ast->lambda_handles, NULL, 0);
         if (sz == SIZE_MAX) return SIZE_MAX;
-        off = MODULE_ALIGN_UP(off + sz);
+        off += sz;
     }
     if (ast->tailcall_handles) {
-        hdr.tailcall_handles_offset = off - offset;
+        hdr.tailcall_handles_offset = (uint32_t)(off - offset);
         size_t sz = am_list_dump(ast->alloc, ast->tailcall_handles, NULL, 0);
         if (sz == SIZE_MAX) return SIZE_MAX;
-        off = MODULE_ALIGN_UP(off + sz);
+        off += sz;
     }
     if (ast->var_top) {
-        hdr.var_top_offset = off - offset;
+        hdr.var_top_offset = (uint32_t)(off - offset);
         size_t sz = am_list_dump(ast->alloc, ast->var_top, NULL, 0);
         if (sz == SIZE_MAX) return SIZE_MAX;
-        off = MODULE_ALIGN_UP(off + sz);
+        off += sz;
     }
 
     /* strindex */
     if (ast->strindex) {
-        hdr.strindex_offset = off - offset;
+        hdr.strindex_offset = (uint32_t)(off - offset);
         size_t sz = am_strindex_dump(ast->alloc, ast->strindex, NULL, 0);
         if (sz == SIZE_MAX) return SIZE_MAX;
-        off = MODULE_ALIGN_UP(off + sz);
+        off += sz;
     }
 
-    hdr.total_size = off - offset;
+    if (off - offset > UINT32_MAX) {
+        fprintf(stderr, "[module_dump] module dump exceeds 4GiB\n");
+        return SIZE_MAX;
+    }
+    hdr.total_size = (uint32_t)(off - offset);
 
     if (buffer != NULL && offset != SIZE_MAX) {
-        memcpy(buffer + offset, &hdr, sizeof(hdr));
+        module_header_write(buffer, offset, &hdr);
 
-        memcpy(buffer + offset + hdr.ilcode_offset,
-               mod->ilcode,
-               il_size);
+        size_t il_written = module_ilcode_dump(mod, buffer, offset + hdr.ilcode_offset);
+        if (il_written != il_size) {
+            fprintf(stderr, "[module_dump] ilcode dump size mismatch\n");
+            return SIZE_MAX;
+        }
 
         size_t written = am_heap_deep_dump(ast->alloc, ast->alloc, ast->nodes,
                                            buffer, offset + hdr.nodes_heap_offset);
@@ -270,7 +406,7 @@ size_t am_module_dump(am_allocator_t *container_alloc,
         }
     }
 
-    return hdr.total_size;
+    return (size_t)hdr.total_size;
 }
 
 am_module_t *am_module_load(am_allocator_t *container_alloc,
@@ -282,14 +418,9 @@ am_module_t *am_module_load(am_allocator_t *container_alloc,
         return NULL;
     }
 
-    module_header_t *hdr = (module_header_t *)(buffer + offset);
-    if (memcmp(hdr->magic, MODULE_MAGIC, 8) != 0) {
-        fprintf(stderr, "[module_load] bad magic\n");
-        return NULL;
-    }
-    if (hdr->version != MODULE_VERSION) {
-        fprintf(stderr, "[module_load] unsupported version %llu\n",
-                (unsigned long long)hdr->version);
+    module_header_t hdr_buf;
+    module_header_t *hdr = &hdr_buf;
+    if (module_header_read(buffer, offset, hdr) != 0) {
         return NULL;
     }
 
@@ -306,16 +437,25 @@ am_module_t *am_module_load(am_allocator_t *container_alloc,
     mod->opstack_depth = hdr->opstack_depth;
     mod->ilcode_length = hdr->ilcode_length;
 
+    if ((uint64_t)hdr->ilcode_length * (uint64_t)sizeof(am_instruction_t) > (uint64_t)SIZE_MAX) {
+        fprintf(stderr, "[module_load] ilcode too large\n");
+        am_free(container_alloc, mod);
+        return NULL;
+    }
+
     mod->ilcode = (am_instruction_t *)am_malloc(container_alloc,
-                                                mod->ilcode_length * sizeof(am_instruction_t));
+                                                (size_t)mod->ilcode_length * sizeof(am_instruction_t));
     if (!mod->ilcode) {
         fprintf(stderr, "[module_load] failed to allocate ilcode\n");
         am_free(container_alloc, mod);
         return NULL;
     }
-    memcpy(mod->ilcode,
-           buffer + offset + hdr->ilcode_offset,
-           mod->ilcode_length * sizeof(am_instruction_t));
+    if (module_ilcode_load(mod, buffer, offset + hdr->ilcode_offset) != 0) {
+        fprintf(stderr, "[module_load] failed to decode ilcode\n");
+        am_free(container_alloc, mod->ilcode);
+        am_free(container_alloc, mod);
+        return NULL;
+    }
 
     am_ast_t *ast = (am_ast_t *)am_malloc(container_alloc, sizeof(am_ast_t));
     if (!ast) {

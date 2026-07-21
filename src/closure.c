@@ -5,6 +5,7 @@
 #include "allocator.h"
 
 #include "closure.h"
+#include "diskio.h"
 
 
 // ===============================================================================
@@ -135,26 +136,37 @@ size_t am_closure_size(am_allocator_t *alloc, am_obj_closure_t *obj) {
 // 实现说明：offset是写入buffer的起点offset。成功则返回向buffer新增字节数，失败则返回SIZE_MAX。
 // 注意：若buffer设为NULL，或者offset设为SIZE_MAX，则仅计算转储后的二进制序列的字节数，不实际写入buffer。
 //       压缩对象，将capacity压缩到跟length一致，删除多余分配的空闲部分。
+// 磁盘格式（平台无关固定宽度，小端；详见 include/diskio.h）：
+//   [16B] 对象基类头（type=AM_OBJECT_TYPE_CLOSURE）
+//   [uvarint] iaddr
+//   [uvarint] parent 把柄
+//   [uvarint] length（capacity 压缩为与 length 一致，不落盘）
+//   [length * (uvarint varid, u8 type, u8 dirty_flag, dvalue value)] 绑定表项
 size_t am_closure_dump(am_allocator_t *alloc, am_obj_closure_t *closure, uint8_t *buffer, size_t offset) {
     (void)alloc;
     if (!closure) return SIZE_MAX;
 
-    size_t dump_size = sizeof(am_obj_closure_t) + closure->length * sizeof(am_binding_t);
-
+    size_t pos = offset;
     if (buffer != NULL && offset != SIZE_MAX) {
-        am_obj_closure_t *dump = (am_obj_closure_t *)&buffer[offset];
-        dump->base = closure->base;
-        dump->iaddr = closure->iaddr;
-        dump->parent = closure->parent;
-        dump->length = closure->length;
-        dump->capacity = closure->length;
+        am_disk_write_base(buffer, pos, &closure->base);
+    }
+    pos += AM_DISK_BASE_SIZE;
+    pos += am_disk_write_uvarint(buffer, pos, (uint64_t)closure->iaddr);
+    pos += am_disk_write_uvarint(buffer, pos, (uint64_t)closure->parent);
+    pos += am_disk_write_uvarint(buffer, pos, (uint64_t)closure->length);
 
-        if (closure->length > 0) {
-            memcpy(dump->bindings, closure->bindings, closure->length * sizeof(am_binding_t));
+    for (size_t i = 0; i < closure->length; i++) {
+        am_binding_t *b = &closure->bindings[i];
+        pos += am_disk_write_uvarint(buffer, pos, (uint64_t)b->varid);
+        if (buffer != NULL && offset != SIZE_MAX) {
+            buffer[pos] = (uint8_t)b->type;
+            buffer[pos + 1] = (uint8_t)b->dirty_flag;
         }
+        pos += 2;
+        pos += am_disk_write_value(buffer, pos, b->value);
     }
 
-    return dump_size;
+    return pos - offset;
 }
 
 
@@ -163,15 +175,55 @@ size_t am_closure_dump(am_allocator_t *alloc, am_obj_closure_t *closure, uint8_t
 am_obj_closure_t *am_closure_load(am_allocator_t *alloc, uint8_t *buffer, size_t offset) {
     if (!alloc || !buffer) return NULL;
 
-    am_obj_closure_t *dump = (am_obj_closure_t *)&buffer[offset];
-    if (dump->base.type != AM_OBJECT_TYPE_CLOSURE) return NULL;
+    size_t pos = offset;
+    am_object_t base;
+    am_disk_read_base(buffer, pos, &base);
+    pos += AM_DISK_BASE_SIZE;
+    if (base.type != AM_OBJECT_TYPE_CLOSURE) return NULL;
 
-    size_t total_size = sizeof(am_obj_closure_t) + dump->length * sizeof(am_binding_t);
-    am_obj_closure_t *closure = (am_obj_closure_t *)am_malloc(alloc, total_size);
+    uint64_t iaddr = 0, parent = 0, length = 0;
+    size_t n;
+    if (!(n = am_disk_read_uvarint(buffer, pos, &iaddr))) return NULL;
+    pos += n;
+    if (!(n = am_disk_read_uvarint(buffer, pos, &parent))) return NULL;
+    pos += n;
+    if (!(n = am_disk_read_uvarint(buffer, pos, &length))) return NULL;
+    pos += n;
+
+    if (iaddr > (uint64_t)AM_HANDLE_NULL) return NULL; // 与 am_iaddr_t/am_handle_t 同宽检查
+    if (parent > (uint64_t)AM_HANDLE_NULL) return NULL;
+    if (length > (uint64_t)((SIZE_MAX - sizeof(am_obj_closure_t)) / sizeof(am_binding_t))) return NULL;
+
+    am_obj_closure_t *closure = am_closure_create(alloc, (am_iaddr_t)iaddr, (am_handle_t)parent, (size_t)length);
     if (!closure) return NULL;
+    closure->base = base;
+    closure->length = (size_t)length;
 
-    memcpy(closure, dump, total_size);
+    for (size_t i = 0; i < closure->length; i++) {
+        uint64_t varid = 0;
+        if (!(n = am_disk_read_uvarint(buffer, pos, &varid))) goto fail;
+        pos += n;
+        if (varid > (uint64_t)AM_HANDLE_NULL) goto fail;
+
+        int32_t type = (int32_t)buffer[pos];
+        int32_t dirty_flag = (int32_t)buffer[pos + 1];
+        pos += 2;
+
+        am_value_t value = 0;
+        if (!(n = am_disk_read_value(buffer, pos, &value))) goto fail;
+        pos += n;
+
+        closure->bindings[i].varid = (am_varid_t)varid;
+        closure->bindings[i].type = type;
+        closure->bindings[i].dirty_flag = dirty_flag;
+        closure->bindings[i].value = value;
+    }
+
     return closure;
+
+fail:
+    am_free(alloc, closure);
+    return NULL;
 }
 
 

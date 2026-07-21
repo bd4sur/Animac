@@ -5,6 +5,7 @@
 #include "allocator.h"
 
 #include "map.h"
+#include "diskio.h"
 
 
 // ===============================================================================
@@ -231,32 +232,31 @@ size_t am_map_size(am_allocator_t *alloc, am_map_t *obj) {
 // 实现说明：offset是写入buffer的起点offset。成功则返回向buffer新增字节数，失败则返回SIZE_MAX。
 // 注意：若buffer设为NULL，或者offset设为SIZE_MAX，则仅计算转储后的二进制序列的字节数，不实际写入buffer。
 //       压缩对象，将capacity压缩到跟length一致，丢弃墓碑和空闲槽位。
+// 磁盘格式（平台无关固定宽度，小端；详见 include/diskio.h）：
+//   [16B] 对象基类头（type=AM_OBJECT_TYPE_MAP）
+//   [uvarint] length（有效键值对数量；capacity/墓碑/空槽均不落盘）
+//   [length * (dvalue key, dvalue value)] 有效表项
 size_t am_map_dump(am_allocator_t *alloc, am_map_t *map, uint8_t *buffer, size_t offset) {
     (void)alloc;
     am_map_t *m = (am_map_t *)map;
 
     if (!m) return SIZE_MAX;
 
-    size_t dump_size = sizeof(am_map_t) + m->length * sizeof(am_map_entry_t);
+    size_t pos = offset;
     if (buffer != NULL && offset != SIZE_MAX) {
-        am_map_t *dump = (am_map_t *)&buffer[offset];
-        dump->base = m->base;
-        dump->length = m->length;
-        dump->capacity = m->length;
-        dump->mask = (m->length > 0) ? (m->length - 1) : 0;
-        dump->tombstones = 0;
+        am_disk_write_base(buffer, pos, &m->base);
+    }
+    pos += AM_DISK_BASE_SIZE;
+    pos += am_disk_write_uvarint(buffer, pos, (uint64_t)m->length);
 
-        size_t idx = 0;
-        for (size_t i = 0; i < m->capacity; i++) {
-            if (m->slots[i].key != AM_MAP_KEY_EMPTY && m->slots[i].key != AM_MAP_KEY_TOMBSTONE) {
-                dump->slots[idx].key = m->slots[i].key;
-                dump->slots[idx].value = m->slots[i].value;
-                idx++;
-            }
+    for (size_t i = 0; i < m->capacity; i++) {
+        if (m->slots[i].key != AM_MAP_KEY_EMPTY && m->slots[i].key != AM_MAP_KEY_TOMBSTONE) {
+            pos += am_disk_write_value(buffer, pos, m->slots[i].key);
+            pos += am_disk_write_value(buffer, pos, m->slots[i].value);
         }
     }
 
-    return dump_size;
+    return pos - offset;
 }
 
 
@@ -265,23 +265,45 @@ size_t am_map_dump(am_allocator_t *alloc, am_map_t *map, uint8_t *buffer, size_t
 am_map_t *am_map_load(am_allocator_t *alloc, uint8_t *buffer, size_t offset) {
     if (!alloc || !buffer) return NULL;
 
-    am_map_t *dump = (am_map_t *)&buffer[offset];
-    if (dump->base.type != AM_OBJECT_TYPE_MAP) return NULL;
+    size_t pos = offset;
+    am_object_t base;
+    am_disk_read_base(buffer, pos, &base);
+    pos += AM_DISK_BASE_SIZE;
+    if (base.type != AM_OBJECT_TYPE_MAP) return NULL;
+
+    uint64_t length = 0;
+    size_t n;
+    if (!(n = am_disk_read_uvarint(buffer, pos, &length))) return NULL;
+    pos += n;
+    if (length > (uint64_t)(SIZE_MAX / sizeof(am_map_entry_t))) return NULL;
 
     // 重新构造一个功能完整的散列表（capacity 取不小于 length 的 2 的幂，留有空槽）。
-    am_map_t *map = am_map_create(alloc, dump->length);
+    am_map_t *map = am_map_create(alloc, (size_t)length);
     if (!map) return NULL;
+    map->base = base;
 
-    for (size_t i = 0; i < dump->length; i++) {
-        am_map_t *new_map = am_map_set(alloc, map, dump->slots[i].key, dump->slots[i].value);
-        if (!new_map) {
-            am_map_destroy(alloc, map);
-            return NULL;
-        }
+    for (size_t i = 0; i < (size_t)length; i++) {
+        am_value_t key = 0, value = 0;
+        if (!(n = am_disk_read_value(buffer, pos, &key))) goto fail;
+        pos += n;
+        if (!(n = am_disk_read_value(buffer, pos, &value))) goto fail;
+        pos += n;
+        if (key == AM_MAP_KEY_EMPTY || key == AM_MAP_KEY_TOMBSTONE) goto fail;
+
+        am_map_t *new_map = am_map_set(alloc, map, key, value);
+        if (!new_map) goto fail;
         map = new_map;
     }
 
     return map;
+
+fail:
+    // 清空所有 value，避免 am_map_destroy 误释放尚未加载的指针对象
+    for (size_t i = 0; i < map->capacity; i++) {
+        map->slots[i].value = AM_VALUE_NULL;
+    }
+    am_map_destroy(alloc, map);
+    return NULL;
 }
 
 

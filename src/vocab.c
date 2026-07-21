@@ -6,6 +6,7 @@
 #include "object.h"
 #include "allocator.h"
 #include "vocab.h"
+#include "diskio.h"
 
 
 // ===============================================================================
@@ -110,32 +111,32 @@ am_vocab_t *am_vocab_copy(am_allocator_t *alloc, am_vocab_t *vocab) {
 // 注意：若buffer设为NULL，或者offset设为SIZE_MAX，则仅计算转储后的二进制序列的字节数，不实际写入buffer。
 //       将words所指向的wchar_t*宽字符串依次展平拼接，各字符串之间以L'\0'为间隔符，最后一个字符串以L'\0'结束。
 //       压缩对象，将capacity压缩到跟length一致，删除多余分配的空闲部分。
+// 磁盘格式（平台无关固定宽度，小端；详见 include/diskio.h）：
+//   [16B] 对象基类头（type=AM_OBJECT_TYPE_VOCAB）
+//   [uvarint] length（词条数；capacity 压缩为与 length 一致，不落盘）
+//   [length * (uvarint 码点数, 码点0..n-1 各一个 uvarint)] 词条内容
+//   说明：词条以 Unicode 码点序列存储，不使用平台相关的 wchar_t 宽度，
+//         也不存储运行时指针（原实现会将 words[i] 绝对地址落盘，跨地址空间失效）。
 size_t am_vocab_dump(am_allocator_t *alloc, am_vocab_t *vocab, uint8_t *buffer, size_t offset) {
     (void)alloc;
     if (!vocab) return SIZE_MAX;
 
-    size_t content_size = 0;
-    for (size_t i = 0; i < vocab->length; i++) {
-        content_size += (wcslen(vocab->words[i]) + 1) * sizeof(wchar_t);
-    }
-
-    size_t dump_size = sizeof(am_vocab_t) + vocab->length * sizeof(wchar_t *) + content_size;
+    size_t pos = offset;
     if (buffer != NULL && offset != SIZE_MAX) {
-        am_vocab_t *dump = (am_vocab_t *)&buffer[offset];
-        dump->base = vocab->base;
-        dump->capacity = vocab->length;
-        dump->length = vocab->length;
+        am_disk_write_base(buffer, pos, &vocab->base);
+    }
+    pos += AM_DISK_BASE_SIZE;
+    pos += am_disk_write_uvarint(buffer, pos, (uint64_t)vocab->length);
 
-        wchar_t *content_ptr = (wchar_t *)&buffer[offset + sizeof(am_vocab_t) + vocab->length * sizeof(wchar_t *)];
-        for (size_t i = 0; i < vocab->length; i++) {
-            size_t len = wcslen(vocab->words[i]);
-            dump->words[i] = content_ptr; // 运行时指针，指向 dump 内部的字符串区域
-            wcscpy(content_ptr, vocab->words[i]);
-            content_ptr += (len + 1);
+    for (size_t i = 0; i < vocab->length; i++) {
+        size_t len = wcslen(vocab->words[i]);
+        pos += am_disk_write_uvarint(buffer, pos, (uint64_t)len);
+        for (size_t j = 0; j < len; j++) {
+            pos += am_disk_write_uvarint(buffer, pos, (uint64_t)(uint32_t)vocab->words[i][j]);
         }
     }
 
-    return dump_size;
+    return pos - offset;
 }
 
 
@@ -144,31 +145,58 @@ size_t am_vocab_dump(am_allocator_t *alloc, am_vocab_t *vocab, uint8_t *buffer, 
 am_vocab_t *am_vocab_load(am_allocator_t *alloc, uint8_t *buffer, size_t offset) {
     if (!alloc || !buffer) return NULL;
 
-    am_vocab_t *dump = (am_vocab_t *)&buffer[offset];
-    if (dump->base.type != AM_OBJECT_TYPE_VOCAB) return NULL;
+    size_t pos = offset;
+    am_object_t base;
+    am_disk_read_base(buffer, pos, &base);
+    pos += AM_DISK_BASE_SIZE;
+    if (base.type != AM_OBJECT_TYPE_VOCAB) return NULL;
 
-    size_t content_size = 0;
-    for (size_t i = 0; i < dump->length; i++) {
-        content_size += (wcslen(dump->words[i]) + 1) * sizeof(wchar_t);
-    }
+    uint64_t length = 0;
+    size_t n;
+    if (!(n = am_disk_read_uvarint(buffer, pos, &length))) return NULL;
+    pos += n;
+    if (length > (uint64_t)((SIZE_MAX - sizeof(am_vocab_t)) / sizeof(wchar_t *))) return NULL;
 
-    size_t total_size = sizeof(am_vocab_t) + dump->length * sizeof(wchar_t *) + content_size;
-    am_vocab_t *vocab = (am_vocab_t *)am_malloc(alloc, total_size);
+    // 本宿主 wchar_t 可表示的码点上界（16 位 wchar_t 平台不支持代理项）
+    const uint64_t cp_max = (sizeof(wchar_t) >= 4) ? (uint64_t)0x10FFFF : (uint64_t)0xFFFF;
+
+    am_vocab_t *vocab = am_vocab_create(alloc, (size_t)length);
     if (!vocab) return NULL;
+    vocab->base = base;
 
-    vocab->base = dump->base;
-    vocab->capacity = dump->length;
-    vocab->length = dump->length;
+    for (size_t i = 0; i < (size_t)length; i++) {
+        uint64_t len = 0;
+        if (!(n = am_disk_read_uvarint(buffer, pos, &len))) goto fail;
+        pos += n;
+        if (len > (uint64_t)(SIZE_MAX / sizeof(wchar_t)) - 1) goto fail;
 
-    wchar_t *content_ptr = (wchar_t *)((uint8_t *)vocab + sizeof(am_vocab_t) + vocab->length * sizeof(wchar_t *));
-    for (size_t i = 0; i < vocab->length; i++) {
-        size_t len = wcslen(dump->words[i]);
-        wcscpy(content_ptr, dump->words[i]);
-        vocab->words[i] = content_ptr;
-        content_ptr += (len + 1);
+        wchar_t *word = (wchar_t *)am_malloc(alloc, ((size_t)len + 1) * sizeof(wchar_t));
+        if (!word) goto fail;
+
+        int ok = 1;
+        for (size_t j = 0; j < (size_t)len; j++) {
+            uint64_t cp = 0;
+            if (!(n = am_disk_read_uvarint(buffer, pos, &cp)) || cp > cp_max) {
+                ok = 0;
+                break;
+            }
+            pos += n;
+            word[j] = (wchar_t)cp;
+        }
+        if (!ok) {
+            am_free(alloc, word);
+            goto fail;
+        }
+        word[(size_t)len] = L'\0';
+        vocab->words[i] = word;
+        vocab->length++;
     }
 
     return vocab;
+
+fail:
+    am_vocab_destroy(alloc, vocab);
+    return NULL;
 }
 
 

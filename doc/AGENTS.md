@@ -44,6 +44,17 @@ Animac（灵机）是一款Scheme解释器，支持Scheme语言的子集和某�
 
 symbol是以其字面为ID的，相同拼写的symbol，无论在哪个上下文中都是同一个符号。因此AST合并时，字符串相同的symbol，就是同一个symbol。这与variable截然不同。
 
+## 模块磁盘格式（dump/load）
+
+模块及各数据结构的 dump/load 采用平台无关的固定宽度磁盘格式（2026-07 起），可在 32 位与 64 位宿主之间互导：
+
+- 序列化原语集中在 `include/diskio.h`（全部 static inline，无新增编译单元）：定长整数一律小端（LE）显式按字节读写；计数、索引、把柄等小值整数用 ULEB128 变长编码；有符号整数用 zigzag+ULEB128；浮点统一为 IEEE-754 double。
+- TPV（am_value_t）磁盘编码 dvalue：1 字节类型标签（AM_VALUE_TYPE_*）+ 变长负载；NULL/UNDEFINED 无负载；INT 为 zigzag 变长；FLOAT 固定 8 字节 double；PTR 仅用于堆转储中的对象相对偏移量（必须保持偶数）。
+- 磁盘上绝不出现 size_t、uintptr_t、原生指针、运行时结构体内存快照、系统 wchar_t。字符串一律以 Unicode 码点（uvarint）序列存储。
+- 各对象磁盘布局见 src/list.c、src/map.c、src/wstring.c、src/vocab.c、src/closure.c、src/heap.c 中 dump 函数头部的注释；模块头与区段布局见 src/module.c 头部注释。
+- 加载端按字节解码（不做结构体强制转换），并进行宿主字长适配检查（32 位宿主加载越界值会失败）。
+- 堆深度转储存在不动点问题：对象偏移量依赖 heap dump 字节数，而 heap dump 字节数又取决于偏移量的变长编码长度，am_heap_deep_dump 通过单调迭代求解。
+
 ## 编码规范
 
 关于函数返回值的语义约定。为了区分正面含义（肯定、正常、成功、找到）和负面含义（否定、异常、失败、没找到）两种语义，约定如下：

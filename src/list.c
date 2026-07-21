@@ -5,6 +5,7 @@
 #include "allocator.h"
 #include "map.h"
 #include "list.h"
+#include "diskio.h"
 
 
 // ===============================================================================
@@ -135,26 +136,31 @@ void am_list_iter(am_allocator_t *alloc, am_list_t *lst, am_list_iter_callback_t
 // 实现说明：offset是写入buffer的起点offset。成功则返回向buffer新增字节数，失败则返回SIZE_MAX。
 // 注意：若buffer设为NULL，或者offset设为SIZE_MAX，则仅计算转储后的二进制序列的字节数，不实际写入buffer。
 //       压缩对象，将capacity压缩到跟length一致，删除多余分配的空闲部分。
+// 磁盘格式（平台无关固定宽度，小端；详见 include/diskio.h）：
+//   [16B] 对象基类头（type=AM_OBJECT_TYPE_LIST）
+//   [uvarint] length（capacity 压缩为与 length 一致，不落盘）
+//   [uvarint] List 子类型（AM_LIST_TYPE_*）
+//   [uvarint] parent 把柄
+//   [length * dvalue] children（每个元素为变长编码的 TPV）
 size_t am_list_dump(am_allocator_t *alloc, am_list_t *lst, uint8_t *buffer, size_t offset) {
     (void)alloc;
     if (!lst) return SIZE_MAX;
 
-    size_t dump_size = sizeof(am_list_t) + lst->length * sizeof(am_value_t);
-
+    size_t pos = offset;
     if (buffer != NULL && offset != SIZE_MAX) {
-        am_list_t *dump = (am_list_t *)&buffer[offset];
-        dump->base = lst->base;
-        dump->capacity = lst->length;
-        dump->length = lst->length;
-        dump->type = lst->type;
-        dump->parent = lst->parent;
+        am_disk_write_base(buffer, pos, &lst->base);
+    }
+    pos += AM_DISK_BASE_SIZE;
 
-        if (lst->length > 0) {
-            memcpy(dump->children, lst->children, lst->length * sizeof(am_value_t));
-        }
+    pos += am_disk_write_uvarint(buffer, pos, (uint64_t)lst->length);
+    pos += am_disk_write_uvarint(buffer, pos, (uint64_t)(uint32_t)lst->type);
+    pos += am_disk_write_uvarint(buffer, pos, (uint64_t)lst->parent);
+
+    for (size_t i = 0; i < lst->length; i++) {
+        pos += am_disk_write_value(buffer, pos, lst->children[i]);
     }
 
-    return dump_size;
+    return pos - offset;
 }
 
 
@@ -163,14 +169,40 @@ size_t am_list_dump(am_allocator_t *alloc, am_list_t *lst, uint8_t *buffer, size
 am_list_t *am_list_load(am_allocator_t *alloc, uint8_t *buffer, size_t offset) {
     if (!alloc || !buffer) return NULL;
 
-    am_list_t *dump = (am_list_t *)&buffer[offset];
-    if (dump->base.type != AM_OBJECT_TYPE_LIST) return NULL;
+    size_t pos = offset;
+    am_object_t base;
+    am_disk_read_base(buffer, pos, &base);
+    pos += AM_DISK_BASE_SIZE;
+    if (base.type != AM_OBJECT_TYPE_LIST) return NULL;
 
-    size_t total_size = sizeof(am_list_t) + dump->length * sizeof(am_value_t);
-    am_list_t *lst = (am_list_t *)am_malloc(alloc, total_size);
+    uint64_t length = 0, type = 0, parent = 0;
+    size_t n;
+    if (!(n = am_disk_read_uvarint(buffer, pos, &length))) return NULL;
+    pos += n;
+    if (!(n = am_disk_read_uvarint(buffer, pos, &type))) return NULL;
+    pos += n;
+    if (!(n = am_disk_read_uvarint(buffer, pos, &parent))) return NULL;
+    pos += n;
+
+    // 长度与本宿主字长适配性检查
+    if (length > (uint64_t)((SIZE_MAX - sizeof(am_list_t)) / sizeof(am_value_t))) return NULL;
+    if (parent > (uint64_t)AM_HANDLE_NULL) return NULL;
+
+    am_list_t *lst = am_list_create(alloc, (size_t)length, (int32_t)type, (am_handle_t)parent);
     if (!lst) return NULL;
+    lst->base = base;
+    lst->length = (size_t)length;
 
-    memcpy(lst, dump, total_size);
+    for (size_t i = 0; i < lst->length; i++) {
+        am_value_t v = 0;
+        if (!(n = am_disk_read_value(buffer, pos, &v))) {
+            am_free(alloc, lst);
+            return NULL;
+        }
+        pos += n;
+        lst->children[i] = v;
+    }
+
     return lst;
 }
 
