@@ -868,9 +868,16 @@ static int32_t op_call_async(am_runtime_t *rt, am_process_t *proc, am_value_t op
     }
 
     if (am_value_is_varid(target)) {
-        int32_t opcode = check_builtin_varid(proc, am_value_to_varid(target));
-        if (opcode >= 0)
+        am_varid_t v = am_value_to_varid(target);
+        // 判断builtin函数
+        int32_t opcode = check_builtin_varid(proc, v);
+        if (opcode >= 0) {
             return am_runtime_op_dispatch(rt, proc, (uint32_t)opcode, operand);
+        }
+        // 判断 native 调用
+        else if (am_runtime_check_native_ref(rt, proc, v) == 0) {
+            return op_callnative(rt, proc, target);
+        }
     }
 
     am_runtime_error(rt, L"[Runtime] call: 错误的调用目标\n");
