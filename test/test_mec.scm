@@ -52,7 +52,7 @@
 (define-syntax eval-code
   (syntax-rules ()
     ((_ str) (System.eval str))))
-(System.eval "(display \"T7 macro-to-eval\") (newline)")
+(eval-code "(display \"T7 macro-to-eval\") (newline)")
 
 ; ============ 8. 宿主宏展开为 call/cc 调用 ============
 (define-syntax escape-with
@@ -74,3 +74,18 @@
 (let-syntax ((local-inc (syntax-rules () ((_ x) (+ x 1)))))
   (System.eval "(display \"T10 let-syntax+eval: \") (display (+ base 1)) (newline)")
   (check "T10 local-inc" 101 (local-inc base)))
+
+; ============ 11. System.eval 内定义并使用 syntax-rules 宏 ============
+(System.eval "(define-syntax my-if2 (syntax-rules () ((_ c t e) (if c t e)))) (check \"T11 eval-macro\" 1 (my-if2 #t 1 2))")
+
+; ============ 12. System.eval 内定义宏但从不使用（残留条目不应导致 eval 失败） ============
+(System.eval "(define-syntax unused-m (syntax-rules () ((_ x) x))) (check \"T12 eval-macro-unused\" 42 42)")
+
+; ============ 13. System.eval 内宏展开产生尾调用，深层尾递归不爆栈 ============
+(System.eval "(define-syntax my-if3 (syntax-rules () ((_ c t e) (if c t e)))) (define t13loop (lambda (n) (my-if3 (== n 0) 0 (t13loop (- n 1))))) (check \"T13 eval-macro-tailcall\" 0 (t13loop 1000000))")
+
+; ============ 14. System.eval 内使用 let-syntax ============
+(System.eval "(let-syntax ((dbl (syntax-rules () ((_ x) (+ x x))))) (check \"T14 eval-let-syntax\" 8 (dbl 4)))")
+
+; ============ 15. System.eval 内宏模板引用宿主顶级变量 ============
+(System.eval "(define-syntax get-host-x (syntax-rules () ((_) host-x))) (check \"T15 eval-macro-hostvar\" 10 (get-host-x))")

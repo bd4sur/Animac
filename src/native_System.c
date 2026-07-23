@@ -1107,6 +1107,38 @@ static int32_t eval_build_symbol_mapping(am_process_t *proc, am_ast_t *evalee, a
 }
 
 
+// 判断某个 varid 是否仍被 evalee AST 引用（从顶层节点可达的节点）。
+// 宏展开会消除 macro-use 与 define-syntax 节点，但宏关键字等标识符在 parse 阶段
+// 已注册进 var_vocab（GLOBAL_FREE）；这些未被引用的残留条目不参与映射，直接跳过即可。
+// 注意：nodes 堆是只增的，被消除的旧节点仍留在堆中，因此不能遍历全堆，
+// 只能从顶层节点做可达性遍历。
+static void eval_var_ref_walk(am_ast_t *ast, am_value_t item, am_varid_t varid, int32_t *found) {
+    if (*found) return;
+    if (am_value_is_varid(item)) {
+        if (am_value_to_varid(item) == varid) *found = 1;
+        return;
+    }
+    if (!am_value_is_handle(item)) return;
+    am_value_t node_val = am_ast_get_node(ast, am_value_to_handle(item));
+    if (!am_value_is_ptr(node_val)) return;
+    am_object_t *obj = am_value_to_ptr(node_val);
+    if (obj->type != AM_OBJECT_TYPE_LIST) return;
+    am_list_t *lst = (am_list_t *)obj;
+    for (size_t i = 0; i < lst->length && !*found; i++) {
+        eval_var_ref_walk(ast, am_list_get(ast->alloc, lst, i), varid, found);
+    }
+}
+
+static int32_t eval_var_is_referenced(am_ast_t *evalee, am_varid_t varid) {
+    if (!evalee) return 0;
+    am_handle_t top = am_ast_get_top_node_handle(evalee);
+    if (top == AM_HANDLE_NULL) return 0;
+    int32_t found = 0;
+    eval_var_ref_walk(evalee, am_make_value_of_handle(top), varid, &found);
+    return found;
+}
+
+
 // 建立 varid 映射：
 // - GLOBAL_FREE：在 proc->var_top 中通过 proc->var_arn_mapping 查找原形，映射到对应 proc varid
 // - 其他：插入 proc->var_vocab，并同步 proc->var_type
@@ -1146,6 +1178,8 @@ static int32_t eval_build_var_mapping(am_process_t *proc, am_ast_t *evalee, am_m
                 }
             }
             if (new_varid == SIZE_MAX) {
+                // 宏展开后残留的未引用条目（如宏关键字），不属于未定义变量错误，跳过
+                if (!eval_var_is_referenced(evalee, old_varid)) continue;
                 fprintf(stderr, "[System.eval] 未定义的变量：%ls\n", name);
                 am_map_destroy(proc->vm_alloc, m);
                 return -1;

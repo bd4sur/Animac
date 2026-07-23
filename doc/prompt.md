@@ -6469,9 +6469,11 @@ OK，按照轻量的AST 级快速路径预检思路开始优化。注意使变�
 - 取消opcode模块，全部放到ast
 - 取消native模块，全部放到runtime
 - 取消utils模块，将wcs和mbs互转放在host中
+- macro和parser的依赖关系：唯一依赖在am_parser_tail_call_analysis，是否可去掉？
+
 - ast.h -> scope.h，然后去掉macro.c和parser.c的scope依赖
 - repl.c -> linker.h & parser.h 同时去掉repl.h中除了runtime.h中的其他依赖
-- macro和parser的依赖关系：唯一依赖在am_parser_tail_call_analysis，是否可去掉？
+
 - list.c去掉map.h，在此之前把am_value_equal移到object.h
 - heap.h -> list.h & wstring.h
 - repl.h去掉utils.h，加到utils.c中（原则是核心的头文件依赖图中不要有utils和host）
@@ -6479,11 +6481,7 @@ OK，按照轻量的AST 级快速路径预检思路开始优化。注意使变�
 - linker_resolve_path 和 am_path_dirname 是什么关系？
 - 增加上帝头文件animac.h，debug.h在其上
 
-
-TODO Animac把设备malloc抽象出来
-TODO Amalgamation脚本→梳理依赖关系
-TODO GC在定时执行的基础上，按水位触发执行
-TODO main里路径相关的不要用am_malloc
+链接器需要递归地从文件系统中读取新的源码文件，但是我不想在解释器的核心中包含任何与文件系统这种与宿主有关的东西，比如调用一个叫read_file_from_fs的函数，即便这个函数已经被封装和抽象到核心外部了。我应该怎么做？把它做成回调？
 
 ---------------------
 
@@ -6573,11 +6571,39 @@ OK，请你先给出既能解耦 macro → parser 依赖、又能修复 eval 路
 如果需要修复这个 eval+宏的问题，方向是：宏展开后清理 `var_vocab`/`var_type` 中不再被任何 AST 节点引用的 `GLOBAL_FREE` 条目，或让 `eval_build_var_mapping` 跳过未被实际引用的残留条目。这超出了本次批准的范围，您确认后我可以另行处理。
 
 
-
-
-
 ---------------------
 
+2026-07-24
+
+OK，开始修复eval+宏的问题，新增的测试用例写入 @test/test_mec.scm 。除此之外，检查 @test/test_mec.scm 中的用例“7. 宿主宏展开为 System.eval 调用”是否存在问题，如果有问题，则修复之。
+
+
+
+## 本次修复总结
+
+### 1. eval + 宏的修复（两处根因，缺一不可）
+
+**根因一：残留 vocab 条目**（`src/native_System.c`）
+宏关键字等标识符在 parse 阶段就被注册进 `var_vocab`（`GLOBAL_FREE` 类型），宏展开消除了它们的所有使用点，但 vocab 条目残留。`eval_build_var_mapping` 遍历整个 vocab，遇到无法在宿主 `var_top` 中解析的 `GLOBAL_FREE` 即报错中止。
+修复：新增 `eval_var_is_referenced`（从顶层节点做可达性遍历，而非遍历只增的 nodes 堆——旧节点仍留在堆中），在报错前判断该变量是否仍被活 AST 引用；未被引用的残留条目跳过，真正未定义且被引用的变量（如 `test_eval.scm` 的 `z`）依旧正常报错。
+
+**根因二：死 lambda 被编译**（`src/macro.c`）
+`macro_rebuild_lambda_handles` 原来用 `am_heap_iter` 扫描整个 nodes 堆重建 `lambda_handles`，把宏展开替换掉的**旧 lambda 死节点**也收了进去；`am_compile_all` 编译其中每一个 lambda，产生的死 IL 引用了已消除的变量（如 `my-if3`），导致 eval 的 IL varid 重映射失败。
+修复：改为从顶层节点做可达性遍历收集（同一节点去重），死 lambda 不再进入编译。副作用是主流程的 IL/dump 也不再包含死代码（test_mec 的 ilcode 从 148 条降至 131 条）。
+
+### 2. 测试用例 7 的问题
+
+确认存在问题：原用例定义了宏 `eval-code`（展开为 `System.eval` 调用）却从未调用它，实际直接调用了 `System.eval`，名不副实。已改为 `(eval-code "...")`，真正走"宿主宏展开为 eval 调用"的路径。
+
+### 3. 新增测试（`test/test_mec.scm` T11–T15，全部 PASS）
+
+- **T11**：eval 内定义并使用 `syntax-rules` 宏
+- **T12**：eval 内定义宏但从不使用（原最小复现：残留条目导致 eval 直接失败）
+- **T13**：eval 内宏展开产生尾位置调用，100 万层尾递归不爆栈（同时覆盖本次两项修复与之前的尾位置分析修复）
+- **T14**：eval 内使用 `let-syntax`
+- **T15**：eval 内宏模板引用宿主顶级变量
+
+改动文件：`src/native_System.c`、`src/macro.c`、`test/test_mec.scm`。
 
 ---------------------
 

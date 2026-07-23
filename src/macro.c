@@ -1904,23 +1904,29 @@ static am_value_t macro_expand_value(am_macro_expand_ctx_t *ctx, am_value_t valu
 // 展开后元数据刷新
 // ===============================================================================
 
-typedef struct {
-    am_ast_t *ast;
-} macro_lambda_collect_t;
-
-
-static void macro_collect_lambda_cb(am_handle_t handle, am_value_t value, void *user_data) {
-    macro_lambda_collect_t *data = (macro_lambda_collect_t *)user_data;
-    if (!am_value_is_ptr(value)) return;
-    am_object_t *obj = am_value_to_ptr(value);
+// 从顶层节点做可达性遍历，递归收集所有 lambda 节点把柄。
+// 宏展开后 nodes 堆中仍残留被替换掉的旧节点（死节点），因此不能遍历全堆，
+// 否则死 lambda 会被重新编译进 IL，并引用已被消除的变量（如宏关键字）。
+static void macro_collect_lambda_walk(am_ast_t *ast, am_value_t item) {
+    if (!am_value_is_handle(item)) return;
+    am_handle_t handle = am_value_to_handle(item);
+    am_value_t node_val = am_ast_get_node(ast, handle);
+    if (!am_value_is_ptr(node_val)) return;
+    am_object_t *obj = am_value_to_ptr(node_val);
     if (obj->type != AM_OBJECT_TYPE_LIST) return;
     am_list_t *lst = (am_list_t *)obj;
-    if (lst->type != AM_LIST_TYPE_LAMBDA) return;
 
-    am_list_t *new_lst = am_list_push(data->ast->alloc, data->ast->lambda_handles,
-                                      am_make_value_of_handle(handle));
-    if (new_lst) {
-        data->ast->lambda_handles = new_lst;
+    if (lst->type == AM_LIST_TYPE_LAMBDA) {
+        // 同一节点可能被多处引用，避免重复登记
+        if (am_list_find(ast->alloc, ast->lambda_handles, item, 0) == SIZE_MAX) {
+            am_list_t *new_lst = am_list_push(ast->alloc, ast->lambda_handles, item);
+            if (new_lst) {
+                ast->lambda_handles = new_lst;
+            }
+        }
+    }
+    for (size_t i = 0; i < lst->length; i++) {
+        macro_collect_lambda_walk(ast, am_list_get(ast->alloc, lst, i));
     }
 }
 
@@ -1928,8 +1934,9 @@ static void macro_collect_lambda_cb(am_handle_t handle, am_value_t value, void *
 static void macro_rebuild_lambda_handles(am_ast_t *ast) {
     if (!ast || !ast->lambda_handles) return;
     ast->lambda_handles->length = 0;
-    macro_lambda_collect_t data = { ast };
-    am_heap_iter(ast->alloc, ast->alloc, ast->nodes, macro_collect_lambda_cb, &data);
+    am_handle_t top = am_ast_get_top_node_handle(ast);
+    if (top == AM_HANDLE_NULL) return;
+    macro_collect_lambda_walk(ast, am_make_value_of_handle(top));
 }
 
 
