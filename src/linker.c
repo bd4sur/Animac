@@ -13,8 +13,7 @@
 #include "list.h"
 #include "object.h"
 #include "wstring.h"
-#include "platform.h"
-#include "utils.h"
+#include "host.h"
 
 
 // 链接器处理的模块数上限

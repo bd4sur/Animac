@@ -6,7 +6,6 @@
 #include "object.h"
 #include "allocator.h"
 #include "vocab.h"
-#include "diskio.h"
 
 
 // ===============================================================================
@@ -111,7 +110,7 @@ am_vocab_t *am_vocab_copy(am_allocator_t *alloc, am_vocab_t *vocab) {
 // 注意：若buffer设为NULL，或者offset设为SIZE_MAX，则仅计算转储后的二进制序列的字节数，不实际写入buffer。
 //       将words所指向的wchar_t*宽字符串依次展平拼接，各字符串之间以L'\0'为间隔符，最后一个字符串以L'\0'结束。
 //       压缩对象，将capacity压缩到跟length一致，删除多余分配的空闲部分。
-// 磁盘格式（平台无关固定宽度，小端；详见 include/diskio.h）：
+// 磁盘格式（平台无关固定宽度，小端；详见 include/object.h）：
 //   [16B] 对象基类头（type=AM_OBJECT_TYPE_VOCAB）
 //   [uvarint] length（词条数；capacity 压缩为与 length 一致，不落盘）
 //   [length * (uvarint 码点数, 码点0..n-1 各一个 uvarint)] 词条内容

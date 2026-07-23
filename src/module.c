@@ -11,7 +11,6 @@
 #include "vocab.h"
 #include "list.h"
 #include "map.h"
-#include "diskio.h"
 
 #define MODULE_MAGIC     "BD4SURAM"
 #define MODULE_VERSION   ((uint32_t)202607u)
@@ -19,7 +18,7 @@
 // flags 位定义：目前格式固定为小端序（bit0=0），其余位保留
 #define MODULE_FLAGS_LITTLE_ENDIAN ((uint32_t)0u)
 
-// 模块磁盘格式（平台无关固定宽度，小端；详见 include/diskio.h）。
+// 模块磁盘格式（平台无关固定宽度，小端；详见 include/object.h）。
 // 头部为以下定宽字段的顺序拼接（所有多字节整数小端），总长 104 字节：
 //   [8]  magic "BD4SURAM"
 //   [u32] version

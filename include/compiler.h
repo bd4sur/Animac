@@ -10,12 +10,11 @@ extern "C" {
 
 #include "ast.h"
 #include "object.h"
-#include "opcode.h"
 
 
 // 单条IL指令
 typedef struct am_instruction_t {
-    uint32_t opcode;    // 指令代码：在 @include/opcode.h 中定义的AM_VM_OP_*
+    uint32_t opcode;    // 指令代码：在 @include/ast.h 中定义的AM_VM_OP_*
     am_value_t operand;  // 操作数：统一为TPV，不同的指令有不同的具体类型要求。无参数则设为AM_VALUE_UNDEFINED。
 } am_instruction_t;
 

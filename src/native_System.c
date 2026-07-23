@@ -15,7 +15,7 @@
 #include "module.h"
 #include "heap.h"
 #include "ast.h"
-#include "utils.h"
+#include "host.h"
 
 
 // 前向声明：System.eval 的辅助函数，供 System.exec 复用

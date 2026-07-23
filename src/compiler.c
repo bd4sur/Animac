@@ -5,7 +5,6 @@
 #include <wchar.h>
 
 #include "object.h"
-#include "opcode.h"
 #include "ast.h"
 #include "list.h"
 #include "map.h"

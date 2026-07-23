@@ -7,7 +7,6 @@
 #include "list.h"
 #include "wstring.h"
 #include "heap.h"
-#include "diskio.h"
 
 // 全局把柄计数器，保证同一进程内不同 AST 堆的把柄不冲突。
 // 后续若需要严格的进程隔离，可将此计数器移入 am_heap_t 并通过模块 ID 哈希生成前缀。
@@ -199,7 +198,7 @@ static int am_heap_entry_compare(const void *a, const void *b) {
 // 实现说明：offset是写入buffer的起点offset。成功则返回向buffer新增字节数，失败则返回SIZE_MAX。
 // 注意：若buffer设为NULL，或者offset设为SIZE_MAX，则仅计算转储后的二进制序列的字节数，不实际写入buffer。
 //       压缩底层map对象，将table和metadata的capacity压缩到跟length一致，删除多余分配的空闲部分。
-// 磁盘格式（平台无关固定宽度，小端；详见 include/diskio.h）：
+// 磁盘格式（平台无关固定宽度，小端；详见 include/object.h）：
 //   [uvarint] handle_counter
 //   [uvarint] table_dump_size
 //   [table_dump_size bytes] table 的 map 转储

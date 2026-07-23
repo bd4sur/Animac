@@ -8,7 +8,6 @@ extern "C" {
 #include <stdint.h>
 #include <wchar.h>
 #include "ast.h"
-#include "opcode.h"
 
 
 

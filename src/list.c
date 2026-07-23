@@ -5,7 +5,6 @@
 #include "allocator.h"
 #include "map.h"
 #include "list.h"
-#include "diskio.h"
 
 
 // ===============================================================================
@@ -136,7 +135,7 @@ void am_list_iter(am_allocator_t *alloc, am_list_t *lst, am_list_iter_callback_t
 // 实现说明：offset是写入buffer的起点offset。成功则返回向buffer新增字节数，失败则返回SIZE_MAX。
 // 注意：若buffer设为NULL，或者offset设为SIZE_MAX，则仅计算转储后的二进制序列的字节数，不实际写入buffer。
 //       压缩对象，将capacity压缩到跟length一致，删除多余分配的空闲部分。
-// 磁盘格式（平台无关固定宽度，小端；详见 include/diskio.h）：
+// 磁盘格式（平台无关固定宽度，小端；详见 include/object.h）：
 //   [16B] 对象基类头（type=AM_OBJECT_TYPE_LIST）
 //   [uvarint] length（capacity 压缩为与 length 一致，不落盘）
 //   [uvarint] List 子类型（AM_LIST_TYPE_*）

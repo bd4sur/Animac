@@ -5,7 +5,7 @@
 #include <locale.h>
 #include <assert.h>
 
-#include "utils.h"
+#include "host.h"
 #include "parser.h"
 #include "linker.h"
 #include "compiler.h"

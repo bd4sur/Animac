@@ -13,7 +13,6 @@
 #include "vocab.h"
 #include "heap.h"
 #include "ast.h"
-#include "opcode.h"
 #include "scope.h"
 #include "parser.h"
 #include "macro.h"

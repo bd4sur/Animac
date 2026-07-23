@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "utils.h"
+#include "host.h"
 #include "parser.h"
 #include "compiler.h"
 #include "module.h"

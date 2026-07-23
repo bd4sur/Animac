@@ -1,12 +1,116 @@
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
-#include "utils.h"
+#include <Arduino.h>
+#include <SD.h>
 
+#include "host.h"
+
+// 短时睡眠（毫秒）
+void am_sleep_in_ms(uint64_t ms) {
+    delay(ms);
+}
+
+// 获取当前时间戳（毫秒）。优先使用 POSIX clock_gettime，失败则回退到 time()。
+uint64_t am_current_timestamp_in_ms() {
+    struct timespec ts;
+    if (clock_gettime(CLOCK_REALTIME, &ts) == 0) {
+        return (uint64_t)ts.tv_sec * 1000 + (uint64_t)ts.tv_nsec / 1000000;
+    }
+    return (uint64_t)time(NULL) * 1000;
+}
+
+// 读取文件内容（UTF-8），并转换为 wchar_t* 字符串
+// 成功时返回动态分配的 wchar_t*（以 L'\0' 结尾），失败返回 NULL。调用者需用 free() 释放返回值。
+wchar_t* am_read_file_to_wchar(char* filename) {
+    if (!filename) return NULL;
+
+    // 从 SD 卡打开文件（二进制读取，与 main.cpp 中 .load 逻辑一致）
+    File f = SD.open(filename, FILE_READ);
+    if (!f) {
+        return NULL;
+    }
+
+    size_t size = f.size();
+    if (size == 0) {
+        f.close();
+        wchar_t* empty = (wchar_t*)calloc(1, sizeof(wchar_t));
+        if (empty) *empty = L'\0';
+        return empty;
+    }
+
+    // 读取全部内容到 char 缓冲区（+1 保证可加 '\0'）
+    char* buffer = (char*)calloc(size + 1, sizeof(char));
+    if (!buffer) {
+        f.close();
+        return NULL;
+    }
+
+    size_t bytes_read = 0;
+    char chunk[256];
+    while (bytes_read < size) {
+        size_t to_read = sizeof(chunk);
+        if (size - bytes_read < to_read) {
+            to_read = size - bytes_read;
+        }
+        int n = f.read((uint8_t*)chunk, to_read);
+        if (n <= 0) break;
+        memcpy(buffer + bytes_read, chunk, n);
+        bytes_read += n;
+    }
+    f.close();
+
+    if (bytes_read != size) {
+        free(buffer);
+        return NULL;
+    }
+    buffer[size] = '\0'; // 确保以 null 结尾（UTF-8 是 null-safe 的）
+
+    // 计算所需 wchar_t 数量
+    size_t wlen = size;
+
+    // 分配 wchar_t 缓冲区
+    wchar_t* wstr = (wchar_t*)calloc((wlen + 1), sizeof(wchar_t));
+    if (!wstr) {
+        free(buffer);
+        return NULL;
+    }
+
+    // 执行实际转换（length 为 buffer 中实际字节数，不含结尾额外 \0）
+    (void)am_mbstowcs(wstr, buffer, size);
+    free(buffer);
+
+    return wstr; // 调用者负责 free()
+}
+
+
+// 从 Linux 格式的文件路径中提取文件所在目录的绝对路径
+// 即最后一个 '/' 之前的内容，不包含末尾的 '/'
+// 返回值：动态分配的字符串，调用者需 free()；失败或路径不含 '/' 时返回 NULL
+char* am_path_dirname(const char *path) {
+    if (!path) return NULL;
+
+    const char *last_slash = strrchr(path, '/');
+    if (!last_slash) return NULL;
+
+    size_t len = (size_t)(last_slash - path);
+    char *dir = (char *)malloc(len + 1);
+    if (!dir) return NULL;
+
+    memcpy(dir, path, len);
+    dir[len] = '\0';
+    return dir;
+}
+
+
+// ===============================================================================
+// 字符编码相关
+// ===============================================================================
 
 // 将 UTF-32 码点（wchar_t）数组转换为 UTF-8 字符串
-// 注意：此函数假设 wchar_t 为 32 位（即 UTF-32），符合 ESP32 的配置（通常 -fshort-wchar 未启用）
+// 注意：此函数假设 wchar_t 为 32 位（即 UTF-32）
 uint32_t am_wcstombs(char *dest, const wchar_t *src, uint32_t dest_size) {
     const wchar_t *p = src;
     char *q = dest;
@@ -107,23 +211,4 @@ invalid:
     else out++;
     if (dest) *out = (wchar_t)0;  // 仍然保证 null-terminated
     return (uint32_t)(out - dest); // 返回包含 '?' 的字符数
-}
-
-
-// 从 Linux 格式的文件路径中提取文件所在目录的绝对路径
-// 即最后一个 '/' 之前的内容，不包含末尾的 '/'
-// 返回值：动态分配的字符串，调用者需 free()；失败或路径不含 '/' 时返回 NULL
-char* am_path_dirname(const char *path) {
-    if (!path) return NULL;
-
-    const char *last_slash = strrchr(path, '/');
-    if (!last_slash) return NULL;
-
-    size_t len = (size_t)(last_slash - path);
-    char *dir = (char *)malloc(len + 1);
-    if (!dir) return NULL;
-
-    memcpy(dir, path, len);
-    dir[len] = '\0';
-    return dir;
 }
