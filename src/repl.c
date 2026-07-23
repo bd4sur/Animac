@@ -6,6 +6,7 @@
 #include <limits.h>
 
 #include "repl.h"
+#include "host.h"
 #include "linker.h"
 #include "debug.h"
 #include "js2scm.h"
@@ -366,7 +367,7 @@ static int32_t repl_eval_session(am_repl_ctx_t *ctx, const wchar_t *session_code
         return -1;
     }
 
-    am_ast_t *linked = am_link(ast, (wchar_t *)base_dir);
+    am_ast_t *linked = am_link(ast, (wchar_t *)base_dir, am_host_read_source_from_file, NULL);
     if (!linked) {
         am_ast_destroy(ast);
         am_free(ctx->vm_alloc, path_buf);
@@ -400,7 +401,7 @@ static am_module_t *repl_create_initial_module(am_repl_ctx_t *ctx) {
         return NULL;
     }
 
-    am_ast_t *linked = am_link(ast, (wchar_t *)base_dir);
+    am_ast_t *linked = am_link(ast, (wchar_t *)base_dir, am_host_read_source_from_file, NULL);
     if (!linked) {
         am_ast_destroy(ast);
         am_free(ctx->vm_alloc, path_buf);

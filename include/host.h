@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <wchar.h>
 
+#include "allocator.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -17,6 +19,13 @@ uint64_t am_current_timestamp_in_ms();
 // 读取文件内容（UTF-8），并转换为 wchar_t* 字符串
 // 成功时返回动态分配的 wchar_t*（以 L'\0' 结尾），失败返回 NULL。调用者需用 free() 释放返回值。
 wchar_t* am_read_file_to_wchar(char* filename);
+
+// 链接器模块源码读取回调（am_linker_read_source_fn）的宿主侧默认实现：文件系统版。
+// 将宽字符绝对路径转换为 UTF-8 后读取文件内容，并用 alloc 分配返回的源码字符串，
+// 使读取到的代码纳入 allocator 管理（由链接器用 am_free 释放）。
+// user_data 未使用，调用 am_link 时可传 NULL。
+// 成功返回以 L'\0' 结尾的源码字符串；失败返回 NULL。
+wchar_t *am_host_read_source_from_file(am_allocator_t *alloc, const wchar_t *abs_path, void *user_data);
 
 // 从 Linux 格式的文件路径中提取文件所在目录的绝对路径
 // 即最后一个 '/' 之前的内容，不包含末尾的 '/'

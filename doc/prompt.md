@@ -6481,8 +6481,6 @@ OK，按照轻量的AST 级快速路径预检思路开始优化。注意使变�
 - linker_resolve_path 和 am_path_dirname 是什么关系？
 - 增加上帝头文件animac.h，debug.h在其上
 
-链接器需要递归地从文件系统中读取新的源码文件，但是我不想在解释器的核心中包含任何与文件系统这种与宿主有关的东西，比如调用一个叫read_file_from_fs的函数，即便这个函数已经被封装和抽象到核心外部了。我应该怎么做？把它做成回调？
-
 ---------------------
 
 # 2026-07-23
@@ -6607,6 +6605,66 @@ OK，开始修复eval+宏的问题，新增的测试用例写入 @test/test_mec.
 
 ---------------------
 
+# 2026-07-24
+
+开始编码前，请先阅读 @doc/AGENTS.md 。
+
+本项目是一个完整的非标准Scheme解释器，采取编译器+中间语言VM架构。在 @src/linker.c 中，实现了模块链接器，其功能是根据AST中的(import ...)语句的指示，递归地从文件系统中读取被导入的代码文件（importee），构建依赖DAG并合并AST。然而，当前实现依赖于宿主提供的字符串转换、文件系统读取等函数（在 @include/host.h 中声明），使得解释器核心依赖了宿主相关的API，这有违抽象原则。因此，我希望你将 linker_read_file 这类涉及从宿主环境中获取代码内容（不限于通过文件系统）的函数调用，改造成回调函数参数，由调用方传入，以消除 linker 模块对 host 的依赖，实现依赖倒置。
+
+请先评估我给出的需求和方案是否合理，是否有需要我澄清的问题，先给出你的思路、判断、问题，然后问我是否继续。得到我的批准之后，你才能开始编写代码实现需求。
+
+
+
+
+我已阅读 `doc/AGENTS.md`、`src/linker.c`、`include/host.h` 及全部 `am_link` 调用点。以下是我的评估、思路和需要澄清的问题。
+
+## 需求与方案评估
+
+**需求合理，方向正确。** 现状确实违反了分层原则：
+
+- `linker.c` 第 16 行 `#include "host.h"`，且 `linker_read_file`（第 51–61 行）同时调用了两个宿主 API：`am_wcstombs`（宽→多字节路径转换）和 `am_read_file_to_wchar`（文件系统读取）。
+- 链接器的本职是「依赖图构建 + AST 合并」，「代码内容从哪来」属于宿主关注点。改成回调注入后，linker 可以服务於无文件系统场景（ESP32 flash、浏览器 IndexedDB、内存内模块表等），与 AGENTS.md 中提到的 AOT/无文件系统方向也一致。
+
+**依赖面比您描述的略大一点**：不仅是文件读取，`am_wcstombs` 也仅在 `linker_read_file` 中使用。回调化之后，「宽字符路径 → 宿主可理解的路径」这一转换责任自然移交宿主侧，linker.c 可整体去掉对 host.h 的 include，这是本次改造能达成的干净边界。
+
+## 实现思路
+
+1. 在 `linker.h` 中定义回调类型，例如：
+   ```c
+   typedef wchar_t *(*am_linker_read_source_fn)(const wchar_t *abs_path, void *user_data);
+   ```
+   契约：输入为 linker 已解析好的**绝对路径**（宽字符）；成功返回动态分配的源码字符串，失败返回 NULL。
+2. `am_link` 签名扩展为 `am_link(main_ast, base_dir, read_source_fn, user_data)`；回调存入 `am_linker_ctx_t`，`import_analysis` 中直接调用回调，删除 `linker_read_file` 与 `#include "host.h"`。
+3. 更新全部 4 个调用点：`main.c:171`、`repl.c:369`、`repl.c:403`、`native_System.c:718`。
+
+## 需要您澄清的问题
+
+**Q1 — 内存释放契约**：目前 `linker_read_file` 返回的缓冲区由宿主用 `malloc` 分配、linker 用裸 `free()` 释放（`linker.c:261,270`）。回调化后有两种选择：
+- (a) 维持现状：约定回调返回的缓冲区必须可用 `free()` 释放，linker 负责释放（简单，但 linker 与回调之间存在隐式的分配器配对约定）；
+- (b) 回调改用传入的 `am_allocator_t` 分配，linker 用 `am_free` 释放（契约更显式，与项目 allocator 体系一致，但回调签名多一个参数）。
+
+**Q2 — 宿主侧适配器放哪**：4 个调用点需要的逻辑完全相同（wcstombs 转换 + `am_read_file_to_wchar`）。我建议在 `host.c`/`host.h` 中提供一个现成的适配函数（如 `am_host_read_source_as_wchar`），各调用点直接把它作为回调传入 `am_link`，避免四份重复代码。是否同意？
+
+**Q3 — 是否接受签名 breaking change**：直接修改 `am_link` 签名并更新全部调用点（推荐，彻底消除依赖）；不保留旧签名的兼容包装——因为兼容包装必须写在 linker.c 里，那会重新引入 host 依赖，违背本次目的。
+
+**顺带一提**（不在本次范围，仅提示）：`linker.c:147` 有一处 `printf("Importee absolute path = ...")` 调试输出，这也是隐式的宿主 I/O 依赖。本次不动它，您后续可考虑改为日志回调或删除。
+
+请回答 Q1（a 或 b）、Q2、Q3，并确认是否开始编码。
+
+
+
+
+我的答复：
+
+Q1：内存释放契约：选择方案b，目的是让读取到的代码也纳入allocator管理。
+
+Q2：宿主侧适配器放哪：同意在`host.c`/`host.h` 中提供一个现成的适配函数。
+
+Q3：接受签名 breaking change。
+
+补充：`printf("Importee absolute path = ...")`注释掉，不要删。
+
+开始实施。
 
 ---------------------
 

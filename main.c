@@ -168,7 +168,7 @@ static void test_runtime_load_from_wstring(wchar_t *code, char *path) {
     // printf("\033[1m=== 语法高亮输出 ===\033[0m\n");
     // am_print_highlighted(code, ast->tokens, ast->token_count);
 
-    am_ast_t *linked = am_link(ast, base_dir_w);
+    am_ast_t *linked = am_link(ast, base_dir_w, am_host_read_source_from_file, NULL);
     assert(linked != NULL);
 
     // printf("=== AST ===\n");

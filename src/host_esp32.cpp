@@ -86,6 +86,35 @@ wchar_t* am_read_file_to_wchar(char* filename) {
 }
 
 
+// 链接器模块源码读取回调的宿主侧默认实现（文件系统版）。
+// 将宽字符绝对路径转为 UTF-8 路径后读取文件内容，再用 alloc 分配并返回源码字符串。
+wchar_t *am_host_read_source_from_file(am_allocator_t *alloc, const wchar_t *abs_path, void *user_data) {
+    (void)user_data;
+    if (!alloc || !abs_path) return NULL;
+
+    // UTF-8 最坏情况每个码点 4 字节
+    size_t buf_size = wcslen(abs_path) * 4 + 1;
+    char *mb_path = (char *)am_malloc(alloc, buf_size);
+    if (!mb_path) return NULL;
+    am_wcstombs(mb_path, abs_path, (uint32_t)buf_size);
+
+    wchar_t *raw = am_read_file_to_wchar(mb_path);
+    am_free(alloc, mb_path);
+    if (!raw) return NULL;
+
+    // am_read_file_to_wchar 返回的缓冲区由 free() 管理，此处拷贝一份纳入 allocator 管理
+    size_t len = wcslen(raw);
+    wchar_t *code = (wchar_t *)am_malloc(alloc, (len + 1) * sizeof(wchar_t));
+    if (!code) {
+        free(raw);
+        return NULL;
+    }
+    wcscpy(code, raw);
+    free(raw);
+    return code;
+}
+
+
 // 从 Linux 格式的文件路径中提取文件所在目录的绝对路径
 // 即最后一个 '/' 之前的内容，不包含末尾的 '/'
 // 返回值：动态分配的字符串，调用者需 free()；失败或路径不含 '/' 时返回 NULL

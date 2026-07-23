@@ -715,7 +715,7 @@ int32_t am_native_System_exec(am_runtime_t *rt, am_process_t *proc) {
     am_ast_t *ast = am_parse(proc->vm_alloc, wrapped_code, path_buf, 0);
     if (!ast) goto fail;
 
-    am_ast_t *linked = am_link(ast, rt->working_dir);
+    am_ast_t *linked = am_link(ast, rt->working_dir, am_host_read_source_from_file, NULL);
     if (!linked) {
         am_ast_destroy(ast);
         goto fail;

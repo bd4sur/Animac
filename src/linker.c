@@ -13,7 +13,6 @@
 #include "list.h"
 #include "object.h"
 #include "wstring.h"
-#include "host.h"
 
 
 // 链接器处理的模块数上限
@@ -32,6 +31,8 @@ struct am_linker_ctx_t {
     size_t edge_num;                 // 当前边数
     size_t module_counter;           // 当前模块数
     wchar_t *base_dir;               // 基准工作目录
+    am_linker_read_source_fn read_source;  // 模块源码读取回调（由调用方注入）
+    void *read_source_user_data;     // 透传给 read_source 的上下文指针
 };
 
 
@@ -43,21 +44,6 @@ static wchar_t *linker_wcsdup(am_allocator_t *alloc, const wchar_t *s) {
     if (!dup) return NULL;
     wcscpy(dup, s);
     return dup;
-}
-
-
-// 将 UTF-32 宽字符路径转换为多字节路径后读取文件内容。
-// 返回 am_read_file_to_wchar 分配的 wchar_t* 源码字符串（调用者仍需用 free 释放）；失败返回 NULL。
-static wchar_t *linker_read_file(am_allocator_t *alloc, const wchar_t *path) {
-    // UTF-8 最坏情况每个码点 4 字节
-    size_t buf_size = wcslen(path) * 4 + 1;
-    char *mb_path = (char *)am_malloc(alloc, buf_size);
-    if (!mb_path) return NULL;
-    am_wcstombs(mb_path, path, (uint32_t)buf_size);
-
-    wchar_t *code = am_read_file_to_wchar(mb_path);
-    am_free(alloc, mb_path);
-    return code;
 }
 
 
@@ -144,7 +130,7 @@ static void import_analysis_dep_iter_cb(am_value_t key, am_value_t value, void *
         return;
     }
 
-    printf("Importee absolute path = %ls\n", abs_dep_path);
+    // printf("Importee absolute path = %ls\n", abs_dep_path);
 
     int32_t res = import_analysis(it->ctx, abs_dep_path, it->current_module_index);
     am_free(it->ctx->alloc, abs_dep_path);
@@ -155,8 +141,9 @@ static void import_analysis_dep_iter_cb(am_value_t key, am_value_t value, void *
 
 
 // 创建链接器上下文。成功返回指针；失败返回 NULL。
-static am_linker_ctx_t *linker_ctx_create(am_allocator_t *alloc, am_ast_t *main_ast, wchar_t *base_dir) {
-    if (!alloc || !main_ast) return NULL;
+static am_linker_ctx_t *linker_ctx_create(am_allocator_t *alloc, am_ast_t *main_ast, wchar_t *base_dir,
+                                          am_linker_read_source_fn read_source, void *user_data) {
+    if (!alloc || !main_ast || !read_source) return NULL;
 
     am_linker_ctx_t *ctx = (am_linker_ctx_t *)am_malloc(alloc, sizeof(am_linker_ctx_t));
     if (!ctx) return NULL;
@@ -164,6 +151,8 @@ static am_linker_ctx_t *linker_ctx_create(am_allocator_t *alloc, am_ast_t *main_
     ctx->alloc = alloc;
     ctx->main_ast = main_ast;
     ctx->base_dir = base_dir;
+    ctx->read_source = read_source;
+    ctx->read_source_user_data = user_data;
     ctx->edge_num = 0;
     ctx->module_counter = 0;
 
@@ -242,7 +231,8 @@ static int32_t import_analysis(am_linker_ctx_t *ctx, wchar_t *importee_path, siz
             wchar_t *path_copy = linker_wcsdup(ctx->alloc, importee_path);
             if (!path_copy) return -1;
 
-            wchar_t *raw_code = linker_read_file(ctx->alloc, importee_path);
+            // 通过调用方注入的回调获取模块源码（缓冲区由 ctx->alloc 分配）
+            wchar_t *raw_code = ctx->read_source(ctx->alloc, importee_path, ctx->read_source_user_data);
             if (!raw_code) {
                 am_free(ctx->alloc, path_copy);
                 return -1;
@@ -258,7 +248,7 @@ static int32_t import_analysis(am_linker_ctx_t *ctx, wchar_t *importee_path, siz
 
             wchar_t *code = (wchar_t *)am_malloc(ctx->alloc, (code_len + 1) * sizeof(wchar_t));
             if (!code) {
-                free(raw_code);
+                am_free(ctx->alloc, raw_code);
                 am_free(ctx->alloc, path_copy);
                 return -1;
             }
@@ -267,7 +257,7 @@ static int32_t import_analysis(am_linker_ctx_t *ctx, wchar_t *importee_path, siz
             for (size_t i = 0; i < raw_len; i++) code[pos++] = raw_code[i];
             for (size_t i = 0; i < suffix_len; i++) code[pos++] = suffix[i];
             code[pos] = L'\0';
-            free(raw_code);
+            am_free(ctx->alloc, raw_code);
 
             current_ast = am_parse(ctx->alloc, code, path_copy, 0);
             if (!current_ast) {
@@ -627,12 +617,15 @@ static int32_t linker_mark_all_nodes_static(am_ast_t *ast) {
 // ===============================================================================
 
 // 功能描述：链接器入口。从 main_ast 出发，递归解析所有依赖模块，按拓扑顺序合并成一个大 AST。
-// 参数说明：main_ast 为引用根模块的 AST；base_dir 为基准工作目录（用于解析相对路径 import）。
+// 参数说明：main_ast 为引用根模块的 AST；base_dir 为基准工作目录（用于解析相对路径 import）；
+//          read_source 为模块源码读取回调（不可为 NULL）；user_data 透传给 read_source。
 // 返回值：  成功返回链接后的 AST（即基于 main_ast 修改后的 AST）；失败返回 NULL。
-am_ast_t *am_link(am_ast_t *main_ast, wchar_t *base_dir) {
-    if (!main_ast || !main_ast->alloc || !main_ast->absolute_path) return NULL;
+am_ast_t *am_link(am_ast_t *main_ast, wchar_t *base_dir,
+                  am_linker_read_source_fn read_source, void *user_data) {
+    if (!main_ast || !main_ast->alloc || !main_ast->absolute_path || !read_source) return NULL;
 
-    am_linker_ctx_t *ctx = linker_ctx_create(main_ast->alloc, main_ast, base_dir);
+    am_linker_ctx_t *ctx = linker_ctx_create(main_ast->alloc, main_ast, base_dir,
+                                             read_source, user_data);
     if (!ctx) return NULL;
 
     // 递归解析所有依赖模块

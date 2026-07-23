@@ -41,6 +41,7 @@ Animac（灵机）是一款Scheme解释器，支持Scheme语言的子集和某�
   - 将模块绝对路径中的斜杠替换为点、空白字符替换成下划线、冒号去掉。
   - 去掉第一个点；若文件名有.scm后缀则去掉
   - 例如："/home/a/b.scm" -> home.a.b
+- 链接器（src/linker.c）不直接依赖宿主API获取模块源码（依赖倒置）：调用方通过 `am_link` 的引数注入 `am_linker_read_source_fn` 回调（见 include/linker.h），回调用传入的 allocator 分配返回的源码缓冲区（由链接器用 am_free 释放）。宿主侧的文件系统默认实现为 `am_host_read_source_from_file`（include/host.h，src/host.c 与 src/host_esp32.cpp 各有一份实现）。
 
 symbol是以其字面为ID的，相同拼写的symbol，无论在哪个上下文中都是同一个符号。因此AST合并时，字符串相同的symbol，就是同一个symbol。这与variable截然不同。
 
