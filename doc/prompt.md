@@ -841,7 +841,7 @@ int32_t am_linker_import_ref_resolution(am_ast_t *merged_ast, wchar_t *base_dir)
 
 开始编码前，请先阅读 @doc/AGENTS.md 。
 
-为实现模块链接器中的依赖DAG的拓扑排序，请你在 @src/linker.c 中实现一个对DAG进行拓扑排序的函数。成功返回排序后的列表（由调用者释放），失败返回SIZE_MAX。参数DAG的格式是{{出节点index, 入节点index}, ...}
+为实现模块链接器中的依赖DAG的拓扑排序，请你在 @src/linker.c 中实现一个对DAG进行拓扑排序的函数。成功返回排序后的列表（由调用者释放），失败返回SIZE_MAX。参数DAG的格式是{ {出节点index, 入节点index}, ...}
 
 函数原型为：
 
@@ -1026,7 +1026,7 @@ dump之后的buffer: [(uint64_t)1266, (uint64_t)650, (heap){H1: 766, H2: 666, H3
 ```
 // 单条IL指令
 typedef struct am_instruction_t {
-    uint32_t opcode;    // 指令代码：在 @include/opcode.h 中定义的AM_VM_OP_*
+    uint32_t opcode;    // 指令代码：在 @include/opcode.h 中定义的AM_VM_OP_*（2026-07-23补充：@include/opcode.h 已合并入 @include/ast.h）
     am_value_t operand;  // 操作数：统一为TPV，不同的指令有不同的具体类型要求。无参数则设为AM_VALUE_UNDEFINED。
 } am_instruction_t;
 
@@ -2014,7 +2014,7 @@ for t in test_closure test_map test_ast test_parser test_linker test_wstring tes
 
 开始编码前，请先阅读 @doc/AGENTS.md 。
 
-本项目是一个C语言实现的Scheme解释器，采用编译器+中间语言VM架构。中间语言运行时VM的实现主要位于 @src/runtime.c ，其中 op_* 开头的函数是所有VM指令的具体实现。完整的opcode定义位于 @include/opcode.h 。请你检查 @src/runtime.c 中是否还有 @include/opcode.h 中定义了但是没有实现的指令。如果有，则参照其他指令的实现方式，并参考既有TS实现 @typescript/src/Runtime.ts 新增实现。不要改动已有的其他指令的实现。同时，根据实际情况，修改指令译码函数 am_runtime_op_dispatch 。
+本项目是一个C语言实现的Scheme解释器，采用编译器+中间语言VM架构。中间语言运行时VM的实现主要位于 @src/runtime.c ，其中 op_* 开头的函数是所有VM指令的具体实现。（2026-07-23补充：@include/opcode.h 已合并入 @include/ast.h）完整的opcode定义位于 @include/opcode.h 。请你检查 @src/runtime.c 中是否还有 @include/opcode.h 中定义了但是没有实现的指令。如果有，则参照其他指令的实现方式，并参考既有TS实现 @typescript/src/Runtime.ts 新增实现。不要改动已有的其他指令的实现。同时，根据实际情况，修改指令译码函数 am_runtime_op_dispatch 。
 
 请你实现上述需求，并参照 @test/test_runtime.c 另写一个文件，对新引入的指令进行测试。你可以使用WSL进行编译构建和测试。
 
@@ -2209,7 +2209,7 @@ int32_t am_runtime_check_native_ref(am_runtime_t *rt, am_process_t *proc, am_val
 
 现在请你重新阅读仓库最新代码，基于已有的本地宿主库调用分派机制，实现Native数学库。要求如下：
 
-- 需要你实现的函数列表，位于 @src/native.c 的 am_nlib_Math_funcs 中。这些函数的签名也在 @include/native.h 中声明。
+- 需要你实现的函数列表，位于 @src/native.c 的 am_nlib_Math_funcs 中。这些函数的签名也在 @include/native.h 中声明。（2026-07-23补充：@include/native.h 已合并入 @include/runtime.h）
 - 你可以参照 @typescript/lib/Math.js 中的实现，编写C语言版本的代码。仅限使用C标准库函数。
 - 所有的数值都视为float（细致的类型区分是后面的待办事项）。
 - 注意错误处理、函数的arity、以及对于特殊边界情况的处理（可以复用标准库提供的机制，注意利用Animac既有的undefined、null等特殊值。如果是NaN，则暂且返回null。）
@@ -2220,7 +2220,7 @@ int32_t am_runtime_check_native_ref(am_runtime_t *rt, am_process_t *proc, am_val
 
 # 2026-06-28
 
-重构需求：现有的Math本地库函数，am_native_Math_*，都在 @src/native.c 中实现，这很混乱。我要求你将所有的 am_native_Math_* 声明移到 @include/native_Math.h ，将所有的 am_native_Math_* 实现（含两个辅助函数 native_pop_number 和 native_push_result ）移到 @src/native_Math.c 中。am_native_System_* 不要动。另外，将 am_nlib_Math_funcs 注册表的内容放到 native_Math 中。重构后， @src/native.c 和 @include/native.h 只实现与本地库函数分派相关的逻辑，具体实现都在 native_XXX.c/h 中。
+重构需求：现有的Math本地库函数，am_native_Math_*，都在 @src/native.c 中实现，这很混乱。我要求你将所有的 am_native_Math_* 声明移到 @include/native_Math.h ，将所有的 am_native_Math_* 实现（含两个辅助函数 native_pop_number 和 native_push_result ）移到 @src/native_Math.c 中。am_native_System_* 不要动。另外，将 am_nlib_Math_funcs 注册表的内容放到 native_Math 中。重构后， @src/native.c 和 @include/native.h 只实现与本地库函数分派相关的逻辑，具体实现都在 native_XXX.c/h 中。（2026-07-23补充：@include/native.h 已合并入 @include/runtime.h）
 
 无需编写新的测试，也不要修改已有的测试。保证 test_runtime 正确即可，因为这是全流程的测试。你可以使用WSL进行编译构建和测试。
 
@@ -4243,7 +4243,7 @@ System.eval 的内存泄漏修复已经完成并验证通过。
 
 ## 修改内容
 
-1. **新增 `AM_VM_OP_evalcleanup` 操作码**（`include/opcode.h`、`src/debug.c`）
+1. **新增 `AM_VM_OP_evalcleanup` 操作码**（`include/opcode.h`、`src/debug.c`）（2026-07-23补充：@include/opcode.h 已合并入 @include/ast.h）
 2. **在 runtime 中实现清理逻辑**（`src/runtime.c`）：
    - 恢复 eval 前的操作数栈高度
    - 截断 eval 追加的 IL code
@@ -4655,6 +4655,8 @@ else if (obj->type == AM_OBJECT_TYPE_CONTINUATION) {
 | **低** |  native 函数签名表，用于精确 `callnative` 栈效应 | `native.h` / `compiler.c` |
 | **低** | 续体对象实现栈共享/切片，减少内存占用 | `continuation.c` |
 | **低** | 为每条 opcode 建立文档化的栈效应不变式 | `opcode.h` / 文档 |
+
+（2026-07-23补充：@include/opcode.h 已合并入 @include/ast.h）（2026-07-23补充：@include/native.h 已合并入 @include/runtime.h）
 
 ## 9. 结论
 
@@ -5393,6 +5395,8 @@ static int32_t compile_dynamicwind(am_compiler_ctx_t *ctx, am_handle_t handle) {
 | `src/compiler.c` | `compile_dynamicwind`、识别逻辑、栈效应 |
 | `src/native_System.c` | fork 续体重映射时处理 dw 栈快照 |
 
+（2026-07-23补充：@include/opcode.h 已合并入 @include/ast.h）
+
 ## 11. 关键实现顺序建议
 
 1. 先实现数据结构扩展与 `dynamic-wind` 正常执行路径的 4 条指令，不处理 continuation；
@@ -5659,7 +5663,7 @@ typedef struct am_continuation_t {
 
 #### 3.11 指令集裁剪
 
-`include/opcode.h`：
+（2026-07-23补充：@include/opcode.h 已合并入 @include/ast.h）`include/opcode.h`：
 
 ```c
 enum {
@@ -6382,7 +6386,7 @@ OK，按照轻量的AST 级快速路径预检思路开始优化。注意使变�
 
 ### 方案 C：运行时基础内存优化
 
-1. **池大小**：`AM_ALLOCATOR_POOL_SIZE`（main.c:53、repl.c:20）改为 MCU 预算，如 **192~256 KB**（ESP32-P4 有 PSRAM 时可放大并用 `heap_caps_malloc(MALLOC_CAP_SPIRAM)` 分配池——当前代码无任何 PSRAM 处理）。建议池分配收敛到 `platform.c` 的平台抽象里。
+1. **池大小**：`AM_ALLOCATOR_POOL_SIZE`（main.c:53、repl.c:20）改为 MCU 预算，如 **192~256 KB**（ESP32-P4 有 PSRAM 时可放大并用 `heap_caps_malloc(MALLOC_CAP_SPIRAM)` 分配池——当前代码无任何 PSRAM 处理）。建议池分配收敛到 `host.c` 的平台抽象里。
 2. **硬编码容量宏化并调小**（收益直接）：
 
 | 参数 | 现值 | 建议值 | 位置 | 节省（32 位） |
@@ -6414,7 +6418,7 @@ OK，按照轻量的AST 级快速路径预检思路开始优化。注意使变�
 ### 方案 E：ESP32 平台落地事项
 
 1. 池用 `heap_caps_malloc` 显式选择内部 SRAM 或 PSRAM；多实例时注意 `g_heap_handle_counter`（heap.c:13）等全局状态。
-2. 补全平台抽象：`am_path_dirname` 在 platform_esp32.cpp 未实现（目前链接会缺）；递归深度（parser/gc_mark/opstack DFS）与 FreeRTOS 任务栈匹配，建议 VM 任务栈 ≥ 8~16 KB。
+2. 补全平台抽象：`am_path_dirname` 在 host_esp32.cpp 未实现（目前链接会缺）；递归深度（parser/gc_mark/opstack DFS）与 FreeRTOS 任务栈匹配，建议 VM 任务栈 ≥ 8~16 KB。
 3. `wchar_t`=4B 假设成立（utils.c:9），但 wide libc 函数在 newlib 下的可用性需逐个核对（mbstowcs/wcstombs/swprintf）。
 4. 无文件系统场景：`am_read_file_to_wchar` 已支持 SD 分块读；AOT 模式下 module.bin 可放 flash 分区，配合 mmap 式加载可进一步省 RAM（ilcode 直接从 flash 执行需改寻址，可作为远期项）。
 
@@ -6458,8 +6462,118 @@ OK，按照轻量的AST 级快速路径预检思路开始优化。注意使变�
 
 ---------------------
 
+# 2026-07-23 手动实现
+
+- platform改名host
+- 取消diskio.h，放到object.h尾部
+- 取消opcode模块，全部放到ast
+- 取消native模块，全部放到runtime
+- 取消utils模块，将wcs和mbs互转放在host中
+- ast.h -> scope.h，然后去掉macro.c和parser.c的scope依赖
+- repl.c -> linker.h & parser.h 同时去掉repl.h中除了runtime.h中的其他依赖
+- macro和parser的依赖关系：唯一依赖在am_parser_tail_call_analysis，是否可去掉？
+- list.c去掉map.h，在此之前把am_value_equal移到object.h
+- heap.h -> list.h & wstring.h
+- repl.h去掉utils.h，加到utils.c中（原则是核心的头文件依赖图中不要有utils和host）
+- runtime.c去掉debug.h
+- linker_resolve_path 和 am_path_dirname 是什么关系？
+- 增加上帝头文件animac.h，debug.h在其上
+
+
+TODO Animac把设备malloc抽象出来
+TODO Amalgamation脚本→梳理依赖关系
+TODO GC在定时执行的基础上，按水位触发执行
+TODO main里路径相关的不要用am_malloc
 
 ---------------------
+
+# 2026-07-23
+
+请先阅读 @doc/AGENTS.md 。
+
+本项目是一个完整的非标准Scheme解释器，采取编译器+中间语言VM架构。请阅读项目C语言代码，回答以下问题，不要修改代码：
+
+@src/macro.c 的 am_macro_expand 函数中，最后调用的 am_parser_tail_call_analysis 这一步是否可以去掉？
+
+仅回答问题，不要修改代码。
+
+
+
+## 结论
+
+**不能无条件去掉。** 在主流程中它是冗余的，但它是运行期 `eval` 路径上唯一保证含宏代码尾调用正确性的环节。具体分析如下：
+
+### 1. 主流程中确实冗余
+
+- `tailcall_handles` 的唯一消费者是编译器（`compiler.c:85` 的 `compiler_is_tailcall`），用于决定把 application 编译成普通 `call` 还是尾调用。
+- 主流程是 `am_parse → am_link → am_compile`（`main.c:171-177`、`repl.c:369/403`、`native_System.c:718`）。而 `am_link` 在模块合并完成后（`linker.c:676`）会**无条件重新调用** `am_parser_tail_call_analysis`，且该函数开头会先清空 `tailcall_handles` 再全量重建（`parser.c:1959-1961`）。
+- 因此在这条链路上，`macro.c:2076` 的计算结果必然被 linker 覆盖，去掉不影响最终生成的 IL。
+
+### 2. 但 `eval` 路径依赖它
+
+- 运行期 `eval`（`native_System.c:1570 → 1611`）是 `am_parse` 之后**直接 `am_compile`，不经过 `am_link`**。
+- `am_parse` 自身并不执行尾位置分析（全项目只有 `linker.c:676` 和 `macro.c:2076` 两处调用）。
+- 所以对 eval 的代码而言：若其中发生了宏展开（`ctx.changed` 为真），`macro.c:2076` 这次刷新是它获得正确 `tailcall_handles` 的唯一机会。去掉后，宏展开产生/改写的尾位置调用将被编译成普通调用，尾递归失去常数栈空间保证（深层尾递归可能栈溢出）。
+
+> 顺带一提：eval 路径本身已存在不一致——**不含宏**的 eval 代码本来就没有任何尾调用标记（因为 `am_parse` 不跑该分析，`am_macro_expand` 的快速路径也直接返回）。这更像一个潜在缺陷。
+
+### 3. 为什么不能"顺手删掉"
+
+宏展开会增删 AST 节点（深拷贝模板、消除 macro-use 节点），展开前的分析结果会过期、展开新产生的尾位置节点会漏标，因此"展开后刷新"在语义上是必要的，不能简单删除。
+
+### 如果目标是解耦 macro → parser 依赖
+
+这正是 `doc/prompt.md:6474` 记录的待办（macro 对 parser 的唯一依赖就是这个函数）。合理的做法不是删掉这行调用，而是：
+
+- 把尾位置分析下沉为 AST 构建的固定环节（如把该函数移到 `ast.c`，或在 `am_parse` 末尾统一执行一次，顺带修复 eval 路径不含宏时不标记尾调用的问题），`am_link` 和宏展开后的刷新照常进行；
+- 之后 `macro.c` 即可只依赖 `ast.h`，这行调用自然改为调用 ast 模块内的函数，依赖解耦且各路径行为一致。
+
+**一句话总结**：单纯删掉这行，对 `am_link` 主流程无影响，但会让 eval 中含宏展开的代码丢失尾调用标记；要真正去掉它，应先把尾位置分析的责任转移到 AST/parse 层统一承担。
+
+
+
+
+
+OK，请你先给出既能解耦 macro → parser 依赖、又能修复 eval 路径不含宏时不标记尾调用的问题的方案。补充一点我的考虑：尾调用分析之所以放在linker中，是因为链接器会执行AST融合，只有对融合后的AST进行尾位置分析才有意义。
+
+请先给出方案，我批准后再开始修改。
+
+补充说明：
+
+1、本解释器只支持 (define f (lambda (n) (g n))) 这样的函数定义方式，不支持 (define (f n) (g n)) 这样的语法糖。
+
+2、你需要确认当前解释器实现是否真的支持在eval中执行带宏的代码。
+
+
+
+
+全部验证完成。总结如下：
+
+## 修改内容（方案一）
+
+1. **`src/parser.c`** — `am_parse` 末尾、`populate_top_lambda_and_var_top` 之后新增尾位置分析调用（即 2026-06-19 的原始设计位置），失败时按上下文风格清理并返回 `NULL`。
+2. **`src/macro.c`** — 删除 `am_macro_expand` 中的 `am_parser_tail_call_analysis(ast)` 调用及 `#include "parser.h"`，**macro → parser 依赖就此解除**；`lambda_handles`、`var_top` 重建保留。
+3. **`include/macro.h`** — 头注释同步更新。
+4. **`src/linker.c`** — 未改动，融合后重跑仍是主流程的权威分析。
+
+## 验证结果
+
+- **构建**：WSL 下 `make` 通过，无警告。
+- **修复点**：eval 中 100 万层尾递归（不含宏）——旧构建在 PC=22 处运行时异常，**新构建正常完成**（`eval-tail-ok`）。主流程（linker 路径）含/不含宏的深层尾递归均正常。
+- **回归**：25 个既有测试（test.scm、test_macro、test_eval、test_dw_*、coroutine、factorial、brainfuck、interpreter 等）新旧构建退出码均为 0；同一路径下重跑 factorial/quasiquote/test_macro/coroutine，**输出完全一致、`module.bin` 字节级相同**（此前观察到的 dump 大小差异是我对比脚本给两个构建传了不同格式的文件路径所致，非代码差异）。
+
+## 关于您的补充问题：eval 是否支持带宏代码
+
+**结论：不支持，且是改动前就存在的缺陷**，与本次修改无关（基线构建表现完全一致）。实验事实：
+
+- `System.eval` 中只要出现 `define-syntax`（哪怕定义后从未使用），就会报 `[System.eval] 未定义的变量：my-if` 然后运行时异常。
+- 主流程中同样的包装结构 `((lambda () (define-syntax ...) ...))` 工作正常，说明宏展开本身没问题。
+- **根因**：`eval_build_var_mapping`（`native_System.c:1113`）会遍历 evalee 的整个 `var_vocab`，把每个 `GLOBAL_FREE` 变量映射到 proc 的顶级变量。宏关键字（如 `my-if`）在词法/语法分析阶段被当作标识符注册进了 `var_vocab`（类型 `GLOBAL_FREE`），虽然宏展开已把它的所有使用点消除，但 vocab 条目残留；eval 映射时找不到对应顶级变量，于是报错中止。
+
+如果需要修复这个 eval+宏的问题，方向是：宏展开后清理 `var_vocab`/`var_type` 中不再被任何 AST 节点引用的 `GLOBAL_FREE` 条目，或让 `eval_build_var_mapping` 跳过未被实际引用的残留条目。这超出了本次批准的范围，您确认后我可以另行处理。
+
+
+
 
 
 ---------------------

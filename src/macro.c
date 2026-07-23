@@ -13,7 +13,6 @@
 #include "map.h"
 #include "ast.h"
 #include "scope.h"
-#include "parser.h"
 #include "macro.h"
 
 
@@ -2071,9 +2070,8 @@ int32_t am_macro_expand(am_ast_t *ast) {
         }
         free(new_bodies);
 
-        // 刷新元数据
+        // 刷新元数据（tailcall_handles 由 am_parse / am_link 的尾位置分析统一重建）
         macro_rebuild_lambda_handles(ast);
-        am_parser_tail_call_analysis(ast);
         macro_rebuild_var_top(ast);
     } else {
         free(new_bodies);

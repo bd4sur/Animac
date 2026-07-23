@@ -2102,6 +2102,19 @@ am_ast_t *am_parse(am_allocator_t *alloc, wchar_t *code, wchar_t *absolute_path,
         return NULL;
     }
 
+    // 尾位置分析：eval 等不经 am_link 直接编译的路径依赖此结果；
+    // 经 am_link 的主流程会在模块融合后清空并重新分析
+    if (am_parser_tail_call_analysis(ast) != 0) {
+        fprintf(stderr, "[Parser Error] tail call analysis failed\n");
+        free(ctx.node_stack);
+        free(ctx.state_stack);
+        free(ctx.lambda_stack);
+        free(ctx.special_app_stack);
+        am_ast_destroy(ast);
+        am_free(alloc, tokens);
+        return NULL;
+    }
+
     free(ctx.node_stack);
     free(ctx.state_stack);
     free(ctx.lambda_stack);
