@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <wchar.h>
 
-#include "allocator.h"
+#include "animac.h"
 
 #ifdef __cplusplus
 extern "C" {

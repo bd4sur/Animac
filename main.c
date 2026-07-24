@@ -5,17 +5,9 @@
 #include <locale.h>
 #include <assert.h>
 
+#include "animac.h"
 #include "host.h"
-#include "parser.h"
-#include "linker.h"
-#include "compiler.h"
-#include "module.h"
-#include "process.h"
-#include "runtime.h"
-#include "debug.h"
-#include "ast.h"
 #include "highlight.h"
-#include "js2scm.h"
 
 #include "native_System.h"
 #include "native_Math.h"

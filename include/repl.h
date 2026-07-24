@@ -4,17 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "host.h"
-#include "parser.h"
-#include "compiler.h"
-#include "module.h"
-#include "process.h"
-#include "runtime.h"
-#include "ast.h"
-#include "list.h"
-#include "vocab.h"
-#include "heap.h"
-#include "object.h"
+#include "animac.h"
 
 #ifdef __cplusplus
 extern "C" {

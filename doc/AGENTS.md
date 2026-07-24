@@ -28,6 +28,9 @@ Animac（灵机）是一款Scheme解释器，支持Scheme语言的子集和某�
 
 ## 架构设计
 
+公开 API 伞形头文件（仿 CPython 的 Python.h）：`include/animac.h` 汇总解释器核心（基础设施、前端、运行时）的全部公开头文件。上层程序（REPL、解释器入口、debugger 等）只应直接包含 `animac.h`，另按需包含被明确排除的 host.h（宿主适配）、native_*.h（native 库）、highlight.h（终端呈现）。新增解释器核心头文件时，必须登记进 animac.h 对应分组。
+
+
 关于解释器的工作目录、模块全局ID：
 
 - 任何解释器实例都必须指定一个基准工作目录(base_dir)。

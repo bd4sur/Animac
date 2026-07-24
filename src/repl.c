@@ -7,9 +7,6 @@
 
 #include "repl.h"
 #include "host.h"
-#include "linker.h"
-#include "debug.h"
-#include "js2scm.h"
 
 #include "native_System.h"
 #include "native_Math.h"
