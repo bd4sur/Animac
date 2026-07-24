@@ -7,6 +7,7 @@
 #include <stdbool.h>
 
 #include "runtime.h"
+#include "gc.h"
 #include "closure.h"
 #include "continuation.h"
 #include "list.h"
@@ -2354,7 +2355,6 @@ am_runtime_t *am_runtime_create(am_allocator_t *vm_alloc, am_allocator_t *heap_a
 
     rt->tick_counter = 0;
     rt->gc_count = 0;
-    rt->gc_timestamp = time(NULL);
 
     rt->timeslice = 8192;
 
@@ -2922,56 +2922,6 @@ int32_t am_runtime_execute(am_runtime_t *rt, am_process_t *proc) {
 }
 
 
-/* 根据堆区压力决定是否执行 GC+压缩。
- * 在指令执行间隙（安全点）调用，避免在指令执行过程中压缩导致局部指针失效。
- * 阈值：堆已用超过堆容量的 50% 时触发。 */
-#ifndef AM_HEAP_GC_PRESSURE_THRESHOLD
-#define AM_HEAP_GC_PRESSURE_THRESHOLD (0.50)
-#endif
-
-static void runtime_gc_compact_if_needed(am_runtime_t *rt) {
-    if (!rt) return;
-
-    am_allocator_pool_t *pool = am_allocator_pool_current();
-    if (!pool) return;
-
-    size_t heap_used = am_allocator_pool_heap_used(pool);
-    size_t heap_cap = am_allocator_pool_heap_capacity(pool);
-    if (heap_cap == 0) return;
-
-    double ratio = (double)heap_used / (double)heap_cap;
-    if (ratio < AM_HEAP_GC_PRESSURE_THRESHOLD) return;
-
-    /* 标记-清除：对所有非停止进程执行 GC。 */
-    size_t heap_count = 0;
-    for (size_t i = 0; i < rt->process_poll_counter; i++) {
-        am_process_t *proc = rt->process_pool[i];
-        if (!proc || proc->state == AM_PROCESS_STATE_STOPPED) continue;
-        if (am_process_gc(proc) == 0 && proc->heap) {
-            heap_count++;
-        }
-    }
-
-    /* 标记-压缩：一次性压缩所有相关进程堆。 */
-    if (heap_count > 0) {
-        am_heap_t **heaps = (am_heap_t **)malloc(heap_count * sizeof(am_heap_t *));
-        if (heaps) {
-            size_t idx = 0;
-            for (size_t i = 0; i < rt->process_poll_counter; i++) {
-                am_process_t *proc = rt->process_pool[i];
-                if (proc && proc->heap) {
-                    heaps[idx++] = proc->heap;
-                }
-            }
-            if (am_allocator_heap_compact_global(rt->heap_alloc, heaps, idx) == 0) {
-                (void)am_allocator_pool_auto_adjust(pool);
-            }
-            free(heaps);
-        }
-    }
-}
-
-
 int32_t am_runtime_tick(am_runtime_t *rt, uint32_t timeslice) {
     if (!rt || !rt->process_queue) return AM_VM_STATE_IDLE;
     if (rt->process_queue->length == 0) return AM_VM_STATE_IDLE;
@@ -3017,9 +2967,6 @@ int32_t am_runtime_tick(am_runtime_t *rt, uint32_t timeslice) {
 
     rt->tick_counter++;
     if (rt->vtable->on_tick) rt->vtable->on_tick(rt);
-
-    /* 在 tick 结束的安全点检查堆压力，必要时 GC+压缩 */
-    // runtime_gc_compact_if_needed(rt);
 
     return (rt->process_queue->length > 0) ? AM_VM_STATE_RUNNING : AM_VM_STATE_IDLE;
 }
@@ -3092,46 +3039,9 @@ int32_t am_runtime_event_handler(am_runtime_t *rt) {
     }
 
 #if AM_ENABLE_GC
-    // time_t now = time(NULL);
-    // if (now - rt->gc_timestamp >= AM_GC_INTERVAL) {
-    //     rt->gc_timestamp = now;
-
-        /* 标记-清除：对所有现存进程执行 GC。 */
-        size_t heap_count = 0;
-        for (size_t i = 0; i < rt->process_poll_counter; i++) {
-            am_process_t *proc = rt->process_pool[i];
-            if (!proc) continue;
-            if (am_process_gc(proc) == 0 && proc->heap) {
-                heap_count++;
-            }
-        }
-
-        rt->gc_count++;
-
-#if AM_HEAP_COMPACT_INTERVAL > 0
-        /* 标记-压缩：在 GC 安全点一次性压缩所有进程的存活对象。
-         * 所有进程共享同一个底层 heap_alloc，全局压缩避免互相覆盖。 */
-        if ((rt->gc_count % AM_HEAP_COMPACT_INTERVAL) == 0 && heap_count > 0) {
-            am_heap_t **heaps = (am_heap_t **)malloc(heap_count * sizeof(am_heap_t *));
-            if (heaps) {
-                size_t idx = 0;
-                for (size_t i = 0; i < rt->process_poll_counter; i++) {
-                    am_process_t *proc = rt->process_pool[i];
-                    if (proc && proc->heap) {
-                        heaps[idx++] = proc->heap;
-                    }
-                }
-                if (am_allocator_heap_compact_global(rt->heap_alloc, heaps, idx) == 0) {
-                    am_allocator_pool_t *pool = am_allocator_pool_current();
-                    if (pool) {
-                        (void)am_allocator_pool_auto_adjust(pool);
-                    }
-                }
-                free(heaps);
-            }
-        }
-#endif
-    // }
+    // NOTE 每个事件循环结束后执行一轮 GC（标记-清除，按需标记-压缩）。
+    rt->gc_count++;
+    (void)am_gc_collect(rt->heap_alloc, rt->process_pool, rt->process_poll_counter, rt->gc_count);
 #endif
 
     // 检查队列阻塞等待者：唤醒超时的发送者/接收者

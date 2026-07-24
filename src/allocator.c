@@ -5,9 +5,6 @@
 #include <stdio.h>
 
 #include "allocator.h"
-#include "object.h"
-#include "map.h"
-#include "heap.h"
 
 #define AM_ALLOC_ALIGN      (sizeof(void *))
 #define AM_ALIGN_UP(x, a)   (((x) + (a) - 1) & ~((a) - 1))
@@ -909,32 +906,41 @@ int32_t am_allocator_pool_auto_adjust(am_allocator_pool_t *pool) {
 }
 
 /* =============================================================================
- * 堆区压缩：在 GC 安全点移动存活对象，更新 heap 表中的指针
+ * 宿主临时内存分配（供 GC 等上层做暂存）
+ * 仅支持内存池的堆区分配器（freelist），其余分配器返回 NULL。
  * ============================================================================ */
 
-typedef struct {
-    am_heap_block_header_t *block;
-    am_map_entry_t *slot;
-} live_entry_t;
-
-typedef struct {
-    void *old_ptr;
-    void *new_ptr;
-} reloc_entry_t;
-
-static int cmp_live_entry(const void *a, const void *b) {
-    const live_entry_t *ea = (const live_entry_t *)a;
-    const live_entry_t *eb = (const live_entry_t *)b;
-    if (ea->block < eb->block) return -1;
-    if (ea->block > eb->block) return 1;
-    return 0;
+void *am_allocator_host_malloc(am_allocator_t *alloc, size_t size) {
+    if (!alloc || !alloc->state || alloc->vtable != &freelist_vtable) return NULL;
+    am_freelist_state_t *s = (am_freelist_state_t *)alloc->state;
+    if (!s->pool || !s->pool->host_vtable) return NULL;
+    return s->pool->host_vtable->host_malloc(size);
 }
 
-static int cmp_slot_ptr(const void *a, const void *b) {
-    am_map_entry_t *const *sa = (am_map_entry_t *const *)a;
-    am_map_entry_t *const *sb = (am_map_entry_t *const *)b;
-    if (*sa < *sb) return -1;
-    if (*sa > *sb) return 1;
+void *am_allocator_host_realloc(am_allocator_t *alloc, void *ptr, size_t size) {
+    if (!alloc || !alloc->state || alloc->vtable != &freelist_vtable) return NULL;
+    am_freelist_state_t *s = (am_freelist_state_t *)alloc->state;
+    if (!s->pool || !s->pool->host_vtable) return NULL;
+    return s->pool->host_vtable->host_realloc(ptr, size);
+}
+
+void am_allocator_host_free(am_allocator_t *alloc, void *ptr) {
+    if (!alloc || !alloc->state || alloc->vtable != &freelist_vtable) return;
+    am_freelist_state_t *s = (am_freelist_state_t *)alloc->state;
+    if (!s->pool || !s->pool->host_vtable) return;
+    s->pool->host_vtable->host_free(ptr);
+}
+
+/* =============================================================================
+ * 堆区压缩引擎（纯物理操作）：在 GC 安全点搬移存活对象，经回调报告重定位
+ * ============================================================================ */
+
+/* payload 指针比较（升序），供二分查找存活对象数组 */
+static int cmp_payload_ptr(const void *a, const void *b) {
+    void *const *pa = (void *const *)a;
+    void *const *pb = (void *const *)b;
+    if ((uintptr_t)*pa < (uintptr_t)*pb) return -1;
+    if ((uintptr_t)*pa > (uintptr_t)*pb) return 1;
     return 0;
 }
 
@@ -1091,57 +1097,20 @@ static void compact_print_boundary_adjust_report(const am_allocator_pool_t *pool
     fprintf(stderr, "========================================\n\n");
 }
 
-/* 对多个进程堆一起执行标记-压缩：把所有 heap 中被 handle 引用的存活对象
- * 搬到堆区前端，更新所有 heap 表中的指针，并在尾部重建空闲块。
- * 必须在 GC 安全点调用（所有相关进程已完成标记-清除）。 */
-int32_t am_allocator_heap_compact_global(am_allocator_t *heap_alloc, am_heap_t **heaps, size_t heap_count) {
+/* 标记-压缩引擎：遍历堆区物理块，将 payload 出现在 live_payloads 中的已用块
+ * 搬移到堆区前端，每搬移一个对象经 on_relocate 回调报告一次重定位，
+ * 最后在尾部重建一个空闲块。不感知逻辑堆（heap/handle），由上层负责回写指针。
+ * 必须在 GC 安全点调用。 */
+int32_t am_allocator_heap_compact(am_allocator_t *heap_alloc,
+                                  void *const *live_payloads, size_t live_count,
+                                  am_allocator_relocate_fn on_relocate, void *ctx) {
     if (!heap_alloc || !heap_alloc->state) return -1;
+    if (live_count > 0 && !live_payloads) return -1;
     am_freelist_state_t *s = (am_freelist_state_t *)heap_alloc->state;
-    if (!s->pool || !s->pool->host_vtable) return -1;
-    const am_allocator_host_vtable_t *hv = s->pool->host_vtable;
-
-    live_entry_t *entries = NULL;
-    size_t count = 0;
-    size_t entries_cap = 0;
-
-    /* 第一遍：收集所有 heap 中被 handle 引用的存活对象
-     * （仅处理物理上位于堆区内的对象）。用 block->live 去重，以应对
-     * 同一对象被多个 heap 引用（理论上 fork 后不应出现，但做防御）。 */
-    for (size_t h = 0; h < heap_count; h++) {
-        am_heap_t *heap = heaps[h];
-        if (!heap || !heap->table) continue;
-        size_t cap = heap->table->capacity;
-        for (size_t i = 0; i < cap; i++) {
-            am_value_t key = heap->table->slots[i].key;
-            if (key == AM_MAP_KEY_EMPTY || key == AM_MAP_KEY_TOMBSTONE) continue;
-            am_value_t v = heap->table->slots[i].value;
-            if (!am_value_is_ptr(v)) continue;
-
-            am_heap_block_header_t *b = block_from_payload(am_value_to_ptr(v));
-            if ((uint8_t *)b < s->base || (uint8_t *)b >= s->base + s->capacity) continue;
-
-            if (!b->live) {
-                b->live = true;
-                if (count >= entries_cap) {
-                    entries_cap = entries_cap ? entries_cap * 2 : 64;
-                    live_entry_t *tmp = (live_entry_t *)hv->host_realloc(entries, entries_cap * sizeof(live_entry_t));
-                    if (!tmp) {
-                        fprintf(stderr, "[allocator] 全局压缩失败: entries realloc 失败 (%zu bytes)\n",
-                                entries_cap * sizeof(live_entry_t));
-                        hv->host_free(entries);
-                        return -1;
-                    }
-                    entries = tmp;
-                }
-                entries[count].block = b;
-                entries[count].slot = &heap->table->slots[i];
-                count++;
-            }
-        }
-    }
 
 #if AM_ALLOCATOR_PRINT_COMPACT_REPORT
     /* 记录压缩前的堆区统计与空闲块分布，用于最后输出报告 */
+    const am_allocator_host_vtable_t *hv = s->pool->host_vtable;
     size_t used_before = s->used_bytes;
     compact_free_info_t *before_free = NULL;
     size_t before_free_count = 0;
@@ -1157,9 +1126,8 @@ int32_t am_allocator_heap_compact_global(am_allocator_t *heap_alloc, am_heap_t *
                     compact_free_info_t *tmp = (compact_free_info_t *)hv->host_realloc(
                         before_free, before_free_cap * sizeof(compact_free_info_t));
                     if (!tmp) {
-                        fprintf(stderr, "[allocator] 全局压缩失败: before_free realloc 失败 (%zu bytes)\n",
+                        fprintf(stderr, "[allocator] 压缩失败: before_free realloc 失败 (%zu bytes)\n",
                                 before_free_cap * sizeof(compact_free_info_t));
-                        hv->host_free(entries);
                         hv->host_free(before_free);
                         return -1;
                     }
@@ -1174,109 +1142,40 @@ int32_t am_allocator_heap_compact_global(am_allocator_t *heap_alloc, am_heap_t *
     }
 #endif
 
-    if (count == 0) {
-        am_heap_block_header_t *b = (am_heap_block_header_t *)s->base;
-        block_set_size(b, s->capacity, false);
-        b->prev_size = 0;
-        b->next_free = NULL;
-        b->prev_free = NULL;
-        b->live = false;
-        s->free_list_head = b;
-        s->used_bytes = 0;
-#if AM_ALLOCATOR_PRINT_COMPACT_REPORT
-        compact_print_report(s, used_before, before_free, before_free_count, 0);
-        hv->host_free(before_free);
-#endif
-        hv->host_free(entries);
-        return 0;
-    }
-
-    qsort(entries, count, sizeof(live_entry_t), cmp_live_entry);
-
-    am_map_entry_t **primary_slots = (am_map_entry_t **)hv->host_malloc(count * sizeof(am_map_entry_t *));
-    if (!primary_slots) {
-        fprintf(stderr, "[allocator] 全局压缩失败: primary_slots malloc 失败 (%zu bytes)\n",
-                count * sizeof(am_map_entry_t *));
-        hv->host_free(entries);
-#if AM_ALLOCATOR_PRINT_COMPACT_REPORT
-        hv->host_free(before_free);
-#endif
-        return -1;
-    }
-    for (size_t i = 0; i < count; i++) {
-        primary_slots[i] = entries[i].slot;
-    }
-    qsort(primary_slots, count, sizeof(am_map_entry_t *), cmp_slot_ptr);
-
-    reloc_entry_t *reloc = (reloc_entry_t *)hv->host_malloc(count * sizeof(reloc_entry_t));
-    if (!reloc) {
-        fprintf(stderr, "[allocator] 全局压缩失败: reloc malloc 失败 (%zu bytes)\n",
-                count * sizeof(reloc_entry_t));
-        hv->host_free(entries);
-        hv->host_free(primary_slots);
-#if AM_ALLOCATOR_PRINT_COMPACT_REPORT
-        hv->host_free(before_free);
-#endif
-        return -1;
-    }
-
+    /* 按地址升序遍历物理块：存活块搬移到堆区前端，其余空间回收。
+     * 升序搬移保证 dest 始终不超过源地址，memmove 安全。 */
     uint8_t *dest = s->base;
     size_t prev_size = 0;
-    for (size_t i = 0; i < count; i++) {
-        am_heap_block_header_t *b = entries[i].block;
+    size_t live_moved = 0;
+    uint8_t *p = s->base;
+    while (p < s->base + s->capacity) {
+        am_heap_block_header_t *b = (am_heap_block_header_t *)p;
         size_t sz = block_real_size(b);
-        void *old_payload = block_payload(b);
-
-        if ((uint8_t *)b != dest) {
-            memmove(dest, b, sz);
+        bool live = false;
+        if (block_is_used(b) && live_count > 0) {
+            void *payload = block_payload(b);
+            live = bsearch(&payload, live_payloads, live_count, sizeof(void *), cmp_payload_ptr) != NULL;
         }
-
-        am_heap_block_header_t *newb = (am_heap_block_header_t *)dest;
-        block_set_size(newb, sz, true);
-        newb->prev_size = prev_size;
-        newb->live = false;
-
-        void *new_payload = block_payload(newb);
-        reloc[i].old_ptr = old_payload;
-        reloc[i].new_ptr = new_payload;
-        entries[i].slot->value = am_make_value_of_ptr((am_object_t *)new_payload);
-
-        dest += sz;
-        prev_size = sz;
+        if (live) {
+            void *old_payload = block_payload(b);
+            if (p != dest) {
+                memmove(dest, b, sz);
+            }
+            am_heap_block_header_t *newb = (am_heap_block_header_t *)dest;
+            block_set_size(newb, sz, true);
+            newb->prev_size = prev_size;
+            newb->live = false;
+            if (on_relocate) {
+                on_relocate(ctx, old_payload, block_payload(newb));
+            }
+            dest += sz;
+            prev_size = sz;
+            live_moved++;
+        }
+        p += sz;
     }
 
-    /* 第二遍：更新所有 heap 中非主 slot 中仍指向旧地址的指针。
-     * 主 slot 已在移动循环中更新；若其新地址恰好等于某个旧地址，
-     * 必须避免在此处被再次更新为另一个对象的新地址。 */
-    for (size_t h = 0; h < heap_count; h++) {
-        am_heap_t *heap = heaps[h];
-        if (!heap || !heap->table) continue;
-        size_t cap = heap->table->capacity;
-        for (size_t i = 0; i < cap; i++) {
-            am_value_t key = heap->table->slots[i].key;
-            if (key == AM_MAP_KEY_EMPTY || key == AM_MAP_KEY_TOMBSTONE) continue;
-            am_value_t v = heap->table->slots[i].value;
-            if (!am_value_is_ptr(v)) continue;
-
-            am_map_entry_t *slot = &heap->table->slots[i];
-            am_map_entry_t *slot_key = slot;
-            if (bsearch(&slot_key, primary_slots, count, sizeof(am_map_entry_t *), cmp_slot_ptr) != NULL) {
-                continue;
-            }
-
-            void *old_ptr = am_value_to_ptr(v);
-            size_t lo = 0, hi = count;
-            while (lo < hi) {
-                size_t mid = (lo + hi) / 2;
-                if (reloc[mid].old_ptr < old_ptr) lo = mid + 1;
-                else hi = mid;
-            }
-            if (lo < count && reloc[lo].old_ptr == old_ptr) {
-                slot->value = am_make_value_of_ptr((am_object_t *)reloc[lo].new_ptr);
-            }
-        }
-    }
-
+    /* 尾部重建空闲块 */
     size_t free_size = (s->base + s->capacity) - dest;
     if (free_size > 0) {
         am_heap_block_header_t *freeb = (am_heap_block_header_t *)dest;
@@ -1292,18 +1191,9 @@ int32_t am_allocator_heap_compact_global(am_allocator_t *heap_alloc, am_heap_t *
     s->used_bytes = (size_t)(dest - s->base);
 
 #if AM_ALLOCATOR_PRINT_COMPACT_REPORT
-    compact_print_report(s, used_before, before_free, before_free_count, count);
+    compact_print_report(s, used_before, before_free, before_free_count, live_moved);
     hv->host_free(before_free);
 #endif
 
-    hv->host_free(entries);
-    hv->host_free(primary_slots);
-    hv->host_free(reloc);
     return 0;
-}
-
-int32_t am_allocator_heap_compact(am_allocator_t *heap_alloc, am_heap_t *heap) {
-    if (!heap_alloc || !heap_alloc->state || !heap || !heap->table) return -1;
-    am_heap_t *heaps[1] = {heap};
-    return am_allocator_heap_compact_global(heap_alloc, heaps, 1);
 }

@@ -9,7 +9,6 @@ extern "C" {
 #include <stdint.h>
 #include <stdlib.h>
 #include <stddef.h>
-#include <time.h>
 
 #include "object.h"
 #include "allocator.h"
@@ -27,19 +26,6 @@ typedef struct am_runtime_t am_runtime_t;
 
 #define AM_VM_STATE_IDLE    (0)
 #define AM_VM_STATE_RUNNING (1)
-
-
-///////////////////////////////////////////
-// GC 配置
-///////////////////////////////////////////
-
-#ifndef AM_ENABLE_GC
-#define AM_ENABLE_GC (1)
-#endif
-
-#ifndef AM_GC_INTERVAL
-#define AM_GC_INTERVAL (1) // 秒
-#endif
 
 
 ///////////////////////////////////////////
@@ -122,8 +108,7 @@ typedef struct am_runtime_t {
     const am_runtime_vtable_t *vtable;  // 宿主虚函数表（由 am_runtime_create 注入，宿主拥有其生命周期）
 
     size_t tick_counter;     // Tick 计数器
-    size_t gc_count;         // 全局 GC 周期计数器
-    time_t gc_timestamp;     // GC 时间戳
+    size_t gc_count;         // 全局 GC 周期计数器（作为 am_gc_collect 的 gc_seq）
 
     uint32_t timeslice;      // 默认时间片长度（单位：VM指令周期数）
 

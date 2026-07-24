@@ -76,12 +76,6 @@ typedef struct am_allocator_host_vtable_t {
 // 共享内存池与双分配器管理
 ///////////////////////////////////////////
 
-// 每经历 AM_HEAP_COMPACT_INTERVAL 次 GC 后触发一次标记-压缩。
-// 设为 0 表示不在 GC 时自动触发压缩（可手动调用 am_allocator_heap_compact）。
-#ifndef AM_HEAP_COMPACT_INTERVAL
-#define AM_HEAP_COMPACT_INTERVAL (1)
-#endif
-
 // 动态边界调整相关阈值与限制。
 // 边界以占总池比例表示；heap 区最小/最大比例受以下宏约束。
 #ifndef AM_POOL_MIN_HEAP_RATIO
@@ -130,15 +124,23 @@ size_t am_allocator_pool_vm_used(const am_allocator_pool_t *pool);
 size_t am_allocator_pool_heap_used(const am_allocator_pool_t *pool);
 size_t am_allocator_pool_heap_capacity(const am_allocator_pool_t *pool);
 
-// 对堆区执行标记-压缩：移动 heap 中所有被 handle 引用的对象到堆区前端，
-// 更新 heap 表中的指针，并在尾部重建一个空闲块。必须在 GC 安全点调用。
-struct am_heap_t;
-typedef struct am_heap_t am_heap_t;
-int32_t am_allocator_heap_compact(am_allocator_t *heap_alloc, am_heap_t *heap);
+// 经池的宿主内存分配虚函数表分配/释放临时内存（供 GC 等上层做暂存）。
+// 仅支持内存池的堆区分配器（am_allocator_pool_get_heap 的返回值），其余返回 NULL。
+void *am_allocator_host_malloc(am_allocator_t *alloc, size_t size);
+void *am_allocator_host_realloc(am_allocator_t *alloc, void *ptr, size_t size);
+void  am_allocator_host_free(am_allocator_t *alloc, void *ptr);
 
-// 对多个进程堆一起执行全局标记-压缩：把所有 heap 中存活对象搬到同一堆区前端，
-// 更新所有 heap 表中的指针。用于多进程共享同一个 heap_alloc 的场景。
-int32_t am_allocator_heap_compact_global(am_allocator_t *heap_alloc, am_heap_t **heaps, size_t heap_count);
+// 重定位回调：存活对象被搬移到 new_payload 后由压缩引擎回调，按地址升序逐次触发。
+typedef void (*am_allocator_relocate_fn)(void *ctx, void *old_payload, void *new_payload);
+
+// 对堆区执行标记-压缩引擎（纯物理操作，不依赖逻辑堆）：
+// 遍历堆区物理块，将 payload 出现在 live_payloads 中的已用块搬移到堆区前端，
+// 每搬移一个对象经 on_relocate 回调报告一次重定位（old/new payload 均按地址升序），
+// 最后在尾部重建一个空闲块。live_payloads 必须是按指针升序且无重复的数组。
+// 必须在 GC 安全点调用。成功返回 0，失败返回 -1。
+int32_t am_allocator_heap_compact(am_allocator_t *heap_alloc,
+                                  void *const *live_payloads, size_t live_count,
+                                  am_allocator_relocate_fn on_relocate, void *ctx);
 
 // 按占总池比例调整 VM/heap 边界。
 // - ratio 为 heap 区所占比例；内部会被裁剪到 [AM_POOL_MIN_HEAP_RATIO, 1 - AM_POOL_MIN_VM_RATIO]。

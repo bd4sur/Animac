@@ -9,6 +9,7 @@
 #include <time.h>
 
 #include "wstring.h"
+#include "gc.h"
 #include "parser.h"
 #include "linker.h"
 #include "compiler.h"
@@ -884,7 +885,7 @@ int32_t am_native_System_gc(am_runtime_t *rt, am_process_t *proc) {
     (void)rt;
     if (!proc || !proc->heap) return -1;
 
-    int32_t ret = am_process_gc(proc);
+    int32_t ret = am_gc_process(proc);
     if (am_process_push_operand(proc, (ret == 0) ? AM_VALUE_TRUE : AM_VALUE_FALSE) != 0) return -1;
     am_process_step(proc);
     return 0;

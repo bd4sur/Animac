@@ -6693,6 +6693,37 @@ Q3：接受签名 breaking change。
 
 ---------------------
 
+# 2026-07-24
+
+架构优化（重构）需求：在 @src/allocator.c 中，实现了一些与GC中的标记-压缩相关的函数和数据结构，涉及逻辑堆的操作，因而对 @include/heap.h 有依赖。但是，allocator是最基础的基础设施，我觉得它的实现最好不依赖上层（如heap）。进一步讲，我认为 @src/allocator.c 中与GC相关的函数，应该移到上层的某个模块中。另外，在 @include/process.h 和 @src/process.c 中，也声明或者定义了一些GC相关的函数和数据结构。因此，总的来说，GC作为解释器的重要核心功能，其实现却分散在多个模块中，似乎不妥。
+
+我的需求是：请你设计GC模块的架构优化方案。我初步认为，有必要设置单独的GC模块，例如 gc.h 和 gc.c ，将GC相关的函数和数据结构统一放置于其中。附上当前解释器实现的架构图。我认为，新的gc模块，应当大致位于与heap类似的层级位置上。
+
+请先评估我给出的需求和方案是否合理，给出详细的重构方案。先不要修改代码。
+
+
+
+
+
+
+全部完成，回归测试通过。总结：
+
+**新增 GC 模块**
+- `include/gc.h`：集中 GC 配置宏（`AM_ENABLE_GC`、`AM_HEAP_COMPACT_INTERVAL`），仅暴露 3 个 API——`am_gc_process`（分进程标记-清除）、`am_gc_compact`（全局标记-压缩）、`am_gc_collect`（一轮编排）
+- `src/gc.c`（约 700 行）：收编原 process.c 的 GC 根收集/标记/清除（root/mark/sweep 降级为 static）、原 allocator.c 的逻辑堆知识（存活对象收集、heap 表指针回写）、原 runtime.c 的 GC 编排
+
+**压缩职责"引擎+钩子"拆分**
+- `allocator.c`：保留纯物理压缩引擎 `am_allocator_heap_compact`（遍历物理块 → bsearch 判定存活 → memmove 升序紧凑 → `am_allocator_relocate_fn` 回调报告重定位 → 尾部重建空闲块）；新增 `am_allocator_host_malloc/realloc/free` 供上层暂存。**已删除对 `heap.h`/`map.h`/`object.h` 的 include**，allocator 回归最底层纯物理内存管理
+- `gc.c` 的 `am_gc_compact`：扫描 heap 表构建存活 payload 升序去重数组 → 调引擎 → 按重定位表统一二分回写所有 slot，复杂度与原版相当
+
+**各模块瘦身**
+- `process.c`：1594 → 1134 行，移除 5 个 GC 函数；`process.h` 移除对应声明
+- `runtime.c`：事件处理器中的 GC 块收敛为 `rt->gc_count++; am_gc_collect(...)`；删除死代码（`runtime_gc_compact_if_needed`、`AM_HEAP_GC_PRESSURE_THRESHOLD`、被注释的时间触发、`gc_timestamp` 字段）；`runtime.h` 移除 `AM_ENABLE_GC`/`AM_GC_INTERVAL` 及 `time.h`
+- `native_System.c`：`System.gc` 改调 `am_gc_process`
+
+**顺带修复的 bug**：原编排中 `heaps` 数组按"GC 成功数"分配却按"所有有堆进程"填充的潜在越界——新 `am_gc_collect` 只收录本轮 GC 成功的进程堆
+
+新架构依赖方向：`allocator ← object ← map/list/wstring ← heap ← process ← gc ← runtime`，无环、无层级倒挂。另外提示：`doc/arch_impl.drawio` 架构图尚未更新，如需要我可以修改其 XML 源加入 gc 模块节点。
 
 ---------------------
 
