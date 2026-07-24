@@ -96,6 +96,27 @@ static void on_tick(am_runtime_t *rt) {
     fflush(stdout);
 }
 
+// 宿主时间函数适配：实现 runtime vtable 要求的带 rt 引数签名
+static am_timestamp_t host_now_ms(am_runtime_t *rt) {
+    (void)rt;
+    return (am_timestamp_t)am_current_timestamp_in_ms();
+}
+
+static void host_sleep_in_ms(am_runtime_t *rt, am_timestamp_t ms) {
+    (void)rt;
+    am_sleep_in_ms((uint64_t)ms);
+}
+
+// 宿主虚函数表：向 runtime 注入事件回调与时间/睡眠实现
+static const am_runtime_vtable_t g_host_vtable = {
+    .on_tick = on_tick,
+    .on_event = NULL,
+    .on_halt = on_halt,
+    .on_error = on_error,
+    .sleep_in_ms = host_sleep_in_ms,
+    .now_ms = host_now_ms,
+};
+
 
 
 // ===============================================================================
@@ -259,7 +280,7 @@ static void test_runtime_load_from_wstring(wchar_t *code, char *path) {
            mod_loaded->opstack_depth, (size_t)mod_loaded->ilcode_length);
 
     // 创建VM实例
-    am_runtime_t *rt = am_runtime_create(vm_alloc, heap_alloc, base_dir_w_reload);
+    am_runtime_t *rt = am_runtime_create(vm_alloc, heap_alloc, base_dir_w_reload, &g_host_vtable);
     assert(rt != NULL);
 
     // 设置默认时间片长度（ticks）
@@ -274,11 +295,6 @@ static void test_runtime_load_from_wstring(wchar_t *code, char *path) {
     am_runtime_register_native_lib(rt, &am_native_String_lib);
     am_runtime_register_native_lib(rt, &am_native_LLM_lib);
     am_runtime_register_native_lib(rt, &am_native_Table_lib);
-
-    // 设置VM回调函数
-    rt->callback_on_halt = on_halt;
-    rt->callback_on_error = on_error;
-    rt->callback_on_tick = on_tick;
 
     // 加载模块为新进程
     am_pid_t pid1 = am_runtime_load_module(rt, mod_loaded);
@@ -343,7 +359,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    g_pool = am_allocator_pool_create(AM_ALLOCATOR_POOL_SIZE);
+    g_pool = am_allocator_pool_create(AM_ALLOCATOR_POOL_SIZE, &am_host_default_vtable);
     if (!g_pool) {
         fprintf(stderr, "Failed to create allocator pool\n");
         return 1;

@@ -354,6 +354,7 @@ typedef struct am_freelist_state_t {
     size_t capacity;
     am_heap_block_header_t *free_list_head;
     size_t used_bytes;
+    am_allocator_pool_t *pool; /* 指回所属内存池，用于访问宿主内存分配虚函数表 */
 } am_freelist_state_t;
 
 static inline size_t block_real_size(const am_heap_block_header_t *b) {
@@ -534,6 +535,8 @@ struct am_allocator_pool_t {
     size_t total_size;
     size_t boundary;
 
+    const am_allocator_host_vtable_t *host_vtable; /* 宿主内存分配虚函数表 */
+
     am_segregated_state_t vm_state;
     am_allocator_t vm_alloc;
 
@@ -547,6 +550,7 @@ static void pool_init_heap(am_allocator_pool_t *pool) {
     s->capacity = pool->boundary;
     s->used_bytes = 0;
     s->free_list_head = NULL;
+    s->pool = pool;
 
     am_heap_block_header_t *b = (am_heap_block_header_t *)s->base;
     block_set_size(b, s->capacity, false);
@@ -576,19 +580,26 @@ static void pool_init_vm(am_allocator_pool_t *pool) {
     }
 }
 
-am_allocator_pool_t *am_allocator_pool_create(size_t total_size) {
-    am_allocator_pool_t *pool = (am_allocator_pool_t *)malloc(sizeof(am_allocator_pool_t));
+am_allocator_pool_t *am_allocator_pool_create(size_t total_size, const am_allocator_host_vtable_t *host_vtable) {
+    // 宿主内存分配是内存池的必需能力，缺失则创建失败
+    if (!host_vtable || !host_vtable->host_malloc || !host_vtable->host_calloc ||
+        !host_vtable->host_realloc || !host_vtable->host_free) {
+        return NULL;
+    }
+
+    am_allocator_pool_t *pool = (am_allocator_pool_t *)host_vtable->host_malloc(sizeof(am_allocator_pool_t));
     if (!pool) {
         fprintf(stderr, "[allocator] 内存池控制块分配失败: sizeof=%zu\n", sizeof(am_allocator_pool_t));
         return NULL;
     }
 
-    pool->base = (uint8_t *)malloc(total_size);
+    pool->base = (uint8_t *)host_vtable->host_malloc(total_size);
     if (!pool->base) {
         fprintf(stderr, "[allocator] 内存池底层内存分配失败: 请求 %zu bytes\n", total_size);
-        free(pool);
+        host_vtable->host_free(pool);
         return NULL;
     }
+    pool->host_vtable = host_vtable;
     pool->total_size = total_size;
     pool->boundary = (total_size / 2) & ~(AM_ALLOC_ALIGN - 1);
 
@@ -612,10 +623,10 @@ void am_allocator_pool_destroy(am_allocator_pool_t *pool) {
         g_current_pool = NULL;
     }
     if (pool->base) {
-        free(pool->base);
+        pool->host_vtable->host_free(pool->base);
         pool->base = NULL;
     }
-    free(pool);
+    pool->host_vtable->host_free(pool);
 }
 
 am_allocator_t *am_allocator_pool_get_vm(am_allocator_pool_t *pool) {
@@ -1086,6 +1097,8 @@ static void compact_print_boundary_adjust_report(const am_allocator_pool_t *pool
 int32_t am_allocator_heap_compact_global(am_allocator_t *heap_alloc, am_heap_t **heaps, size_t heap_count) {
     if (!heap_alloc || !heap_alloc->state) return -1;
     am_freelist_state_t *s = (am_freelist_state_t *)heap_alloc->state;
+    if (!s->pool || !s->pool->host_vtable) return -1;
+    const am_allocator_host_vtable_t *hv = s->pool->host_vtable;
 
     live_entry_t *entries = NULL;
     size_t count = 0;
@@ -1111,11 +1124,11 @@ int32_t am_allocator_heap_compact_global(am_allocator_t *heap_alloc, am_heap_t *
                 b->live = true;
                 if (count >= entries_cap) {
                     entries_cap = entries_cap ? entries_cap * 2 : 64;
-                    live_entry_t *tmp = (live_entry_t *)realloc(entries, entries_cap * sizeof(live_entry_t));
+                    live_entry_t *tmp = (live_entry_t *)hv->host_realloc(entries, entries_cap * sizeof(live_entry_t));
                     if (!tmp) {
                         fprintf(stderr, "[allocator] 全局压缩失败: entries realloc 失败 (%zu bytes)\n",
                                 entries_cap * sizeof(live_entry_t));
-                        free(entries);
+                        hv->host_free(entries);
                         return -1;
                     }
                     entries = tmp;
@@ -1141,13 +1154,13 @@ int32_t am_allocator_heap_compact_global(am_allocator_t *heap_alloc, am_heap_t *
             if (!block_is_used(b)) {
                 if (before_free_count >= before_free_cap) {
                     before_free_cap = before_free_cap ? before_free_cap * 2 : 16;
-                    compact_free_info_t *tmp = (compact_free_info_t *)realloc(
+                    compact_free_info_t *tmp = (compact_free_info_t *)hv->host_realloc(
                         before_free, before_free_cap * sizeof(compact_free_info_t));
                     if (!tmp) {
                         fprintf(stderr, "[allocator] 全局压缩失败: before_free realloc 失败 (%zu bytes)\n",
                                 before_free_cap * sizeof(compact_free_info_t));
-                        free(entries);
-                        free(before_free);
+                        hv->host_free(entries);
+                        hv->host_free(before_free);
                         return -1;
                     }
                     before_free = tmp;
@@ -1172,21 +1185,21 @@ int32_t am_allocator_heap_compact_global(am_allocator_t *heap_alloc, am_heap_t *
         s->used_bytes = 0;
 #if AM_ALLOCATOR_PRINT_COMPACT_REPORT
         compact_print_report(s, used_before, before_free, before_free_count, 0);
-        free(before_free);
+        hv->host_free(before_free);
 #endif
-        free(entries);
+        hv->host_free(entries);
         return 0;
     }
 
     qsort(entries, count, sizeof(live_entry_t), cmp_live_entry);
 
-    am_map_entry_t **primary_slots = (am_map_entry_t **)malloc(count * sizeof(am_map_entry_t *));
+    am_map_entry_t **primary_slots = (am_map_entry_t **)hv->host_malloc(count * sizeof(am_map_entry_t *));
     if (!primary_slots) {
         fprintf(stderr, "[allocator] 全局压缩失败: primary_slots malloc 失败 (%zu bytes)\n",
                 count * sizeof(am_map_entry_t *));
-        free(entries);
+        hv->host_free(entries);
 #if AM_ALLOCATOR_PRINT_COMPACT_REPORT
-        free(before_free);
+        hv->host_free(before_free);
 #endif
         return -1;
     }
@@ -1195,14 +1208,14 @@ int32_t am_allocator_heap_compact_global(am_allocator_t *heap_alloc, am_heap_t *
     }
     qsort(primary_slots, count, sizeof(am_map_entry_t *), cmp_slot_ptr);
 
-    reloc_entry_t *reloc = (reloc_entry_t *)malloc(count * sizeof(reloc_entry_t));
+    reloc_entry_t *reloc = (reloc_entry_t *)hv->host_malloc(count * sizeof(reloc_entry_t));
     if (!reloc) {
         fprintf(stderr, "[allocator] 全局压缩失败: reloc malloc 失败 (%zu bytes)\n",
                 count * sizeof(reloc_entry_t));
-        free(entries);
-        free(primary_slots);
+        hv->host_free(entries);
+        hv->host_free(primary_slots);
 #if AM_ALLOCATOR_PRINT_COMPACT_REPORT
-        free(before_free);
+        hv->host_free(before_free);
 #endif
         return -1;
     }
@@ -1280,12 +1293,12 @@ int32_t am_allocator_heap_compact_global(am_allocator_t *heap_alloc, am_heap_t *
 
 #if AM_ALLOCATOR_PRINT_COMPACT_REPORT
     compact_print_report(s, used_before, before_free, before_free_count, count);
-    free(before_free);
+    hv->host_free(before_free);
 #endif
 
-    free(entries);
-    free(primary_slots);
-    free(reloc);
+    hv->host_free(entries);
+    hv->host_free(primary_slots);
+    hv->host_free(reloc);
     return 0;
 }
 

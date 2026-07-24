@@ -7,7 +7,6 @@
 #include <stdbool.h>
 
 #include "runtime.h"
-#include "host.h"
 #include "closure.h"
 #include "continuation.h"
 #include "list.h"
@@ -116,7 +115,7 @@ static void runtime_queue_wake_process(am_runtime_t *rt, am_pid_t pid, am_value_
 static void runtime_queue_check_waiters(am_runtime_t *rt) {
     if (!rt || !rt->queue_list) return;
 
-    am_timestamp_t now = am_runtime_now_ms();
+    am_timestamp_t now = am_runtime_now_ms(rt);
     for (size_t i = 0; i < rt->queue_list->length; i++) {
         am_value_t qv = am_list_get(rt->vm_alloc, rt->queue_list, i);
         if (!am_value_is_ptr(qv)) continue;
@@ -284,7 +283,7 @@ int32_t am_runtime_queue_write(am_runtime_t *rt, am_queue_t *q, am_value_t value
 
     // 阻塞当前发送者
     am_queue_waiter_t *w = runtime_queue_waiter_create(rt, proc->pid, value,
-                                                         am_runtime_now_ms() + timeout_ms, true);
+                                                         am_runtime_now_ms(rt) + timeout_ms, true);
     if (!w) return -1;
     w->next = q->send_waiters;
     q->send_waiters = w;
@@ -328,7 +327,7 @@ int32_t am_runtime_queue_read(am_runtime_t *rt, am_queue_t *q, am_timestamp_t ti
 
     // 阻塞当前接收者
     am_queue_waiter_t *w = runtime_queue_waiter_create(rt, proc->pid, AM_VALUE_UNDEFINED,
-                                                         am_runtime_now_ms() + timeout_ms, false);
+                                                         am_runtime_now_ms(rt) + timeout_ms, false);
     if (!w) return -1;
     w->next = q->recv_waiters;
     q->recv_waiters = w;
@@ -2311,14 +2310,18 @@ struct am_timer_t {
 // 生命周期
 // ===============================================================================
 
-am_runtime_t *am_runtime_create(am_allocator_t *vm_alloc, am_allocator_t *heap_alloc, const wchar_t *base_dir) {
+am_runtime_t *am_runtime_create(am_allocator_t *vm_alloc, am_allocator_t *heap_alloc, const wchar_t *base_dir,
+                                const am_runtime_vtable_t *vtable) {
     if (!vm_alloc || !heap_alloc) return NULL;
+    // 时间戳与睡眠是 VM 必需能力（定时器、队列超时、事件循环休眠均依赖），缺失则创建失败
+    if (!vtable || !vtable->now_ms || !vtable->sleep_in_ms) return NULL;
 
     am_runtime_t *rt = (am_runtime_t *)am_calloc(vm_alloc, sizeof(am_runtime_t));
     if (!rt) return NULL;
 
     rt->vm_alloc = vm_alloc;
     rt->heap_alloc = heap_alloc;
+    rt->vtable = vtable;
 
     if (base_dir) {
         size_t len = wcslen(base_dir);
@@ -2348,11 +2351,6 @@ am_runtime_t *am_runtime_create(am_allocator_t *vm_alloc, am_allocator_t *heap_a
     }
 
     rt->queue_next_id = 1;
-
-    rt->callback_on_tick = NULL;
-    rt->callback_on_event = NULL;
-    rt->callback_on_halt = NULL;
-    rt->callback_on_error = NULL;
 
     rt->tick_counter = 0;
     rt->gc_count = 0;
@@ -2428,15 +2426,17 @@ int32_t am_runtime_destroy(am_runtime_t *rt) {
 // 异步定时器基础设施（操作实现）
 // ===============================================================================
 
-// 获取当前时间戳（毫秒）。优先使用 POSIX clock_gettime，失败则回退到 time()。
-am_timestamp_t am_runtime_now_ms(void) {
-    return (am_timestamp_t)am_current_timestamp_in_ms();
+// 获取当前时间戳（毫秒）。经由 vtable 分派到宿主实现。
+am_timestamp_t am_runtime_now_ms(am_runtime_t *rt) {
+    if (!rt || !rt->vtable || !rt->vtable->now_ms) return 0;
+    return rt->vtable->now_ms(rt);
 }
 
 
-// 短时睡眠（毫秒）。
-static void runtime_sleep_ms(am_timestamp_t ms) {
-    am_sleep_in_ms((uint64_t)ms);
+// 短时睡眠（毫秒）。经由 vtable 分派到宿主实现。
+static void runtime_sleep_ms(am_runtime_t *rt, am_timestamp_t ms) {
+    if (!rt || !rt->vtable || !rt->vtable->sleep_in_ms) return;
+    rt->vtable->sleep_in_ms(rt, ms);
 }
 
 
@@ -2473,7 +2473,7 @@ size_t am_runtime_set_timer(am_runtime_t *rt, am_pid_t pid, am_handle_t callback
     timer->id = rt->timer_next_id++;
     timer->pid = pid;
     timer->callback = callback;
-    timer->expire_ms = am_runtime_now_ms() + delay_ms;
+    timer->expire_ms = am_runtime_now_ms(rt) + delay_ms;
     timer->repeat = repeat;
     timer->interval_ms = interval_ms;
     timer->next = rt->timer_list;
@@ -2521,7 +2521,7 @@ static bool runtime_has_nonblocked_timer(am_runtime_t *rt, am_timestamp_t *neare
 static void runtime_fire_expired_timers(am_runtime_t *rt) {
     if (!rt || !rt->timer_list) return;
 
-    am_timestamp_t now = am_runtime_now_ms();
+    am_timestamp_t now = am_runtime_now_ms(rt);
     am_timer_t **cur = &rt->timer_list;
     while (*cur) {
         am_timer_t *timer = *cur;
@@ -2990,7 +2990,7 @@ int32_t am_runtime_tick(am_runtime_t *rt, uint32_t timeslice) {
     while (timeslice > 0 && proc->state == AM_PROCESS_STATE_RUNNING) {
         if (am_runtime_execute(rt, proc) != 0) {
             proc->state = AM_PROCESS_STATE_STOPPED;
-            if (rt->callback_on_error) rt->callback_on_error(rt);
+            if (rt->vtable->on_error) rt->vtable->on_error(rt);
             wchar_t errmsg[256];
             swprintf(errmsg, 256, L"[Runtime] 指令执行异常: PID=%zu PC=%zu\n", (size_t)pid, (size_t)proc->PC);
             am_runtime_error(rt, errmsg);
@@ -3016,7 +3016,7 @@ int32_t am_runtime_tick(am_runtime_t *rt, uint32_t timeslice) {
     }
 
     rt->tick_counter++;
-    if (rt->callback_on_tick) rt->callback_on_tick(rt);
+    if (rt->vtable->on_tick) rt->vtable->on_tick(rt);
 
     /* 在 tick 结束的安全点检查堆压力，必要时 GC+压缩 */
     // runtime_gc_compact_if_needed(rt);
@@ -3150,7 +3150,7 @@ int32_t am_runtime_event_handler(am_runtime_t *rt) {
         vm_state = AM_VM_STATE_RUNNING;
     }
 
-    if (rt->callback_on_event) rt->callback_on_event(rt);
+    if (rt->vtable->on_event) rt->vtable->on_event(rt);
     return vm_state;
 }
 
@@ -3161,7 +3161,7 @@ void am_runtime_start(am_runtime_t *rt) {
     while (1) {
         int32_t vm_state = am_runtime_event_handler(rt);
         if (vm_state == AM_VM_STATE_IDLE) {
-            if (rt->callback_on_halt) rt->callback_on_halt(rt);
+            if (rt->vtable->on_halt) rt->vtable->on_halt(rt);
             break;
         }
 
@@ -3169,7 +3169,7 @@ void am_runtime_start(am_runtime_t *rt) {
         // 或队列阻塞等待者，则睡眠到最近的到期时间。
         if (rt->process_queue && rt->process_queue->length == 0 &&
             (runtime_has_nonblocked_timer(rt, NULL) || runtime_queue_has_waiters(rt, NULL))) {
-            am_timestamp_t now = am_runtime_now_ms();
+            am_timestamp_t now = am_runtime_now_ms(rt);
             am_timestamp_t next = 0;
             am_timestamp_t tnext;
             if (runtime_has_nonblocked_timer(rt, &tnext)) {
@@ -3180,7 +3180,7 @@ void am_runtime_start(am_runtime_t *rt) {
                 if (next == 0 || qnext < next) next = qnext;
             }
             if (next > now) {
-                runtime_sleep_ms(next - now);
+                runtime_sleep_ms(rt, next - now);
             }
         }
     }
@@ -3264,7 +3264,7 @@ void am_runtime_error(am_runtime_t *rt, const wchar_t *str) {
         }
     }
 
-    if (rt->callback_on_error) rt->callback_on_error(rt);
+    if (rt->vtable->on_error) rt->vtable->on_error(rt);
 }
 
 

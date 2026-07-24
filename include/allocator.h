@@ -59,6 +59,20 @@ static inline void am_free(am_allocator_t *alloc, void *ptr) {
 #endif
 
 ///////////////////////////////////////////
+// 宿主内存分配虚函数表（依赖倒置）
+// 说明：allocator 不直接依赖宿主系统的 malloc/calloc/realloc/free，
+// 而是由宿主在调用 am_allocator_pool_create 时，通过本虚函数表注入具体实现。
+// 四个成员均为必需能力，任一为 NULL 时 am_allocator_pool_create 失败。
+///////////////////////////////////////////
+
+typedef struct am_allocator_host_vtable_t {
+    void *(*host_malloc)(size_t nbytes);
+    void *(*host_calloc)(size_t n, size_t sizeoftype);
+    void *(*host_realloc)(void *ptr, size_t n);
+    void  (*host_free)(void *ptr);
+} am_allocator_host_vtable_t;
+
+///////////////////////////////////////////
 // 共享内存池与双分配器管理
 ///////////////////////////////////////////
 
@@ -97,7 +111,9 @@ static inline void am_free(am_allocator_t *alloc, void *ptr) {
 typedef struct am_allocator_pool_t am_allocator_pool_t;
 
 // 创建/销毁统一内存池。成功返回池指针，失败返回 NULL。
-am_allocator_pool_t *am_allocator_pool_create(size_t total_size);
+// host_vtable 为宿主内存分配虚函数表，不允许为 NULL，且四个成员均不允许为 NULL；
+// 池仅保存指针，不拷贝，宿主须保证 vtable 的生命周期不短于池。
+am_allocator_pool_t *am_allocator_pool_create(size_t total_size, const am_allocator_host_vtable_t *host_vtable);
 void am_allocator_pool_destroy(am_allocator_pool_t *pool);
 
 // 获取池中 VM 工作区与堆区分配器。

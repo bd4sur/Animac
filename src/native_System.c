@@ -836,8 +836,7 @@ int32_t am_native_System_clear_interval(am_runtime_t *rt, am_process_t *proc) {
 
 // (System.timestamp) : Number
 int32_t am_native_System_timestamp(am_runtime_t *rt, am_process_t *proc) {
-    (void)rt;
-    am_timestamp_t now = am_runtime_now_ms();
+    am_timestamp_t now = am_runtime_now_ms(rt);
     if (am_process_push_operand(proc, am_make_value_of_uint(now)) != 0) return -1;
     am_process_step(proc);
     return 0;

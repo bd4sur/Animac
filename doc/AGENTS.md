@@ -42,6 +42,8 @@ Animac（灵机）是一款Scheme解释器，支持Scheme语言的子集和某�
   - 去掉第一个点；若文件名有.scm后缀则去掉
   - 例如："/home/a/b.scm" -> home.a.b
 - 链接器（src/linker.c）不直接依赖宿主API获取模块源码（依赖倒置）：调用方通过 `am_link` 的引数注入 `am_linker_read_source_fn` 回调（见 include/linker.h），回调用传入的 allocator 分配返回的源码缓冲区（由链接器用 am_free 释放）。宿主侧的文件系统默认实现为 `am_host_read_source_from_file`（include/host.h，src/host.c 与 src/host_esp32.cpp 各有一份实现）。
+- 内存池（src/allocator.c）不直接依赖宿主系统的 malloc/calloc/realloc/free（依赖倒置）：宿主在调用 `am_allocator_pool_create` 时通过 `am_allocator_host_vtable_t` 虚函数表（见 include/allocator.h）注入 `host_malloc`/`host_calloc`/`host_realloc`/`host_free` 四个实现（均为必需，任一为 NULL 则 create 失败）。池控制块、池底层内存及堆压缩的临时工作数组均经由该表分配；池仅保存指针不拷贝，宿主须保证其生命周期不短于池。宿主侧参考实现为 include/host.h 的 `am_host_malloc` 等四函数及默认实例 `am_host_default_vtable`（src/host.c 与 src/host_esp32.cpp 各有一份，ESP32 版映射到 SPIRAM 的 heap_caps_* 系列）。
+- 运行时（src/runtime.c）不直接依赖宿主的输入输出回调、定时器与时间戳函数（依赖倒置）：宿主在调用 `am_runtime_create` 时通过 `am_runtime_vtable_t` 虚函数表（见 include/runtime.h）注入 6 个实现——事件回调 `on_tick`/`on_event`/`on_halt`/`on_error`（可选，为 NULL 则不触发）与时间函数 `now_ms`/`sleep_in_ms`（必需，为 NULL 则 create 失败）。runtime 仅保存 vtable 指针不拷贝，宿主须保证其生命周期不短于 runtime。桌面宿主的默认实现见 main.c 与 src/repl.c 中的 `g_host_vtable`（时间函数底层为 include/host.h 的 `am_current_timestamp_in_ms`/`am_sleep_in_ms`，src/host.c 与 src/host_esp32.cpp 各有一份实现）。
 
 symbol是以其字面为ID的，相同拼写的symbol，无论在哪个上下文中都是同一个符号。因此AST合并时，字符串相同的symbol，就是同一个symbol。这与variable截然不同。
 

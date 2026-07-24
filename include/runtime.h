@@ -69,13 +69,31 @@ size_t am_runtime_set_timer(am_runtime_t *rt, am_pid_t pid, am_handle_t callback
 // 根据编号取消一个定时器。成功返回 true，未找到返回 false。
 bool am_runtime_clear_timer(am_runtime_t *rt, size_t timer_id);
 
-// 获取当前时间戳（毫秒）。
-am_timestamp_t am_runtime_now_ms(void);
+// 获取当前时间戳（毫秒）。经由 vtable 分派到宿主实现。
+am_timestamp_t am_runtime_now_ms(am_runtime_t *rt);
 
 // 以异步方式调用一个闭包：压入栈帧并跳转到闭包入口，返回地址为 return_target。
 // 用于定时器回调等场景。成功返回 0，失败返回 -1。
 int32_t am_runtime_call_async(am_runtime_t *rt, am_process_t *proc, am_handle_t callback,
                               am_iaddr_t return_target);
+
+
+///////////////////////////////////////////
+// 宿主虚函数表（依赖倒置）
+// 说明：runtime 不直接依赖宿主提供的输入输出回调、定时器与时间戳函数，
+// 而是由宿主在调用 am_runtime_create 时，通过本虚函数表注入具体实现。
+// on_tick/on_event/on_halt/on_error 允许为 NULL（不触发）；
+// now_ms/sleep_in_ms 为必需能力，为 NULL 时 am_runtime_create 失败。
+///////////////////////////////////////////
+
+typedef struct am_runtime_vtable_t {
+    void (*on_tick)(am_runtime_t *rt);    // 每个 Tick 结束后触发
+    void (*on_event)(am_runtime_t *rt);   // 每个事件循环结束后触发
+    void (*on_halt)(am_runtime_t *rt);    // 虚拟机进入 IDLE 后触发
+    void (*on_error)(am_runtime_t *rt);   // 虚拟机捕获异常时触发
+    void (*sleep_in_ms)(am_runtime_t *rt, am_timestamp_t ms); // 短时睡眠（毫秒）
+    am_timestamp_t (*now_ms)(am_runtime_t *rt);               // 获取当前时间戳（毫秒）
+} am_runtime_vtable_t;
 
 
 ///////////////////////////////////////////
@@ -101,10 +119,7 @@ typedef struct am_runtime_t {
     am_list_t *queue_list;   // 队列列表：List<am_queue_t*>
     size_t queue_next_id;    // 下一个队列编号，从 1 开始递增
 
-    void (*callback_on_tick)(am_runtime_t *rt);   // 每个 Tick 结束后触发
-    void (*callback_on_event)(am_runtime_t *rt);  // 每个事件循环结束后触发
-    void (*callback_on_halt)(am_runtime_t *rt);   // 虚拟机进入 IDLE 后触发
-    void (*callback_on_error)(am_runtime_t *rt);  // 虚拟机捕获异常时触发
+    const am_runtime_vtable_t *vtable;  // 宿主虚函数表（由 am_runtime_create 注入，宿主拥有其生命周期）
 
     size_t tick_counter;     // Tick 计数器
     size_t gc_count;         // 全局 GC 周期计数器
@@ -125,7 +140,10 @@ typedef struct am_runtime_t {
 
 // 创建运行时。成功返回运行时指针，失败返回 NULL。
 // base_dir 为基准工作目录，允许为 NULL。
-am_runtime_t *am_runtime_create(am_allocator_t *vm_alloc, am_allocator_t *heap_alloc, const wchar_t *base_dir);
+// vtable 为宿主虚函数表，不允许为 NULL，且其 now_ms/sleep_in_ms 成员不允许为 NULL；
+// runtime 仅保存指针，不拷贝，宿主须保证 vtable 的生命周期不短于 runtime。
+am_runtime_t *am_runtime_create(am_allocator_t *vm_alloc, am_allocator_t *heap_alloc, const wchar_t *base_dir,
+                                const am_runtime_vtable_t *vtable);
 
 // 销毁运行时，释放其占用的全部资源。成功返回 0，失败返回 -1。
 int32_t am_runtime_destroy(am_runtime_t *rt);

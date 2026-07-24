@@ -129,7 +129,36 @@ char* am_path_dirname(const char *path) {
 
 
 // ===============================================================================
-// 字符编码相关
+// 宿主内存分配
+// ===============================================================================
+
+void *am_host_calloc(size_t n, size_t sizeoftype) {
+    return calloc(n ,sizeoftype);
+}
+
+void *am_host_malloc(size_t nbytes) {
+    return malloc(nbytes);
+}
+
+void *am_host_realloc(void *ptr, size_t n) {
+    return realloc(ptr, n);
+}
+
+void am_host_free(void *ptr) {
+    return free(ptr);
+}
+
+// 宿主内存分配虚函数表的默认实例
+const am_allocator_host_vtable_t am_host_default_vtable = {
+    am_host_malloc,
+    am_host_calloc,
+    am_host_realloc,
+    am_host_free
+};
+
+
+// ===============================================================================
+// 字符编码
 // ===============================================================================
 
 // 将 UTF-32 码点（wchar_t）数组转换为 UTF-8 字符串

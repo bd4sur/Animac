@@ -68,6 +68,27 @@ static void on_error(am_runtime_t *rt) {
     if (ctx) ctx->runtime_error = 1;
 }
 
+// 宿主时间函数适配：实现 runtime vtable 要求的带 rt 引数签名
+static am_timestamp_t host_now_ms(am_runtime_t *rt) {
+    (void)rt;
+    return (am_timestamp_t)am_current_timestamp_in_ms();
+}
+
+static void host_sleep_in_ms(am_runtime_t *rt, am_timestamp_t ms) {
+    (void)rt;
+    am_sleep_in_ms((uint64_t)ms);
+}
+
+// 宿主虚函数表：向 runtime 注入事件回调与时间/睡眠实现
+static const am_runtime_vtable_t g_host_vtable = {
+    .on_tick = on_tick,
+    .on_event = NULL,
+    .on_halt = on_halt,
+    .on_error = on_error,
+    .sleep_in_ms = host_sleep_in_ms,
+    .now_ms = host_now_ms,
+};
+
 static wchar_t *mb_to_wchar(const char *src) {
     if (!src) return NULL;
     // 使用项目统一的 UTF-8 -> UTF-32 转换，不依赖当前 C locale。
@@ -1151,7 +1172,7 @@ static am_repl_result_t repl_ctx_submit(am_repl_ctx_t *ctx) {
 static int repl_ctx_init_runtime(am_repl_ctx_t *ctx) {
     if (!ctx) return -1;
 
-    ctx->pool = am_allocator_pool_create(AM_ALLOCATOR_POOL_SIZE);
+    ctx->pool = am_allocator_pool_create(AM_ALLOCATOR_POOL_SIZE, &am_host_default_vtable);
     if (!ctx->pool) {
         ctx->vm_alloc = NULL;
         ctx->heap_alloc = NULL;
@@ -1161,7 +1182,7 @@ static int repl_ctx_init_runtime(am_repl_ctx_t *ctx) {
     ctx->heap_alloc = am_allocator_pool_get_heap(ctx->pool);
 
     const wchar_t *base_dir = ctx->base_dir ? ctx->base_dir : L".";
-    ctx->rt = am_runtime_create(ctx->vm_alloc, ctx->heap_alloc, base_dir);
+    ctx->rt = am_runtime_create(ctx->vm_alloc, ctx->heap_alloc, base_dir, &g_host_vtable);
     if (!ctx->rt) {
         am_allocator_pool_destroy(ctx->pool);
         ctx->pool = NULL;
@@ -1178,10 +1199,6 @@ static int repl_ctx_init_runtime(am_repl_ctx_t *ctx) {
     am_runtime_register_native_lib(ctx->rt, &am_native_String_lib);
     am_runtime_register_native_lib(ctx->rt, &am_native_LLM_lib);
     am_runtime_register_native_lib(ctx->rt, &am_native_Table_lib);
-
-    ctx->rt->callback_on_halt = on_halt;
-    ctx->rt->callback_on_error = on_error;
-    ctx->rt->callback_on_tick = on_tick;
 
     am_module_t *mod = repl_create_initial_module(ctx);
     if (!mod) {
