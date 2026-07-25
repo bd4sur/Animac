@@ -109,6 +109,7 @@ typedef struct am_runtime_t {
 
     size_t tick_counter;     // Tick 计数器
     size_t gc_count;         // 全局 GC 周期计数器（作为 am_gc_collect 的 gc_seq）
+    size_t gc_periodic_counter; // 事件循环轮计数器（周期兜底 GC 用）
 
     uint32_t timeslice;      // 默认时间片长度（单位：VM指令周期数）
 

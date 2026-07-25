@@ -631,7 +631,7 @@ int32_t am_gc_compact(am_allocator_t *heap_alloc, am_heap_t **heaps, size_t heap
 // ===============================================================================
 
 int32_t am_gc_collect(am_allocator_t *heap_alloc, am_process_t **process_pool,
-                      size_t process_count, size_t gc_seq) {
+                      size_t process_count, size_t gc_seq, int32_t force_compact) {
     if (!heap_alloc || !process_pool) return -1;
 
     /* 标记-清除：对所有现存进程执行 GC。
@@ -651,8 +651,9 @@ int32_t am_gc_collect(am_allocator_t *heap_alloc, am_process_t **process_pool,
 
 #if AM_HEAP_COMPACT_INTERVAL > 0
     /* 标记-压缩：在 GC 安全点一次性压缩所有进程的存活对象。
-     * 所有进程共享同一个底层 heap_alloc，全局压缩避免互相覆盖。 */
-    if ((gc_seq % AM_HEAP_COMPACT_INTERVAL) == 0 && heap_count > 0) {
+     * 所有进程共享同一个底层 heap_alloc，全局压缩避免互相覆盖。
+     * force_compact 非 0 时无视 AM_HEAP_COMPACT_INTERVAL 当轮强制压缩。 */
+    if ((force_compact || (gc_seq % AM_HEAP_COMPACT_INTERVAL) == 0) && heap_count > 0) {
         if (am_gc_compact(heap_alloc, heaps, heap_count) == 0) {
             am_allocator_pool_t *pool = am_allocator_pool_current();
             if (pool) {
@@ -662,8 +663,28 @@ int32_t am_gc_collect(am_allocator_t *heap_alloc, am_process_t **process_pool,
     }
 #else
     (void)gc_seq;
+    (void)force_compact;
 #endif
 
     if (heaps) am_allocator_host_free(heap_alloc, heaps);
+    return 0;
+}
+
+int32_t am_gc_heap_watermark_level(am_allocator_t *heap_alloc) {
+    if (!heap_alloc) return -1;
+
+    size_t used = 0, capacity = 0, largest_free = 0;
+    if (am_allocator_heap_usage(heap_alloc, &used, &capacity, &largest_free) != 0) return -1;
+    if (capacity == 0) return -1;
+
+    double ratio = (double)used / (double)capacity;
+    if (ratio >= AM_GC_HEAP_CRITICAL_RATIO) return 2;
+    if (ratio >= AM_GC_HEAP_HIGH_WATER_RATIO) return 1;
+    // 碎片维度：用量超过下限但最大空闲块已小于容量的 AM_GC_HEAP_FRAG_MIN_BLOCK_RATIO，
+    // first-fit 随时可能失败，需要提前压缩整理（标记-清除+强制压缩）。
+    if (ratio >= AM_GC_HEAP_FRAG_FLOOR_RATIO &&
+        (double)largest_free < (double)capacity * AM_GC_HEAP_FRAG_MIN_BLOCK_RATIO) {
+        return 2;
+    }
     return 0;
 }

@@ -25,6 +25,7 @@ for t in \
     test_eval.scm \
     test_exit.scm \
     test_exit_async.scm \
+    test_gc_watermark.scm \
     test_ipc1.scm \
     test_ipc2.scm \
     test_kill_other.scm \

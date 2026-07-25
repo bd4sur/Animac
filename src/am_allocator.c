@@ -352,6 +352,7 @@ typedef struct am_freelist_state_t {
     am_heap_block_header_t *free_list_head;
     size_t used_bytes;
     am_allocator_pool_t *pool; /* 指回所属内存池，用于访问宿主内存分配虚函数表 */
+    bool oom_flag;             /* 最近一次分配彻底失败（扩界重试后仍失败）时置位，供运行期观测 */
 } am_freelist_state_t;
 
 static inline size_t block_real_size(const am_heap_block_header_t *b) {
@@ -436,13 +437,8 @@ static void freelist_coalesce(am_freelist_state_t *s, am_heap_block_header_t *b)
     freelist_insert(s, b);
 }
 
-static void *freelist_malloc(void *state, size_t size) {
-    am_freelist_state_t *s = (am_freelist_state_t *)state;
-    if (size == 0 || !s) return NULL;
-
-    size_t needed = AM_ALIGN_UP(AM_HEAP_HEADER_SIZE + size, AM_ALLOC_ALIGN);
-    if (needed < AM_BLOCK_MIN_SIZE) needed = AM_BLOCK_MIN_SIZE;
-
+// 在空闲链表中 first-fit 查找并分配 needed 字节（含块头）。成功返回 payload 指针，失败返回 NULL。
+static void *freelist_first_fit(am_freelist_state_t *s, size_t needed) {
     am_heap_block_header_t *cur = s->free_list_head;
     while (cur) {
         size_t cur_size = block_real_size(cur);
@@ -467,6 +463,31 @@ static void *freelist_malloc(void *state, size_t size) {
         }
         cur = cur->next_free;
     }
+    return NULL;
+}
+
+static void *freelist_malloc(void *state, size_t size) {
+    am_freelist_state_t *s = (am_freelist_state_t *)state;
+    if (size == 0 || !s) return NULL;
+
+    size_t needed = AM_ALIGN_UP(AM_HEAP_HEADER_SIZE + size, AM_ALLOC_ALIGN);
+    if (needed < AM_BLOCK_MIN_SIZE) needed = AM_BLOCK_MIN_SIZE;
+
+    void *p = freelist_first_fit(s, needed);
+    if (p) return p;
+
+    // L0 兜底：heap 耗尽时，先尝试向 VM 区让渡边界（heap 扩张）再重试，最多 4 次。
+    // 注意：分配器层级不允许在此触发 GC，只能“吃掉 VM 区富余”。
+    //（以 heap_state.capacity 的变化判定扩界是否成功，避免依赖 pool 结构体定义次序。）
+    for (int attempt = 0; attempt < 4; attempt++) {
+        size_t old_capacity = s->capacity;
+        if (am_allocator_pool_auto_adjust(s->pool) != 0) break;
+        if (s->capacity == old_capacity) break;         // 无法进一步扩界
+        p = freelist_first_fit(s, needed);
+        if (p) return p;
+    }
+
+    s->oom_flag = true;
     fprintf(stderr, "[allocator] heap freelist 分配失败: 请求 %zu bytes (含头部对齐后 %zu), 堆已用 %zu / %zu bytes\n",
             size, needed, s->used_bytes, s->capacity);
     return NULL;
@@ -548,6 +569,7 @@ static void pool_init_heap(am_allocator_pool_t *pool) {
     s->used_bytes = 0;
     s->free_list_head = NULL;
     s->pool = pool;
+    s->oom_flag = false;
 
     am_heap_block_header_t *b = (am_heap_block_header_t *)s->base;
     block_set_size(b, s->capacity, false);
@@ -929,6 +951,36 @@ void am_allocator_host_free(am_allocator_t *alloc, void *ptr) {
     am_freelist_state_t *s = (am_freelist_state_t *)alloc->state;
     if (!s->pool || !s->pool->host_vtable) return;
     s->pool->host_vtable->host_free(ptr);
+}
+
+// 遍历空闲链表，返回最大空闲块的真实大小（无空闲块时为 0）。O(空闲块数)。
+static size_t freelist_largest_free_block(const am_freelist_state_t *s) {
+    size_t largest = 0;
+    for (am_heap_block_header_t *cur = s->free_list_head; cur; cur = cur->next_free) {
+        size_t cur_size = block_real_size(cur);
+        if (cur_size > largest) largest = cur_size;
+    }
+    return largest;
+}
+
+int32_t am_allocator_heap_usage(const am_allocator_t *alloc, size_t *used_bytes, size_t *capacity,
+                                size_t *largest_free_block) {
+    if (!alloc || !alloc->state || alloc->vtable != &freelist_vtable) return -1;
+    const am_freelist_state_t *s = (const am_freelist_state_t *)alloc->state;
+    if (used_bytes) *used_bytes = s->used_bytes;
+    if (capacity) *capacity = s->capacity;
+    if (largest_free_block) *largest_free_block = freelist_largest_free_block(s);
+    return 0;
+}
+
+int32_t am_allocator_heap_take_oom_flag(am_allocator_t *alloc) {
+    if (!alloc || !alloc->state || alloc->vtable != &freelist_vtable) return -1;
+    am_freelist_state_t *s = (am_freelist_state_t *)alloc->state;
+    if (s->oom_flag) {
+        s->oom_flag = false;
+        return 1;
+    }
+    return 0;
 }
 
 /* =============================================================================

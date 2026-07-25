@@ -2355,6 +2355,7 @@ am_runtime_t *am_runtime_create(am_allocator_t *vm_alloc, am_allocator_t *heap_a
 
     rt->tick_counter = 0;
     rt->gc_count = 0;
+    rt->gc_periodic_counter = 0;
 
     rt->timeslice = 8192;
 
@@ -2922,6 +2923,25 @@ int32_t am_runtime_execute(am_runtime_t *rt, am_process_t *proc) {
 }
 
 
+// 按堆水位在安全点触发 GC（L1 主策略）：
+//   水位级别 1（高水位）→ 一轮标记-清除；级别 2（临界水位）→ 当轮强制压缩；
+//   若堆区曾彻底分配失败（oom_flag，L0 扩界重试仍失败），也强制做一轮 GC 以挽救其余进程。
+// 指令之间的tick内部、tick 末尾都是 GC 安全点（各进程的 GC 根处于一致状态）。
+static void runtime_gc_watermark_check(am_runtime_t *rt) {
+    if (!rt) return;
+#if AM_ENABLE_GC
+    int32_t level = am_gc_heap_watermark_level(rt->heap_alloc);
+    if (am_allocator_heap_take_oom_flag(rt->heap_alloc) == 1 && level < 2) level = 2;
+    if (level >= 1) {
+        rt->gc_count++;
+        (void)am_gc_collect(rt->heap_alloc, rt->process_pool, rt->process_poll_counter,
+                            rt->gc_count, (level >= 2) ? 1 : 0);
+    }
+#else
+    (void)rt;
+#endif
+}
+
 int32_t am_runtime_tick(am_runtime_t *rt, uint32_t timeslice) {
     if (!rt || !rt->process_queue) return AM_VM_STATE_IDLE;
     if (rt->process_queue->length == 0) return AM_VM_STATE_IDLE;
@@ -2937,8 +2957,11 @@ int32_t am_runtime_tick(am_runtime_t *rt, uint32_t timeslice) {
     am_process_t *proc = rt->process_pool[pid];
     proc->state = AM_PROCESS_STATE_RUNNING;
 
+    uint32_t since_check = 0;
     while (timeslice > 0 && proc->state == AM_PROCESS_STATE_RUNNING) {
         if (am_runtime_execute(rt, proc) != 0) {
+            // 补救：若失败由堆分配失败（OOM）引起，立即做一轮 GC 以挽救其余进程
+            runtime_gc_watermark_check(rt);
             proc->state = AM_PROCESS_STATE_STOPPED;
             if (rt->vtable->on_error) rt->vtable->on_error(rt);
             wchar_t errmsg[256];
@@ -2947,7 +2970,15 @@ int32_t am_runtime_tick(am_runtime_t *rt, uint32_t timeslice) {
             break;
         }
         timeslice--;
+        // 每 AM_GC_WATERMARK_CHECK_STRIDE 条指令检查一次堆水位，收窄失控分配的逃逸窗口
+        if (++since_check >= AM_GC_WATERMARK_CHECK_STRIDE) {
+            since_check = 0;
+            runtime_gc_watermark_check(rt);
+        }
     }
+
+    // tick 末尾安全点：再检查一次堆水位
+    runtime_gc_watermark_check(rt);
 
     if (proc->state == AM_PROCESS_STATE_RUNNING) {
         proc->state = AM_PROCESS_STATE_READY;
@@ -3031,17 +3062,25 @@ void am_runtime_print_memory_stats(am_runtime_t *rt) {
 int32_t am_runtime_event_handler(am_runtime_t *rt) {
     if (!rt) return AM_VM_STATE_IDLE;
 
-    // NOTE 此处时间片的长度，决定了GC的时间粒度。若GC间隔过长，可能导致峰值内存需求较大时，内存分配失败，即使空闲够用。
+    // NOTE GC 触发策略为“堆水位为主、周期兜底为辅”（三级触发）：
+    //   L0 分配失败时分配器内部向 VM 区让渡边界并重试（见 freelist_malloc）；
+    //   L1 tick 内每 AM_GC_WATERMARK_CHECK_STRIDE 条指令及 tick 末尾按堆水位触发（见 am_runtime_tick），
+    //     逃逸窗口为 STRIDE 条指令，不再受时间片长度影响；
+    //   L2 每 AM_GC_PERIODIC_INTERVAL 轮事件循环执行一轮兜底 GC（见下）。
     int32_t vm_state = AM_VM_STATE_IDLE;
     for (int i = 0; i < AM_COMPUTATION_PHASE_LENGTH; i++) {
         vm_state = am_runtime_tick(rt, rt->timeslice);
         if (vm_state == AM_VM_STATE_IDLE) break;
     }
 
-#if AM_ENABLE_GC
-    // NOTE 每个事件循环结束后执行一轮 GC（标记-清除，按需标记-压缩）。
-    rt->gc_count++;
-    (void)am_gc_collect(rt->heap_alloc, rt->process_pool, rt->process_poll_counter, rt->gc_count);
+#if AM_ENABLE_GC && AM_GC_PERIODIC_INTERVAL > 0
+    // 周期兜底：每 AM_GC_PERIODIC_INTERVAL 轮事件循环执行一轮 GC，
+    // 保证分配缓慢但持续产生垃圾的程序最终也能回收，压缩与边界调整仍能周期发生。
+    rt->gc_periodic_counter++;
+    if ((rt->gc_periodic_counter % AM_GC_PERIODIC_INTERVAL) == 0) {
+        rt->gc_count++;
+        (void)am_gc_collect(rt->heap_alloc, rt->process_pool, rt->process_poll_counter, rt->gc_count, 0);
+    }
 #endif
 
     // 检查队列阻塞等待者：唤醒超时的发送者/接收者
