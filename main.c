@@ -6,14 +6,15 @@
 #include <assert.h>
 
 #include "animac.h"
-#include "host.h"
-#include "highlight.h"
 
-#include "native_System.h"
-#include "native_Math.h"
-#include "native_String.h"
-#include "native_LLM.h"
-#include "native_Table.h"
+#include "am_host.h"
+#include "am_highlight.h"
+
+#include "am_native_System.h"
+#include "am_native_Math.h"
+#include "am_native_String.h"
+#include "am_native_LLM.h"
+#include "am_native_Table.h"
 
 // 打印 token 类型名称
 const wchar_t* type_name(int32_t type) {

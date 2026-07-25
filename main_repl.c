@@ -8,7 +8,7 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
-#include "repl.h"
+#include "am_repl.h"
 
 #define ANIMAC_VERSION "V2607"
 

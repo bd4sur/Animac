@@ -20,32 +20,32 @@ extern "C" {
 #endif
 
 // 基础设施
-#include "allocator.h"
-#include "object.h"
-#include "map.h"
-#include "list.h"
-#include "wstring.h"
-#include "vocab.h"
-#include "heap.h"
-#include "closure.h"
-#include "continuation.h"
-#include "scope.h"
-#include "debug.h"
+#include "am_allocator.h"
+#include "am_object.h"
+#include "am_map.h"
+#include "am_list.h"
+#include "am_wstring.h"
+#include "am_vocab.h"
+#include "am_heap.h"
+#include "am_closure.h"
+#include "am_continuation.h"
+#include "am_scope.h"
+#include "am_debug.h"
 
 // 前端（词法/语法/宏/链接/编译/模块/JS 转换）
-#include "lexer.h"
-#include "ast.h"
-#include "parser.h"
-#include "macro.h"
-#include "linker.h"
-#include "compiler.h"
-#include "module.h"
-#include "js2scm.h"
+#include "am_lexer.h"
+#include "am_ast.h"
+#include "am_parser.h"
+#include "am_macro.h"
+#include "am_linker.h"
+#include "am_compiler.h"
+#include "am_module.h"
+#include "am_js2scm.h"
 
 // 运行时（进程/垃圾回收/虚拟机）
-#include "process.h"
-#include "gc.h"
-#include "runtime.h"
+#include "am_process.h"
+#include "am_gc.h"
+#include "am_runtime.h"
 
 #ifdef __cplusplus
 }

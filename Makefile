@@ -3,7 +3,7 @@ CFLAGS  := -O3 -Wall -Wextra -Wno-unused-function -Iinclude
 LDFLAGS := -lm
 
 SRCS := $(wildcard src/*.c)
-SRCS := $(filter-out src/host_esp32.cpp, $(wildcard src/*))
+SRCS := $(filter-out src/am_host_esp32.cpp, $(wildcard src/*))
 
 all: main repl
 
