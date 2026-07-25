@@ -14,10 +14,6 @@
 #include "am_native_LLM.h"
 #include "am_native_Table.h"
 
-#ifndef AM_ALLOCATOR_POOL_SIZE
-#define AM_ALLOCATOR_POOL_SIZE ((size_t)(256ULL * 1024 * 1024))
-#endif
-
 // 前向声明
 static void repl_ctx_output_wchar(am_repl_ctx_t *ctx, wchar_t c);
 static void repl_ctx_output_wcs(am_repl_ctx_t *ctx, const wchar_t *s);
@@ -1032,8 +1028,9 @@ static wchar_t *repl_session_strip_display(const wchar_t *session) {
 static int repl_ctx_reset(am_repl_ctx_t *ctx) {
     if (!ctx) return -1;
 
-    // 保留解释器模式，其余全部重置。
+    // 保留解释器模式与内存池大小，其余全部重置。
     int saved_js_mode = ctx->js_mode;
+    size_t saved_pool_size = ctx->pool_size;
 
     // 释放标准 C 分配的缓冲区。
     free(ctx->accum);
@@ -1056,6 +1053,7 @@ static int repl_ctx_reset(am_repl_ctx_t *ctx) {
     ctx->pid = (am_pid_t)-1;
     ctx->status = AM_REPL_STATUS_CONTINUE;
     ctx->js_mode = saved_js_mode;
+    ctx->pool_size = saved_pool_size;
     ctx->should_stop = 0;
     ctx->prompt_main = "> ";
     ctx->prompt_cont = "... ";
@@ -1169,7 +1167,7 @@ static am_repl_result_t repl_ctx_submit(am_repl_ctx_t *ctx) {
 static int repl_ctx_init_runtime(am_repl_ctx_t *ctx) {
     if (!ctx) return -1;
 
-    ctx->pool = am_allocator_pool_create(AM_ALLOCATOR_POOL_SIZE, &am_host_default_vtable);
+    ctx->pool = am_allocator_pool_create(ctx->pool_size, &am_host_default_vtable);
     if (!ctx->pool) {
         ctx->vm_alloc = NULL;
         ctx->heap_alloc = NULL;
@@ -1235,11 +1233,12 @@ static int repl_ctx_init_runtime(am_repl_ctx_t *ctx) {
     return 0;
 }
 
-// 建立 REPL 上下文。
-am_repl_ctx_t *am_repl_ctx_create(void) {
+// 建立 REPL 上下文。pool_size 指定内存池总大小（单位：字节）。
+am_repl_ctx_t *am_repl_ctx_create(size_t pool_size) {
     am_repl_ctx_t *ctx = (am_repl_ctx_t *)calloc(1, sizeof(am_repl_ctx_t));
     if (!ctx) return NULL;
 
+    ctx->pool_size = pool_size;
     ctx->pid = (am_pid_t)-1;
     ctx->status = AM_REPL_STATUS_CONTINUE;
     ctx->js_mode = 0;

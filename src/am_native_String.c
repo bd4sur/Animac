@@ -6,7 +6,6 @@
 #include <wchar.h>
 
 #include "am_native_String.h"
-#include "am_wstring.h"
 
 
 // ===============================================================================

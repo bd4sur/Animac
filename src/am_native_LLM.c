@@ -1,5 +1,3 @@
-#include "am_native_LLM.h"
-
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -8,10 +6,7 @@
 #include <string.h>
 #include <wchar.h>
 
-#include "am_heap.h"
-#include "am_list.h"
-#include "am_object.h"
-#include "am_wstring.h"
+#include "am_native_LLM.h"
 
 
 // ===============================================================================

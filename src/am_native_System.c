@@ -7,14 +7,6 @@
 #include <time.h>
 
 #include "am_native_System.h"
-#include "am_wstring.h"
-#include "am_gc.h"
-#include "am_parser.h"
-#include "am_linker.h"
-#include "am_compiler.h"
-#include "am_module.h"
-#include "am_heap.h"
-#include "am_ast.h"
 #include "am_host.h"
 
 

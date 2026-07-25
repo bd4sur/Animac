@@ -48,7 +48,8 @@ int main(int argc, char *argv[]) {
     rl_event_hook = repl_event_hook;
     rl_set_keyboard_input_timeout(100000);  // 100 ms
 
-    am_repl_ctx_t *ctx = am_repl_ctx_create();
+    // 内存池大小默认为 16MB
+    am_repl_ctx_t *ctx = am_repl_ctx_create((size_t)(16ULL * 1024 * 1024));
     if (!ctx) {
         fprintf(stderr, "Failed to create REPL context\n");
         return 1;

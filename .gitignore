@@ -2,3 +2,5 @@ main
 repl
 *.bin
 *.exe
+animac_core.c
+animac_core.h

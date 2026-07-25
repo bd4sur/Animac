@@ -4,10 +4,6 @@
 #include <wchar.h>
 
 #include "am_native_Table.h"
-#include "am_map.h"
-#include "am_list.h"
-#include "am_wstring.h"
-#include "am_process.h"
 
 
 // ===============================================================================

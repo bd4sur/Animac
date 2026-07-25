@@ -13,6 +13,8 @@ Animac（灵机）是一款Scheme解释器，支持Scheme语言的子集和某�
 - src/：C语言实现（代码）文件
 - test/：C语言测试实现文件
 - typescript/：本项目早期原型项目，由TypeScript实现。除非明确要求，否则应忽略该目录，不要主动阅读 typescript 目录下的内容，以免干扰上下文。
+- amalgamate.sh：Amalgamation 脚本，将解释器核心（伞形头文件收录范围，不含宿主相关文件）合并为单文件分发形态（见“架构设计”）。
+- animac_core.h / animac_core.c：由 amalgamate.sh 生成的单文件头文件/实现（勿手工编辑）。
 
 ## 术语约定
 
@@ -50,6 +52,22 @@ Animac（灵机）是一款Scheme解释器，支持Scheme语言的子集和某�
 - 运行时（src/runtime.c）不直接依赖宿主的输入输出回调、定时器与时间戳函数（依赖倒置）：宿主在调用 `am_runtime_create` 时通过 `am_runtime_vtable_t` 虚函数表（见 include/runtime.h）注入 6 个实现——事件回调 `on_tick`/`on_event`/`on_halt`/`on_error`（可选，为 NULL 则不触发）与时间函数 `now_ms`/`sleep_in_ms`（必需，为 NULL 则 create 失败）。runtime 仅保存 vtable 指针不拷贝，宿主须保证其生命周期不短于 runtime。桌面宿主的默认实现见 main.c 与 src/repl.c 中的 `g_host_vtable`（时间函数底层为 include/host.h 的 `am_current_timestamp_in_ms`/`am_sleep_in_ms`，src/host.c 与 src/host_esp32.cpp 各有一份实现）。
 
 symbol是以其字面为ID的，相同拼写的symbol，无论在哪个上下文中都是同一个符号。因此AST合并时，字符串相同的symbol，就是同一个symbol。这与variable截然不同。
+
+## Amalgamation（单文件分发形态）
+
+效仿 Lua/SQLite 的单文件库形态，项目提供 Amalgamation 机制，方便第三方集成：
+
+- 生成方式：`make amalg`（底层调用 `bash amalgamate.sh`；Makefile 已对 include/ 与 src/ 建立依赖跟踪，源文件更新后自动重新生成）。产物为项目根目录下的 `animac_core.h`（核心头文件按依赖拓扑序合并，含 `extern "C"` 包装）与 `animac_core.c`（核心实现按同一顺序合并，仅 `#include "animac_core.h"`）。
+- **收录范围 = include/animac.h 伞形头文件登记的解释器核心**（基础设施、前端、运行时），Amalgamation 是自包含的“上帝模块”。明确排除与宿主相关的内容：`am_host.*`（宿主适配）、`am_native_*.*`（native 库，核心通过 `am_runtime_register_native_lib` 动态注册，不静态依赖）、`am_highlight.*`（终端呈现）、`am_repl.*`（上层消费者）。收录清单直接取自伞形头文件，二者自动保持同步。集成方编译 `animac_core.c` 获得解释器核心，再按需单独编译 `src/am_host.c`、`src/am_native_*.c` 等宿主侧文件一同链接。
+- Makefile 相关目标：`make amalg` 生成单文件产物；`make main_amalg` / `make repl_amalg` 用单文件形态 + 宿主侧源文件（Makefile 中 `HOST_SRCS`，另加 repl 所需的 `src/am_repl.c`）构建可执行文件（`make amalg-all` 一次构建两者）；`make amalg-clean` 清理单文件形态全部产物（生成文件 + 可执行文件 + 测试输出）；`make clean` 也会清理 main_amalg / repl_amalg。
+- 产物由脚本自动生成，**勿手工编辑**；修改 include/ 或 src/ 后应重新运行 `make amalg`。
+- 变换规则（仅作用于产物，绝不修改 include/ 与 src/ 下的源文件）：剔除局部 `#include "..."`（保留系统 `#include <...>`）；伞形头文件 `animac.h` 不并入，其包含列表展开为其引用者的依赖。
+- 跨编译单元的 static 符号冲突：以下 static 函数在不同 .c 文件中重名定义，合并到同一编译单元会重定义，脚本统一按 “<文件基名>__<原名>” 规则在产物中改名（不改源文件）：
+  - `dynamic_wind_entry_{after,before,saved,set_saved}`、`dynamic_wind_get_entry`：src/am_process.c 与 src/am_runtime.c
+  - `parse_term`：src/am_js2scm.c 与 src/am_parser.c
+  - （宿主侧文件 `am_native_*.c` 之间亦存在同类重名——`native_pop_number`、`native_push_float_or_null`、`native_push_wstring_buf`、`wstring_content_to_buffer`——但它们不参与合并，无需处理。）
+  - **新增 .c 文件时，若引入了与其他文件同名的 static 函数/文件作用域变量，必须同步更新 amalgamate.sh 的改名表（`rename_names_for`）及本清单。**
+- 验证方式：`make main_amalg` 构建后，可用 `bash testall_amalg.sh`（与 testall.sh 同序同例，使用 ./main_amalg）做回归测试。
 
 ## 模块磁盘格式（dump/load）
 

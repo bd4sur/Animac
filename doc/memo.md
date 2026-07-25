@@ -18,7 +18,6 @@ NOTE 回归测试使用哪些用例：
 - jstest.js
 
 TODO Animac把设备malloc抽象出来
-TODO Amalgamation脚本→梳理依赖关系
 TODO GC在定时执行的基础上，按水位触发执行
 TODO main里路径相关的不要用am_malloc
 

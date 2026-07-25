@@ -21,6 +21,7 @@ typedef enum {
 // REPL 上下文。内部状态直接暴露给外层，便于外层根据状态决定呈现方式。
 typedef struct repl_ctx {
     // 运行时基础设施
+    size_t pool_size;  // 内存池总大小（字节），由 am_repl_ctx_create 指定
     am_allocator_pool_t *pool;
     am_allocator_t *vm_alloc;
     am_allocator_t *heap_alloc;
@@ -67,8 +68,8 @@ typedef struct {
     int indent;
 } am_repl_result_t;
 
-// 建立 REPL 上下文。
-am_repl_ctx_t *am_repl_ctx_create(void);
+// 建立 REPL 上下文。pool_size 指定内存池总大小（单位：字节）。
+am_repl_ctx_t *am_repl_ctx_create(size_t pool_size);
 
 // 销毁 REPL 上下文。
 void am_repl_ctx_destroy(am_repl_ctx_t *ctx);
