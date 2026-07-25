@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #include <ctype.h>
 #include <stdarg.h>
 #include <wchar.h>
@@ -16,6 +17,41 @@
 #include "am_js2scm.h"
 
 static jmp_buf g_err_jmp;
+
+// JS 翻译器最近一次词法/语法错误消息（UTF-32），供上层（REPL）取用；translate() 每次进入时清空
+static wchar_t g_am_js_last_error[256] = {0};
+
+const wchar_t *am_js_last_error(void) {
+    return g_am_js_last_error;
+}
+
+// 将 UTF-32 字符串按 UTF-8 编码输出到文件流。
+// 说明：newlib（ESP32）的宽字符文件流输出 vfwprintf/fwprintf 不可用，宽字符串会被按窄字节流吐出；
+// 且 am_js2scm 属于解释器核心（amalgamation），不依赖宿主侧的 am_host 转换函数，故在此手写编码。
+static void js_err_fputws(const wchar_t *ws, FILE *fp) {
+    char buf[1024];
+    size_t n = 0;
+    for (const wchar_t *p = ws; *p && n + 4 < sizeof(buf); p++) {
+        uint32_t cp = (uint32_t)*p;
+        if (cp <= 0x7F) {
+            buf[n++] = (char)cp;
+        } else if (cp <= 0x7FF) {
+            buf[n++] = (char)(0xC0 | (cp >> 6));
+            buf[n++] = (char)(0x80 | (cp & 0x3F));
+        } else if (cp <= 0xFFFF) {
+            buf[n++] = (char)(0xE0 | (cp >> 12));
+            buf[n++] = (char)(0x80 | ((cp >> 6) & 0x3F));
+            buf[n++] = (char)(0x80 | (cp & 0x3F));
+        } else {
+            buf[n++] = (char)(0xF0 | (cp >> 18));
+            buf[n++] = (char)(0x80 | ((cp >> 12) & 0x3F));
+            buf[n++] = (char)(0x80 | ((cp >> 6) & 0x3F));
+            buf[n++] = (char)(0x80 | (cp & 0x3F));
+        }
+    }
+    buf[n] = '\0';
+    fputs(buf, fp);
+}
 
 static void *xrealloc(void *p, size_t sz) {
     void *q = realloc(p, sz);
@@ -129,10 +165,17 @@ static void tl_add(TokList *tl, TokType type, const wchar_t *value, int line, in
 static void lex_error(int line, int col, const wchar_t *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    fprintf(stderr, "词法错误 @ %d:%d: ", line, col);
-    vfwprintf(stderr, fmt, ap);
-    fprintf(stderr, "\n");
+    wchar_t msg[224];
+    vswprintf(msg, sizeof(msg) / sizeof(msg[0]), fmt, ap);
     va_end(ap);
+    // 记录完整错误消息（含位置），供 REPL 取用并显示到用户界面
+    swprintf(g_am_js_last_error, sizeof(g_am_js_last_error) / sizeof(g_am_js_last_error[0]),
+             L"词法错误 @ %d:%d: ", line, col);
+    wcsncat(g_am_js_last_error, msg,
+            sizeof(g_am_js_last_error) / sizeof(g_am_js_last_error[0]) - wcslen(g_am_js_last_error) - 1);
+    fprintf(stderr, "词法错误 @ %d:%d: ", line, col);
+    js_err_fputws(msg, stderr);
+    fprintf(stderr, "\n");
     longjmp(g_err_jmp, 1);
 }
 
@@ -251,10 +294,12 @@ static Token *tokenize(const wchar_t *src, int *out_count) {
         }
 
         /* identifier / keyword */
-        if (iswalpha((wint_t)ch) || ch == L'_' || ch == L'$') {
+        /* 按 JS 规范接受非 ASCII 字符（如中文标识符）；newlib 的 iswalpha/iswalnum
+           在 C locale 下仅覆盖 ASCII，故显式放宽为 ch >= 0x80 */
+        if (iswalpha((wint_t)ch) || ch == L'_' || ch == L'$' || ch >= 0x80) {
             int startLine = line, startCol = col;
             SB id; sb_init(&id);
-            while (i < len && (iswalnum((wint_t)PEEK(0)) || PEEK(0) == L'_' || PEEK(0) == L'$' || PEEK(0) == L'.')) {
+            while (i < len && (iswalnum((wint_t)PEEK(0)) || PEEK(0) == L'_' || PEEK(0) == L'$' || PEEK(0) == L'.' || PEEK(0) >= 0x80)) {
                 sb_appendf(&id, L"%lc", (wint_t)PEEK(0));
                 i++; col++;
             }
@@ -432,6 +477,8 @@ static int match_any(int n, ...) {
 static Token *expect(TokType t) {
     if (peek()->type != t) {
         Token *tok = peek();
+        swprintf(g_am_js_last_error, sizeof(g_am_js_last_error) / sizeof(g_am_js_last_error[0]),
+                 L"语法错误 @ %d:%d: 意外的记号", tok->line, tok->col);
         fprintf(stderr, "语法错误 @ %d:%d: 期望 \"%d\"，得到 \"%d\"\n",
                 tok->line, tok->col, t, tok->type);
         longjmp(g_err_jmp, 1);
@@ -443,10 +490,17 @@ static void parse_error(const wchar_t *fmt, ...) {
     Token *tok = peek();
     va_list ap;
     va_start(ap, fmt);
-    fprintf(stderr, "语法错误 @ %d:%d: ", tok->line, tok->col);
-    vfwprintf(stderr, fmt, ap);
-    fprintf(stderr, "\n");
+    wchar_t msg[224];
+    vswprintf(msg, sizeof(msg) / sizeof(msg[0]), fmt, ap);
     va_end(ap);
+    // 记录完整错误消息（含位置），供 REPL 取用并显示到用户界面
+    swprintf(g_am_js_last_error, sizeof(g_am_js_last_error) / sizeof(g_am_js_last_error[0]),
+             L"语法错误 @ %d:%d: ", tok->line, tok->col);
+    wcsncat(g_am_js_last_error, msg,
+            sizeof(g_am_js_last_error) / sizeof(g_am_js_last_error[0]) - wcslen(g_am_js_last_error) - 1);
+    fprintf(stderr, "语法错误 @ %d:%d: ", tok->line, tok->col);
+    js_err_fputws(msg, stderr);
+    fprintf(stderr, "\n");
     longjmp(g_err_jmp, 1);
 }
 
@@ -1184,6 +1238,7 @@ static void free_tokens(Token *toks, int count) {
 
 static wchar_t *translate(const wchar_t *js_source) {
     if (!js_source) return NULL;
+    g_am_js_last_error[0] = L'\0'; // 清空上一次的错误消息
     int ntok = 0;
     Node *ast = NULL;
     if (setjmp(g_err_jmp)) {

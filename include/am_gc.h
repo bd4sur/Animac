@@ -61,7 +61,7 @@ extern "C" {
 // 进程执行的每个 tick 内，每 AM_GC_WATERMARK_CHECK_STRIDE 条指令检查一次堆水位，
 // 将失控分配的逃逸窗口从整个时间片收窄到 STRIDE 条指令。
 #ifndef AM_GC_WATERMARK_CHECK_STRIDE
-#define AM_GC_WATERMARK_CHECK_STRIDE (1024)
+#define AM_GC_WATERMARK_CHECK_STRIDE (256)
 #endif
 
 

@@ -130,10 +130,10 @@ void *am_allocator_host_malloc(am_allocator_t *alloc, size_t size);
 void *am_allocator_host_realloc(am_allocator_t *alloc, void *ptr, size_t size);
 void  am_allocator_host_free(am_allocator_t *alloc, void *ptr);
 
-// 查询堆区分配器的使用量与最大空闲块（供 GC 水位与碎片判断；largest_free_block 可传 NULL 跳过）。
+// 查询堆区分配器的使用量、最大空闲块与近期最大分配请求（供 GC 水位与碎片判断；后两个参数可传 NULL 跳过）。
 // 仅支持内存池的堆区分配器（am_allocator_pool_get_heap 的返回值），其余返回 -1。
 int32_t am_allocator_heap_usage(const am_allocator_t *alloc, size_t *used_bytes, size_t *capacity,
-                                size_t *largest_free_block);
+                                size_t *largest_free_block, size_t *largest_request);
 
 // 读取并清除堆区分配失败标志：此前曾发生彻底分配失败（边界让渡重试后仍失败）
 // 返回 1 并清除标志，否则返回 0；alloc 非堆区分配器返回 -1。

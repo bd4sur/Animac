@@ -35,10 +35,10 @@
 (newline)
 
 (display "测试多次执行eval的可靠性\n")
-(define count 500)
+(define count 100000)
 (define lst '())
 (while (> count 0) {
-    (System.eval "(native System) (push lst count) (display \"测试多次执行eval的可靠性 \") (display (System.timestamp)) (display lst) (newline) (set! count (- count 1))")
+    (System.eval "(native System) (push lst count) (if (== (mod count 10000) 0) { (display \"测试多次执行eval的可靠性 \") (display (System.timestamp)) (display \"  Length = \") (display (length lst)) (display \"  memstat = \") (display (System.memstat)) (newline) }) (set! count (- count 1))")
 })
 
 (display "预期输出：报错（变量z未定义）\n实际输出：")

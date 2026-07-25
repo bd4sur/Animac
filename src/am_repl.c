@@ -793,10 +793,22 @@ static am_repl_result_t repl_ctx_eval_js_accum(am_repl_ctx_t *ctx, int force) {
 
     wchar_t *scheme = am_js_to_scheme(ctx->accum);
     if (!scheme) {
-        if (force) {
+        // 翻译失败：强制提交，或括号已闭合（js_indent <= 0）但仍失败 = 真实的语法错误。
+        // 报错并重置累积缓冲——原实现静默返回 CONTINUE 且不清理 accum，
+        // 坏输入会留在累积缓冲里毒化后续所有输入（表现为无回显且永久卡死）。
+        if (force || js_indent <= 0) {
             repl_ctx_reset_accum(ctx);
             ctx->status = AM_REPL_STATUS_ERROR;
-            repl_ctx_error_wcs(ctx, L"[REPL] JS 翻译失败\n");
+            const wchar_t *err = am_js_last_error();
+            if (err && err[0] != L'\0') {
+                wchar_t err_buf[320];
+                swprintf(err_buf, sizeof(err_buf) / sizeof(err_buf[0]), L"[JS] ");
+                wcsncat(err_buf, err, sizeof(err_buf) / sizeof(err_buf[0]) - wcslen(err_buf) - 2);
+                wcsncat(err_buf, L"\n", sizeof(err_buf) / sizeof(err_buf[0]) - wcslen(err_buf) - 1);
+                repl_ctx_error_wcs(ctx, err_buf);
+            } else {
+                repl_ctx_error_wcs(ctx, L"[REPL] JS 翻译失败\n");
+            }
         } else {
             ctx->status = AM_REPL_STATUS_CONTINUE;
             ctx->indent = js_indent;

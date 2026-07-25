@@ -353,6 +353,7 @@ typedef struct am_freelist_state_t {
     size_t used_bytes;
     am_allocator_pool_t *pool; /* 指回所属内存池，用于访问宿主内存分配虚函数表 */
     bool oom_flag;             /* 最近一次分配彻底失败（扩界重试后仍失败）时置位，供运行期观测 */
+    size_t largest_request;    /* 近期最大分配请求（含块头对齐后），供碎片水位判断；压缩后清零 */
 } am_freelist_state_t;
 
 static inline size_t block_real_size(const am_heap_block_header_t *b) {
@@ -472,6 +473,7 @@ static void *freelist_malloc(void *state, size_t size) {
 
     size_t needed = AM_ALIGN_UP(AM_HEAP_HEADER_SIZE + size, AM_ALLOC_ALIGN);
     if (needed < AM_BLOCK_MIN_SIZE) needed = AM_BLOCK_MIN_SIZE;
+    if (needed > s->largest_request) s->largest_request = needed;
 
     void *p = freelist_first_fit(s, needed);
     if (p) return p;
@@ -570,6 +572,7 @@ static void pool_init_heap(am_allocator_pool_t *pool) {
     s->free_list_head = NULL;
     s->pool = pool;
     s->oom_flag = false;
+    s->largest_request = 0;
 
     am_heap_block_header_t *b = (am_heap_block_header_t *)s->base;
     block_set_size(b, s->capacity, false);
@@ -964,12 +967,13 @@ static size_t freelist_largest_free_block(const am_freelist_state_t *s) {
 }
 
 int32_t am_allocator_heap_usage(const am_allocator_t *alloc, size_t *used_bytes, size_t *capacity,
-                                size_t *largest_free_block) {
+                                size_t *largest_free_block, size_t *largest_request) {
     if (!alloc || !alloc->state || alloc->vtable != &freelist_vtable) return -1;
     const am_freelist_state_t *s = (const am_freelist_state_t *)alloc->state;
     if (used_bytes) *used_bytes = s->used_bytes;
     if (capacity) *capacity = s->capacity;
     if (largest_free_block) *largest_free_block = freelist_largest_free_block(s);
+    if (largest_request) *largest_request = s->largest_request;
     return 0;
 }
 
@@ -1241,6 +1245,7 @@ int32_t am_allocator_heap_compact(am_allocator_t *heap_alloc,
         s->free_list_head = NULL;
     }
     s->used_bytes = (size_t)(dest - s->base);
+    s->largest_request = 0;   // 压缩后空闲空间已重新连续，清零近期最大请求记录
 
 #if AM_ALLOCATOR_PRINT_COMPACT_REPORT
     compact_print_report(s, used_before, before_free, before_free_count, live_moved);

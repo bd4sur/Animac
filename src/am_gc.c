@@ -673,18 +673,23 @@ int32_t am_gc_collect(am_allocator_t *heap_alloc, am_process_t **process_pool,
 int32_t am_gc_heap_watermark_level(am_allocator_t *heap_alloc) {
     if (!heap_alloc) return -1;
 
-    size_t used = 0, capacity = 0, largest_free = 0;
-    if (am_allocator_heap_usage(heap_alloc, &used, &capacity, &largest_free) != 0) return -1;
+    // 第一趟：仅查询用量（不遍历空闲链表），低于碎片下限直接返回，避免每次检查都走链表
+    size_t used = 0, capacity = 0;
+    if (am_allocator_heap_usage(heap_alloc, &used, &capacity, NULL, NULL) != 0) return -1;
     if (capacity == 0) return -1;
 
     double ratio = (double)used / (double)capacity;
     if (ratio >= AM_GC_HEAP_CRITICAL_RATIO) return 2;
     if (ratio >= AM_GC_HEAP_HIGH_WATER_RATIO) return 1;
-    // 碎片维度：用量超过下限但最大空闲块已小于容量的 AM_GC_HEAP_FRAG_MIN_BLOCK_RATIO，
+    if (ratio < AM_GC_HEAP_FRAG_FLOOR_RATIO) return 0;
+
+    // 第二趟：碎片维度（需遍历空闲链表）。最大空闲块小于
+    // max(容量 × AM_GC_HEAP_FRAG_MIN_BLOCK_RATIO, 近期最大分配请求) 时，
     // first-fit 随时可能失败，需要提前压缩整理（标记-清除+强制压缩）。
-    if (ratio >= AM_GC_HEAP_FRAG_FLOOR_RATIO &&
-        (double)largest_free < (double)capacity * AM_GC_HEAP_FRAG_MIN_BLOCK_RATIO) {
-        return 2;
-    }
+    size_t largest_free = 0, largest_request = 0;
+    if (am_allocator_heap_usage(heap_alloc, NULL, NULL, &largest_free, &largest_request) != 0) return -1;
+    double min_block = (double)capacity * AM_GC_HEAP_FRAG_MIN_BLOCK_RATIO;
+    if ((double)largest_request > min_block) min_block = (double)largest_request;
+    if ((double)largest_free < min_block) return 2;
     return 0;
 }

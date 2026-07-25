@@ -417,7 +417,7 @@ GC 统一由 `gc` 模块实现（`include/am_gc.h`、`src/am_gc.c`），层级�
 2026-07 起，触发策略由原先的“每轮事件循环定时 GC”改为**三级触发**：
 
 1. **L0（allocator 层，正确性兜底）**：`freelist_malloc` 分配失败时，先经 `am_allocator_pool_auto_adjust` 向 VM 区让渡边界并重试（最多 4 次）；彻底失败则置 `oom_flag`（由运行期经 `am_allocator_heap_take_oom_flag` 读取清除）并维持原报错语义。分配器层级不允许触发 GC，只能“吃掉 VM 区富余”。
-2. **L1（runtime 层，主策略）**：`am_runtime_tick` 内每 `AM_GC_WATERMARK_CHECK_STRIDE`（默认 1024）条指令及 tick 末尾，经 `am_gc_heap_watermark_level` 检查堆水位（每次检查为 O(1) 查询加比较，碎片维度需遍历空闲链表）：级别 1（用量 ≥ `AM_GC_HEAP_HIGH_WATER_RATIO`=0.75）执行一轮标记-清除；级别 2（用量 ≥ `AM_GC_HEAP_CRITICAL_RATIO`=0.90，或用量 ≥ `AM_GC_HEAP_FRAG_FLOOR_RATIO`=0.30 且最大空闲块 < 容量的 `AM_GC_HEAP_FRAG_MIN_BLOCK_RATIO`=1/32——防止 first-fit 碎片化失败）当轮强制压缩；发现 `oom_flag` 也强制一轮 GC 以挽救其余进程。
+2. **L1（runtime 层，主策略）**：`am_runtime_tick` 内每 `AM_GC_WATERMARK_CHECK_STRIDE`（默认 256）条指令及 tick 末尾，经 `am_gc_heap_watermark_level` 检查堆水位：级别 1（用量 ≥ `AM_GC_HEAP_HIGH_WATER_RATIO`=0.75）执行一轮标记-清除；级别 2（用量 ≥ `AM_GC_HEAP_CRITICAL_RATIO`=0.90，或碎片维度——用量 ≥ `AM_GC_HEAP_FRAG_FLOOR_RATIO`=0.30 且最大空闲块 < max(容量的 `AM_GC_HEAP_FRAG_MIN_BLOCK_RATIO`=1/32, **近期最大分配请求 largest_request**)——防止 first-fit 碎片化失败，包括列表倍增扩容产生的巨型单块分配）当轮强制压缩；发现 `oom_flag` 也强制一轮 GC 以挽救其余进程。`largest_request` 由 freelist 在每次分配时记账、压缩后清零；水位查询分两阶段，用量低于碎片下限时不遍历空闲链表，检查代价可忽略。
 3. **L2（事件循环层，慢速兜底）**：`am_runtime_event_handler` 每 `AM_GC_PERIODIC_INTERVAL`（默认 32）轮事件循环执行一轮 GC，保证分配缓慢但持续产生垃圾的程序最终也能回收；置 0 可禁用（纯水位触发）。
 
 上述配置宏集中在 `include/am_gc.h`。
