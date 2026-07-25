@@ -1,24 +1,5 @@
-TODO 所有代码文件加am_前缀
-
-NOTE 回归测试使用哪些用例：
-
-- test.scm
-- mlp.scm
-- llm.scm
-- yinyang.scm
-- yinyang_cps.scm
-- test_fork.scm
-- test_table.scm
-- test_eval.scm
-- test_macro.scm
-- test_mec.scm
-- test_ipc1.scm
-- test_ipc2.scm
-- test_deadlock.scm
-- jstest.js
-
-TODO Animac把设备malloc抽象出来
 TODO GC在定时执行的基础上，按水位触发执行
+
 TODO main里路径相关的不要用am_malloc
 
 TODO REPL遗留问题
@@ -51,8 +32,6 @@ TODO 平台相关抽象。
 
 TODO 测试自动化。
 
-TODO 当前dump/load是“内存快照式”实现，严重依赖字长、指针长度、size_t长度和结构体填充，不是与系统字长无关；要在32位MCU与64位宿主之间互导模块，需要引入一层显式的固定宽度磁盘格式。（详见2026-07-08的prompt）
-
 TODO module持久化去掉scope等
 
 TODO 计算器；增加atan2；增加位运算（严格的数值类型隐式变换规则）
@@ -68,10 +47,6 @@ TODO Symbol的eq必须用字符串去比较。symbol不能根据id比较，symbo
 TODO uint/int/float数值类型的自动转换→装箱
 
 TODO 遗留问题：进程初始化时为什么要新建一个顶级闭包？为了防止闭包链上溯时访问失败？
-
-TODO 模块的转储（dump）和加载（load）
-
-TODO REPL和输入：通过callback打印，不要直接在display里打印
 
 TODO 架构决策：fork时全量复制，还是COW？前者运行时性能好，对现有代码改动小。后者比较酷炫，但平均性能差、改动大。
 暂不实现，仅记录思路，远期作为实验性功能探索：为进程heap增加COW机制：
