@@ -136,7 +136,7 @@ typedef uintptr_t am_value_t;
 // if and or cond else for while break continue case do
 // quote quasiquote unquote
 // import native
-// define-syntax let-syntax letrec-syntax syntax-rules
+// define-syntax let-syntax letrec-syntax syntax-rules unquote-splicing
 #define AM_VALUE_KW_lambda     AM_MAKE_VALUE_OF_UINT_LIKE(0x00, AM_VALUE_TAG_SYMBOL)
 #define AM_VALUE_KW_define     AM_MAKE_VALUE_OF_UINT_LIKE(0x01, AM_VALUE_TAG_SYMBOL)
 #define AM_VALUE_KW_set        AM_MAKE_VALUE_OF_UINT_LIKE(0x02, AM_VALUE_TAG_SYMBOL)
@@ -165,6 +165,7 @@ typedef uintptr_t am_value_t;
 #define AM_VALUE_KW_let_syntax    AM_MAKE_VALUE_OF_UINT_LIKE(0x19, AM_VALUE_TAG_SYMBOL)
 #define AM_VALUE_KW_letrec_syntax AM_MAKE_VALUE_OF_UINT_LIKE(0x1A, AM_VALUE_TAG_SYMBOL)
 #define AM_VALUE_KW_syntax_rules  AM_MAKE_VALUE_OF_UINT_LIKE(0x1B, AM_VALUE_TAG_SYMBOL)
+#define AM_VALUE_KW_unquote_splicing AM_MAKE_VALUE_OF_UINT_LIKE(0x1C, AM_VALUE_TAG_SYMBOL)
 
 
 

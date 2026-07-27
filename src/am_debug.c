@@ -95,6 +95,7 @@ static void debug_ast_print_node(am_ast_t *ast, am_handle_t handle, FILE *out,
         case AM_LIST_TYPE_QUOTE:       fwprintf(out, L"\"QUOTE\"\n"); break;
         case AM_LIST_TYPE_QUASIQUOTE:  fwprintf(out, L"\"QUASIQUOTE\"\n"); break;
         case AM_LIST_TYPE_UNQUOTE:     fwprintf(out, L"\"UNQUOTE\"\n"); break;
+        case AM_LIST_TYPE_UNQUOTE_SPLICING: fwprintf(out, L"\"UNQUOTE_SPLICING\"\n"); break;
         default:                       fwprintf(out, L"\"UNKNOWN(%d)\"\n", lst->type); break;
     }
 
@@ -414,6 +415,7 @@ void am_debug_ast_print_node_summary(FILE *out, am_ast_t *ast, am_handle_t handl
         case AM_LIST_TYPE_QUOTE:       type_name = L"QUOTE"; break;
         case AM_LIST_TYPE_QUASIQUOTE:  type_name = L"QUASIQUOTE"; break;
         case AM_LIST_TYPE_UNQUOTE:     type_name = L"UNQUOTE"; break;
+        case AM_LIST_TYPE_UNQUOTE_SPLICING: type_name = L"UNQUOTE_SPLICING"; break;
     }
 
     fwprintf(out, L"<H:%zu>: %ls parent=", (size_t)handle, type_name);
@@ -667,6 +669,7 @@ const char *am_debug_opcode_name(uint32_t opcode) {
         case AM_VM_OP_list_pop:    return "list_pop";
         case AM_VM_OP_length:      return "length";
         case AM_VM_OP_concat:      return "concat";
+        case AM_VM_OP_splice:      return "splice";
         case AM_VM_OP_duplicate:   return "duplicate";
         case AM_VM_OP_evalcleanup: return "evalcleanup";
         case AM_VM_OP_dynamicwind:              return "dynamicwind";

@@ -23,6 +23,7 @@ extern "C" {
 #define AM_LIST_TYPE_QUOTE       (3)
 #define AM_LIST_TYPE_QUASIQUOTE  (4)
 #define AM_LIST_TYPE_UNQUOTE     (5)
+#define AM_LIST_TYPE_UNQUOTE_SPLICING (6)
 
 // 通用线性表（动态扩容）：同时作为基础数据结构和语言数据对象
 // NOTE 说明：am_list_t虽然是基础数据结构，但实质上可作为对象语言的数据对象。详见am_map_t的说明。

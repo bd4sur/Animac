@@ -260,8 +260,7 @@ Animac 只有**行注释**：从分号 `;` 到行尾。没有块注释。
 | `'X` | `(quote X)` | 引用 |
 | `` `X `` | `(quasiquote X)` | 准引用 |
 | `,X` | `(unquote X)` | 解除引用 |
-
-**不支持** `,@`（unquote-splicing）。
+| `,@X` | `(unquote-splicing X)` | 解除引用并拼接（仅在 quasiquote 模板内有效） |
 
 ## 2.5 – 字面量
 
@@ -578,7 +577,21 @@ lambda 的体构成一个新的词法区域（[§3.5](#35--环境与词法作用
 
 unquote 中的表达式遵守词法作用域。特别地，`,'a` 先把符号 `'a` 还原为变量 `a` 再取其值：`` `(,'a) `` ⇒ `(100)`。
 
-限制：**不支持 `,@`**（unquote-splicing）；列表拼接需自行用 `cons`/`push` 等构造。
+**拼接解除引用** `(unquote-splicing 表达式)`（简写 `,@表达式`）把表达式求值得到的**列表**的元素逐一拼接进外层模板列表：
+
+```scheme
+(define xs '(1 2 3))
+`(a ,@xs b)         ; ⇒ (a 1 2 3 b)
+`(,@xs ,@'(4 5))    ; ⇒ (1 2 3 4 5)
+`(a ,@'() b)        ; ⇒ (a b)，空列表被完全吸收
+```
+
+要点：
+
+- `,@` 后的表达式必须求值为列表，否则是运行时错误；
+- `,@` 仅允许出现在 quasiquote 模板内，脱离 quasiquote 使用是编译错误；
+- 与 R5RS 不同，`` `,@x ``（拼接直接出现在模板顶层而非列表元素位置）被**宽松接受**，语义为把 `x` 的元素拼成新列表；
+- 与 unquote 一样，本解释器不对嵌套 quasiquote 做 R5RS 的层级计数（见 §11）。
 
 ## 4.3 – 过程调用
 
@@ -629,7 +642,7 @@ Animac 提供基于 `syntax-rules` 的**卫生宏**（hygienic macro）系统。
 
 - 不支持跨模块导入/导出宏；
 - 每层模式列表只允许一个 `...`，且 `...` 不能位于列表开头；不支持 `(... ...)` 转义写法；
-- `quote`/`quasiquote`/`unquote` 内部不做宏展开；
+- `quote`/`quasiquote`/`unquote`/`unquote-splicing` 内部不做宏展开；
 - 宏调用不匹配任何子句是编译期错误（`[Macro Error] macro use did not match any clause`）。
 
 ## 4.5 – 求值顺序
@@ -1604,7 +1617,6 @@ Animac 参考但不遵守 RⁿRS 标准。以下汇总本手册各处提到的�
 - 没有 `define` 的过程简写形式 `(define (f x) ...)`；
 - 没有点对（dotted pair）与非正规列表；`cons` 的第二参数必须是列表；
 - 没有变参 lambda（`(lambda args ...)` 是语法错误；`(lambda (a . b) ...)` 中的 `.` 无 rest 语义）；
-- 没有 `,@`（unquote-splicing）；
 - 没有 `apply`、`map`、`for-each`、`append`、`list`、`assoc` 等常用库过程（可自行实现）；
 - 没有 `error` 与异常机制；
 - 没有字符类型（`#\a`）、没有 `string?`/`symbol?`/`procedure?` 谓词、没有块注释；
@@ -1685,7 +1697,8 @@ Animac 参考但不遵守 RⁿRS 标准。以下汇总本手册各处提到的�
 <and>      ::= (and <表达式>*)
 <or>       ::= (or <表达式>*)
 <准引用>   ::= (quasiquote <准引用模板>) | `<准引用模板>
-<准引用模板> ::= <数据>，其中可含 (unquote <表达式>) 与 ,<表达式> 与嵌套 <准引用>
+<准引用模板> ::= <数据>，其中可含 (unquote <表达式>) 与 ,<表达式>、
+                  (unquote-splicing <表达式>) 与 ,@<表达式>、以及嵌套 <准引用>
 
 <过程调用> ::= (<表达式> <表达式>*)
 ```

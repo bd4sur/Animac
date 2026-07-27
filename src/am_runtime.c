@@ -1510,7 +1510,6 @@ static int32_t op_length(am_runtime_t *rt, am_process_t *proc, am_value_t operan
 
 
 static int32_t op_concat(am_runtime_t *rt, am_process_t *proc, am_value_t operand) {
-    (void)rt;
     (void)operand;
 
     am_value_t count_val = am_process_pop_operand(proc);
@@ -1532,11 +1531,82 @@ static int32_t op_concat(am_runtime_t *rt, am_process_t *proc, am_value_t operan
     }
 
     for (am_int_t i = 0; i < count; i++) {
-        new_lst = am_list_push(proc->heap_alloc, new_lst, children[i]);
-        if (!new_lst) {
+        am_value_t item = children[i];
+
+        // unquote-splicing：children[i] 指向 type==AM_LIST_TYPE_UNQUOTE_SPLICING 的运行时列表时，
+        // 取其第 0 个元素（必须是列表），把该列表的所有元素依次拼入 new_lst
+        am_list_t *splice_lst = NULL;
+        if (am_value_is_handle(item)) {
+            am_value_t obj_val = am_heap_get(proc->vm_alloc, proc->heap_alloc, proc->heap,
+                                             am_value_to_handle(item));
+            if (am_value_is_ptr(obj_val)) {
+                am_object_t *obj = am_value_to_ptr(obj_val);
+                if (obj->type == AM_OBJECT_TYPE_LIST &&
+                    ((am_list_t *)obj)->type == AM_LIST_TYPE_UNQUOTE_SPLICING) {
+                    splice_lst = (am_list_t *)obj;
+                }
+            }
+        }
+
+        if (!splice_lst) {
+            // 普通 child：按原逻辑压入 new_lst
+            new_lst = am_list_push(proc->heap_alloc, new_lst, item);
+            if (!new_lst) {
+                am_free(proc->vm_alloc, children);
+                return -1;
+            }
+            continue;
+        }
+
+        // splice：被拼接的列表是 splicing 包裹节点的唯一 child
+        if (splice_lst->length != 1) {
+            am_runtime_error(rt, L"[Runtime] unquote-splicing 的参数必须是列表\n");
             am_free(proc->vm_alloc, children);
+            am_list_destroy(proc->heap_alloc, new_lst);
             return -1;
         }
+        am_value_t inner = splice_lst->children[0];
+        if (!am_value_is_handle(inner)) {
+            am_runtime_error(rt, L"[Runtime] unquote-splicing 的参数必须是列表\n");
+            am_free(proc->vm_alloc, children);
+            am_list_destroy(proc->heap_alloc, new_lst);
+            return -1;
+        }
+        am_value_t inner_obj_val = am_heap_get(proc->vm_alloc, proc->heap_alloc, proc->heap,
+                                               am_value_to_handle(inner));
+        if (!am_value_is_ptr(inner_obj_val) ||
+            am_value_to_ptr(inner_obj_val)->type != AM_OBJECT_TYPE_LIST) {
+            am_runtime_error(rt, L"[Runtime] unquote-splicing 的参数必须是列表\n");
+            am_free(proc->vm_alloc, children);
+            am_list_destroy(proc->heap_alloc, new_lst);
+            return -1;
+        }
+        am_list_t *inner_lst = (am_list_t *)am_value_to_ptr(inner_obj_val);
+
+        // 先把元素值拷贝到本地数组，避免 new_lst 扩容期间持有 heap 内对象指针
+        size_t inner_n = inner_lst->length;
+        am_value_t *inner_items = NULL;
+        if (inner_n > 0) {
+            inner_items = (am_value_t *)am_malloc(proc->vm_alloc, inner_n * sizeof(am_value_t));
+            if (!inner_items) {
+                am_free(proc->vm_alloc, children);
+                am_list_destroy(proc->heap_alloc, new_lst);
+                return -1;
+            }
+            for (size_t j = 0; j < inner_n; j++) {
+                inner_items[j] = inner_lst->children[j];
+            }
+        }
+
+        for (size_t j = 0; j < inner_n; j++) {
+            new_lst = am_list_push(proc->heap_alloc, new_lst, inner_items[j]);
+            if (!new_lst) {
+                am_free(proc->vm_alloc, inner_items);
+                am_free(proc->vm_alloc, children);
+                return -1;
+            }
+        }
+        am_free(proc->vm_alloc, inner_items);
     }
 
     am_handle_t new_hd = am_heap_alloc_handle(proc->vm_alloc, proc->heap_alloc, proc->heap);
@@ -1564,6 +1634,37 @@ static int32_t op_concat(am_runtime_t *rt, am_process_t *proc, am_value_t operan
     }
 
     am_free(proc->vm_alloc, children);
+    am_process_push_operand(proc, am_make_value_of_handle(new_hd));
+    am_process_step(proc);
+    return 0;
+}
+
+
+// unquote-splicing：弹出 1 个操作数 v，新建 type=AM_LIST_TYPE_UNQUOTE_SPLICING 的
+// 运行时列表，把 v 作为其唯一 child，入堆后把 handle 压栈。由 op_concat 识别并展平。
+static int32_t op_splice(am_runtime_t *rt, am_process_t *proc, am_value_t operand) {
+    (void)rt;
+    (void)operand;
+
+    am_value_t v = am_process_pop_operand(proc);
+
+    am_list_t *new_lst = am_list_create(proc->heap_alloc, 1, AM_LIST_TYPE_UNQUOTE_SPLICING, AM_HANDLE_NULL);
+    if (!new_lst) return -1;
+
+    new_lst = am_list_push(proc->heap_alloc, new_lst, v);
+    if (!new_lst) {
+        am_list_destroy(proc->heap_alloc, new_lst);
+        return -1;
+    }
+
+    am_handle_t new_hd = am_heap_alloc_handle(proc->vm_alloc, proc->heap_alloc, proc->heap);
+    if (new_hd == AM_HANDLE_NULL) {
+        am_list_destroy(proc->heap_alloc, new_lst);
+        return -1;
+    }
+    am_heap_set(proc->vm_alloc, proc->heap_alloc, proc->heap, new_hd,
+                am_make_value_of_ptr((am_object_t *)new_lst));
+
     am_process_push_operand(proc, am_make_value_of_handle(new_hd));
     am_process_step(proc);
     return 0;
@@ -2891,6 +2992,7 @@ int32_t am_runtime_op_dispatch(am_runtime_t *rt, am_process_t *proc, uint32_t op
         case AM_VM_OP_list_pop:    return op_list_pop(rt, proc, operand);
         case AM_VM_OP_length:      return op_length(rt, proc, operand);
         case AM_VM_OP_concat:      return op_concat(rt, proc, operand);
+        case AM_VM_OP_splice:      return op_splice(rt, proc, operand);
         case AM_VM_OP_duplicate:   return op_duplicate(rt, proc, operand);
         case AM_VM_OP_evalcleanup: return op_evalcleanup(rt, proc, operand);
         case AM_VM_OP_dynamicwind:              return op_dynamicwind(rt, proc, operand);

@@ -1036,7 +1036,8 @@ am_handle_t am_ast_make_lambda_node(am_ast_t *ast, am_handle_t parent) {
 am_handle_t am_ast_make_slist_node(am_ast_t *ast, am_handle_t parent, int32_t type) {
     if (!ast || !ast->nodes) return AM_HANDLE_NULL;
     if (type != AM_LIST_TYPE_APPLICATION && type != AM_LIST_TYPE_QUOTE &&
-        type != AM_LIST_TYPE_QUASIQUOTE && type != AM_LIST_TYPE_UNQUOTE) {
+        type != AM_LIST_TYPE_QUASIQUOTE && type != AM_LIST_TYPE_UNQUOTE &&
+        type != AM_LIST_TYPE_UNQUOTE_SPLICING) {
         return AM_HANDLE_NULL;
     }
 
@@ -1429,6 +1430,7 @@ static int32_t am_ast_append_list_to_strbuf(am_ast_strbuf_t *sb, am_ast_t *ast, 
     if (lst->type == AM_LIST_TYPE_QUOTE)       prefix = L"'(";
     else if (lst->type == AM_LIST_TYPE_QUASIQUOTE) prefix = L"`(";
     else if (lst->type == AM_LIST_TYPE_UNQUOTE)    prefix = L",(";
+    else if (lst->type == AM_LIST_TYPE_UNQUOTE_SPLICING) prefix = L",@(";
 
     if (am_ast_strbuf_append_string(sb, prefix) != 0) return -1;
 

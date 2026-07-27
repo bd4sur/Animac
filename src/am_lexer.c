@@ -13,7 +13,8 @@ const wchar_t* AM_KEYWORDS[] = {
     L"if", L"and", L"or", L"cond", L"else", L"for", L"while", L"break", L"continue", L"case", L"do",
     L"quote", L"quasiquote", L"unquote",
     L"import", L"native",
-    L"define-syntax", L"let-syntax", L"letrec-syntax", L"syntax-rules", NULL
+    L"define-syntax", L"let-syntax", L"letrec-syntax", L"syntax-rules",
+    L"unquote-splicing", NULL
 };
 
 // 关键字对应的保留symbol值，索引与AM_KEYWORDS一一对应
@@ -45,7 +46,8 @@ static const am_value_t AM_KEYWORD_SYMBOLS[] = {
     AM_VALUE_KW_define_syntax,
     AM_VALUE_KW_let_syntax,
     AM_VALUE_KW_letrec_syntax,
-    AM_VALUE_KW_syntax_rules
+    AM_VALUE_KW_syntax_rules,
+    AM_VALUE_KW_unquote_splicing
 };
 
 // ===============================================================================
@@ -271,6 +273,17 @@ int32_t am_lexer(wchar_t *code, am_token_t *tokens) {
                 t_type = AM_TOKEN_TYPE_UNQUOTE;
             else
                 t_type = AM_TOKEN_TYPE_DELIMITER;
+
+            // ,@ 前瞻：逗号后紧跟 @ 时，合成长度为 2 的 UNQUOTE_SPLICING token
+            if(t_type == AM_TOKEN_TYPE_UNQUOTE && code[pos + 1] == L'@') {
+                buf_line = line; buf_col = col;
+                EMIT(AM_TOKEN_TYPE_UNQUOTE_SPLICING, 2, pos, SIZE_MAX);
+                update_pos(c, &line, &col);
+                pos++;
+                update_pos(code[pos], &line, &col);
+                pos++;
+                continue;
+            }
 
             buf_line = line; buf_col = col;
             EMIT(t_type, 1, pos, SIZE_MAX);

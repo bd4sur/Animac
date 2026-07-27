@@ -25,8 +25,10 @@ Animac（灵机）是一款Scheme解释器，支持Scheme语言的子集和某�
 
 ## 环境与工具
 
-- 当前开发环境是Windows系统，但部署了WSL（Ubuntu）。你可以使用WSL，通过WSL使用make、gcc等构建工具进行构建、测试。
 - 禁止执行任何删除命令，如`rm`。
+- 禁止通过Python、Node.js、bash等脚本间接执行具有删除副作用的函数或命令，例如`unlink`等。
+- 禁止执行对Git状态产生修改的命令，如`git add`、`git push`、`git pull`、`git stash`等。但可以查看Git状态。如果确有需要，则必须停止对话，立刻向我请示如何处理。
+- 当前开发环境是Windows系统，但部署了WSL（Ubuntu）。你可以使用WSL，通过WSL使用make、gcc等构建工具进行构建、测试。
 
 ## 架构设计
 
@@ -111,5 +113,15 @@ symbol是以其字面为ID的，相同拼写的symbol，无论在哪个上下文
 - 一期限制：
   - 不支持跨模块导入/导出宏。
   - 模板中引入的 lambda 绑定会做 freshen，但用户需避免在模板中使用本解释器不支持的 `let` 类语法。
-  - quote / quasiquote / unquote 内部不做宏展开，以避免用户 symbol 与关键字 symbol 值冲突。
+  - quote / quasiquote / unquote / unquote-splicing 内部不做宏展开，以避免用户 symbol 与关键字 symbol 值冲突。
+
+## unquote-splicing（,@）
+
+项目已支持 R5RS 的 unquote-splicing（`,@X` ≡ `(unquote-splicing X)`，2026-07 起），实现要点：
+
+- 词法：`,@` 合成长度为 2 的 token `AM_TOKEN_TYPE_UNQUOTE_SPLICING`；`unquote-splicing` 为关键字。
+- 语法：`,@X` 统一解析为 `AM_LIST_TYPE_UNQUOTE_SPLICING` 类型的单元素 slist 包裹节点（即使 X 是原子也包裹，以与 `,X` 区分）；ARN 将其与 UNQUOTE 同样当 application 处理。
+- 编译：`compile_quasiquote` 遇到 splicing 子项时编译其内部表达式并发射 `AM_VM_OP_splice`（弹 1 压 1，栈效应 0，不影响静态栈深分析），把求值结果打包为 UNQUOTE_SPLICING 类型的运行时标记列表；splicing 节点出现在 quasiquote 之外是编译错误。
+- 运行时：`op_concat` 遇到标记列表时取其唯一元素（必须是列表，否则运行时错误）并将其元素逐一拼入结果列表；标记列表生命周期止于 op_concat 内部，不泄漏到用户世界。
+- 与 R5RS 的偏差：`` `,@x ``（拼接出现在模板顶层）被宽松接受；嵌套 quasiquote 无层级计数（与 unquote 一致，见 doc/ISSUES.md issue#19）。
 

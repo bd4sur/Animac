@@ -80,6 +80,7 @@ static size_t parse_body_tail(parser_ctx_t *ctx, size_t index);
 static size_t parse_body_term(parser_ctx_t *ctx, size_t index);
 static size_t parse_quote(parser_ctx_t *ctx, size_t index);
 static size_t parse_unquote(parser_ctx_t *ctx, size_t index);
+static size_t parse_unquote_splicing(parser_ctx_t *ctx, size_t index);
 static size_t parse_quasiquote(parser_ctx_t *ctx, size_t index);
 static size_t parse_quote_term(parser_ctx_t *ctx, size_t index);
 static size_t parse_unquote_term(parser_ctx_t *ctx, size_t index);
@@ -260,6 +261,7 @@ static int is_term_start_token(am_token_t *tok) {
     return tok->type == AM_TOKEN_TYPE_LB ||
            tok->type == AM_TOKEN_TYPE_QUOTE ||
            tok->type == AM_TOKEN_TYPE_UNQUOTE ||
+           tok->type == AM_TOKEN_TYPE_UNQUOTE_SPLICING ||
            tok->type == AM_TOKEN_TYPE_QUASIQUOTE ||
            is_identifier_token(tok);
 }
@@ -513,6 +515,17 @@ static size_t parse_term(parser_ctx_t *ctx, size_t index) { PARSER_LOG("Term\n")
         }
         return next_index + 1;
     }
+    // (unquote-splicing ...)
+    else if (tok->type == AM_TOKEN_TYPE_LB && next && next->type == AM_TOKEN_TYPE_KEYWORD &&
+             next->id == am_value_to_symbol(AM_VALUE_KW_unquote_splicing)) {
+        size_t next_index = parse_unquote_splicing(ctx, index + 1);
+        am_token_t *after = token_at(ctx, next_index);
+        if (!after || after->type != AM_TOKEN_TYPE_RB) {
+            parser_set_error(ctx, L"unquote-splicing 右侧括号未闭合");
+            return index;
+        }
+        return next_index + 1;
+    }
     // (quasiquote ...)
     else if (tok->type == AM_TOKEN_TYPE_LB && next && next->type == AM_TOKEN_TYPE_KEYWORD &&
              next->id == am_value_to_symbol(AM_VALUE_KW_quasiquote)) {
@@ -531,6 +544,10 @@ static size_t parse_term(parser_ctx_t *ctx, size_t index) { PARSER_LOG("Term\n")
     // ,...
     else if (tok->type == AM_TOKEN_TYPE_UNQUOTE) {
         return parse_unquote(ctx, index);
+    }
+    // ,@...
+    else if (tok->type == AM_TOKEN_TYPE_UNQUOTE_SPLICING) {
+        return parse_unquote_splicing(ctx, index);
     }
     // `...
     else if (tok->type == AM_TOKEN_TYPE_QUASIQUOTE) {
@@ -826,6 +843,66 @@ static size_t parse_unquote(parser_ctx_t *ctx, size_t index) {
     state_stack_push(ctx, AM_PARSER_STATE_UNQUOTE);
     size_t next_index = parse_unquote_term(ctx, start);
     state_stack_pop(ctx);
+    return next_index;
+}
+
+
+// 解析 unquote-splicing（,@X 与 (unquote-splicing X) 两种形式统一走这里）。
+// 无论 X 是原子还是列表，都按 UNQUOTE 状态的既有规则解析，然后把解析结果包裹为
+// 一个 type=AM_LIST_TYPE_UNQUOTE_SPLICING 的单元素 slist 节点，替换 node_stack 栈顶。
+// 这样 ,@x 与 (unquote-splicing x) 的 AST 完全一致，且与 ,x 可区分。
+static size_t parse_unquote_splicing(parser_ctx_t *ctx, size_t index) {
+    am_token_t *tok = token_at(ctx, index);
+    if (!tok) {
+        parser_set_error(ctx, L"unexpected end of input in unquote-splicing");
+        return index;
+    }
+
+    size_t start = index;
+    if (tok->type == AM_TOKEN_TYPE_UNQUOTE_SPLICING) {
+        start = index + 1;
+    }
+    else if (tok->type == AM_TOKEN_TYPE_KEYWORD && tok->id == am_value_to_symbol(AM_VALUE_KW_unquote_splicing)) {
+        start = index + 1;
+    }
+    else if (tok->type == AM_TOKEN_TYPE_LB) {
+        start = index + 2; // 跳过 ( unquote-splicing
+    }
+    else {
+        parser_set_error(ctx, L"expected unquote-splicing");
+        return index;
+    }
+
+    // 复用 UNQUOTE 状态的既有规则解析 X
+    state_stack_push(ctx, AM_PARSER_STATE_UNQUOTE);
+    size_t next_index = parse_unquote_term(ctx, start);
+    state_stack_pop(ctx);
+    if (ctx->error) return index;
+
+    // 取出解析结果，包裹为 UNQUOTE_SPLICING 单元素 slist 节点
+    am_value_t child = node_stack_pop(ctx);
+    if (ctx->error) return index;
+
+    am_handle_t parent_handle = AM_HANDLE_NULL;
+    am_value_t top = node_stack_top(ctx);
+    if (!ctx->error && am_value_is_handle(top) && top != am_make_value_of_handle(AM_TOP_NODE_HANDLE)) {
+        parent_handle = am_value_to_handle(top);
+    }
+
+    // 显式以 AM_LIST_TYPE_UNQUOTE_SPLICING 创建包裹节点，不受 UNQUOTE 状态打标逻辑影响
+    am_handle_t list_handle = am_ast_make_slist_node(ctx->ast, parent_handle, AM_LIST_TYPE_UNQUOTE_SPLICING);
+    if (list_handle == AM_HANDLE_NULL) {
+        parser_set_error(ctx, L"failed to create unquote-splicing node");
+        return index;
+    }
+
+    node_stack_push(ctx, am_make_value_of_handle(list_handle));
+    am_ast_set_node_token_index(ctx->ast, list_handle, index);
+
+    // 将解析结果 append 进包裹节点（append_child_to_top 会弹出 child 并挂到栈顶节点）
+    node_stack_push(ctx, child);
+    if (append_child_to_top(ctx) < 0) return index;
+
     return next_index;
 }
 
@@ -1536,7 +1613,8 @@ static void arn_rename_iter_cb(am_handle_t handle, am_value_t value, void *user_
     }
     else if (lst->type == AM_LIST_TYPE_APPLICATION ||
              lst->type == AM_LIST_TYPE_QUASIQUOTE ||
-             lst->type == AM_LIST_TYPE_UNQUOTE) {
+             lst->type == AM_LIST_TYPE_UNQUOTE ||
+             lst->type == AM_LIST_TYPE_UNQUOTE_SPLICING) {
         arn_rename_application(ctx, handle, lst);
     }
 }

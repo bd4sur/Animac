@@ -587,7 +587,8 @@ static am_list_t *macro_as_list(am_ast_t *ast, am_value_t v) {
         lst->type != AM_LIST_TYPE_LAMBDA &&
         lst->type != AM_LIST_TYPE_QUOTE &&
         lst->type != AM_LIST_TYPE_QUASIQUOTE &&
-        lst->type != AM_LIST_TYPE_UNQUOTE) {
+        lst->type != AM_LIST_TYPE_UNQUOTE &&
+        lst->type != AM_LIST_TYPE_UNQUOTE_SPLICING) {
         return NULL;
     }
     return lst;
@@ -1885,10 +1886,11 @@ static am_value_t macro_expand_value(am_macro_expand_ctx_t *ctx, am_value_t valu
         }
     }
 
-    // quote / quasiquote / unquote 内部不展开宏，避免用户 symbol 与关键字冲突
+    // quote / quasiquote / unquote / unquote-splicing 内部不展开宏，避免用户 symbol 与关键字冲突
     if (lst->type == AM_LIST_TYPE_QUOTE ||
         lst->type == AM_LIST_TYPE_QUASIQUOTE ||
-        lst->type == AM_LIST_TYPE_UNQUOTE) {
+        lst->type == AM_LIST_TYPE_UNQUOTE ||
+        lst->type == AM_LIST_TYPE_UNQUOTE_SPLICING) {
         return value;
     }
 

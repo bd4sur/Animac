@@ -69,6 +69,7 @@ static ColorScheme token_type_to_color(int32_t type) {
         case 11: return COLOR_QUOTE;      // AM_TOKEN_TYPE_QUOTE
         case 12: return COLOR_QUOTE;      // AM_TOKEN_TYPE_QUOTE
         case 13: return COLOR_QUOTE;      // AM_TOKEN_TYPE_QUOTE
+        case 14: return COLOR_QUOTE;      // AM_TOKEN_TYPE_UNQUOTE_SPLICING
         case 1:  // fallthrough
         case 2:  return COLOR_BRACKET;    // AM_TOKEN_TYPE_LB/RB
         case 99: return COLOR_ERROR;      // AM_TOKEN_TYPE_UNEXPECTED

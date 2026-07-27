@@ -25,6 +25,7 @@
 #define AM_COMPILER_NODE_KIND_QUASIQUOTE (3)
 #define AM_COMPILER_NODE_KIND_UNQUOTE   (4)
 #define AM_COMPILER_NODE_KIND_STRING    (5)
+#define AM_COMPILER_NODE_KIND_UNQUOTE_SPLICING (6)
 
 // 编译器视角的值的类型分类
 #define AM_COMPILER_VALUE_TYPE_HANDLE   (0)
@@ -67,6 +68,7 @@ static int32_t compiler_node_kind(am_compiler_ctx_t *ctx, am_handle_t h) {
             case AM_LIST_TYPE_QUOTE:       return AM_COMPILER_NODE_KIND_QUOTE;
             case AM_LIST_TYPE_QUASIQUOTE:  return AM_COMPILER_NODE_KIND_QUASIQUOTE;
             case AM_LIST_TYPE_UNQUOTE:     return AM_COMPILER_NODE_KIND_UNQUOTE;
+            case AM_LIST_TYPE_UNQUOTE_SPLICING: return AM_COMPILER_NODE_KIND_UNQUOTE_SPLICING;
             default: break;
         }
     }
@@ -356,6 +358,11 @@ static int32_t compile_value(am_compiler_ctx_t *ctx, am_value_t v) {
             case AM_COMPILER_NODE_KIND_APPLICATION:
             case AM_COMPILER_NODE_KIND_UNQUOTE:
                 return compile_application(ctx, h);
+            case AM_COMPILER_NODE_KIND_UNQUOTE_SPLICING:
+                // unquote-splicing 节点只能作为 quasiquote 的直接子节点被 compile_quasiquote 处理；
+                // 出现在其他位置（如独立求值、函数参数等）属于编译错误
+                fwprintf(stderr, L"[Compiler] 编译错误: unquote-splicing 仅允许出现在 quasiquote 内\n");
+                return -1;
             default:
                 return -1;
         }
@@ -899,6 +906,46 @@ static int32_t compile_quasiquote(am_compiler_ctx_t *ctx, am_handle_t handle) {
                 kind == AM_COMPILER_NODE_KIND_UNQUOTE) {
                 if (compile_application(ctx, am_value_to_handle(child)) != 0) return -1;
             }
+            else if (kind == AM_COMPILER_NODE_KIND_UNQUOTE_SPLICING) {
+                // ,@X：取其唯一子节点，按 unquote 内容语义编译，再发射 splice 指令打包，
+                // 由 op_concat 在拼表时将其元素展平并入结果列表
+                am_value_t spl_node_val = am_ast_get_node(ctx->ast, am_value_to_handle(child));
+                if (!am_value_is_ptr(spl_node_val)) return -1;
+                am_list_t *spl_node = (am_list_t *)am_value_to_ptr(spl_node_val);
+                if (spl_node->length != 1) return -1; // splicing 节点有且仅有一个子节点
+                am_value_t inner = am_list_get(ctx->ast->alloc, spl_node, 0);
+                int32_t ivt = compiler_value_type(inner);
+                if (ivt == AM_COMPILER_VALUE_TYPE_HANDLE) {
+                    int32_t ikind = compiler_node_kind(ctx, am_value_to_handle(inner));
+                    if (ikind == AM_COMPILER_NODE_KIND_APPLICATION ||
+                        ikind == AM_COMPILER_NODE_KIND_UNQUOTE) {
+                        if (compile_application(ctx, am_value_to_handle(inner)) != 0) return -1;
+                    }
+                    else {
+                        if (emit_instruction(ctx, AM_VM_OP_push, inner) != 0) return -1;
+                    }
+                }
+                else if (ivt == AM_COMPILER_VALUE_TYPE_VARID) {
+                    if (compiler_is_native_ref(ctx, inner) == 0) {
+                        if (emit_instruction(ctx, AM_VM_OP_push, inner) != 0) return -1;
+                    }
+                    else {
+                        if (emit_instruction(ctx, AM_VM_OP_load, inner) != 0) return -1;
+                    }
+                }
+                else if (ivt == AM_COMPILER_VALUE_TYPE_NUMBER ||
+                         ivt == AM_COMPILER_VALUE_TYPE_BOOLEAN ||
+                         ivt == AM_COMPILER_VALUE_TYPE_NULL ||
+                         ivt == AM_COMPILER_VALUE_TYPE_UNDEFINED ||
+                         ivt == AM_COMPILER_VALUE_TYPE_WCHAR ||
+                         ivt == AM_COMPILER_VALUE_TYPE_SYMBOL) {
+                    if (emit_instruction(ctx, AM_VM_OP_push, inner) != 0) return -1;
+                }
+                else {
+                    return -1;
+                }
+                if (emit_instruction(ctx, AM_VM_OP_splice, AM_VALUE_UNDEFINED) != 0) return -1;
+            }
             else if (kind == AM_COMPILER_NODE_KIND_QUASIQUOTE) {
                 if (compile_quasiquote(ctx, am_value_to_handle(child)) != 0) return -1;
             }
@@ -1014,6 +1061,8 @@ static int32_t compiler_stack_effect(am_compiler_ctx_t *ctx, am_iaddr_t iaddr) {
             return -2;
         case AM_VM_OP_concat:
             return -1;
+        case AM_VM_OP_splice:
+            return 0; // 弹 1 压 1，栈深不变
         case AM_VM_OP_dynamicwind:
             return -2;
         case AM_VM_OP_dynamicwind_after_before:

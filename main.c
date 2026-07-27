@@ -33,6 +33,7 @@ const wchar_t* type_name(int32_t type) {
         case AM_TOKEN_TYPE_QUOTE: return L"QUOTE";
         case AM_TOKEN_TYPE_QUASIQUOTE: return L"QUASIQUOTE";
         case AM_TOKEN_TYPE_UNQUOTE: return L"UNQUOTE";
+        case AM_TOKEN_TYPE_UNQUOTE_SPLICING: return L"UNQUOTE_SPLICING";
         default: return L"UNEXPECTED";
     }
 }

@@ -82,6 +82,8 @@ extern "C" {
 #define AM_VM_OP_dynamicwind_before_after (59)
 #define AM_VM_OP_dynamicwind_done         (60)
 #define AM_VM_OP_wind                     (61)
+// 追加到枚举末尾，勿插入中间（避免破坏模块磁盘格式中已序列化的指令编号兼容）
+#define AM_VM_OP_splice                   (62) // unquote-splicing：将栈顶值打包为 UNQUOTE_SPLICING 单元素列表
 
 
 // 全局内置变量
@@ -213,7 +215,7 @@ am_handle_t am_ast_make_lambda_node(am_ast_t *ast, am_handle_t parent);
 
 
 // 功能描述：创建SList对象，返回其在AST->nodes堆中的把柄（对应TS的AST.MakeApplicationNode）
-// 实现说明：先从heap中申请一个把柄，再创建一个类型为type=AM_LIST_TYPE_APPLICATION/AM_LIST_TYPE_QUOTE/AM_LIST_TYPE_QUASIQUOTE/AM_LIST_TYPE_UNQUOTE的am_obj_list_t对象，以32为初始容量，再将对象指针打包成am_value_t与已分配把柄绑定在一起。最后返回把柄。如有异常情况，返回空把柄AM_HANDLE_NULL，以示失败。
+// 实现说明：先从heap中申请一个把柄，再创建一个类型为type=AM_LIST_TYPE_APPLICATION/AM_LIST_TYPE_QUOTE/AM_LIST_TYPE_QUASIQUOTE/AM_LIST_TYPE_UNQUOTE/AM_LIST_TYPE_UNQUOTE_SPLICING的am_obj_list_t对象，以32为初始容量，再将对象指针打包成am_value_t与已分配把柄绑定在一起。最后返回把柄。如有异常情况，返回空把柄AM_HANDLE_NULL，以示失败。
 am_handle_t am_ast_make_slist_node(am_ast_t *ast, am_handle_t parent, int32_t type);
 
 

@@ -27,6 +27,7 @@ extern "C" {
 #define AM_TOKEN_TYPE_QUOTE      (11)  // 出现在括号前面的单引号'
 #define AM_TOKEN_TYPE_QUASIQUOTE (12)  // 反引号`
 #define AM_TOKEN_TYPE_UNQUOTE    (13)  // 逗号,
+#define AM_TOKEN_TYPE_UNQUOTE_SPLICING (14)  // 逗号-at ,@
 #define AM_TOKEN_TYPE_UNEXPECTED (99)  // 意料之外的token
 
 typedef struct am_token_t {
@@ -41,7 +42,7 @@ typedef struct am_token_t {
 } am_token_t;
 
 // 关键字
-#define AM_KEYWORDS_NUM (28)
+#define AM_KEYWORDS_NUM (29)
 extern const wchar_t* AM_KEYWORDS[];
 
 

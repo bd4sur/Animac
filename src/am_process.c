@@ -998,6 +998,7 @@ static int32_t am_process_append_list_to_strbuf(am_process_strbuf_t *sb, am_proc
     }
     else if (lst->type == AM_LIST_TYPE_QUASIQUOTE) prefix = L"`(";
     else if (lst->type == AM_LIST_TYPE_UNQUOTE)    prefix = L",(";
+    else if (lst->type == AM_LIST_TYPE_UNQUOTE_SPLICING) prefix = L",@(";
 
     if (am_process_strbuf_append_string(sb, prefix) != 0) return -1;
 
