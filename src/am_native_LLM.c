@@ -754,7 +754,7 @@ static int32_t am_llm_parse_model(uint8_t *buffer, size_t size) {
 // Native 函数实现
 // ===============================================================================
 
-// (LLM.init modelFileBase64:String) : void
+// (LLM.init modelFileBase64:String) : undefined
 int32_t am_native_LLM_init(am_runtime_t *rt, am_process_t *proc) {
     (void)rt;
     am_wstring_t *ws = NULL;
@@ -789,6 +789,8 @@ int32_t am_native_LLM_init(am_runtime_t *rt, am_process_t *proc) {
     }
     g_llm.loaded = 1;
 
+    // 语句型 native（单值纪律 N2）：不产出有意义结果，压 1 个 #undefined 再返回
+    if (am_process_push_operand(proc, AM_VALUE_UNDEFINED) != 0) return -1;
     am_process_step(proc);
     return 0;
 }
@@ -918,7 +920,8 @@ int32_t am_native_LLM_decode(am_runtime_t *rt, am_process_t *proc) {
     return ret;
 }
 
-// (LLM.matmul xout x w xout_offset w_offset n d) : void
+// (LLM.matmul xout x w xout_offset w_offset n d) : undefined
+// 语句型 native（单值纪律 N2）：副作用写回 xout 列表，不产出有意义结果，压 1 个 #undefined 再返回
 int32_t am_native_LLM_matmul(am_runtime_t *rt, am_process_t *proc) {
     (void)rt;
     am_float_t d_f, n_f, w_offset_f, xout_offset_f;
@@ -938,23 +941,21 @@ int32_t am_native_LLM_matmul(am_runtime_t *rt, am_process_t *proc) {
     int w_offset = (int)w_offset_f;
     int xout_offset = (int)xout_offset_f;
 
-    if (d <= 0 || n <= 0) {
-        am_process_step(proc);
-        return 0;
-    }
-
-    for (int i = 0; i < d; i++) {
-        am_float_t val = 0.0;
-        for (int j = 0; j < n; j++) {
-            am_float_t wv = am_llm_list_get_float(w, (size_t)(w_offset + i * n + j));
-            am_float_t xv = am_llm_list_get_float(x, (size_t)j);
-            val += wv * xv;
-        }
-        if ((size_t)(xout_offset + i) < xout->length) {
-            xout->children[xout_offset + i] = am_make_value_of_float(val);
+    if (d > 0 && n > 0) {
+        for (int i = 0; i < d; i++) {
+            am_float_t val = 0.0;
+            for (int j = 0; j < n; j++) {
+                am_float_t wv = am_llm_list_get_float(w, (size_t)(w_offset + i * n + j));
+                am_float_t xv = am_llm_list_get_float(x, (size_t)j);
+                val += wv * xv;
+            }
+            if ((size_t)(xout_offset + i) < xout->length) {
+                xout->children[xout_offset + i] = am_make_value_of_float(val);
+            }
         }
     }
 
+    if (am_process_push_operand(proc, AM_VALUE_UNDEFINED) != 0) return -1;
     am_process_step(proc);
     return 0;
 }

@@ -4,6 +4,13 @@
 > 行号基于 2026-07-27 的工作区版本。标注【实测】的结论已通过 WSL 构建运行验证（见 §9）。
 > 本文是 stack_depth.md 的上游研究：栈深度静态分析之所以"不可能做对"，根源在于引擎没有栈平衡纪律。本文不修改任何代码，仅输出问题盘点与改进方案。
 
+> **实施状态（2026-07-28）**：方案 A（§5）与 §12 的 native 侧同步改造**已实施完毕**——
+> ① §5.1 全部 8 项编译器改动（src/am_compiler.c：begin/lambda/while 语句边界 pop、空 begin 与空函数体补值、define/set! 补值、语句型内建清单 `compiler_statement_builtin_residue` 补偿、单臂 if 与 cond 落空路径补值）；
+> ② §12 阶段 1 同步工作：System.clear_timeout/clear_interval、LLM.init/matmul 补压 #undefined，evalcleanup 截断后补压 #undefined，System.test 补哨兵检查，wake_process 压值失败改为杀死进程并报错；
+> ③ 静态分析同步修正（stack_depth.md §5.2 的定值项与 concat 前看、§5.3 的 call 后继深度 = d - argc + 1，net ≡ 1）；跨函数组合（§5.4，E1）与方案 B/C 仍未实施。
+> 验证：`make` 零警告；testall.sh 全量回归与基线一致（差异仅为模块尺寸/深度数值与用例固有随机性）；test/ 下另 20 个非 testall 用例与基线逐字节一致；gdb 实测多语句函数体尾递归 opstack 深度恒定（基线 ~2×10⁵ 且逐帧增长 → 现恒为 1）；ISSUES#34 关闭。
+> 已知剩余缺口（与基线行为一致，非回归）：语句型内建经**变量引用**被一等公民式调用时（如 `(define p display) (p 1)`），运行时由 `op_call_async` 直接派发指令、编译器无法补偿，调用点净效应为 -1 而非 +1。彻底消除需方案 B（指令自压 #undefined）。
+
 ---
 
 ## 1. 问题背景：什么是"栈平衡"

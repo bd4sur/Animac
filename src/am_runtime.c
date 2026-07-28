@@ -102,7 +102,12 @@ static void runtime_queue_wake_process(am_runtime_t *rt, am_pid_t pid, am_value_
     am_process_t *proc = rt->process_pool[pid];
     if (!proc) return;
 
-    if (am_process_push_operand(proc, result) != 0) return;
+    // 唤醒压值失败（内存不足）时不能静默挂起：杀死该进程并报错，避免进程永久停留 BLOCKED
+    if (am_process_push_operand(proc, result) != 0) {
+        am_runtime_error(rt, L"[Runtime] 唤醒阻塞进程失败：操作数栈压值失败，进程终止\n");
+        am_process_set_state(proc, AM_PROCESS_STATE_KILLED);
+        return;
+    }
     am_process_step(proc);
     am_process_set_state(proc, AM_PROCESS_STATE_READY);
 
@@ -1859,6 +1864,9 @@ static int32_t op_evalcleanup(am_runtime_t *rt, am_process_t *proc, am_value_t o
             cur_len--;
         }
     }
+
+    // 1.5 单值纪律：System.eval 作为语句形式，截断后补压 #undefined 作为其值（净效应 -1+1）
+    if (am_process_push_operand(proc, AM_VALUE_UNDEFINED) != 0) return -1;
 
     // 2. 截断 eval 追加的 ilcode
     if (proc->ilcode && old_ilen < proc->ilcode_length) {

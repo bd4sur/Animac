@@ -20,6 +20,7 @@ extern "C" {
 #endif
 
 // 基础设施
+#include "am_base.h"
 #include "am_allocator.h"
 #include "am_object.h"
 #include "am_map.h"

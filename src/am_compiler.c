@@ -137,6 +137,93 @@ static int32_t compiler_varid_name_equals(am_compiler_ctx_t *ctx, am_varid_t var
 }
 
 
+// emit_instruction 前向声明（定义见下文“工具函数”一节）
+static int32_t emit_instruction(am_compiler_ctx_t *ctx, uint32_t opcode, am_value_t operand);
+
+
+// ===============================================================================
+// 单值栈纪律（方案A：编译期单值纪律）辅助函数
+//
+// 纪律：任何表达式求值结束后，恰好在 opstack 上留下 1 个值；任何语句序列执行完后，
+// 栈深恢复到序列开始时的水平。语句形式（define/set!/display/newline/push/set_item!/
+// while/单臂if的假分支/cond全部落空/空begin）的值统一为 #undefined。
+// 以下辅助函数用于在代码生成时维持该纪律。VM 指令语义不变。
+// ===============================================================================
+
+// 功能说明：判断编译某个AST值之后，是否会在opstack上产生恰好1个值。
+// 设计说明：绝大多数形式都是产值的；不产生值的“零效应形式”只有两类——
+//   ① 编译期声明/宏形式（import/native/define-syntax/let-syntax/letrec-syntax/syntax-rules），
+//      compile_application 对它们不发射任何指令；
+//   ② 裸符号 break/continue（编译为 goto，无栈效应）。
+// 实现说明：返回0表示产生1个值；返回-1表示不产生值。
+static int32_t compiler_check_produces_value(am_compiler_ctx_t *ctx, am_value_t v) {
+    if (am_value_is_symbol(v)) {
+        int is_break;
+        if (compiler_is_break_continue(v, &is_break) == 0) return -1;
+        return 0;
+    }
+    if (am_value_is_handle(v)) {
+        am_handle_t h = am_value_to_handle(v);
+        if (compiler_node_kind(ctx, h) == AM_COMPILER_NODE_KIND_APPLICATION) {
+            am_value_t node_val = am_ast_get_node(ctx->ast, h);
+            if (!am_value_is_ptr(node_val)) return 0;
+            am_list_t *node = (am_list_t *)am_value_to_ptr(node_val);
+            if (node->length == 0) return -1;
+            am_value_t first = am_list_get(ctx->ast->alloc, node, 0);
+            if (am_value_is_symbol(first)) {
+                am_symbol_t sym = am_value_to_symbol(first);
+                if (sym == am_value_to_symbol(AM_VALUE_KW_import)        ||
+                    sym == am_value_to_symbol(AM_VALUE_KW_native)        ||
+                    sym == am_value_to_symbol(AM_VALUE_KW_define_syntax) ||
+                    sym == am_value_to_symbol(AM_VALUE_KW_let_syntax)    ||
+                    sym == am_value_to_symbol(AM_VALUE_KW_letrec_syntax) ||
+                    sym == am_value_to_symbol(AM_VALUE_KW_syntax_rules)) {
+                    return -1;
+                }
+            }
+        }
+        return 0;
+    }
+    return 0;
+}
+
+
+// 功能说明：语句型内建（builtin）清单——查询某 builtin 指令执行后在 opstack 上残留的参数个数。
+// 设计说明：语句型 builtin 对应的 VM 指令执行后不在 opstack 上留下值（display/newline/
+// list_push/set_item 弹光全部参数；read/write 是空操作，参数残留在栈上；fork 执行即报错）。
+// 该清单与 AM_BUILTIN_OPCODE_MAP 并列维护，集中处理而非散落各点。
+// 实现说明：返回非负数表示是语句型 builtin（数值为指令执行后栈上残留的参数个数）；
+// 返回-1表示表达式型 builtin（指令自身净 +1，无需补偿）。
+static int32_t compiler_statement_builtin_residue(int32_t opcode) {
+    switch (opcode) {
+        case AM_VM_OP_display:    // 弹 1 压 0
+        case AM_VM_OP_newline:    // 不动栈（0 参数）
+        case AM_VM_OP_list_push:  // 弹 2 压 0
+        case AM_VM_OP_set_item:   // 弹 3 压 0
+        case AM_VM_OP_read:       // 空操作（0 参数，无残留）
+        case AM_VM_OP_fork:       // 执行即报错（不可达补偿，仅为静态纪律一致）
+            return 0;
+        case AM_VM_OP_write:      // 空操作，2 个参数残留在栈上
+            return 2;
+        default:
+            return -1;
+    }
+}
+
+
+// 功能说明：语句型内建的补偿代码生成——先弹掉全部残留参数，再压入 #undefined 作为该语句形式的值，
+// 使“任何调用形式净 +1”的单值纪律成立。
+// 实现说明：成功返回0；失败返回-1。表达式型 builtin 不发射任何指令，直接返回0。
+static int32_t compiler_emit_statement_builtin_compensation(am_compiler_ctx_t *ctx, int32_t opcode) {
+    int32_t residue = compiler_statement_builtin_residue(opcode);
+    if (residue < 0) return 0;
+    for (int32_t i = 0; i < residue; i++) {
+        if (emit_instruction(ctx, AM_VM_OP_pop, AM_VALUE_UNDEFINED) != 0) return -1;
+    }
+    return emit_instruction(ctx, AM_VM_OP_push, AM_VALUE_UNDEFINED);
+}
+
+
 // ===============================================================================
 // while 标签栈操作
 // ===============================================================================
@@ -527,7 +614,10 @@ static int32_t compile_application(am_compiler_ctx_t *ctx, am_handle_t handle) {
         if (am_value_is_varid(first)) {
             int32_t opcode = compiler_builtin_opcode_for_varid(ctx, am_value_to_varid(first));
             if (opcode >= 0) {
-                return emit_instruction(ctx, (uint32_t)opcode, AM_VALUE_UNDEFINED);
+                if (emit_instruction(ctx, (uint32_t)opcode, AM_VALUE_UNDEFINED) != 0) return -1;
+                // 语句型内建（display/newline/push/set_item!/read/write/fork）：指令执行后不留下值，
+                // 补偿弹残留并 push #undefined，使调用形式净 +1（单值纪律）
+                return compiler_emit_statement_builtin_compensation(ctx, opcode);
             }
         }
 
@@ -552,7 +642,6 @@ static int32_t compile_application(am_compiler_ctx_t *ctx, am_handle_t handle) {
 // Lambda 编译
 // ===============================================================================
 
-// TODO 处理pop问题
 static int32_t compile_lambda(am_compiler_ctx_t *ctx, am_handle_t handle) {
     am_value_t node_val = am_ast_get_node(ctx->ast, handle);
     if (!am_value_is_ptr(node_val)) return -1;
@@ -568,13 +657,24 @@ static int32_t compile_lambda(am_compiler_ctx_t *ctx, am_handle_t handle) {
         if (emit_instruction(ctx, AM_VM_OP_store, param) != 0) return -1;
     }
 
-    // 逐个编译函数体
-    for (size_t i = 2 + n_param; i < node->length; i++) {
-        if (compile_value(ctx, node->children[i]) != 0) return -1;
-        // 除最后一个子表达式外，其余表达式的结果都pop掉
-        // if (i < node->length - 1) {
-        //     if (emit_instruction(ctx, AM_VM_OP_pop, AM_VALUE_UNDEFINED) != 0) return -1;
-        // }
+    // 逐个编译函数体（单值纪律：非末尾表达式的结果立即pop；空函数体兑底产出 #undefined；
+    // 由此任何函数返回恰好 1 个值）
+    size_t body_begin = 2 + n_param;
+    if (node->length <= body_begin) {
+        if (emit_instruction(ctx, AM_VM_OP_push, AM_VALUE_UNDEFINED) != 0) return -1;
+    }
+    for (size_t i = body_begin; i < node->length; i++) {
+        am_value_t child = node->children[i];
+        int32_t produces = compiler_check_produces_value(ctx, child);
+        if (compile_value(ctx, child) != 0) return -1;
+        if (i < node->length - 1) {
+            // 除最后一个子表达式外，其余表达式的结果都pop掉
+            if (produces == 0 && emit_instruction(ctx, AM_VM_OP_pop, AM_VALUE_UNDEFINED) != 0) return -1;
+        }
+        else if (produces != 0) {
+            // 末尾子表达式是零效应形式（不产生值），补 push #undefined 维持单值纪律
+            if (emit_instruction(ctx, AM_VM_OP_push, AM_VALUE_UNDEFINED) != 0) return -1;
+        }
     }
 
     return emit_instruction(ctx, AM_VM_OP_return, AM_VALUE_UNDEFINED);
@@ -664,7 +764,9 @@ static int32_t compile_define(am_compiler_ctx_t *ctx, am_handle_t handle) {
         if (compile_value(ctx, right) != 0) return -1;
     }
 
-    return emit_instruction(ctx, AM_VM_OP_store, left);
+    // store 之后补 push #undefined：define 作为语句形式，其值统一为 #undefined（净 +1）
+    if (emit_instruction(ctx, AM_VM_OP_store, left) != 0) return -1;
+    return emit_instruction(ctx, AM_VM_OP_push, AM_VALUE_UNDEFINED);
 }
 
 
@@ -687,24 +789,34 @@ static int32_t compile_set(am_compiler_ctx_t *ctx, am_handle_t handle) {
         if (compile_value(ctx, right) != 0) return -1;
     }
 
-    return emit_instruction(ctx, AM_VM_OP_set, left);
+    // set 之后补 push #undefined：set! 作为语句形式，其值统一为 #undefined（净 +1）
+    if (emit_instruction(ctx, AM_VM_OP_set, left) != 0) return -1;
+    return emit_instruction(ctx, AM_VM_OP_push, AM_VALUE_UNDEFINED);
 }
 
 
 // 编译begin节点：依次求值并保留最后一个表达式的结果
-// TODO 处理pop问题
+// 单值纪律：非末尾子表达式的结果立即pop；空begin产出 #undefined（净 +1）
 static int32_t compile_begin(am_compiler_ctx_t *ctx, am_handle_t handle) {
     am_value_t node_val = am_ast_get_node(ctx->ast, handle);
     if (!am_value_is_ptr(node_val)) return -1;
     am_list_t *node = (am_list_t *)am_value_to_ptr(node_val);
-    if (node->length <= 1) return 0;
+    if (node->length <= 1) {
+        return emit_instruction(ctx, AM_VM_OP_push, AM_VALUE_UNDEFINED);
+    }
 
     for (size_t i = 1; i < node->length; i++) {
-        if (compile_value(ctx, am_list_get(ctx->ast->alloc, node, i)) != 0) return -1;
-        // 除最后一个子表达式外，其余表达式的结果都pop掉
-        // if (i < node->length - 1) {
-        //     if (emit_instruction(ctx, AM_VM_OP_pop, AM_VALUE_UNDEFINED) != 0) return -1;
-        // }
+        am_value_t child = am_list_get(ctx->ast->alloc, node, i);
+        int32_t produces = compiler_check_produces_value(ctx, child);
+        if (compile_value(ctx, child) != 0) return -1;
+        if (i < node->length - 1) {
+            // 除最后一个子表达式外，其余表达式的结果都pop掉
+            if (produces == 0 && emit_instruction(ctx, AM_VM_OP_pop, AM_VALUE_UNDEFINED) != 0) return -1;
+        }
+        else if (produces != 0) {
+            // 末尾子表达式是零效应形式（不产生值），补 push #undefined 维持单值纪律
+            if (emit_instruction(ctx, AM_VM_OP_push, AM_VALUE_UNDEFINED) != 0) return -1;
+        }
     }
     return 0;
 }
@@ -723,6 +835,14 @@ static int32_t compile_cond(am_compiler_ctx_t *ctx, am_handle_t handle) {
     if (end_lbl_varid == SIZE_MAX) return -1;
     am_value_t end_lbl_idx = am_make_value_of_varid(end_lbl_varid);
     am_value_t end_lbl = am_compiler_make_label(ctx, end_lbl_idx);
+
+    // COND_MISS 标签：全部谓词落空（无 else）时的落入点。
+    // 单值纪律：落空路径压入 #undefined 作为 cond 的值（原为“未规定”），使命中与落空路径净效应均为 +1。
+    am_varid_t miss_lbl_varid = am_compiler_make_temp_varid(
+        ctx, L"COND_MISS", am_make_value_of_handle(handle), 1);
+    if (miss_lbl_varid == SIZE_MAX) return -1;
+    am_value_t miss_lbl_idx = am_make_value_of_varid(miss_lbl_varid);
+    am_value_t miss_lbl = am_compiler_make_label(ctx, miss_lbl_idx);
 
     for (size_t i = 1; i < n; i++) {
         // 插入分支开始标签（第一个分支的标签实际上不会被引用，但为统一逻辑仍定位）
@@ -750,7 +870,8 @@ static int32_t compile_cond(am_compiler_ctx_t *ctx, am_handle_t handle) {
         if (!is_else) {
             if (compile_predicate(ctx, predicate) != 0) return -1;
             if (i == n - 1) {
-                if (emit_instruction(ctx, AM_VM_OP_iffalse, end_lbl) != 0) return -1;
+                // 最后一个子句（无 else）：谓词为假则进入落空路径
+                if (emit_instruction(ctx, AM_VM_OP_iffalse, miss_lbl) != 0) return -1;
             }
             else {
                 am_varid_t next_branch_lbl_varid = am_compiler_make_temp_varid(
@@ -764,11 +885,19 @@ static int32_t compile_cond(am_compiler_ctx_t *ctx, am_handle_t handle) {
 
         if (compile_value(ctx, branch) != 0) return -1;
 
-        if (is_else || i == n - 1) {
+        if (is_else) {
+            // else 子句恒命中：落空路径不可达，无需补值，直接定位 end
             return am_compiler_locate_label(ctx, end_lbl_idx, ctx->icount);
         }
-        else {
-            if (emit_instruction(ctx, AM_VM_OP_goto, end_lbl) != 0) return -1;
+
+        // 命中路径跳过“落空补值”代码，直接到达公共结束点
+        if (emit_instruction(ctx, AM_VM_OP_goto, end_lbl) != 0) return -1;
+
+        if (i == n - 1) {
+            // 落空路径：全部谓词为假且无 else，cond 的值统一为 #undefined
+            if (am_compiler_locate_label(ctx, miss_lbl_idx, ctx->icount) != 0) return -1;
+            if (emit_instruction(ctx, AM_VM_OP_push, AM_VALUE_UNDEFINED) != 0) return -1;
+            return am_compiler_locate_label(ctx, end_lbl_idx, ctx->icount);
         }
     }
 
@@ -803,8 +932,13 @@ static int32_t compile_if(am_compiler_ctx_t *ctx, am_handle_t handle) {
         if (compile_value(ctx, true_branch) != 0) return -1;
     }
     else {
-        if (emit_instruction(ctx, AM_VM_OP_iffalse, end_label) != 0) return -1;
+        // 单臂 if（缺省假分支）：假分支路径压入 #undefined（其值原为“未规定”，统一为 #undefined），
+        // 使两个分支的栈效应均为 +1。此处复用 true_label 作为“假分支落入”标签。
+        if (emit_instruction(ctx, AM_VM_OP_iffalse, true_label) != 0) return -1;
         if (compile_value(ctx, true_branch) != 0) return -1;
+        if (emit_instruction(ctx, AM_VM_OP_goto, end_label) != 0) return -1;
+        if (am_compiler_locate_label(ctx, true_label_idx, ctx->icount) != 0) return -1;
+        if (emit_instruction(ctx, AM_VM_OP_push, AM_VALUE_UNDEFINED) != 0) return -1;
     }
 
     return am_compiler_locate_label(ctx, end_label_idx, ctx->icount);
@@ -829,11 +963,18 @@ static int32_t compile_while(am_compiler_ctx_t *ctx, am_handle_t handle) {
     if (am_compiler_locate_label(ctx, cond_label_idx, ctx->icount) != 0) return -1;
     if (compile_predicate(ctx, am_list_get(ctx->ast->alloc, node, 1)) != 0) return -1;
     if (emit_instruction(ctx, AM_VM_OP_iffalse, end_label) != 0) return -1;
+    // 循环体每个表达式的结果都立即丢弃（pop），消灭逐迭代的栈累积；
+    // break/continue 编译为 goto，不产生值，无需 pop
     for (size_t i = 2; i < node->length; i++) {
-        if (compile_value(ctx, am_list_get(ctx->ast->alloc, node, i)) != 0) return -1;
+        am_value_t child = am_list_get(ctx->ast->alloc, node, i);
+        int32_t produces = compiler_check_produces_value(ctx, child);
+        if (compile_value(ctx, child) != 0) return -1;
+        if (produces == 0 && emit_instruction(ctx, AM_VM_OP_pop, AM_VALUE_UNDEFINED) != 0) return -1;
     }
     if (emit_instruction(ctx, AM_VM_OP_goto, cond_label) != 0) return -1;
     if (am_compiler_locate_label(ctx, end_label_idx, ctx->icount) != 0) return -1;
+    // while 作为语句形式，其值统一为 #undefined（原为“未规定”），净 +1
+    if (emit_instruction(ctx, AM_VM_OP_push, AM_VALUE_UNDEFINED) != 0) return -1;
 
     return while_tag_stack_pop(ctx);
 }
@@ -1017,12 +1158,12 @@ static int32_t compiler_stack_effect(am_compiler_ctx_t *ctx, am_iaddr_t iaddr) {
         case AM_VM_OP_iftrue:      return -1;
         case AM_VM_OP_iffalse:     return -1;
         case AM_VM_OP_goto:        return 0;
-        case AM_VM_OP_read:        return 1;
-        case AM_VM_OP_write:       return -2;
+        case AM_VM_OP_read:        return 0;  // 已废弃：空操作
+        case AM_VM_OP_write:       return 0;  // 已废弃：空操作
         case AM_VM_OP_pause:       return 0;
         case AM_VM_OP_halt:        return 0;
-        case AM_VM_OP_fork:        return 0;
-        case AM_VM_OP_display:     return 0;
+        case AM_VM_OP_fork:        return 0;  // 已废弃：执行即报错
+        case AM_VM_OP_display:     return -1; // 弹 1 压 0
         case AM_VM_OP_newline:     return 0;
         case AM_VM_OP_add:
         case AM_VM_OP_sub:
@@ -1041,8 +1182,9 @@ static int32_t compiler_stack_effect(am_compiler_ctx_t *ctx, am_iaddr_t iaddr) {
         case AM_VM_OP_or:
         case AM_VM_OP_cons:
         case AM_VM_OP_get_item:
-        case AM_VM_OP_list_push:
             return -1;
+        case AM_VM_OP_list_push:
+            return -2; // 弹 2 压 0
         case AM_VM_OP_not:
         case AM_VM_OP_isnull:
         case AM_VM_OP_isundef:
@@ -1058,19 +1200,27 @@ static int32_t compiler_stack_effect(am_compiler_ctx_t *ctx, am_iaddr_t iaddr) {
         case AM_VM_OP_duplicate:
             return 0;
         case AM_VM_OP_set_item:
-            return -2;
-        case AM_VM_OP_concat:
+            return -3; // 弹 3 压 0
+        case AM_VM_OP_concat: {
+            // 弹栈顶 count 再弹 count 个元素、压 1 个列表 = 净 -count。
+            // compile_quasiquote 恒在 concat 紧邻前一条指令发射 push <count>，可精确读出；
+            // 若不满足该形态（防御），回退为保守估计 -1。
+            if (iaddr >= 1 && ctx->ilcode[iaddr - 1].opcode == AM_VM_OP_push &&
+                am_value_is_uint(ctx->ilcode[iaddr - 1].operand)) {
+                return -(int32_t)am_value_to_uint(ctx->ilcode[iaddr - 1].operand);
+            }
             return -1;
+        }
         case AM_VM_OP_splice:
             return 0; // 弹 1 压 1，栈深不变
         case AM_VM_OP_dynamicwind:
-            return -2;
+            return -3; // 弹 3 闭包
         case AM_VM_OP_dynamicwind_after_before:
-            return 1;
+            return 0;  // 截回 base 后调用 thunk
         case AM_VM_OP_dynamicwind_before_after:
-            return 0;
+            return 0;  // 截回 base、保存 thunk 结果后调用 after
         case AM_VM_OP_dynamicwind_done:
-            return -1;
+            return 1;  // 截回 base 后压回保存的结果
         case AM_VM_OP_wind:
             return 0;
         default:
@@ -1173,8 +1323,28 @@ static void compiler_depth_search(am_compiler_ctx_t *ctx, am_iaddr_t entry, size
                 break;
             }
             case AM_VM_OP_call: {
-                // 不进入被调用函数；假设被调用函数净栈效果为 0，继续在调用点之后执行
-                DEPTH_PUSH(iaddr + 1, next_depth);
+                // 不进入被调用函数。单值纪律下任何函数返回恰好 1 个值（net ≡ 1），
+                // 故 call 的后继深度 = 调用点深度 - argc + 1。
+                // 对 label/iaddr 可解析的直接调用，argc 由被调方序言的 store 串长度精确读出；
+                // 不可解析的间接调用（变量目标、native）保守按效应 0 处理。
+                size_t cont_depth = next_depth;
+                am_value_t target_op = ctx->ilcode[iaddr].operand;
+                am_iaddr_t target = SIZE_MAX;
+                if (am_value_is_label(target_op)) {
+                    target = am_compiler_parse_label_to_iaddr(ctx, target_op);
+                }
+                else if (am_value_is_iaddr(target_op)) {
+                    target = am_value_to_iaddr(target_op);
+                }
+                if (target != SIZE_MAX && target < ctx->icount) {
+                    size_t argc = 0;
+                    for (am_iaddr_t j = target; j < ctx->icount &&
+                         ctx->ilcode[j].opcode == AM_VM_OP_store; j++) {
+                        argc++;
+                    }
+                    cont_depth = (next_depth > argc) ? (next_depth - argc + 1) : 1;
+                }
+                DEPTH_PUSH(iaddr + 1, cont_depth);
                 break;
             }
             case AM_VM_OP_tailcall: {

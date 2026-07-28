@@ -23,6 +23,10 @@
 # 原则：绝不修改 include/ 与 src/ 下的任何现有文件；所有变换（剔除局部
 #       #include、跨编译单元 static 符号改名）仅在合并产物上进行。
 #
+# 头文件-only 模块：伞形头文件登记的头文件若没有同名 src/*.c 实现文件
+#       （纯 static inline / 宏 / 文档型头文件），仅并入 animac_core.h，
+#       不并入 animac_core.c（脚本会列出这类头文件，不再是错误）。
+#
 # 已查明的跨文件 static 符号冲突（合并到同一编译单元会重定义），
 # 统一按 “<文件基名>__<原名>” 规则在产物中改名（不改源文件）：
 #   dynamic_wind_entry_{after,before,saved,set_saved}, dynamic_wind_get_entry
@@ -117,7 +121,22 @@ for h in $SORTED_HDRS; do echo "   $h"; done
 # 2. 源文件合并顺序：按对应头文件的拓扑位置排序（无对应头文件的排最后）
 # -----------------------------------------------------------------------------
 # 全部待合并源文件 = 核心头文件对应的实现文件
-ALL_SRCS=$(for h in $ALL_HDRS; do echo "${h%.h}.c"; done)
+# —— 容忍头文件-only 模块：没有同名 src/*.c 实现文件的头文件不并入 .c
+ALL_SRCS=""
+HEADER_ONLY_HDRS=""
+for h in $ALL_HDRS; do
+    c="${h%.h}.c"
+    if [ -f "src/$c" ]; then
+        ALL_SRCS="$ALL_SRCS $c"
+    else
+        HEADER_ONLY_HDRS="$HEADER_ONLY_HDRS $h"
+    fi
+done
+ALL_SRCS=$(echo $ALL_SRCS)   # 归一化为空格分隔（消除前导空白）
+if [ -n "$HEADER_ONLY_HDRS" ]; then
+    echo ">> 头文件-only 模块（无同名 .c，仅并入 $OUT_H）："
+    for h in $HEADER_ONLY_HDRS; do echo "   $h"; done
+fi
 SORTED_SRCS=""
 for h in $SORTED_HDRS; do
     c="${h%.h}.c"

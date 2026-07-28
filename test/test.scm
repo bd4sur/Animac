@@ -19,6 +19,7 @@
 (import Quickqort "quicksort.scm")
 (import Quine "quine.scm")
 (import Shudu "shudu.scm")
+(import StackBalance "stack_balance.scm")
 (import TheLittleSchemer "tls.scm")
 ;; 异步的
 (import Sleepsort "sleepsort.scm")
@@ -77,6 +78,8 @@
 (Quine.run)
 (display "======================== Animac 测试用例 ========================\n")
 (Shudu.run)
+(display "======================== Animac 测试用例 ========================\n")
+(StackBalance.run)
 (display "======================== Animac 测试用例 ========================\n")
 (TheLittleSchemer.run)
 (display "======================== Animac 测试用例 ========================\n")

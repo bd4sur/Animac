@@ -60,12 +60,20 @@ Animac（灵机）是一款Scheme解释器，支持Scheme语言的子集和某�
 
 symbol是以其字面为ID的，相同拼写的symbol，无论在哪个上下文中都是同一个符号。因此AST合并时，字符串相同的symbol，就是同一个symbol。这与variable截然不同。
 
+- 栈平衡（单值栈纪律，2026-07 起，方案详见 doc/todo/stack_bal.md 之“方案A：编译期单值纪律”）：编译器保证**任何表达式求值结束后恰好在 opstack 上留下 1 个值，任何语句序列执行完后栈深恢复到序列开始时的水平**。实现要点（均在 src/am_compiler.c，VM 指令语义不变）：
+  - `begin`/lambda 体/`while` 体中，非末尾表达式的结果立即 `pop`；空 `begin`/空 lambda 体补 `push #undefined`；
+  - 语句形式（`define`/`set!`/`display`/`newline`/`push`/`set_item!`/`while`/单臂 if 的假分支/无 else 且全部落空的 `cond`/空 `begin`）的值统一为 `#undefined`；
+  - 语句型内建清单集中在 `compiler_statement_builtin_residue`（display/newline/list_push/set_item/read/write/fork），编译器在指令后补偿弹残留并 `push #undefined`（与 `AM_BUILTIN_OPCODE_MAP` 并列维护，勿散落各点）；
+  - 编译期“零效应形式”（import/native/define-syntax/let-syntax/letrec-syntax/syntax-rules 与裸符号 break/continue）不产生值，由 `compiler_check_produces_value` 判定，语句边界不为它们发射 pop；
+  - 纪律的连锁性质：函数调用净效应恒为 -argc+1；尾递归在 opstack 上恒界；while 无逐迭代栈累积；静态栈深分析随之精确（`compiler_stack_effect` 按运行时实际效应维护，call 后继深度 = 调用点深度 - argc + 1）。
+  - native 函数须遵守 stack_bal.md §11 的栈平衡契约：正常返回路径恰好弹 N 压 1；语句型（如 clear_timeout、LLM.init/matmul、System.eval）压 `#undefined`；每次裸 pop 必查 `UINTPTR_MAX` 哨兵；终止型/异步型/进程替换型为登记例外。
+
 ## Amalgamation（单文件分发形态）
 
 效仿 Lua/SQLite 的单文件库形态，项目提供 Amalgamation 机制，方便第三方集成：
 
 - 生成方式：`make amalg`（底层调用 `bash amalgamate.sh`；Makefile 已对 include/ 与 src/ 建立依赖跟踪，源文件更新后自动重新生成）。产物为项目根目录下的 `animac_core.h`（核心头文件按依赖拓扑序合并，含 `extern "C"` 包装）与 `animac_core.c`（核心实现按同一顺序合并，仅 `#include "animac_core.h"`）。
-- **收录范围 = include/animac.h 伞形头文件登记的解释器核心**（基础设施、前端、运行时），Amalgamation 是自包含的“上帝模块”。明确排除与宿主相关的内容：`am_host.*`（宿主适配）、`am_native_*.*`（native 库，核心通过 `am_runtime_register_native_lib` 动态注册，不静态依赖）、`am_highlight.*`（终端呈现）、`am_repl.*`（上层消费者）。收录清单直接取自伞形头文件，二者自动保持同步。集成方编译 `animac_core.c` 获得解释器核心，再按需单独编译 `src/am_host.c`、`src/am_native_*.c` 等宿主侧文件一同链接。
+- **收录范围 = include/animac.h 伞形头文件登记的解释器核心**（基础设施、前端、运行时），Amalgamation 是自包含的“上帝模块”。伞形头文件登记的**头文件-only 模块**（无同名 src/*.c 实现文件，如纯 static inline/宏/文档型头文件）仅并入 animac_core.h、不并入 animac_core.c，脚本会列出这类头文件（2026-07 起容忍，不再是错误）。明确排除与宿主相关的内容：`am_host.*`（宿主适配）、`am_native_*.*`（native 库，核心通过 `am_runtime_register_native_lib` 动态注册，不静态依赖）、`am_highlight.*`（终端呈现）、`am_repl.*`（上层消费者）。收录清单直接取自伞形头文件，二者自动保持同步。集成方编译 `animac_core.c` 获得解释器核心，再按需单独编译 `src/am_host.c`、`src/am_native_*.c` 等宿主侧文件一同链接。
 - Makefile 相关目标：`make amalg` 生成单文件产物；`make main_amalg` / `make repl_amalg` 用单文件形态 + 宿主侧源文件（Makefile 中 `HOST_SRCS`，另加 repl 所需的 `src/am_repl.c`）构建可执行文件（`make amalg-all` 一次构建两者）；`make amalg-clean` 清理单文件形态全部产物（生成文件 + 可执行文件 + 测试输出）；`make clean` 也会清理 main_amalg / repl_amalg。
 - 产物由脚本自动生成，**勿手工编辑**；修改 include/ 或 src/ 后应重新运行 `make amalg`。
 - 变换规则（仅作用于产物，绝不修改 include/ 与 src/ 下的源文件）：剔除局部 `#include "..."`（保留系统 `#include <...>`）；伞形头文件 `animac.h` 不并入，其包含列表展开为其引用者的依赖。
