@@ -2,14 +2,20 @@
 
 **灵机 · Animac**是[Scheme](https://www.scheme.org/)程序语言的一个解释器实现，能够在MCU、Web浏览器、PC和服务器等各类宿主环境中运行。Animac不遵守R<sup>n</sup>RS标准。Animac可将JavaScript子集转译为Scheme解释执行。
 
-|【[立即体验](https://bd4sur.com/Animac)】|
-|:--:|
-|B站视频：[2019调试器演示](https://www.bilibili.com/video/BV1xu4y1v7Ks) / [2025调试器演示](https://www.bilibili.com/video/BV1MfKYzCERW) / [LLM推理](https://www.bilibili.com/video/BV1rNgCzNE84) / [手持终端](https://www.bilibili.com/video/BV1aPNr6JEMq)|
-|🔻运行在 M5 Tab5 (ESP32-P4) 上的手持终端 |
-|![Demo](./doc/console.jpg)|
+- **网页交互式IDE**：[立即体验](https://bd4sur.com/Animac)
+- **B站视频**：[2019调试器演示](https://www.bilibili.com/video/BV1xu4y1v7Ks) / [2025调试器演示](https://www.bilibili.com/video/BV1MfKYzCERW) / [LLM推理](https://www.bilibili.com/video/BV1rNgCzNE84) / [手持终端](https://www.bilibili.com/video/BV1aPNr6JEMq)
+
+
+|🔻运行在 M5 Tab5 (ESP32-P4) 上的手持终端|🔻运行在 M5 Core2 (ESP32) 上的手持终端|
+|:--:|:--:|
+|![ ](./doc/console.jpg)|![ ](./doc/console_2.jpg)|
+
 |🔻运行在浏览器上的编辑器和调试器|
+|:--:|
 |![Demo](./doc/demo.png)|
+
 |🔻系统框图|
+|:--:|
 |![System Architecture](./doc/sysarch.png)|
 
 
