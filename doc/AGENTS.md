@@ -133,3 +133,92 @@ symbol是以其字面为ID的，相同拼写的symbol，无论在哪个上下文
 - 运行时：`op_concat` 遇到标记列表时取其唯一元素（必须是列表，否则运行时错误）并将其元素逐一拼入结果列表；标记列表生命周期止于 op_concat 内部，不泄漏到用户世界。
 - 与 R5RS 的偏差：`` `,@x ``（拼接出现在模板顶层）被宽松接受；嵌套 quasiquote 无层级计数（与 unquote 一致，见 doc/ISSUES.md issue#19）。
 
+
+
+## 测试体系与回归规范（2026-10 新增）
+
+三批自校验回归测试已建成，全部位于 `test/`，C 实现与 Amalgamation 形态双覆盖（主回归 41 用例 + 编译期错误矩阵 10 用例 = 51 个 .scm 文件，471 条断言，全 FAIL 0 基线）。
+
+### 运行与判定
+
+- `bash testall.sh` / `bash testall_amalg.sh`：主回归（41 用例，其中 10 个为三批新增），脚本退出码 0 = 通过。每个用例为独立自校验文件，末行输出 `PASS: n  FAIL: m`；**m>0、脚本输出含 ❌/Segmentation、或退出码非 0 均为失败**。
+- `bash testall_errors.sh`：编译期错误路径回归。`test/errors/*.scm` 中每个文件预期**非零退出**（当前实现为解析失败触发 main.c 断言终止，exit=134；理想行为是打印诊断后优雅非零退出，runner 不区分两者）。
+- C 形态与 Amalgamation 形态的输出必须逐字节一致，**例外仅限已知非确定性内容**：随机数独/排序（test.scm、shudu）、llm/mlp 的生成文本与训练轨迹、test_eval 的时间戳、yinyang 被超时截断的长度。出现其他任何差异即为回归。
+- 本轮回归环境：Ubuntu 24.04（gcc 13.3 / GNU Make 4.3 / Node 24），`libreadline-dev` 已安装（repl 与 repl_amalg 可编译）。
+
+### 测试文件与断言前缀
+
+| 文件 | 前缀 | 验证重点 |
+|---|---|---|
+| test/syntax_torture.scm | st_ | 语法/内建覆盖矩阵：pop、nan?、typeof、letrec-syntax、and/or 语义、数值边界（59 位回绕、mod 符号）、String 边界与参数序、空表/#null 区分、string? 模式、递归深度、quasiquote 现状、定时器控制 |
+| test/json.scm | js_ | JSON 解析/序列化/往返不变量/畸形输入/压力 |
+| test/errors_runtime.scm | er_ | 运行期致命错误矩阵（16 场景，fork 隔离） |
+| test/linalg.scm | la_ | 线性代数：det/逆/幂法/Hilbert 病态矩阵/80×80 性能 |
+| test/mpmc_pipeline.scm | mp_ | 多进程 Map-Reduce、RPC、dynamic-wind 事务守卫、可终止性 |
+| test/huffman.scm | hf_ | Huffman 编解码：往返/压缩率/前缀码性质/退化边界 |
+| test/dpll.scm | dp_ | SAT 求解：固定用例/踪迹自洽/随机 3-SAT 与暴力枚举对拍 |
+| test/minisql.scm | sq_ | 内存表查询引擎：投影/过滤/排序/聚合/宏 DSL |
+| test/miniprolog.scm | pl_ | 迷你 Prolog：合一/回溯/CPS/递归规则 |
+| test/test_timer_setvar.scm | tv_ | 工单 #36 验证用例（定时器打断场景） |
+
+### 新增测试的编写规范
+
+- 断言框架自包含：每文件定义自己的 pass/fail 计数与 `check`（equal?）/`check-near`（|a-b|<1e-9），**变量名加独立前缀**（如上表），避免跨文件语义干扰与同名 define 冲突。文件末行必须输出汇总。
+- **禁止多参算术**（工单 #35）：`+ - * / mod pow` 及比较符一律二元；链式需求用嵌套。`and`/`or` 例外（多参短路，恒返回布尔字面量）。
+- **禁止在 while 循环体内 define**（原因见"语言语义要点"第 3 条）；循环变量在所属 lambda 顶层 define 一次、循环内仅 `set!` 重置。
+- 自递归深递归（合一器/求解器类）**不要依赖自递归 tailcall**（见"已知缺陷"末条）；必要时以 `(pl-append '() (自递归调用))` 式包裹强制非尾。
+- **先探针后断言**：对未验证过的语义（键类型、参数序、边界行为）先写 /tmp 临时脚本实测，再固化为断言；**禁止凭 R5RS 印象或其他 Scheme 的习惯写期望值**。实测过的反直觉点见下节。
+- 新用例开发完成后：登记进 `testall.sh` 与 `testall_amalg.sh` 的硬编码列表（两文件列表保持一致），跑双形态全量回归确认零差异。
+
+### 语言语义要点（实测确认，写测试/代码必读）
+
+1. **define 无函数糖**：`(define (f x) …)` 会解析失败，必须 `(define f (lambda (x) …))`。
+2. **算术仅二元、无一元取负**：负值写 `(- 0 x)`；多参算术是非法程序且当前实现会产生操作数栈垃圾（#35）。
+3. **while 不创建词法作用域**（doc/manual.md §4.2、test/sleepsort.scm）：循环体实质是 goto 跳转的 begin，体内 define 直接落入所属 lambda 作用域，且循环体内创建的闭包捕获的是同一变量绑定。因此：同一 lambda 内多个循环体的**同名 define 会解析失败**（"failed to add defines to scope"）；循环中注册异步回调必须手工封装 lambda 保存当次迭代值。
+4. `break`/`continue` 是裸符号，可在循环体内嵌套 if 中使用，不得出现在谓词中。
+5. **String.charCodeAt 参数序为 `(index str)`**（与 `charAt (str index)` 相反）；返回浮点，越界/负索引返回 0。`String.slice` 负索引自尾计数、越界钳制、start>end 返回空。`String.parseNumber` 非法/空输入返回 #undefined，合法输入恒为浮点。
+6. **Table 键类型严格**：浮点键与整数字面量键、symbol 键与字符串键**互不相通**（`Math.floor`/`Math.pow`/`charCodeAt` 的浮点返回需与写入侧同源）；`Table.keys` 顺序为哈希序。`Math.bit_*` 仅接受严格 uint，`Math.pow` 的浮点返回会被拒绝——位测试请用纯算术 `(mod (Math.floor (/ mask (pow 2 v))) 2)`。
+7. **Math 域错误返回 #null 而非 NaN**；NaN 仅能由 VM 级 mod（如 `(mod 1 0)`）产生；Inf 可由 pow 溢出产生且 Inf==Inf、nan? 对其为 #f。
+8. **整型为 59 位载荷**：2^59 字面量回绕为 0，运算超界同样回绕，无溢出检查（手册 §6.2.2）。
+9. `get_item` 越界/负索引返回 **#undefined（设计行为，非致命）**；但作用于非列表（数字等）为致命错误。
+10. **致命错误清单**（进程终止，报 `[Runtime] 指令执行异常`）：car/cdr/length/push/pop/set_item! 作用于非列表、除零（含浮点除零）、mod 非数字、Math.*/String.*/Table.* 传错类型、调用未定义变量、cons 第二参数为 #null、非尾递归超过约 1023 帧。
+11. **equal? 深比较列表与字符串，但不比较 Table**（map 无对应分支）；Table 内容比较必须自写遍历。`Table.keys` 可用于键集迭代。
+12. **typeof 对一切堆对象（列表/字符串/散列表/闭包/续体）返回 "handle"**（手册 §6.5 设计如此）。string? 可用模式 `(equal? v (String.atom_to_string v))` 实现（全类型安全，含空串）；table? = handle 且非 list? 且非 string?。
+13. `push` 返回 #undefined 且原地修改；`pop` 原地弹出并返回尾元素，空表返回 #undefined。`'()` 是空列表堆对象、`#null` 是立即值：二者 `null?` 均为真但 `equal?` 为假；`cons` 尾参必须是列表（'() 可、#null 致命）。
+14. `and`/`or` 恒返回布尔字面量（`(and 1 2)` = #t），运行期短路（被跳过分支中的未定义变量不会报错）。
+15. **字符串字面量不能跨物理行**；转义支持 `\" \\ \n \t \r \b`，**不支持 `\f`**（保留为字面反斜杠+f）；中文按码点计数。
+16. **保留但未实现的关键字**：for/case/do/return/let——写入程序会编译失败（test/errors/ 已锁定此行为）。
+17. 解析/编译失败当前以 main.c 断言崩溃呈现（exit 134），**非优雅报错**；理想行为是打印诊断后非零退出（testall_errors.sh 不区分两者）。
+
+### 错误路径测试模式（fork 双标记协议）
+
+运行期致命错误会终止 VM 进程，无法在单进程内捕获。标准测法（见 errors_runtime.scm）：
+
+```scheme
+(define q (System.make_queue 8))
+(define pid (System.fork))
+(if (== pid 0)
+    { (System.write q 1 0)      ;; 死前标记
+      (致命调用)
+      (System.write q 2 0)      ;; 幸存标记（缺陷时才可达）
+      (System.exit) }           ;; 兜底，防缺陷场景污染
+    { (define m1 (System.read q 3000))
+      (define m2 (System.read q 150))
+      (check name (and (== m1 1) (undefined? m2)) #t) })
+```
+
+要点：队列是虚拟机全局资源（fork 天然共享）；子进程死亡不影响父进程；子进程的 `[Runtime] 指令执行异常: PID=…` stderr 输出是预期行为；BLOCKED 进程的定时器暂不触发、STOPPED 进程的仍会触发（return_target 指向 halt）。
+
+### 已知缺陷、规避与工单索引
+
+- **#35（Open，优化）**：多参算术应编译期拒绝——未实施。当前行为：只发射一条运算指令、多余参数残留操作数栈（栈污染，见工单内插桩实证）。测试与库代码一律二元。
+- **#36（Closed，故障）**：异步定时器回调打断运行中进程曾致操作数栈错位（回调返回值残留栈上）。已实施方案 A：`AM_VALUE_TAG_ASYNC_RET`（0x1B）异步帧标记 + `op_return` 丢弃回调返回值 + `push_stack_frame` 校验放宽，改动点见工单实施记录；`test_timer_setvar.scm` 为回归用例。**注意**：BLOCKED 进程定时器不触发、STOPPED 进程的 repeat 定时器每到期都会经 halt 分支重新入队执行一次回调——若主流程停止后仍有存活 interval，需在收尾回调中显式 clear。
+- **帧栈深度（手册 §3.6）**：非尾递归上限约 1023 帧（fstack 容量 2048），超出报"指令执行异常"；尾递归不受限。errors_runtime.scm E1 场景锁定此行为。
+- **自递归 tailcall 参数绑定丢失（未定位，勿采信任何未证机制）**：深互递归 + 调用点位于嵌套块内时，曾观测 `load: 变量 …a 未定义`（miniprolog 合一器、q95 最小形态）；强制非尾后消失。**机制未定位**——此前"栈错位"解释已被正确推理否定（参数弹取只依赖栈顶，与栈下值无关）。定位方法：插桩 `op_store`/`op_load`/`op_tailcall`，打印 current_closure_handle、varid 与操作数原始值。规避：自递归调用以 `(pl-append '() (…))` 包裹强制非尾。
+- **json.scm 已知瑕疵**：JSON 字符串的 `\f` 转义会解码为字面 `\f` 两字符（词法器不支持 \f；修复应改用 `(String.fromCharCode 12)`），当前断言未覆盖该分支。
+- **doc/todo/type_system.md** 为未跟踪的既有文件，与本轮工作无关。
+
+### 已实施修复记录（2026-10-09）
+
+- `src/am_process.c`：`am_process_make_wstring_handle` 允许 `str==NULL && len==0`（修复 `(String.atom_to_string "")` 崩溃；空串是完全合法的值）。
+- #36 方案 A（见工单实施记录）：`include/am_object.h`（ASYNC_RET 标记与宏）、`src/am_process.c`（校验放宽）、`src/am_runtime.c`（call_async 编码 / op_return 丢弃）。

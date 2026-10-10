@@ -98,7 +98,8 @@ static size_t dynamic_wind_common_prefix(am_process_t *proc, am_list_t *target) 
 //         超过阈值的字符串直接新建，不参与驻留。
 //         失败返回 AM_HANDLE_NULL。
 am_handle_t am_process_make_wstring_handle(am_process_t *proc, const wchar_t *str, size_t len) {
-    if (!proc || !proc->heap || !proc->heap_alloc || !str) return AM_HANDLE_NULL;
+    // 注意：str 为 NULL 且 len 为 0 是合法的空字符串；仅拒绝无缓冲区的非空串
+    if (!proc || !proc->heap || !proc->heap_alloc || (!str && len > 0)) return AM_HANDLE_NULL;
 
     // 构造以 L'\0' 结尾的临时缓冲区，供 hash 计算和 strindex 查询使用
     wchar_t *tmp = (wchar_t *)am_malloc(proc->vm_alloc, (len + 1) * sizeof(wchar_t));
@@ -461,7 +462,8 @@ size_t am_process_length_of_opstack(am_process_t *proc) {
 int32_t am_process_push_stack_frame(am_process_t *proc, am_value_t closure_handle_value, am_value_t return_target_iaddr_value) {
     if (!proc || !proc->fstack || !proc->fstack_top) return -1;
     if (!am_value_is_handle(closure_handle_value)) return -1;
-    if (!am_value_is_iaddr(return_target_iaddr_value)) return -1;
+    /* 工单#36：return_target 允许普通 iaddr 或异步帧标记（定时器回调帧） */
+    if (!am_value_is_iaddr(return_target_iaddr_value) && !AM_VALUE_IS_ASYNC_RET(return_target_iaddr_value)) return -1;
 
     size_t used = (size_t)(proc->fstack_top - proc->fstack);
     if (used + 2 > proc->fstack_capacity) return -1;

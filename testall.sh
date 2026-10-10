@@ -35,6 +35,16 @@ for t in \
     test_math.scm \
     test_mec.scm \
     test_table.scm \
+    syntax_torture.scm \
+    json.scm \
+    test_timer_setvar.scm \
+    errors_runtime.scm \
+    linalg.scm \
+    mpmc_pipeline.scm \
+    huffman.scm \
+    dpll.scm \
+    minisql.scm \
+    miniprolog.scm \
     yinyang.scm \
     yinyang_cps.scm \
     llm.scm \

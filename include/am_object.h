@@ -105,6 +105,9 @@ typedef uintptr_t am_value_t;
 #define AM_VALUE_TAG_UINT      ((am_value_t)0x15ULL)
 #define AM_VALUE_TAG_INT       ((am_value_t)0x17ULL)
 #define AM_VALUE_TAG_FLOAT     ((am_value_t)0x19ULL)
+// 异步帧返回地址标记（工单#36）：定时器回调帧压栈时，return_target 以此 tag 编码，
+// op_return 弹出该帧时先丢弃回调留在操作数栈上的返回值，避免栈错位
+#define AM_VALUE_TAG_ASYNC_RET ((am_value_t)0x1BULL)
 
 #define AM_VALUE_TAG_MASK      ((am_value_t)0x1FULL)
 #define AM_VALUE_TAG_LSB_MASK  ((am_value_t)0x1ULL)
@@ -129,6 +132,11 @@ typedef uintptr_t am_value_t;
 #define AM_HANDLE_NULL ((am_handle_t)(UINTPTR_MAX>>5))
 #define AM_VALUE_HANDLE_BASE  AM_MAKE_VALUE_OF_UINT_LIKE(0x0, AM_VALUE_TAG_HANDLE)
 #define AM_VALUE_HANDLE_NULL  AM_MAKE_VALUE_OF_UINT_LIKE(UINTPTR_MAX, AM_VALUE_TAG_HANDLE)
+
+// 异步帧返回地址（工单#36）：编码/判定/解码。仅用于 am_runtime_call_async 与 op_return。
+#define AM_MAKE_VALUE_OF_ASYNC_RET(iaddr)  AM_MAKE_VALUE_OF_UINT_LIKE((am_value_t)(iaddr), AM_VALUE_TAG_ASYNC_RET)
+#define AM_VALUE_IS_ASYNC_RET(v)           (((am_value_t)(v) & AM_VALUE_TAG_MASK) == AM_VALUE_TAG_ASYNC_RET)
+#define AM_VALUE_ASYNC_RET_TO_IADDR(v)     ((am_iaddr_t)(((am_value_t)(v)) >> 5))
 
 // 关键字（保留的symbol）
 // NOTE 关键字在词法上属于identifier，与variable接近；但是在语义上属于symbol，全局保留的symbol，不带前导单引号的特殊symbol

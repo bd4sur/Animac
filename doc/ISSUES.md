@@ -4,6 +4,140 @@
 
 决定：①将2022年（#21）之前的工单迁移到本文档；②新工单使用本文档作记录和跟踪，不再使用GitHub自带工单管理机制。
 
+## 36 【故障】运行中进程被异步定时器回调打断后操作数栈错位 Closed
+
+2026-10-09
+
+**现象描述**：虚拟机进程处于 RUNNING 状态期间，若周期定时器（`System.set_interval`）回调被触发，主流程在回调返回后**操作数栈错位**：回调闭包 `return` 时把返回值（`#undefined`）留在了主流程的操作数栈上，而 `am_runtime_call_async` 对运行中进程选择的恢复点 `return_target = proc->PC` 可能位于主流程**表达式的中间**，导致该残留值占据了主流程中间值的位置。后续指令弹出错位的值，轻则数值错误，重则非数字操作数使指令失败，进程转入 STOPPED；此后该进程的 repeat 定时器每到期一次就经 STOPPED 分支（`return_target=1`，halt）重新入队执行一次回调，形成**僵尸循环**，程序永不结束。
+
+**复现**（test/test_timer_setvar.scm，本工单附带验证用例）：
+
+```scheme
+(native System)
+(define cnt 0)
+(define ci (System.set_interval 1 (lambda () (set! cnt (+ cnt 1)))))
+(define spin (lambda (n) { (while (> n 0) { (set! n (- n 1)) }) }))
+(spin 100000)
+(display cnt)
+```
+
+spin 的十万次迭代需要跨越多个时间片，期间 1ms 定时器反复触发；只要某次触发的恢复点落在循环谓词表达式中间（如 `[28] load n` 之后、`[29] push 0` 之前），回调残留的 `#undefined` 就会使 `[30] gt` 收到非数字操作数而失败。**触发点位置是概率性的**：实测同一程序多次运行，结果在"正常完成 / `gt` 失败 / 永不结束"间随机分布；回调是否含 `set!` 与现象无关（`display` 回调同样留残留值，是否发病仅取决于触发点落位）。
+
+**根因定位**（插桩实测，q42 场景）：
+
+```
+[DBG-async] call_async: goto closure_iaddr=23 return_target=29   ; 恢复点落在 load n 之后、push 0 之前
+[DBG] op_set varid=10 PC=24                                      ; 回调正常执行 set! cnt
+[DBG-ret] return at PC=26                                        ; 回调返回，#undefined 留栈
+[DBG-STOPPED] execute failed at PC=30                            ; [30] gt 弹出 #undefined，失败
+[DBG-gt] BAD a_raw=21(uint 0) b_raw=15(#undefined) opstack_len=1 ; 栈错位铁证
+```
+
+**修复方案（待批准，推荐方案 A）**：
+
+- **方案 A：异步帧标记 + `op_return` 丢弃回调返回值。** `am_runtime_call_async` 向 fstack 压帧时，将 `return_target` 以一个可识别的标记编码（新增 `AM_VALUE_TAG_ASYNC_RET`，或将现有 iaddr 编码加一个保留位）；`op_return` 弹出帧后检查该标记：若为异步帧，**先 `pop` 掉回调在栈上留下的返回值（丢弃），再 `goto` 真实恢复地址**。优点：fstack 帧布局、ilcode、同步调用路径完全不变；`call/cc` 捕获的 fstack 快照含异步帧时语义仍自洽（恢复后同样走丢弃路径）。代价：`op_return` 增加一次 tag 判断。
+- **方案 B：`op_return` 无条件丢弃"帧返回值"。** 同步调用的返回值由调用方消费（尾调用除外），而 `return` 指令压返回值、调用点 `call` 后的栈纪律是"净 -argc+1"——**返回值本就应该留在栈上被调用方消费**，全局丢弃会破坏函数调用语义。**不可行**，仅作辨析记录。
+- **方案 C：fire 的 RUNNING 分支仅在"语句边界"触发。** 需要运行期判定"PC 是否处于语句边界"，编译期需为每条指令标注边界信息，侵入大、收益低。**放弃**。
+
+方案 A 实施注意：
+
+1. 回调返回值语义：JS 语义中定时器回调返回值本就无用，丢弃合理；若未来需要回调返回值（如 `exec` 夺舍场景），再扩展帧格式传递。
+2. STOPPED 分支（进程停止后触发，`return_target=1` 指向 halt）的回调返回值残留在栈上无害（进程已终止），但**同样建议统一丢弃**，避免依赖 halt 实现。
+3. 修复后需回归：`test/test_timer_setvar.scm` 全绿 + `testall.sh`/`testall_amalg.sh` 33 用例无回归 + `test_exit_async`/`test_dw_*` 系列行为不变。
+
+**2026-10-09 插桩实证与方案 A 模拟验证**（未修改项目源码，全部实验在 /tmp 源码副本上进行）：
+
+1. 根因实证：在 `op_gt` 失败点转储操作数栈与闭包 bindings，实测 `gt` 收到 `uint 0` 与 `#undefined`——后者正是回调返回值占据 `[28] load n` 的操作数位置；`opstack_len=1` 证实栈上多出残留值。
+2. 触发概率性实证：同一程序（q42）多次运行，结果在"正常完成 / gt 失败 / 永不结束"间随机分布；`display` 回调与 `set!` 回调均可致病，是否发病仅取决于触发点落位（此前"set! 回调才崩"的观察是样本偏差）。
+3. 方案 A 模拟验证（源码副本打 3 处补丁：`call_async` 标记编码、`op_return` 识别丢弃、`push_stack_frame` 校验放宽）：
+   - `test_timer_setvar.scm`：修复前 5/5 必现 `[Runtime] 指令执行异常`（PC=227/231），修复后 **5/5 全绿（PASS 9 FAIL 0）**；
+   - 最小复现（q70）：修复前 `PC=59` 异常，修复后 `c=422`（回调写入生效）且事件循环干净退出；
+   - 19 用例对照：除 `test_timer_setvar`（修复目标）外**逐字节一致**，含 `test_exit_async`/`test_dw_*`/`test_ipc*` 全部异步与续体用例。
+4. 实施时改动清单（共 3 文件 4 处）：
+   - `src/am_runtime.c`：`am_runtime_call_async` 的 `return_target_val` 编码为 `(iaddr<<5)|0x1B`；`op_return` 弹帧后识别该 tag，先 `pop` 丢弃回调返回值再 `goto ret_val>>5`；
+   - `src/am_process.c`：`am_process_push_stack_frame` 的 return_target 校验放宽为"iaddr 或 tag 0x1B"；
+   - `doc/ISSUES.md`：本工单关闭时补充实施记录。
+5. `test/test_timer_setvar.scm` 为配套验证用例（9 断言，含触发点概率性压满设计）；**在缺陷修复前不纳入 `testall.sh`**（其存在即复现缺陷），修复并回归通过后登记。
+
+**2026-10-09 方案 A 实施记录（已关闭）**：
+
+1. 改动（3 文件 4 处，均已合入）：
+   - `include/am_object.h`：新增 `AM_VALUE_TAG_ASYNC_RET`（0x1B，唯一的空闲 tag 值）及编码/判定/解码宏 `AM_MAKE_VALUE_OF_ASYNC_RET`、`AM_VALUE_IS_ASYNC_RET`、`AM_VALUE_ASYNC_RET_TO_IADDR`；
+   - `src/am_process.c`：`am_process_push_stack_frame` 的 return_target 校验放宽为"iaddr 或 ASYNC_RET 标记"；
+   - `src/am_runtime.c`：`am_runtime_call_async` 以 `AM_MAKE_VALUE_OF_ASYNC_RET(return_target)` 压异步帧（**含 STOPPED 分支的 return_target=1，统一走丢弃语义**）；`op_return` 弹帧后识别 ASYNC_RET，先 `pop` 丢弃回调留在栈上的返回值，再 goto 真实恢复地址。
+2. 回归结果（修复当日，桌面命令行环境）：
+   - `test/test_timer_setvar.scm`：修复前 5/5 必现 `PC=227/231` 异常，修复后 **5/5 全绿（PASS 9 FAIL 0）**，已登记 `testall.sh` 与 `testall_amalg.sh`；
+   - `testall.sh` / `testall_amalg.sh`：34 用例（33 原有 + 本验证用例）全部执行，脚本退出码 0，断言汇总 `61/0、56/0、140/0、91/0、9/0`，无 ❌、无段错误；
+   - C 实现与 Amalgamation 单文件形态对照：除已知非确定性内容（随机数独/排序、LLM 生成文本、MLP 训练轨迹、eval 时间戳）外逐字节一致；
+   - `test_exit_async`（STOPPED 后回调触发语义）、`test_dw_*`（dynamic-wind × call/cc × 异步）、`test_ipc*`、`test_kill_*` 全部行为不变。
+3. 语义注记：异步回调的返回值一律丢弃（与 JS 定时器语义一致）；`call/cc` 捕获的 fstack 快照若含异步帧，恢复后同样走丢弃路径，语义自洽；编译期零新告警。
+
+## 37 【故障】嵌套 lambda 调用时被调方的参数变量在特定场景报"未定义" Open
+
+2026-10-09
+
+**现象描述**：lambda A 的体内调用 lambda B（B 的形参为 `hfx`）时，运行时报
+`[Runtime] load: 变量 test.huffman.51.hfx 未定义`——被调方形参的绑定不可见。
+同构代码在独立文件中行为正常，在 huffman.scm 的完整上下文中失败；触发条件与
+ARN 作用域编号相关（报错名 "test.huffman.51.hfx" 中的 51 为作用域编号），且
+将参数改名（s→hfs→hfx）无效。huffman.scm 的解码链路（hf-decode 循环体内
+多次调用 hf-indexof）即因此暂缓。
+
+**最小复现**（test/huffman.scm 开发过程中发现；插桩定位思路见 #36）：
+
+```scheme
+(define hf-indexof (lambda (hfx ch from) { ... (String.charCodeAt i hfx) ... }))
+(define hf-decode (lambda (packed) {
+  ...
+  (define p1 (hf-indexof packed 124 0))   ;; 此调用正常
+  ...
+  (set! segend (hf-indexof packed 59 pos)) ;; 同名调用在 while 体内报 hfx 未定义
+  ...
+}))
+```
+
+**疑点**：报错名中 "test.huffman.51" 的 51 是 ARN 作用域编号——疑似 while 体内
+对同一 lambda 的**第二次及以后的调用点**，其实参变量被重命名到了与形参不一致
+的作用域编号（首个调用点正常）。与 #34（begin/lambda 体污染操作数栈）同属
+编译期栈/作用域纪律问题，但表现不同。
+
+**影响**：huffman.scm 解码链路暂缓（编码链路不受影响）；json.scm 的
+parse-string → parse-u16 → read-hex4 嵌套链路正常（该链路的调用点在 if
+分支内而非 while 体内直接并列）。
+
+**建议对策**：排查 `am_parser.c` 的 ARN 对 while 体内嵌套 lambda 调用点的
+varid 重命名一致性——同一名义变量（形参 hfx）在被调 lambda 作用域与调用点
+作用域应解析到同一 varid。
+
+## 35 【优化】多参数算术调用应编译期拒绝（当前不拒绝且产生栈垃圾） Open
+
+2026-10-09
+
+**语义立场（明确）**：Animac 的算术运算符**只支持固定元数（二参数）**（doc/manual.md §6.2.4），**明确不支持多参数算术**（如 `(+ 1 2 3)`），更不支持变参数个数。因此 `(+ 1 2 3)` 是**非法程序**，不属于语言语义范畴——问题不在求值结果"应该是多少"，而在于**当前实现对非法程序不予拒绝**，使其静默产生错误结果，极易造成隐蔽的数据错误。
+
+**现象描述**：算术调用传入多于2个参数时，编译器仍只为整个调用**发射一条运算指令**（如 `AM_VM_OP_add`），而参数却**全部依次压栈**——该指令从栈顶弹出两个操作数做一次运算后，其余参数**原样残留在操作数栈上**，造成后续求值的栈错位。
+
+**实测**（C实现，`./main`，test/linalg.scm 开发过程中发现；插桩实证见 #36 的分析方法）：
+
+```scheme
+(display (+ 1 2 3))        ;; 显示 5：栈上残留 [1, 5]，display 弹出 5
+(display (+ 10 20 30 40))  ;; 显示 70：栈上残留 [10, 70]
+(display (+ 5 0 0))        ;; 显示 0：栈上残留 [5, 0]
+(display (+ 100 200))      ;; 二元形式正常，300
+```
+
+残留垃圾在 `(display (+ 1 2 3))` 这类"语句位置"下尚无害（display 恰好消费栈顶，垃圾滞留底层直到进程结束），但一旦出现在**表达式中间**（如 `(/ 1 (+ a b c))`、`(* (+ x y z) k)`），残留值就会错位占据后续指令的操作数位置，产生数值错误或致命异常——linalg.scm 的 Hilbert 矩阵构造即因 `(/ 1 (+ i j 1))` 而得到逐行错位的矩阵。
+
+**关联**：#11（2019-09-10）为"支持不定长参数列表"的特性提案——若未来改变语义支持多参，须先定义精确的求值与栈纪律。在其实现之前，多参算术调用是非法程序，但当前实现不产生任何告警，运行结果错误且无迹可寻：json.scm 开发中即因误用三元 `+` 合成 Unicode 码点而得到逐行错位的矩阵，linalg.scm 的 Hilbert 构造亦同。
+
+**建议对策**（任选其一，推荐①）：
+
+1. 编译期拒绝（推荐）：`compile_application` 中，对将编译为二元运算 opcode 的 builtin（`+ - * / mod pow > < >= <= ==` 等），若 `node->length > 3`（运算符 + 超过2个参数），直接返回编译错误，提示"算术运算符只支持二参数"。这与手册 §6.2.4 的固定元数语义一致，且把错误从"运行期静默出错"提前到"编译期显式失败"。
+2. 拒绝实施后，可在 `test/errors/` 增加 `11_multiarg_arith.scm` 用例纳入 `testall_errors.sh`（当前状态下该用例会 FAIL，故暂不添加）。
+3. 若未来改变语义支持多参/变参（关联 #11），须先定义精确的求值与栈纪律，本工单随之关闭。
+
+**复现**：`./main test/syntax_torture.scm` 无涉；直接运行上例即可。
+
 ## 34 【故障】begin表达式和lambda函数体污染操作数栈问题 Open
 
 2025-07-11

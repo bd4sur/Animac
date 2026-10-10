@@ -956,6 +956,12 @@ static int32_t op_return(am_runtime_t *rt, am_process_t *proc, am_value_t operan
     }
 
     am_process_set_current_closure(proc, am_value_to_handle(closure_val));
+    /* 工单#36：异步帧（定时器回调）先丢弃回调留在操作数栈上的返回值，避免栈错位 */
+    if (AM_VALUE_IS_ASYNC_RET(ret_val)) {
+        (void)am_process_pop_operand(proc);
+        am_process_goto(proc, AM_VALUE_ASYNC_RET_TO_IADDR(ret_val));
+        return 0;
+    }
     am_process_goto(proc, am_value_to_iaddr(ret_val));
     return 0;
 }
@@ -2560,7 +2566,8 @@ int32_t am_runtime_call_async(am_runtime_t *rt, am_process_t *proc, am_handle_t 
     if (!closure) return -1;
 
     am_value_t current_closure_val = am_make_value_of_handle(proc->current_closure_handle);
-    am_value_t return_target_val = am_make_value_of_iaddr(return_target);
+    /* 工单#36：异步帧返回地址打 ASYNC_RET 标记，op_return 弹出该帧时先丢弃回调留在栈上的返回值 */
+    am_value_t return_target_val = AM_MAKE_VALUE_OF_ASYNC_RET(return_target);
     if (am_process_push_stack_frame(proc, current_closure_val, return_target_val) != 0) {
         return -1;
     }
