@@ -193,8 +193,10 @@ static void test_runtime_load_from_wstring(wchar_t *code, char *path) {
 
     assert(mod != NULL);
 
-    // printf("=== IL Code ===\n");
-    // am_debug_print_ilcode(mod->ast, mod->ilcode, mod->ilcode_length);
+    if (getenv("AM_PRINT_IL")) {
+        printf("=== IL Code ===\n");
+        am_debug_print_ilcode(mod->ast, mod->ilcode, mod->ilcode_length);
+    }
 
     /* =============================================================
      * 1. 将编译出的模块持久化到系统内存（模拟外部文件转储）
@@ -272,6 +274,10 @@ static void test_runtime_load_from_wstring(wchar_t *code, char *path) {
     assert(mod_loaded != NULL);
     printf("Module loaded: opstack_depth=%zu, ilcode_length=%zu\n",
            mod_loaded->opstack_depth, (size_t)mod_loaded->ilcode_length);
+
+    if (getenv("AM_FRAME_TABLE")) {
+        am_frame_table_print(mod_loaded->frames);
+    }
 
     // 创建VM实例
     am_runtime_t *rt = am_runtime_create(vm_alloc, heap_alloc, base_dir_w_reload, &g_host_vtable);

@@ -31,6 +31,7 @@ extern "C" {
 #include "am_closure.h"
 #include "am_continuation.h"
 #include "am_scope.h"
+#include "am_frame.h"
 #include "am_debug.h"
 
 // 前端（词法/语法/宏/链接/编译/模块/JS 转换）

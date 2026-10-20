@@ -13,7 +13,7 @@
 #include "am_map.h"
 
 #define MODULE_MAGIC     "BD4SURAM"
-#define MODULE_VERSION   ((uint32_t)202607u)
+#define MODULE_VERSION   ((uint32_t)202608u)
 
 // flags 位定义：目前格式固定为小端序（bit0=0），其余位保留
 #define MODULE_FLAGS_LITTLE_ENDIAN ((uint32_t)0u)
@@ -35,6 +35,7 @@
 //   [u32] var_arn_mapping_offset / node_token_mapping_offset
 //   [u32] lambda_handles_offset / tailcall_handles_offset / var_top_offset
 //   [u32] strindex_offset
+//   [u32] frames_offset（P1：闭包帧描述符表）
 // 各区段在头部之后紧密排列（无对齐填充），偏移量相对于模块转储起点，0 表示该区段不存在。
 // ilcode 区段：每条指令为 [u8 opcode, dvalue operand]。
 
@@ -64,9 +65,10 @@ typedef struct {
     uint32_t tailcall_handles_offset;
     uint32_t var_top_offset;
     uint32_t strindex_offset;
+    uint32_t frames_offset;
 } module_header_t;
 
-#define MODULE_HEADER_DISK_SIZE (104)
+#define MODULE_HEADER_DISK_SIZE (108)
 
 // 将模块头写入 buffer（字段逐个小端写入，与宿主字节序/填充无关）
 static void module_header_write(uint8_t *buffer, size_t offset, const module_header_t *hdr) {
@@ -95,6 +97,7 @@ static void module_header_write(uint8_t *buffer, size_t offset, const module_hea
     am_disk_write_u32(buffer, pos, hdr->tailcall_handles_offset); pos += 4;
     am_disk_write_u32(buffer, pos, hdr->var_top_offset);    pos += 4;
     am_disk_write_u32(buffer, pos, hdr->strindex_offset);   pos += 4;
+    am_disk_write_u32(buffer, pos, hdr->frames_offset);     pos += 4;
 }
 
 // 从 buffer 读取模块头。成功返回 0，失败（magic/version/flags 不匹配）返回 -1。
@@ -137,6 +140,7 @@ static int32_t module_header_read(const uint8_t *buffer, size_t offset, module_h
     hdr->tailcall_handles_offset = am_disk_read_u32(buffer, pos); pos += 4;
     hdr->var_top_offset    = am_disk_read_u32(buffer, pos); pos += 4;
     hdr->strindex_offset   = am_disk_read_u32(buffer, pos); pos += 4;
+    hdr->frames_offset     = am_disk_read_u32(buffer, pos); pos += 4;
     return 0;
 }
 
@@ -333,6 +337,15 @@ size_t am_module_dump(am_allocator_t *container_alloc,
         off += sz;
     }
 
+    /* 闭包帧描述符表（P1） */
+    size_t frames_size = 0;
+    if (mod->frames) {
+        hdr.frames_offset = (uint32_t)(off - offset);
+        frames_size = am_frame_table_dump(ast->alloc, mod->frames, NULL, 0);
+        if (frames_size == SIZE_MAX) return SIZE_MAX;
+        off += frames_size;
+    }
+
     if (off - offset > UINT32_MAX) {
         fprintf(stderr, "[module_dump] module dump exceeds 4GiB\n");
         return SIZE_MAX;
@@ -403,6 +416,14 @@ size_t am_module_dump(am_allocator_t *container_alloc,
             am_strindex_dump(ast->alloc, ast->strindex,
                              buffer, offset + hdr.strindex_offset);
         }
+        if (hdr.frames_offset) {
+            size_t fw = am_frame_table_dump(ast->alloc, mod->frames,
+                                            buffer, offset + hdr.frames_offset);
+            if (fw != frames_size) {
+                fprintf(stderr, "[module_dump] frame table dump size mismatch\n");
+                return SIZE_MAX;
+            }
+        }
     }
 
     return (size_t)hdr.total_size;
@@ -435,6 +456,7 @@ am_module_t *am_module_load(am_allocator_t *container_alloc,
     mod->header = hdr->header;
     mod->opstack_depth = hdr->opstack_depth;
     mod->ilcode_length = hdr->ilcode_length;
+    mod->frames = NULL;
 
     if ((uint64_t)hdr->ilcode_length * (uint64_t)sizeof(am_instruction_t) > (uint64_t)SIZE_MAX) {
         fprintf(stderr, "[module_load] ilcode too large\n");
@@ -539,6 +561,13 @@ am_module_t *am_module_load(am_allocator_t *container_alloc,
         ast->strindex = am_strindex_load(obj_alloc, buffer,
                                          offset + hdr->strindex_offset);
         if (!ast->strindex) goto fail;
+    }
+
+    /* 闭包帧描述符表（P1）：缺失不影响正确性，运行时退化为旧行为 */
+    if (hdr->frames_offset) {
+        mod->frames = am_frame_table_load(container_alloc, buffer,
+                                          offset + hdr->frames_offset,
+                                          (size_t)hdr->ilcode_length);
     }
 
     return mod;

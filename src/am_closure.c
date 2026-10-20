@@ -13,9 +13,17 @@
 
 // 在闭包中线性查找指定 varid 与 type 的绑定。
 // 返回指向匹配 binding 的指针；未找到返回 NULL。
-static am_binding_t *am_closure_find(am_obj_closure_t *closure, am_varid_t varid, int32_t type) {
+// 对外公开（见头文件），供运行期做单次扫描优化。
+am_binding_t *am_closure_find_binding(am_obj_closure_t *closure, am_varid_t varid, int32_t type) {
+    if (!closure) return NULL;
     for (size_t i = 0; i < closure->length; i++) {
-        if (closure->bindings[i].varid == varid && closure->bindings[i].type == type) {
+        const am_binding_t *b = &closure->bindings[i];
+        if (b->varid != varid) continue;
+        if ((b->type & AM_BINDING_DEFINED) == 0) continue; // 预置但未赋值的槽位视作不存在
+        if ((b->type & AM_BINDING_FREE) != 0) {
+            if (type == AM_BINDING_FREE) return &closure->bindings[i];
+        }
+        else if (type == AM_BINDING_BOUND) {
             return &closure->bindings[i];
         }
     }
@@ -26,9 +34,9 @@ static am_binding_t *am_closure_find(am_obj_closure_t *closure, am_varid_t varid
 // 返回指向匹配 binding 的指针；未找到返回 NULL。
 static am_binding_t *am_closure_find_by_varid(am_obj_closure_t *closure, am_varid_t varid) {
     for (size_t i = 0; i < closure->length; i++) {
-        if (closure->bindings[i].varid == varid) {
-            return &closure->bindings[i];
-        }
+        if (closure->bindings[i].varid != varid) continue;
+        if ((closure->bindings[i].type & AM_BINDING_DEFINED) == 0) continue;
+        return &closure->bindings[i];
     }
     return NULL;
 }
@@ -49,6 +57,13 @@ static am_obj_closure_t *am_closure_resize(am_allocator_t *alloc, am_obj_closure
 
     am_free(alloc, closure);
     return new_closure;
+}
+
+// 确保容量至少为 need（不够时一次性扩容到 need，不做倍增试探）。
+am_obj_closure_t *am_closure_ensure_capacity(am_allocator_t *alloc, am_obj_closure_t *closure, size_t need) {
+    if (!closure) return NULL;
+    if (closure->capacity >= need) return closure;
+    return am_closure_resize(alloc, closure, need);
 }
 
 // 若空间不足则扩容。绝大多数情况下不会触发实际分配。
@@ -80,6 +95,7 @@ am_obj_closure_t *am_closure_create(am_allocator_t *alloc, am_iaddr_t iaddr, am_
     closure->parent = parent;
     closure->length = 0;
     closure->capacity = capacity;
+    closure->frame_len = 0;
 
     return closure;
 }
@@ -109,6 +125,34 @@ am_obj_closure_t *am_closure_copy(am_allocator_t *alloc, am_obj_closure_t *closu
     }
     return copy;
 }
+
+// ===============================================================================
+// 批量继承
+// ===============================================================================
+
+am_obj_closure_t *am_closure_fill_free_vars(am_allocator_t *alloc, am_obj_closure_t *dst, am_obj_closure_t *src) {
+    if (!dst) return NULL;
+    if (!src || src->length == 0) return dst;
+
+    // 一次性确保容量（留 16 条余量，减少后续 store 触发的再次扩容）
+    dst = am_closure_ensure_capacity(alloc, dst, src->length + 16);
+    if (!dst) return NULL;
+
+    // 顺序拷贝：全部登记为自由变量（不带脏标记），与旧实现逐条 init_free_var 的结果一致。
+    // 说明：自 P0 起"同一闭包内每个 varid 至多一个绑定项"是全局不变量
+    //      （am_closure_init_bound_var 会把同名自由绑定就地转换为约束绑定），
+    //       因此这里无需去重，可直接按原顺序铺平。
+    size_t n = src->length;
+    for (size_t i = 0; i < n; i++) {
+        dst->bindings[i].varid = src->bindings[i].varid;
+        dst->bindings[i].type = AM_BINDING_FREE | (src->bindings[i].type & AM_BINDING_DEFINED);
+        dst->bindings[i].dirty_flag = 0;
+        dst->bindings[i].value = src->bindings[i].value;
+    }
+    dst->length = n;
+    return dst;
+}
+
 
 // ===============================================================================
 // 对象大小
@@ -232,16 +276,22 @@ fail:
 
 // 初始化约束变量（不加脏标记）。若已存在则更新 value 并清除脏标记。
 // 如涉及扩容，返回新闭包对象指针；否则返回原指针。失败返回 NULL。
+//
+// 不变量（P0 起）：同一闭包内每个 varid 至多一个绑定项。
+// 若某 varid 此前只以自由绑定（外层快照）形式存在，此处就地升级为约束绑定。
+// 旧实现会同时保留 FREE 与 BOUND 两个条目，但两份的脏标记恒一致（本函数与 set_* 同步维护），
+// 且 dereference 第一步就看本帧 BOUND，因此 FREE 那份对读取路径是死重（仅 dump/GC 能看到）；
+// 合并为一条不改变可观察语义，却把后续查找/复制从 O(2N) 降到 O(N)。
 am_obj_closure_t *am_closure_init_bound_var(am_allocator_t *alloc, am_obj_closure_t *closure, am_varid_t variable, am_value_t value) {
-    am_binding_t *binding = am_closure_find(closure, variable, AM_BINDING_BOUND);
-    if (binding) {
-        binding->value = value;
-        binding->dirty_flag = 0;
-        // 同一 varid 的自由变量绑定也清除脏标记，保持该变量脏标记一致
-        am_binding_t *free_binding = am_closure_find(closure, variable, AM_BINDING_FREE);
-        if (free_binding) {
-            free_binding->dirty_flag = 0;
-        }
+    if (!closure) return NULL;
+
+    // 单次扫描：按 varid 定位
+    for (size_t i = 0; i < closure->length; i++) {
+        if (closure->bindings[i].varid != variable) continue;
+        am_binding_t *b = &closure->bindings[i];
+        b->type = AM_BINDING_BOUND | AM_BINDING_DEFINED;
+        b->value = value;
+        b->dirty_flag = 0;
         return closure;
     }
 
@@ -249,51 +299,41 @@ am_obj_closure_t *am_closure_init_bound_var(am_allocator_t *alloc, am_obj_closur
     if (!closure) return NULL;
 
     closure->bindings[closure->length].varid = variable;
-    closure->bindings[closure->length].type = AM_BINDING_BOUND;
+    closure->bindings[closure->length].type = AM_BINDING_BOUND | AM_BINDING_DEFINED;
     closure->bindings[closure->length].dirty_flag = 0;
     closure->bindings[closure->length].value = value;
     closure->length++;
-    // 若已存在同 varid 的自由变量绑定，也将其脏标记清除
-    am_binding_t *free_binding = am_closure_find(closure, variable, AM_BINDING_FREE);
-    if (free_binding) {
-        free_binding->dirty_flag = 0;
-    }
     return closure;
 }
 
 // 设置约束变量（加脏标记，仅用于 set 指令）。若不存在则插入。
 // 返回新指针或原指针；失败返回 NULL。
 am_obj_closure_t *am_closure_set_bound_var(am_allocator_t *alloc, am_obj_closure_t *closure, am_varid_t variable, am_value_t value) {
-    am_binding_t *binding = am_closure_find(closure, variable, AM_BINDING_BOUND);
-    if (binding) {
-        binding->value = value;
-        binding->dirty_flag = 1;
-    }
-    else {
-        closure = am_closure_grow_if_needed(alloc, closure);
-        if (!closure) return NULL;
+    if (!closure) return NULL;
 
-        closure->bindings[closure->length].varid = variable;
-        closure->bindings[closure->length].type = AM_BINDING_BOUND;
-        closure->bindings[closure->length].dirty_flag = 1;
-        closure->bindings[closure->length].value = value;
-        closure->length++;
+    for (size_t i = 0; i < closure->length; i++) {
+        if (closure->bindings[i].varid != variable) continue;
+        closure->bindings[i].type = AM_BINDING_BOUND | AM_BINDING_DEFINED;
+        closure->bindings[i].value = value;
+        closure->bindings[i].dirty_flag = 1;
+        return closure;
     }
 
-    // 同一 varid 的自由变量绑定也置脏，保持变量级脏标记一致
-    am_binding_t *free_binding = am_closure_find(closure, variable, AM_BINDING_FREE);
-    if (free_binding) {
-        free_binding->dirty_flag = 1;
-        free_binding->value = value;
-    }
+    closure = am_closure_grow_if_needed(alloc, closure);
+    if (!closure) return NULL;
 
+    closure->bindings[closure->length].varid = variable;
+    closure->bindings[closure->length].type = AM_BINDING_BOUND | AM_BINDING_DEFINED;
+    closure->bindings[closure->length].dirty_flag = 1;
+    closure->bindings[closure->length].value = value;
+    closure->length++;
     return closure;
 }
 
 // 获取约束变量。未找到返回 AM_VALUE_UNDEFINED。
 am_value_t am_closure_get_bound_var(am_allocator_t *alloc, am_obj_closure_t *closure, am_varid_t variable) {
     (void)alloc;
-    am_binding_t *binding = am_closure_find(closure, variable, AM_BINDING_BOUND);
+    am_binding_t *binding = am_closure_find_binding(closure, variable, AM_BINDING_BOUND);
     return binding ? binding->value : AM_VALUE_UNDEFINED;
 }
 
@@ -303,14 +343,13 @@ am_value_t am_closure_get_bound_var(am_allocator_t *alloc, am_obj_closure_t *clo
 
 // 初始化自由变量（不加脏标记）。若已存在则更新 value 并清除脏标记。
 am_obj_closure_t *am_closure_init_free_var(am_allocator_t *alloc, am_obj_closure_t *closure, am_varid_t variable, am_value_t value) {
-    am_binding_t *binding = am_closure_find(closure, variable, AM_BINDING_FREE);
-    if (binding) {
-        binding->value = value;
-        binding->dirty_flag = 0;
-        am_binding_t *bound_binding = am_closure_find(closure, variable, AM_BINDING_BOUND);
-        if (bound_binding) {
-            bound_binding->dirty_flag = 0;
-        }
+    if (!closure) return NULL;
+
+    for (size_t i = 0; i < closure->length; i++) {
+        if (closure->bindings[i].varid != variable) continue;
+        closure->bindings[i].type = AM_BINDING_FREE | AM_BINDING_DEFINED;
+        closure->bindings[i].value = value;
+        closure->bindings[i].dirty_flag = 0;
         return closure;
     }
 
@@ -318,49 +357,40 @@ am_obj_closure_t *am_closure_init_free_var(am_allocator_t *alloc, am_obj_closure
     if (!closure) return NULL;
 
     closure->bindings[closure->length].varid = variable;
-    closure->bindings[closure->length].type = AM_BINDING_FREE;
+    closure->bindings[closure->length].type = AM_BINDING_FREE | AM_BINDING_DEFINED;
     closure->bindings[closure->length].dirty_flag = 0;
     closure->bindings[closure->length].value = value;
     closure->length++;
-    am_binding_t *bound_binding = am_closure_find(closure, variable, AM_BINDING_BOUND);
-    if (bound_binding) {
-        bound_binding->dirty_flag = 0;
-    }
     return closure;
 }
 
 // 设置自由变量（加脏标记，仅用于 set 指令）。若不存在则插入。
 am_obj_closure_t *am_closure_set_free_var(am_allocator_t *alloc, am_obj_closure_t *closure, am_varid_t variable, am_value_t value) {
-    am_binding_t *binding = am_closure_find(closure, variable, AM_BINDING_FREE);
-    if (binding) {
-        binding->value = value;
-        binding->dirty_flag = 1;
-    }
-    else {
-        closure = am_closure_grow_if_needed(alloc, closure);
-        if (!closure) return NULL;
+    if (!closure) return NULL;
 
-        closure->bindings[closure->length].varid = variable;
-        closure->bindings[closure->length].type = AM_BINDING_FREE;
-        closure->bindings[closure->length].dirty_flag = 1;
-        closure->bindings[closure->length].value = value;
-        closure->length++;
+    for (size_t i = 0; i < closure->length; i++) {
+        if (closure->bindings[i].varid != variable) continue;
+        closure->bindings[i].type |= AM_BINDING_DEFINED;
+        closure->bindings[i].value = value;
+        closure->bindings[i].dirty_flag = 1;
+        return closure;
     }
 
-    // 同一 varid 的约束变量绑定也置脏，保持变量级脏标记一致
-    am_binding_t *bound_binding = am_closure_find(closure, variable, AM_BINDING_BOUND);
-    if (bound_binding) {
-        bound_binding->dirty_flag = 1;
-        bound_binding->value = value;
-    }
+    closure = am_closure_grow_if_needed(alloc, closure);
+    if (!closure) return NULL;
 
+    closure->bindings[closure->length].varid = variable;
+    closure->bindings[closure->length].type = AM_BINDING_FREE | AM_BINDING_DEFINED;
+    closure->bindings[closure->length].dirty_flag = 1;
+    closure->bindings[closure->length].value = value;
+    closure->length++;
     return closure;
 }
 
 // 获取自由变量。未找到返回 AM_VALUE_UNDEFINED。
 am_value_t am_closure_get_free_var(am_allocator_t *alloc, am_obj_closure_t *closure, am_varid_t variable) {
     (void)alloc;
-    am_binding_t *binding = am_closure_find(closure, variable, AM_BINDING_FREE);
+    am_binding_t *binding = am_closure_find_binding(closure, variable, AM_BINDING_FREE);
     return binding ? binding->value : AM_VALUE_UNDEFINED;
 }
 
@@ -378,11 +408,11 @@ int32_t am_closure_is_dirty_var(am_allocator_t *alloc, am_obj_closure_t *closure
 // 是否存在约束变量绑定。存在返回 0，不存在返回 -1。
 int32_t am_closure_has_bound_var(am_allocator_t *alloc, am_obj_closure_t *closure, am_varid_t variable) {
     (void)alloc;
-    return am_closure_find(closure, variable, AM_BINDING_BOUND) ? 0 : -1;
+    return am_closure_find_binding(closure, variable, AM_BINDING_BOUND) ? 0 : -1;
 }
 
 // 是否存在自由变量绑定。存在返回 0，不存在返回 -1。
 int32_t am_closure_has_free_var(am_allocator_t *alloc, am_obj_closure_t *closure, am_varid_t variable) {
     (void)alloc;
-    return am_closure_find(closure, variable, AM_BINDING_FREE) ? 0 : -1;
+    return am_closure_find_binding(closure, variable, AM_BINDING_FREE) ? 0 : -1;
 }

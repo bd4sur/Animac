@@ -60,6 +60,15 @@ Animac（灵机）是一款Scheme解释器，支持Scheme语言的子集和某�
 
 symbol是以其字面为ID的，相同拼写的symbol，无论在哪个上下文中都是同一个符号。因此AST合并时，字符串相同的symbol，就是同一个symbol。这与variable截然不同。
 
+- 闭包帧（2026-10 起，设计见 doc/todo/closure_frame.md）：闭包不再"复制亲闭包的全部绑定"，而是按编译期算出的**帧描述符**一次成型。
+  - 新模块 `include/am_frame.h` / `src/am_frame.c`（层级：在 compiler 之上、process 之下）：描述符 `am_frame_desc_t` 记录一个 λ 的槽位布局——`slots[0..nbound)` 为约束变量槽、`slots[nbound..)` 为自由变量槽（`src` 指向词法父帧中的槽号）；帧表 `am_frame_table_t` 按 λ 入口 iaddr 索引。
+  - 编译期：`compile_lambda`/`compile_complex_application` 记录 λ 代码区间；`am_frame_analysis`（在 `am_compile` 内、label_resolution 之后调用）按 ilcode 收集 BOUND/REF、做**自由变量传递闭包**（`FV(λ) = (REF\BOUND) ∪ ⋃子λ的FV\BOUND`）、分配槽位，并把可静态定位的访问改写为槽位指令。
+  - 运行期：`am_process_make_closure_desc` 按描述符建帧（BOUND 槽预置为未定义、FREE 槽从父帧按 `src` 拉取并逐槽校验，失败则退回沿链通用解析）；`load_slot/store_slot/set_slot/call_slot/tailcall_slot`（opcode 63–67，操作数 `(slot<<2)|flags`）为变量访问快路径。
+  - 必须维护的不变量：① 同一闭包内每个 varid **至多一个**绑定项（`am_closure_init_bound_var` 遇到同名自由绑定就地升级为约束绑定）；② 未赋值的槽位**不带** `AM_BINDING_DEFINED` 位，且所有查找（`am_closure_find_binding`）都把这种槽视作不存在——这是"读取未定义变量穿透到外层"语义的落点；③ 有描述符的 λ **必须**按描述符建帧（`frame_len > 0`），否则槽位寻址会错位，因此 `make_closure_and_inherit` 不做"描述符失败就退化成旧布局"的兜底；④ `fork` 必须连带复制帧表（`am_frame_table_copy`），`System.eval` 必须 `am_frame_table_shift/merge` 并把描述符里的 varid 一并重映射；
+  - 只读判定与降级：自由变量槽只有在全模块从未被 `set!`/`capturecc` 触碰时才直读快照；`System.eval` 一旦编译出 `set!`/`capturecc` 就置 `proc->closure_fast = false`（此后自由变量快照不再直读），保证语义正确优先于性能。
+  - 调试开关（均环境变量）：`AM_FRAME_TABLE=1` 打印帧表摘要；`AM_FRAME_TRACE=1` 打印 λ 区间/指令归属/改写统计；`AM_FRAME_STATS=1` 进程销毁时打印闭包帧统计；`AM_FRAME_DEBUG=1` 打印自由变量填充的通用路径命中；编译期 `-DAM_CLOSURE_VERIFY` 开启"槽位直读 vs 通用解引用"影子验证（不一致即 abort）。
+  - 回归基准：`test/closure_sem.scm`（闭包语义 21 项，已纳入 testall.sh）与 `test/closure_perf.scm`（sky3 类成本结构基准，手工运行）。
+
 - 栈平衡（单值栈纪律，2026-07 起，方案详见 doc/todo/stack_bal.md 之“方案A：编译期单值纪律”）：编译器保证**任何表达式求值结束后恰好在 opstack 上留下 1 个值，任何语句序列执行完后栈深恢复到序列开始时的水平**。实现要点（均在 src/am_compiler.c，VM 指令语义不变）：
   - `begin`/lambda 体/`while` 体中，非末尾表达式的结果立即 `pop`；空 `begin`/空 lambda 体补 `push #undefined`；
   - 语句形式（`define`/`set!`/`display`/`newline`/`push`/`set_item!`/`while`/单臂 if 的假分支/无 else 且全部落空的 `cond`/空 `begin`）的值统一为 `#undefined`；

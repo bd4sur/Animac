@@ -12,6 +12,7 @@ extern "C" {
 #include "am_object.h"
 #include "am_ast.h"
 #include "am_compiler.h"
+#include "am_frame.h"
 
 
 ///////////////////////////////////////////
@@ -28,6 +29,7 @@ typedef struct am_module_t {
     am_ast_t *ast;
     am_instruction_t *ilcode;
     am_iaddr_t ilcode_length; // ilcode数组长度（指令条数）
+    am_frame_table_t *frames; // 【P1】闭包帧描述符表（按 entry iaddr 索引；可能为 NULL）
 } am_module_t;
 
 

@@ -345,21 +345,46 @@ int32_t am_runtime_queue_read(am_runtime_t *rt, am_queue_t *q, am_timestamp_t ti
 
 // 复制当前闭包的所有绑定到新闭包作为自由变量（用于 load/loadclosure/call）
 // new_closure_hd 必须已绑定到一个新创建的 closure 对象。
+static int32_t copy_current_closure_bindings_as_free_vars(am_process_t *proc, am_handle_t new_closure_hd);
+
+// 功能说明：创建闭包并继承自由变量（三条创建路径的唯一入口）。
+// 实现说明：若该 λ 有帧描述符，则按描述符一次性成型（只复制真正引用的自由变量）；
+//           否则退化为旧行为（复制当前闭包的全部绑定）。
+//           P1 度量：descriptor / legacy 两条路径分别计数。
+static am_handle_t make_closure_and_inherit(am_process_t *proc, am_iaddr_t iaddr) {
+    am_frame_desc_t *desc = am_frame_lookup(proc->frames, iaddr);
+    if (desc && (desc->flags & AM_FRAME_FLAG_OPAQUE) == 0) {
+        // 有描述符时必须按描述符建帧：该 λ 的代码可能已含槽位寻址指令，
+        // 退回旧布局会造成槽位错位，因此失败即失败，不做退化。
+        return am_process_make_closure_desc(proc, iaddr, proc->current_closure_handle, desc);
+    }
+
+    am_handle_t hd = am_process_make_closure(proc, iaddr, proc->current_closure_handle);
+    if (hd == AM_HANDLE_NULL) return AM_HANDLE_NULL;
+    if (copy_current_closure_bindings_as_free_vars(proc, hd) != 0) return AM_HANDLE_NULL;
+    proc->stat_legacy_closures++;
+    return hd;
+}
+
+
+// 功能说明：完成闭包创建的最后一步：把当前闭包的全部绑定一次性继承为新闭包的自由变量。
+// 实现说明：new_closure_hd 必须已绑定到一个新创建的、空的 closure 对象。
+//           P0 把原来的"逐条 am_closure_init_free_var"换成单次容量确保 + 顺序拷贝：
+//           旧实现对空闭包逐条插入时，每条要做 2 次必然落空的线性查找，且从容量 16
+//           开始每次翻倍都要 malloc+memcpy+free，总体是 O(n²) 且带 n 次重分配；
+//           新实现是 O(n) 且只可能分配一次。
 static int32_t copy_current_closure_bindings_as_free_vars(am_process_t *proc, am_handle_t new_closure_hd) {
     am_obj_closure_t *current = am_process_get_current_closure(proc);
     am_obj_closure_t *new_closure = am_process_get_closure(proc, new_closure_hd);
     if (!new_closure) return -1;
 
-    if (current) {
-        for (size_t i = 0; i < current->length; i++) {
-            am_binding_t *b = &current->bindings[i];
-            new_closure = am_closure_init_free_var(proc->heap_alloc, new_closure, b->varid, b->value);
-            if (!new_closure) return -1;
-        }
-        if (new_closure != am_process_get_closure(proc, new_closure_hd)) {
-            am_heap_set(proc->vm_alloc, proc->heap_alloc, proc->heap, new_closure_hd,
-                        am_make_value_of_ptr((am_object_t *)new_closure));
-        }
+    if (!current || current->length == 0) return 0;
+
+    am_obj_closure_t *filled = am_closure_fill_free_vars(proc->heap_alloc, new_closure, current);
+    if (!filled) return -1;
+    if (filled != am_process_get_closure(proc, new_closure_hd)) {
+        am_heap_set(proc->vm_alloc, proc->heap_alloc, proc->heap, new_closure_hd,
+                    am_make_value_of_ptr((am_object_t *)filled));
     }
     return 0;
 }
@@ -494,6 +519,14 @@ static bool runtime_value_equal(am_process_t *proc, am_value_t a, am_value_t b) 
 }
 
 
+// 前向声明（槽位指令族的退化路径需要调用这些通用实现）
+static int32_t op_load(am_runtime_t *rt, am_process_t *proc, am_value_t operand);
+static int32_t op_store(am_runtime_t *rt, am_process_t *proc, am_value_t operand);
+static int32_t op_set(am_runtime_t *rt, am_process_t *proc, am_value_t operand);
+static int32_t op_call_async(am_runtime_t *rt, am_process_t *proc, am_value_t operand, am_iaddr_t return_target);
+static int32_t op_call_target(am_runtime_t *rt, am_process_t *proc, am_value_t target, am_iaddr_t return_target);
+
+
 // ===============================================================================
 // 第一类：基本存取指令
 // ===============================================================================
@@ -513,6 +546,7 @@ static int32_t op_store(am_runtime_t *rt, am_process_t *proc, am_value_t operand
     if (new_current != current) {
         am_heap_set(proc->vm_alloc, proc->heap_alloc, proc->heap, proc->current_closure_handle,
                     am_make_value_of_ptr((am_object_t *)new_current));
+        am_process_refresh_current_closure_obj(proc, new_current);
     }
 
     am_process_step(proc);
@@ -537,9 +571,8 @@ static int32_t op_load(am_runtime_t *rt, am_process_t *proc, am_value_t operand)
     // 若值为 iaddr，说明是 lambda 标签解析后的地址，创建闭包
     if (am_value_is_iaddr(value)) {
         am_iaddr_t iaddr = am_value_to_iaddr(value);
-        am_handle_t closure_hd = am_process_make_closure(proc, iaddr, proc->current_closure_handle);
+        am_handle_t closure_hd = make_closure_and_inherit(proc, iaddr);
         if (closure_hd == AM_HANDLE_NULL) return -1;
-        if (copy_current_closure_bindings_as_free_vars(proc, closure_hd) != 0) return -1;
         am_process_push_operand(proc, am_make_value_of_handle(closure_hd));
     }
     else {
@@ -556,13 +589,142 @@ static int32_t op_loadclosure(am_runtime_t *rt, am_process_t *proc, am_value_t o
     if (!am_value_is_iaddr(operand)) return -1;
 
     am_iaddr_t iaddr = am_value_to_iaddr(operand);
-    am_handle_t closure_hd = am_process_make_closure(proc, iaddr, proc->current_closure_handle);
+    am_handle_t closure_hd = make_closure_and_inherit(proc, iaddr);
     if (closure_hd == AM_HANDLE_NULL) return -1;
-    if (copy_current_closure_bindings_as_free_vars(proc, closure_hd) != 0) return -1;
 
     am_process_push_operand(proc, am_make_value_of_handle(closure_hd));
     am_process_step(proc);
     return 0;
+}
+
+
+// ===============================================================================
+// 索引帧槽位指令族（P2）
+// 说明：操作数为 (slot << 2) | 标志位。执行前提是该闭包按帧描述符创建（frame_len > 0），
+//       槽位下标语义由编译器静态确定，因此这里不需要任何查找。
+//       任何与前提不符的情况（槽号越界 / 槽位未定义 / 进程降级）都退回带 varid 的通用路径，
+//       而 varid 从槽位自身取得——所以退化只会变慢，不会变错。
+// ===============================================================================
+
+#define AM_SLOT_ENC(slot, flags)   (((am_uint_t)(slot) << 2) | (am_uint_t)(flags))
+#define AM_SLOT_INDEX(enc)         ((size_t)((enc) >> 2))
+#define AM_SLOT_FLAG_FREE_SNAPSHOT (0x1u)
+
+// 槽位直读。失败（需要走通用路径）返回 -1，成功返回 0 并把值写入 *out。
+static inline int32_t slot_read(am_process_t *proc, size_t enc, am_value_t *out) {
+    am_obj_closure_t *cl = proc->current_closure_obj;
+    if (!cl) cl = am_process_get_current_closure(proc);
+    if (!cl) return -1;
+
+    size_t slot = AM_SLOT_INDEX(enc);
+    if (slot >= cl->frame_len) return -1;      // 非索引帧：退化
+
+    am_binding_t *b = &cl->bindings[slot];
+    if ((b->type & AM_BINDING_DEFINED) == 0) return -1;             // 尚未赋值：退化
+    if ((enc & AM_SLOT_FLAG_FREE_SNAPSHOT) && !proc->closure_fast) return -1; // 降级
+
+    *out = b->value;
+
+#ifdef AM_CLOSURE_VERIFY
+    // 影子验证（仅调试构建）：槽位直读的结果必须与通用解引用一致。
+    {
+        am_value_t slow = am_process_dereference_from(proc, proc->current_closure_handle, b->varid);
+        if (slow != b->value) {
+            wchar_t *nm = am_vocab_get(proc->vm_alloc, proc->var_vocab, &b->varid);
+            printf("[closure-verify] 不一致: pc=%zu slot=%zu varid=%zu/%ls fast=%zu slow=%zu\n",
+                   (size_t)proc->PC, slot, (size_t)b->varid, nm ? nm : L"?",
+                   (size_t)b->value, (size_t)slow);
+            fflush(stdout);
+            abort();
+        }
+    }
+#endif
+    return 0;
+}
+
+// 槽位退化时取回该槽位对应的 varid（用于走通用路径）
+static inline am_varid_t slot_varid(am_process_t *proc, size_t enc) {
+    am_obj_closure_t *cl = am_process_get_current_closure(proc);
+    if (cl) {
+        size_t slot = AM_SLOT_INDEX(enc);
+        if (slot < cl->length) return cl->bindings[slot].varid;
+    }
+    return (am_varid_t)SIZE_MAX - 1;
+}
+
+static int32_t op_load_slot(am_runtime_t *rt, am_process_t *proc, am_value_t operand) {
+    size_t enc = (size_t)am_value_to_uint(operand);
+    am_value_t v;
+    if (slot_read(proc, enc, &v) == 0) {
+        if (!am_value_is_iaddr(v)) {
+            am_process_push_operand(proc, v);
+            am_process_step(proc);
+            return 0;
+        }
+        // 变量值是 lambda 地址：创建闭包实例（与原 op_load 的 iaddr 分支一致）
+        am_iaddr_t iaddr = am_value_to_iaddr(v);
+        am_handle_t closure_hd = make_closure_and_inherit(proc, iaddr);
+        if (closure_hd == AM_HANDLE_NULL) return -1;
+        am_process_push_operand(proc, am_make_value_of_handle(closure_hd));
+        am_process_step(proc);
+        return 0;
+    }
+    return op_load(rt, proc, am_make_value_of_varid(slot_varid(proc, enc)));
+}
+
+static int32_t op_store_slot(am_runtime_t *rt, am_process_t *proc, am_value_t operand) {
+    size_t enc = (size_t)am_value_to_uint(operand);
+    am_obj_closure_t *cl = am_process_get_current_closure(proc);
+    size_t slot = AM_SLOT_INDEX(enc);
+    if (cl && slot < cl->frame_len) {
+        am_binding_t *b = &cl->bindings[slot];
+        b->type = AM_BINDING_BOUND | AM_BINDING_DEFINED; // define：赋新值并清除脏标记
+        b->value = am_process_pop_operand(proc);
+        b->dirty_flag = 0;
+        am_process_step(proc);
+        return 0;
+    }
+    if (getenv("AM_SLOT_DEBUG")) {
+        am_obj_closure_t *c2 = am_process_get_current_closure(proc);
+        printf("[store_slot-fallback] pc=%zu enc=%zu slot=%zu cl=%p frame_len=%zu len=%zu\n",
+               (size_t)proc->PC, enc, slot, (void *)c2,
+               c2 ? c2->frame_len : (size_t)0, c2 ? c2->length : (size_t)0);
+    }
+    return op_store(rt, proc, am_make_value_of_varid(slot_varid(proc, enc)));
+}
+
+static int32_t op_set_slot(am_runtime_t *rt, am_process_t *proc, am_value_t operand) {
+    size_t enc = (size_t)am_value_to_uint(operand);
+    am_obj_closure_t *cl = am_process_get_current_closure(proc);
+    size_t slot = AM_SLOT_INDEX(enc);
+    if (cl && slot < cl->frame_len) {
+        am_binding_t *b = &cl->bindings[slot];
+        b->type |= AM_BINDING_DEFINED;                   // set!：置脏，子闭包沿链可见新值
+        b->dirty_flag = 1;
+        b->value = am_process_pop_operand(proc);
+        am_process_step(proc);
+        return 0;
+    }
+    return op_set(rt, proc, am_make_value_of_varid(slot_varid(proc, enc)));
+}
+
+static int32_t op_call_slot(am_runtime_t *rt, am_process_t *proc, am_value_t operand) {
+    size_t enc = (size_t)am_value_to_uint(operand);
+    am_value_t target;
+    if (slot_read(proc, enc, &target) == 0) {
+        return op_call_target(rt, proc, target, proc->PC + 1);
+    }
+    return op_call_async(rt, proc, am_make_value_of_varid(slot_varid(proc, enc)), proc->PC + 1);
+}
+
+// 尾调用版本（返回目标为 SIZE_MAX）
+static int32_t op_tailcall_slot(am_runtime_t *rt, am_process_t *proc, am_value_t operand) {
+    size_t enc = (size_t)am_value_to_uint(operand);
+    am_value_t target;
+    if (slot_read(proc, enc, &target) == 0) {
+        return op_call_target(rt, proc, target, SIZE_MAX);
+    }
+    return op_call_async(rt, proc, am_make_value_of_varid(slot_varid(proc, enc)), SIZE_MAX);
 }
 
 
@@ -615,6 +777,7 @@ static int32_t op_set(am_runtime_t *rt, am_process_t *proc, am_value_t operand) 
             am_heap_set(proc->vm_alloc, proc->heap_alloc, proc->heap, current_h,
                         am_make_value_of_ptr((am_object_t *)new_current));
             current = new_current;
+            am_process_refresh_current_closure_obj(proc, new_current);
         }
     }
 
@@ -629,6 +792,7 @@ static int32_t op_set(am_runtime_t *rt, am_process_t *proc, am_value_t operand) 
             if (new_closure != closure) {
                 am_heap_set(proc->vm_alloc, proc->heap_alloc, proc->heap, h,
                             am_make_value_of_ptr((am_object_t *)new_closure));
+                if (h == current_h) am_process_refresh_current_closure_obj(proc, new_closure);
             }
             break;
         }
@@ -783,6 +947,9 @@ static am_handle_t dynamic_wind_stack_pop(am_process_t *proc) {
 
 
 // call / tailcall 的共享实现。return_target 为 SIZE_MAX 表示尾调用不压栈帧。
+// 按“已解析的调用目标值”执行调用（iaddr 直接调用 lambda / handle 调用闭包或续体）
+static int32_t op_call_target(am_runtime_t *rt, am_process_t *proc, am_value_t target, am_iaddr_t return_target);
+
 static int32_t op_call_async(am_runtime_t *rt, am_process_t *proc, am_value_t operand, am_iaddr_t return_target) {
     (void)rt;
 
@@ -808,6 +975,12 @@ static int32_t op_call_async(am_runtime_t *rt, am_process_t *proc, am_value_t op
         target = operand;
     }
 
+    return op_call_target(rt, proc, target, return_target);
+}
+
+static int32_t op_call_target(am_runtime_t *rt, am_process_t *proc, am_value_t target, am_iaddr_t return_target) {
+    (void)rt;
+
     // iaddr：直接调用 lambda
     if (am_value_is_iaddr(target)) {
         am_iaddr_t iaddr = am_value_to_iaddr(target);
@@ -826,9 +999,8 @@ static int32_t op_call_async(am_runtime_t *rt, am_process_t *proc, am_value_t op
             }
         }
 
-        am_handle_t closure_hd = am_process_make_closure(proc, iaddr, proc->current_closure_handle);
+        am_handle_t closure_hd = make_closure_and_inherit(proc, iaddr);
         if (closure_hd == AM_HANDLE_NULL) return -1;
-        if (copy_current_closure_bindings_as_free_vars(proc, closure_hd) != 0) return -1;
 
         am_process_set_current_closure(proc, closure_hd);
         am_process_goto(proc, iaddr);
@@ -876,7 +1048,7 @@ static int32_t op_call_async(am_runtime_t *rt, am_process_t *proc, am_value_t op
         // 判断builtin函数
         int32_t opcode = check_builtin_varid(proc, v);
         if (opcode >= 0) {
-            return am_runtime_op_dispatch(rt, proc, (uint32_t)opcode, operand);
+            return am_runtime_op_dispatch(rt, proc, (uint32_t)opcode, target);
         }
         // 判断 native 调用
         else if (am_runtime_check_native_ref(rt, proc, v) == 0) {
@@ -884,6 +1056,22 @@ static int32_t op_call_async(am_runtime_t *rt, am_process_t *proc, am_value_t op
         }
     }
 
+    if (getenv("AM_CALL_DEBUG")) {
+        am_obj_closure_t *c = am_process_get_current_closure(proc);
+        printf("[call-dbg] pc=%zu op=%u target_kind=%d target=%zu cur_iaddr=%zu frame_len=%zu len=%zu\n",
+               (size_t)proc->PC, (unsigned)proc->ilcode[proc->PC].opcode,
+               (int)am_value_type(target), (size_t)target,
+               c ? (size_t)c->iaddr : (size_t)-1, c ? c->frame_len : (size_t)0,
+               c ? c->length : (size_t)0);
+        if (c) {
+            for (size_t z = 0; z < c->length; z++) {
+                wchar_t *nm = am_vocab_get(proc->vm_alloc, proc->var_vocab, &c->bindings[z].varid);
+                printf("   slot %zu varid=%zu/%ls type=%d val=%zu\n", z,
+                       (size_t)c->bindings[z].varid, nm ? nm : L"?",
+                       (int)c->bindings[z].type, (size_t)c->bindings[z].value);
+            }
+        }
+    }
     am_runtime_error(rt, L"[Runtime] call: 错误的调用目标\n");
 
     return -1;
@@ -986,6 +1174,7 @@ static int32_t op_capturecc(am_runtime_t *rt, am_process_t *proc, am_value_t ope
     if (new_current != current) {
         am_heap_set(proc->vm_alloc, proc->heap_alloc, proc->heap, proc->current_closure_handle,
                     am_make_value_of_ptr((am_object_t *)new_current));
+        am_process_refresh_current_closure_obj(proc, new_current);
     }
 
     am_process_step(proc);
@@ -1974,7 +2163,15 @@ static int32_t op_mul(am_runtime_t *rt, am_process_t *proc, am_value_t operand) 
     (void)operand;
     am_value_t a = am_process_pop_operand(proc);
     am_value_t b = am_process_pop_operand(proc);
-    if (!am_value_is_number(a) || !am_value_is_number(b)) return -1;
+    if (!am_value_is_number(a) || !am_value_is_number(b)) {
+        if (getenv("AM_STACK_DEBUG")) {
+            printf("[mul-fail] pc=%zu a=%zu(t=%d) b=%zu(t=%d) olen=%zu\n", (size_t)proc->PC,
+                   (size_t)a, (int)am_value_type(a), (size_t)b, (int)am_value_type(b),
+                   (size_t)(proc->opstack_top - proc->opstack));
+            fflush(stdout);
+        }
+        return -1;
+    }
 
     if (am_value_is_float(a) || am_value_is_float(b)) {
         am_float_t result = am_runtime_number_to_float(b) * am_runtime_number_to_float(a);
@@ -2756,7 +2953,7 @@ static int32_t runtime_process_gut(am_process_t *proc) {
     }
 
     proc->PC = 0;
-    proc->current_closure_handle = AM_HANDLE_NULL;
+    am_process_set_current_closure(proc, AM_HANDLE_NULL);
     proc->gc_count = 0;
     proc->pending_kill = false;
 
@@ -3008,6 +3205,11 @@ int32_t am_runtime_op_dispatch(am_runtime_t *rt, am_process_t *proc, uint32_t op
         case AM_VM_OP_length:      return op_length(rt, proc, operand);
         case AM_VM_OP_concat:      return op_concat(rt, proc, operand);
         case AM_VM_OP_splice:      return op_splice(rt, proc, operand);
+        case AM_VM_OP_load_slot:   return op_load_slot(rt, proc, operand);
+        case AM_VM_OP_store_slot:  return op_store_slot(rt, proc, operand);
+        case AM_VM_OP_set_slot:    return op_set_slot(rt, proc, operand);
+        case AM_VM_OP_call_slot:   return op_call_slot(rt, proc, operand);
+        case AM_VM_OP_tailcall_slot: return op_tailcall_slot(rt, proc, operand);
         case AM_VM_OP_duplicate:   return op_duplicate(rt, proc, operand);
         case AM_VM_OP_evalcleanup: return op_evalcleanup(rt, proc, operand);
         case AM_VM_OP_dynamicwind:              return op_dynamicwind(rt, proc, operand);
@@ -3028,11 +3230,10 @@ int32_t am_runtime_op_dispatch(am_runtime_t *rt, am_process_t *proc, uint32_t op
 int32_t am_runtime_execute(am_runtime_t *rt, am_process_t *proc) {
     if (!rt || !proc) return -1;
 
-    uint32_t opcode;
-    am_value_t operand;
-    if (am_process_current_instruction(proc, &opcode, &operand) != 0) {
-        return -1;
-    }
+    // 取指内联：这是每指令必经路径，独立函数调用 + 两次边界检查的开销可观
+    if (!proc->ilcode || proc->PC >= proc->ilcode_length) return -1;
+    uint32_t opcode = proc->ilcode[proc->PC].opcode;
+    am_value_t operand = proc->ilcode[proc->PC].operand;
 
     // printf("Exec: PC=%zu | OpCode=%u | Oprand=%zu(varid=%zu)\n", proc->PC, opcode, operand, am_value_to_varid(operand));
 
@@ -3083,6 +3284,17 @@ int32_t am_runtime_tick(am_runtime_t *rt, uint32_t timeslice) {
             if (rt->vtable->on_error) rt->vtable->on_error(rt);
             wchar_t errmsg[256];
             swprintf(errmsg, 256, L"[Runtime] 指令执行异常: PID=%zu PC=%zu\n", (size_t)pid, (size_t)proc->PC);
+            if (getenv("AM_STACK_DEBUG")) {
+                size_t n = (size_t)(proc->opstack_top - proc->opstack);
+                printf("[stack-dbg] pc=%zu op=%u opstack_len=%zu fstack_len=%zu:", (size_t)proc->PC,
+                       (unsigned)(proc->PC < proc->ilcode_length ? proc->ilcode[proc->PC].opcode : 999),
+                       n, (size_t)(proc->fstack_top - proc->fstack));
+                for (size_t z = (n > 6 ? n - 6 : 0); z < n; z++) {
+                    printf(" [%zu t=%d v=%zu]", z, (int)am_value_type(proc->opstack[z]), (size_t)proc->opstack[z]);
+                }
+                printf("\n");
+                fflush(stdout);
+            }
             am_runtime_error(rt, errmsg);
             break;
         }

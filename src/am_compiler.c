@@ -262,16 +262,53 @@ static int32_t while_tag_stack_pop(am_compiler_ctx_t *ctx) {
 
 // 功能说明：向am_compiler_ctx_t的ilcode中，增加一个am_instruction_t，并更新icount。
 // 实现说明：成功返回0；失败返回-1
+#define AM_ILCODE_POSFLAG_TARGET (0x01) // 该 iaddr 是跳转目标
+
+// 确保 ilcode 与其平行位置标志数组的容量至少为 need（两者同步扩容）。
+// 说明：位置标志用于 peephole 的保护——跳转目标处的指令不得被删除。
+static int32_t compiler_ensure_ilcode_capacity(am_compiler_ctx_t *ctx, am_iaddr_t need) {
+    if (!ctx) return -1;
+    if (ctx->ilcode_capacity >= need) return 0;
+
+    am_iaddr_t new_cap = ctx->ilcode_capacity;
+    while (new_cap < need) new_cap = new_cap ? new_cap * 2 : 64;
+
+    am_instruction_t *new_ilcode = (am_instruction_t *)am_realloc(
+        ctx->ast->alloc, ctx->ilcode, (size_t)new_cap * sizeof(am_instruction_t));
+    if (!new_ilcode) return -1;
+    ctx->ilcode = new_ilcode;
+
+    uint8_t *new_flags = (uint8_t *)am_realloc(
+        ctx->ast->alloc, ctx->ilcode_posflags, (size_t)new_cap * sizeof(uint8_t));
+    if (!new_flags) return -1;
+    ctx->ilcode_posflags = new_flags;
+    memset(ctx->ilcode_posflags + ctx->ilcode_capacity, 0,
+           (size_t)(new_cap - ctx->ilcode_capacity) * sizeof(uint8_t));
+
+    ctx->ilcode_capacity = new_cap;
+    return 0;
+}
+
+// 指令发射。内含一条 peephole：
+//   相邻的 push #undefined; pop 相互抵消（单值栈纪律为语句型 define/set!/内建调用补出的
+//   push #undefined，在外层“非末尾子表达式”处会立刻被 pop 掉，是纯浪费）。
+//   为保证跳转不错位，若该 push 是跳转目标则不可删。
 static int32_t emit_instruction(am_compiler_ctx_t *ctx, uint32_t opcode, am_value_t operand) {
     if (!ctx) return -1;
+    if (compiler_ensure_ilcode_capacity(ctx, ctx->icount + 1) != 0) return -1;
 
-    if (ctx->icount >= ctx->ilcode_capacity) {
-        am_iaddr_t new_cap = ctx->ilcode_capacity ? ctx->ilcode_capacity * 2 : 64;
-        am_instruction_t *new_ilcode = (am_instruction_t *)am_realloc(
-            ctx->ast->alloc, ctx->ilcode, new_cap * sizeof(am_instruction_t));
-        if (!new_ilcode) return -1;
-        ctx->ilcode = new_ilcode;
-        ctx->ilcode_capacity = new_cap;
+    // peephole：push #undefined; pop → 两条都删掉
+    // 保护：① 被删的 push 不得是跳转目标；② pop 自身不得是跳转目标
+    //       （删掉 pop 会使该跳转目标地址落到下一条指令上，造成错位）。
+    if (opcode == AM_VM_OP_pop && ctx->icount > 0) {
+        am_iaddr_t prev = ctx->icount - 1;
+        if (ctx->ilcode[prev].opcode == AM_VM_OP_push &&
+            ctx->ilcode[prev].operand == AM_VALUE_UNDEFINED &&
+            (ctx->ilcode_posflags[prev] & AM_ILCODE_POSFLAG_TARGET) == 0 &&
+            (ctx->ilcode_posflags[ctx->icount] & AM_ILCODE_POSFLAG_TARGET) == 0) {
+            ctx->icount = prev;
+            return 0;
+        }
     }
 
     ctx->ilcode[ctx->icount].opcode = opcode;
@@ -308,6 +345,12 @@ static int32_t am_compiler_locate_label(am_compiler_ctx_t *ctx, am_value_t index
 
     am_value_t label = am_map_get(ctx->ast->alloc, ctx->value_label_mapping, index_value);
     if (!am_value_is_label(label)) return -1;
+
+    // 记录该位置是跳转目标（peephole 不得删除跳转目标处的指令）
+    // 注意：locate_label 的 iaddr 指向“即将发射的下一条指令”，即刚过去的 icount，
+    //       因此这里要按 <= icount 处理（实际只需要预留标志位容量）。
+    if (compiler_ensure_ilcode_capacity(ctx, iaddr + 1) != 0) return -1;
+    ctx->ilcode_posflags[iaddr] |= AM_ILCODE_POSFLAG_TARGET;
 
     am_map_t *new_map = am_map_set(ctx->ast->alloc, ctx->label_iaddr_mapping,
                                     label, am_make_value_of_iaddr(iaddr));
@@ -382,6 +425,41 @@ static int32_t compile_while(am_compiler_ctx_t *ctx, am_handle_t handle);
 static int32_t compile_and(am_compiler_ctx_t *ctx, am_handle_t handle);
 static int32_t compile_or(am_compiler_ctx_t *ctx, am_handle_t handle);
 static int32_t compile_quasiquote(am_compiler_ctx_t *ctx, am_handle_t handle);
+
+
+// ===============================================================================
+// λ 代码区间记录（P1：帧分析的输入）
+// 说明：编译器的 λ 编译是“平铺”的（每个 λ 独立成块，内嵌只发生在 η 变换的临时 λ 上），
+//       因此这里只负责把“哪些指令属于哪个 λ”记下来；词法父子关系由帧分析从 AST 的
+//       scope 信息里取。
+// ===============================================================================
+
+static size_t compiler_region_begin(am_compiler_ctx_t *ctx, am_handle_t handle,
+                                    uint32_t nparam, uint32_t flags) {
+    if (ctx->lambda_region_count >= ctx->lambda_region_capacity) {
+        size_t new_cap = ctx->lambda_region_capacity ? ctx->lambda_region_capacity * 2 : 32;
+        am_lambda_region_t *p = (am_lambda_region_t *)am_realloc(
+            ctx->ast->alloc, ctx->lambda_regions, new_cap * sizeof(am_lambda_region_t));
+        if (!p) return SIZE_MAX;
+        ctx->lambda_regions = p;
+        ctx->lambda_region_capacity = new_cap;
+    }
+    size_t idx = ctx->lambda_region_count++;
+    am_lambda_region_t *r = &ctx->lambda_regions[idx];
+    r->entry = ctx->icount;
+    r->end = ctx->icount;
+    r->parent = ctx->current_lambda_region;
+    r->handle = handle;
+    r->nparam = nparam;
+    r->flags = flags;
+    return idx;
+}
+
+static void compiler_region_end(am_compiler_ctx_t *ctx, size_t idx) {
+    if (idx < ctx->lambda_region_count) {
+        ctx->lambda_regions[idx].end = ctx->icount;
+    }
+}
 
 
 // ===============================================================================
@@ -514,6 +592,11 @@ static int32_t compile_complex_application(am_compiler_ctx_t *ctx, am_handle_t h
     // 临时lambda标签
     if (am_compiler_locate_label(ctx, temp_lambda_idx, ctx->icount) != 0) return -1;
 
+    // 登记临时 λ 的代码区间（帧分析用）：区间 = [此处, apply_begin 位置)
+    size_t temp_region = compiler_region_begin(ctx, AM_HANDLE_NULL, (uint32_t)n, AM_FRAME_FLAG_TEMP);
+    if (temp_region == SIZE_MAX) return -1;
+    // 临时 λ 的帧只含自己的形参，不引入自由变量；其运行时父闭包 = 所在闭包
+
     // 按逆序存储形式参数
     for (size_t i = n; i-- > 0;) {
         am_varid_t p = am_compiler_make_temp_varid(ctx, L"TEMP_LAMBDA_PARAM", temp_lambda_label, i);
@@ -538,6 +621,7 @@ static int32_t compile_complex_application(am_compiler_ctx_t *ctx, am_handle_t h
 
     // apply_begin标签
     if (am_compiler_locate_label(ctx, apply_begin_idx, ctx->icount) != 0) return -1;
+    compiler_region_end(ctx, temp_region);
 
     // 编译实参
     for (size_t i = 0; i < n; i++) {
@@ -650,6 +734,16 @@ static int32_t compile_lambda(am_compiler_ctx_t *ctx, am_handle_t handle) {
     // 定位lambda开始标签
     if (am_compiler_locate_label(ctx, am_make_value_of_handle(handle), ctx->icount) != 0) return -1;
 
+    // 登记 λ 代码区间（帧分析用）
+    uint32_t region_flags = 0;
+    am_handle_t top_hd = am_ast_get_top_lambda_node_handle(ctx->ast);
+    if (top_hd != AM_HANDLE_NULL && top_hd == handle) region_flags |= AM_FRAME_FLAG_TOP;
+    size_t region = compiler_region_begin(ctx, handle, (uint32_t)compiler_lambda_param_count(node),
+                                          region_flags);
+    if (region == SIZE_MAX) return -1;
+    size_t saved_region = ctx->current_lambda_region;
+    ctx->current_lambda_region = region;
+
     // 按参数列表逆序，插入store指令
     am_uint_t n_param = compiler_lambda_param_count(node);
     for (am_int_t i = (am_int_t)n_param - 1; i >= 0; i--) {
@@ -676,6 +770,9 @@ static int32_t compile_lambda(am_compiler_ctx_t *ctx, am_handle_t handle) {
             if (emit_instruction(ctx, AM_VM_OP_push, AM_VALUE_UNDEFINED) != 0) return -1;
         }
     }
+
+    ctx->current_lambda_region = saved_region;
+    compiler_region_end(ctx, region);
 
     return emit_instruction(ctx, AM_VM_OP_return, AM_VALUE_UNDEFINED);
 }
@@ -1538,6 +1635,15 @@ am_module_t *am_compile(am_ast_t *ast, am_iaddr_t offset, am_iaddr_t ret) {
         return NULL;
     }
 
+    // 【P1】闭包帧分析：产出按 entry iaddr 索引的帧描述符表
+    // 失败不致命：无帧表时运行时全部退化为旧行为（复制全部绑定 + 线性查找）。
+    am_frame_table_t *frames = am_frame_analysis(ctx);
+    if (frames && offset > 0) {
+        // 描述符的 entry/下标是"模块内相对 iaddr"，而 lambda 地址已按 offset 重定位，
+        // 因此追加代码（System.eval）时必须同步右移。
+        frames = am_frame_table_shift(ast->alloc, frames, (size_t)offset);
+    }
+
     am_module_t *mod = (am_module_t *)am_calloc(ast->alloc, sizeof(am_module_t));
     if (!mod) {
         am_compiler_ctx_destroy(ctx);
@@ -1549,6 +1655,7 @@ am_module_t *am_compile(am_ast_t *ast, am_iaddr_t offset, am_iaddr_t ret) {
     mod->ast = ast;
     mod->ilcode = ctx->ilcode;
     mod->ilcode_length = ctx->icount;
+    mod->frames = frames;
 
     // ilcode所有权转移给module，避免ctx销毁时释放ilcode
     ctx->ilcode = NULL;
@@ -1575,6 +1682,10 @@ am_compiler_ctx_t *am_compiler_ctx_create(am_ast_t *ast) {
     ctx->ilcode = NULL;
     ctx->label_counter = 0;
     ctx->unique_id_counter = 0;
+    ctx->lambda_regions = NULL;
+    ctx->lambda_region_count = 0;
+    ctx->lambda_region_capacity = 0;
+    ctx->current_lambda_region = SIZE_MAX;
 
     ctx->value_label_mapping = am_map_create(ast->alloc, 64);
     ctx->label_iaddr_mapping = am_map_create(ast->alloc, 64);
@@ -1598,6 +1709,8 @@ void am_compiler_ctx_destroy(am_compiler_ctx_t *ctx) {
     if (!alloc) return;
 
     if (ctx->ilcode) am_free(alloc, ctx->ilcode);
+    if (ctx->ilcode_posflags) am_free(alloc, ctx->ilcode_posflags);
+    if (ctx->lambda_regions) am_free(alloc, ctx->lambda_regions);
     if (ctx->value_label_mapping) am_map_destroy(alloc, ctx->value_label_mapping);
     if (ctx->label_iaddr_mapping) am_map_destroy(alloc, ctx->label_iaddr_mapping);
     if (ctx->while_tag_stack) am_list_destroy(alloc, ctx->while_tag_stack);

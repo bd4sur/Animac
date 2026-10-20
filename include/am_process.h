@@ -74,6 +74,22 @@ typedef struct am_process_t {
     am_map_t *var_arn_mapping; // 变量ARN（Alpha-renaming）前后的映射（内容同AST）
 
     am_handle_t current_closure_handle; // 指向当前闭包的把柄
+    // 加速缓存：当前闭包的对象指针（等价于 get_closure(current_closure_handle) 但免去每指令一次堆 map 查找）。
+    // 失效规则：① GC 压缩后必须置 NULL（对象被搬移）；② 当前闭包对象被扩容/替换时必须刷新；
+    //           ③ 直接改写 current_closure_handle 的地方必须一并改写本字段。
+    // get_current_closure 对 NULL 做惰性重建，因此"置 NULL"总是安全的。
+    am_obj_closure_t *current_closure_obj;
+    am_frame_table_t *frames; // 【P1】闭包帧描述符表（进程自有副本，可能为 NULL：全退化）
+    // 【P2】快路径降级开关：System.eval 检测到"对只读变量执行 set!/capturecc"时置 false，
+    //       此后自由变量快照不再直读（走通用解引用），保证语义正确。
+    bool closure_fast;
+
+    // 【P1】度量计数器（AM_FRAME_STATS=1 时于进程销毁时汇总打印）
+    size_t stat_frame_closures;   // 按描述符创建的闭包数
+    size_t stat_legacy_closures;  // 退化为"复制全部绑定"的闭包数
+    size_t stat_slots_total;      // 描述符路径创建的槽位总数（用于求平均帧大小）
+    size_t stat_free_slots_total; // 其中自由变量槽总数
+    size_t stat_fill_generic;     // 自由变量填充时走“沿链通用解析”的次数（动态父链场景，非分析缺陷）
 
     bool pending_kill; // 延迟kill标记：在进程自己的native调用中触发kill时，由调度器安全点完成实际销毁
 
@@ -176,17 +192,36 @@ size_t am_process_length_of_fstack(am_process_t *proc);
 // 功能说明：新建闭包并返回其handle。成功返回handle，失败返回AM_HANDLE_NULL
 am_handle_t am_process_make_closure(am_process_t *proc, am_iaddr_t iaddr, am_handle_t parent);
 
+// 功能说明：按帧描述符创建闭包（一次性成型）。
+// 实现说明：BOUND 槽按描述符预置（varid 已填、值为 #undefined、未定状态），FREE 槽从父闭包
+//           按 src 索引拉取（逐槽 varid 校验，不匹配则退回沿链通用解析）。
+//           这样闭包创建后帧大小固定、槽位下标语义固定，变量访问不再需要线性查找。
+//           失败返回 AM_HANDLE_NULL。
+am_handle_t am_process_make_closure_desc(am_process_t *proc, am_iaddr_t iaddr,
+                                        am_handle_t parent, am_frame_desc_t *desc);
+
+// 功能说明：以指定闭包为起点做变量解引用（语义同 am_process_dereference）。
+// 失败（未找到）返回 UINTPTR_MAX。
+am_value_t am_process_dereference_from(am_process_t *proc, am_handle_t start_handle, am_varid_t varid);
+
 // 功能说明：根据闭包handle获取闭包对象。成功返回指针，失败返回NULL
 am_obj_closure_t *am_process_get_closure(am_process_t *proc, am_handle_t hd);
 
 // 功能说明：获取进程的当前闭包对象。成功返回指针，失败返回NULL
 am_obj_closure_t *am_process_get_current_closure(am_process_t *proc);
 
-// 功能说明：设置进程的当前闭包handle字段。成功返回0，失败返回-1
+// 功能说明：设置进程的当前闭包 handle 字段，并同步刷新对象指针缓存。成功返回 0，失败返回 -1。
 static inline int32_t am_process_set_current_closure(am_process_t *proc, am_handle_t hd) {
     if (!proc) return -1;
     proc->current_closure_handle = hd;
+    proc->current_closure_obj = am_process_get_closure(proc, hd);
     return 0;
+}
+
+// 功能说明：当前闭包对象被就地替换（扩容/重建）后，刷新缓存指针。
+static inline void am_process_refresh_current_closure_obj(am_process_t *proc, am_obj_closure_t *obj) {
+    if (!proc) return;
+    proc->current_closure_obj = obj;
 }
 
 // 功能说明：变量解引用。成功返回TPV，失败返回UINTPTR_MAX

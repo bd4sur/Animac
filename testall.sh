@@ -32,6 +32,7 @@ for t in \
     test_kill_self.scm \
     test_kill_timer.scm \
     test_macro.scm \
+    closure_sem.scm \
     test_math.scm \
     test_mec.scm \
     test_table.scm \

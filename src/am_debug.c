@@ -677,6 +677,11 @@ const char *am_debug_opcode_name(uint32_t opcode) {
         case AM_VM_OP_dynamicwind_before_after: return "dynamicwind_before_after";
         case AM_VM_OP_dynamicwind_done:         return "dynamicwind_done";
         case AM_VM_OP_wind:                     return "wind";
+        case AM_VM_OP_load_slot:     return "load_slot";
+        case AM_VM_OP_store_slot:    return "store_slot";
+        case AM_VM_OP_set_slot:      return "set_slot";
+        case AM_VM_OP_call_slot:     return "call_slot";
+        case AM_VM_OP_tailcall_slot: return "tailcall_slot";
         default:                   return "?";
     }
 }

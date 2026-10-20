@@ -10,6 +10,7 @@ extern "C" {
 
 #include "am_ast.h"
 #include "am_object.h"
+#include "am_frame.h"
 
 
 // 单条IL指令
@@ -25,14 +26,30 @@ typedef struct am_compiler_ctx_t {
     am_iaddr_t icount; // 中间语言指令计数器
     am_iaddr_t ilcode_capacity; // ilcode 当前分配的容量（以指令数计）
     am_instruction_t *ilcode; // 编译得到的中间语言指令序列
+    uint8_t *ilcode_posflags; // 【P0】与 ilcode 平行的位置标志数组（长度 = ilcode_capacity）
+                              // bit0 = 该位置是跳转目标（由 am_compiler_locate_label 置位）；
+                              // 用途：peephole 删除指令时不得删除跳转目标，否则跳转会落空
     size_t label_counter; // 用于生成标签枚举值的计数器
     am_map_t *value_label_mapping; // Map<am_value_t(any), am_value_t(label)> 从任何类型的索引TPV到标签TPV的映射
     am_map_t *label_iaddr_mapping; // Map<am_value_t(label), am_value_t(iaddr)> 从label值到iaddr值的映射
     am_list_t *while_tag_stack; // while块的标签跟踪栈：用于处理break/continue
     size_t unique_id_counter; // 用于生成唯一枚举值的计数器
+    // 【P1】λ 代码区间记录：掌握编译期就知道的每一个 λ 的指令区间（帧分析的输入）
+    am_lambda_region_t *lambda_regions;
+    size_t lambda_region_count;
+    size_t lambda_region_capacity;
+    size_t current_lambda_region; // 当前正在编译的区间下标；SIZE_MAX = 无
     am_iaddr_t offset; // 生成的IL代码在目标进程ilcode中的起始偏移量
     am_iaddr_t ret;    // 程序执行完毕后跳转返回的目标iaddr；为0时则使用halt结束
 } am_compiler_ctx_t;
+
+
+// 功能说明：闭包帧分析（P1）。对编译上下文做帧分析，产出按 entry iaddr 索引的帧描述符表。
+// 实现说明：分析输入 = ilcode（绑定/引用事实）+ ctx 记录的 λ 代码区间 + AST 的词法父子关系；
+//           返回的表长度 = ctx->icount，frames[i] != NULL 表示指令 i 是某个 λ 的入口。
+//           调用时机：am_compile_all 之后、am_compiler_label_resolution 之后。
+//           失败返回 NULL（此时运行期全部退化为旧行为）。
+am_frame_table_t *am_frame_analysis(am_compiler_ctx_t *ctx);
 
 
 // 功能描述：创建编译器上下文。

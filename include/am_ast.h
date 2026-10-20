@@ -84,6 +84,13 @@ extern "C" {
 #define AM_VM_OP_wind                     (61)
 // 追加到枚举末尾，勿插入中间（避免破坏模块磁盘格式中已序列化的指令编号兼容）
 #define AM_VM_OP_splice                   (62) // unquote-splicing：将栈顶值打包为 UNQUOTE_SPLICING 单元素列表
+// 【P2】索引帧槽位寻址指令：操作数为 AM_VALUE_TYPE_UINT，编码 (slot << 2) | 标志位
+//   bit0 = 1 表示该槽位是自由变量快照（进程降级 closure_fast=false 时不得直读）
+#define AM_VM_OP_load_slot                (63)
+#define AM_VM_OP_store_slot               (64)
+#define AM_VM_OP_set_slot                 (65)
+#define AM_VM_OP_call_slot                (66)
+#define AM_VM_OP_tailcall_slot            (67)
 
 
 // 全局内置变量

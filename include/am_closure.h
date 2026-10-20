@@ -19,6 +19,13 @@ extern "C" {
 #define AM_BINDING_BOUND (1)
 #define AM_BINDING_FREE  (2)
 
+// 绑定标志位（P2，与上面两个类型位同处 type 字段）
+// AM_BINDING_DEFINED：该绑定已被 store/capturecc/set 赋过值。
+//   语义要点：索引帧（见 am_frame.h）会在闭包创建时预置全部槽位，其中尚未执行 define 的
+//   约束变量槽虽有 varid，但**不带** DEFINED 位；所有查找都必须把这种槽视作"不存在"，
+//   以保持"读取未定义变量时穿透到外层作用域"的既有行为。
+#define AM_BINDING_DEFINED (4)
+
 // 闭包中的变量绑定字段
 typedef struct am_binding_t {
     am_varid_t  varid;
@@ -35,6 +42,7 @@ typedef struct am_obj_closure_t {
     am_handle_t  parent;     // 亲闭包把柄
     size_t       length;     // 指的是bindings的元素个数
     size_t       capacity;   // bindings数组的容量（涉及动态扩容和重新分配）
+    size_t       frame_len;  // 【P2】索引帧的静态槽位数（0 表示传统布局，槽位下标无语义）
     am_binding_t bindings[]; // 柔性数组，按顺序逐个插入
 } am_obj_closure_t;
 
@@ -115,6 +123,34 @@ am_obj_closure_t *am_closure_set_free_var(am_allocator_t *alloc, am_obj_closure_
 
 // 获取自由变量。未找到返回 AM_VALUE_UNDEFINED。
 am_value_t am_closure_get_free_var(am_allocator_t *alloc, am_obj_closure_t *closure, am_varid_t variable);
+
+
+// ===============================================================================
+// 查询（绑定项级）
+// ===============================================================================
+
+// 查找绑定项并返回其指针（未找到返回 NULL）。
+// 说明：暴露内部线性查找，供运行期"一次扫描同时拿到 varid/脏标记/值"的优化使用，
+//       调用者不得在跨越分配（可能触发扩容/移动）之后继续使用返回的指针。
+//       从 P0 起，同一闭包内每个 varid 至多有一个绑定项（见 am_closure_init_bound_var）。
+am_binding_t *am_closure_find_binding(am_obj_closure_t *closure, am_varid_t varid, int32_t type);
+
+
+// 确保绑定数组容量至少为 need，不够时一次性扩容到 need（不倍增试探）。
+// 若发生扩容，返回新的闭包对象指针（旧对象已释放）；否则返回原指针。失败返回 NULL。
+am_obj_closure_t *am_closure_ensure_capacity(am_allocator_t *alloc, am_obj_closure_t *closure, size_t need);
+
+
+// ===============================================================================
+// 批量继承（闭包创建时的一次成型）
+// ===============================================================================
+
+// 功能说明：把 src 的全部绑定一次性复制为 dst 的自由变量绑定（不带脏标记）。
+// 实现说明：dst 必须是新建的空闭包；本函数只做一次容量确保 + 一次顺序拷贝，
+//           O(n) 且无重复查找/无逐条扩容（旧实现逐条 am_closure_init_free_var 是 O(n²)）。
+//           若中途扩容，返回新的 dst 指针（旧对象已释放）；失败返回 NULL。
+//           src 的绑定类型不做区分：对 dst 而言它们都是自由变量（与旧实现语义一致）。
+am_obj_closure_t *am_closure_fill_free_vars(am_allocator_t *alloc, am_obj_closure_t *dst, am_obj_closure_t *src);
 
 
 // ===============================================================================

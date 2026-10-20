@@ -655,6 +655,10 @@ int32_t am_gc_collect(am_allocator_t *heap_alloc, am_process_t **process_pool,
      * force_compact 非 0 时无视 AM_HEAP_COMPACT_INTERVAL 当轮强制压缩。 */
     if ((force_compact || (gc_seq % AM_HEAP_COMPACT_INTERVAL) == 0) && heap_count > 0) {
         if (am_gc_compact(heap_alloc, heaps, heap_count) == 0) {
+            /* 压缩会搬移堆对象，进程内缓存的闭包对象指针必须失效（惰性重建） */
+            for (size_t i = 0; i < process_count; i++) {
+                if (process_pool[i]) process_pool[i]->current_closure_obj = NULL;
+            }
             am_allocator_pool_t *pool = am_allocator_pool_current();
             if (pool) {
                 (void)am_allocator_pool_auto_adjust(pool);

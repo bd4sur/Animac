@@ -211,6 +211,9 @@ am_process_t *am_process_load_from_module(am_allocator_t *vm_alloc, am_allocator
     proc->current_closure_handle = AM_HANDLE_NULL;
     proc->host_context = NULL;
 
+    // 【P1】复制闭包帧描述符表（与 ilcode 同源，随进程存活）
+    proc->frames = am_frame_table_copy(vm_alloc, mod->frames);
+
     // 复制中间语言代码到进程
     proc->ilcode_length = mod->ilcode_length;
     proc->ilcode = (am_instruction_t *)am_malloc(vm_alloc, (mod->ilcode_length + 1) * sizeof(am_instruction_t));
@@ -351,6 +354,26 @@ am_process_t *am_process_load_from_module(am_allocator_t *vm_alloc, am_allocator
 int32_t am_process_destroy(am_process_t *proc) {
     if (!proc) return 0;
 
+    // 【P1】度量输出（AM_FRAME_STATS=1 时打印闭包帧统计）
+    {
+        const char *stats_env = getenv("AM_FRAME_STATS");
+        if (stats_env && stats_env[0] == '1') {
+            size_t n_frame = proc->stat_frame_closures;
+            size_t n_legacy = proc->stat_legacy_closures;
+            size_t n_all = n_frame + n_legacy;
+            printf("[frame-stats] pid=%zu closures=%zu (descriptor=%zu legacy=%zu) "
+                   "avg_slots=%.1f avg_free=%.1f fill_generic=%zu\n",
+                   (size_t)proc->pid, n_all, n_frame, n_legacy,
+                   n_frame ? (double)proc->stat_slots_total / (double)n_frame : 0.0,
+                   n_frame ? (double)proc->stat_free_slots_total / (double)n_frame : 0.0,
+                   proc->stat_fill_generic);
+        }
+    }
+
+    if (proc->frames) {
+        am_frame_table_destroy(proc->vm_alloc, proc->frames);
+        proc->frames = NULL;
+    }
     if (proc->ilcode) {
         am_free(proc->vm_alloc, proc->ilcode);
         proc->ilcode = NULL;
@@ -523,6 +546,82 @@ am_handle_t am_process_make_closure(am_process_t *proc, am_iaddr_t iaddr, am_han
 }
 
 
+// 功能说明：按帧描述符创建闭包（一次性成型）。
+// 实现说明：槽位在创建时全部就位（varid + 类型），其中
+//   1) BOUND 槽：值为 #undefined、未定状态，等序言的 store 写入；
+//   2) FREE 槽：从父闭包按 src 索引拉取（逐槽 varid 校验；不匹配或 src 缺失时
+//      退回“以父闭包为起点”的通用链式解析，保证动态父链下也正确）。
+// 由此闭包创建后帧大小固定、槽位下标语义固定，变量访问不再需要跨帧线性查找。
+am_handle_t am_process_make_closure_desc(am_process_t *proc, am_iaddr_t iaddr,
+                                        am_handle_t parent, am_frame_desc_t *desc) {
+    if (!proc || !proc->heap || !proc->heap_alloc || !desc) return AM_HANDLE_NULL;
+
+    size_t nslots = (size_t)desc->nbound + (size_t)desc->nfree;
+
+    am_handle_t hd = am_heap_alloc_handle(proc->vm_alloc, proc->heap_alloc, proc->heap);
+    if (hd == AM_HANDLE_NULL) return AM_HANDLE_NULL;
+
+    // 容量一次到位：静态槽位 + 少量余量（供运行期动态追加绑定使用）
+    am_obj_closure_t *closure_obj = am_closure_create(proc->heap_alloc, iaddr, parent,
+                                                      nslots + 8);
+    if (!closure_obj) {
+        am_heap_free_handle(proc->vm_alloc, proc->heap_alloc, proc->heap, hd);
+        return AM_HANDLE_NULL;
+    }
+
+    for (size_t i = 0; i < nslots; i++) {
+        closure_obj->bindings[i].varid = desc->slots[i].varid;
+        // 约束变量槽：预置但**未定义**（等序言的 store 写入，以保持“未定义穿透外层”的语义）
+        // 自由变量槽：DEFINED 由下面的填充过程按父帧继承
+        closure_obj->bindings[i].type = (int32_t)desc->slots[i].type;
+        closure_obj->bindings[i].dirty_flag = 0;
+        closure_obj->bindings[i].value = AM_VALUE_UNDEFINED;
+    }
+    closure_obj->length = nslots;
+    closure_obj->frame_len = nslots; // 索引帧见证：槽位下标语义固定
+
+    // 自由变量槽：从父闭包拉取快照
+    if (desc->nfree > 0) {
+        am_obj_closure_t *parent_obj = am_process_get_closure(proc, parent);
+        for (uint32_t k = 0; k < desc->nfree; k++) {
+            size_t idx = (size_t)desc->nbound + k;
+            am_varid_t varid = desc->slots[idx].varid;
+            uint32_t src = desc->slots[idx].src;
+
+            int done = 0;
+            if (parent_obj && src != AM_FRAME_SRC_NONE && (size_t)src < parent_obj->length &&
+                parent_obj->bindings[src].varid == varid) {
+                const am_binding_t *pb = &parent_obj->bindings[src];
+                closure_obj->bindings[idx].value = pb->value;
+                closure_obj->bindings[idx].dirty_flag = 0;
+                closure_obj->bindings[idx].type =
+                    AM_BINDING_FREE | (pb->type & AM_BINDING_DEFINED);
+                done = 1;
+            }
+            if (!done) {
+                am_value_t v = am_process_dereference_from(proc, parent, varid);
+                if (v != (am_value_t)UINTPTR_MAX) {
+                    closure_obj->bindings[idx].value = v;
+                    closure_obj->bindings[idx].type = AM_BINDING_FREE | AM_BINDING_DEFINED;
+                }
+            }
+        }
+    }
+
+    am_value_t closure_value = am_make_value_of_ptr((am_object_t *)closure_obj);
+    if (am_heap_set(proc->vm_alloc, proc->heap_alloc, proc->heap, hd, closure_value) != 0) {
+        am_closure_destroy(proc->heap_alloc, closure_obj);
+        am_heap_free_handle(proc->vm_alloc, proc->heap_alloc, proc->heap, hd);
+        return AM_HANDLE_NULL;
+    }
+
+    proc->stat_frame_closures++;
+    proc->stat_slots_total += nslots;
+    proc->stat_free_slots_total += desc->nfree;
+    return hd;
+}
+
+
 // 功能说明：根据闭包handle获取闭包对象。成功返回指针，失败返回NULL
 am_obj_closure_t *am_process_get_closure(am_process_t *proc, am_handle_t hd) {
     if (!proc || !proc->heap) return NULL;
@@ -538,42 +637,73 @@ am_obj_closure_t *am_process_get_closure(am_process_t *proc, am_handle_t hd) {
 
 
 // 功能说明：获取进程的当前闭包对象。成功返回指针，失败返回NULL
+// 实现说明：带指针缓存（proc->current_closure_obj）。缓存为 NULL 时惰性重建，
+//           因此 GC 压缩后只需把缓存置 NULL 即可保证正确性。
 am_obj_closure_t *am_process_get_current_closure(am_process_t *proc) {
     if (!proc) return NULL;
-    return am_process_get_closure(proc, proc->current_closure_handle);
+    if (!proc->current_closure_obj) {
+        proc->current_closure_obj = am_process_get_closure(proc, proc->current_closure_handle);
+    }
+    return proc->current_closure_obj;
 }
 
 
-// 功能说明：变量解引用。成功返回TPV，失败返回UINTPTR_MAX
-// 设计说明：先在当前闭包查找约束变量；若不存在，则沿闭包链查找约束变量定义位置，
-//          根据脏标记决定使用定义位置的约束变量值，还是使用当前闭包中的自由变量值。
-am_value_t am_process_dereference(am_process_t *proc, am_varid_t varid) {
-    if (!proc) return (am_value_t)UINTPTR_MAX;
+// 功能说明：以指定闭包为起点做变量解引用（语义同 am_process_dereference）。
+// 设计说明：先在起点闭包查找约束变量；若不存在，则沿闭包链查找约束变量定义位置，
+//          根据脏标记决定使用定义位置的约束变量值，还是使用起点闭包中的自由变量值。
+// 实现说明：P0 起每个闭包内同一 varid 至多一个绑定项，因此原来"先 has_bound_var、
+//          再 get_bound_var、再 is_dirty_var"的三四轮全表扫描合并为每层一次扫描。
+//          P1 起帧变小（不再复制全部绑定），同样代码的常数项随之下降。
+static am_value_t deref_impl(am_process_t *proc, am_handle_t start_handle,
+                             am_obj_closure_t *start_obj, am_varid_t varid) {
+    if (!proc || !start_obj) return (am_value_t)UINTPTR_MAX;
 
-    am_obj_closure_t *current_closure_obj = am_process_get_current_closure(proc);
-    if (!current_closure_obj) return (am_value_t)UINTPTR_MAX;
-
-    // 查找当前闭包的约束变量
-    if (am_closure_has_bound_var(proc->heap_alloc, current_closure_obj, varid) == 0) {
-        return am_closure_get_bound_var(proc->heap_alloc, current_closure_obj, varid);
+    // 查找起点闭包的约束变量
+    am_binding_t *binding = am_closure_find_binding(start_obj, varid, AM_BINDING_BOUND);
+    if (binding) {
+        return binding->value;
     }
 
-    // 查找当前闭包的自由变量（如果存在）对应的词法定义环境
-    am_handle_t closure_handle = proc->current_closure_handle;
+    // 查找起点闭包的自由变量（如果存在）对应的词法定义环境
+    am_handle_t closure_handle = start_handle;
     while (closure_handle != AM_HANDLE_NULL) {
         am_obj_closure_t *closure_obj = am_process_get_closure(proc, closure_handle);
         if (!closure_obj) break;
 
-        if (am_closure_has_bound_var(proc->heap_alloc, closure_obj, varid) == 0) {
+        am_binding_t *def_binding = am_closure_find_binding(closure_obj, varid, AM_BINDING_BOUND);
+        if (def_binding) {
             // 找到约束变量定义位置
-            if (am_closure_is_dirty_var(proc->heap_alloc, closure_obj, varid) == 0) {
+            if (def_binding->dirty_flag) {
                 // 脏标记为真：使用约束变量定义位置的新值
-                return am_closure_get_bound_var(proc->heap_alloc, closure_obj, varid);
+                return def_binding->value;
             }
-            else {
-                // 脏标记为假：使用当前闭包中的自由变量值
-                return am_closure_get_free_var(proc->heap_alloc, current_closure_obj, varid);
+            // 脏标记为假：使用起点闭包中的自由变量值
+            am_binding_t *free_binding = am_closure_find_binding(start_obj, varid, AM_BINDING_FREE);
+            if (free_binding) return free_binding->value;
+
+            // 安全兜底：起点闭包未持有该自由变量快照（帧描述符分析不完备时的情形），
+            // 退而使用定义位置的值（比返回 #undefined 更接近正确语义）。
+            proc->stat_fill_generic++;
+            if (proc->stat_fill_generic <= 40) {
+                const char *dbg = getenv("AM_FRAME_DEBUG");
+                if (dbg && dbg[0] == '1') {
+                    wchar_t *nm = am_vocab_get(proc->vm_alloc, proc->var_vocab, &varid);
+                    printf("[frame-gap] pc=%zu op=%u il_op=%zu cur_hd=%zu from_hd=%zu from_iaddr=%zu varid=%zu name=%ls start_len=%zu | slots:",
+                           (size_t)proc->PC, (unsigned)proc->ilcode[proc->PC].opcode,
+                           am_value_is_varid(proc->ilcode[proc->PC].operand) ? (size_t)am_value_to_varid(proc->ilcode[proc->PC].operand) : (size_t)0,
+                           (size_t)proc->current_closure_handle, (size_t)start_handle,
+                           (size_t)start_obj->iaddr, (size_t)varid,
+                           nm ? nm : L"?", start_obj->length);
+                    for (size_t z = 0; z < start_obj->length; z++) {
+                        wchar_t *sn = am_vocab_get(proc->vm_alloc, proc->var_vocab,
+                                                   &start_obj->bindings[z].varid);
+                        printf(" [%zu v=%zu/%ls t=%d]", z, (size_t)start_obj->bindings[z].varid,
+                               sn ? sn : L"?", (int)start_obj->bindings[z].type);
+                    }
+                    printf("\n");
+                }
             }
+            return def_binding->value;
         }
 
         closure_handle = closure_obj->parent;
@@ -581,6 +711,23 @@ am_value_t am_process_dereference(am_process_t *proc, am_varid_t varid) {
 
     // 未找到变量定义
     return (am_value_t)UINTPTR_MAX;
+}
+
+
+// 功能说明：以指定闭包为起点做变量解引用（先查闭包对象，再进入通用实现）。
+am_value_t am_process_dereference_from(am_process_t *proc, am_handle_t start_handle, am_varid_t varid) {
+    if (!proc) return (am_value_t)UINTPTR_MAX;
+    am_obj_closure_t *start_obj = am_process_get_closure(proc, start_handle);
+    return deref_impl(proc, start_handle, start_obj, varid);
+}
+
+
+// 功能说明：变量解引用（当前闭包）。成功返回TPV，失败返回UINTPTR_MAX
+// 实现说明：走 current_closure_obj 指针缓存，避免每条 load/call 指令一次堆 map 查找。
+am_value_t am_process_dereference(am_process_t *proc, am_varid_t varid) {
+    if (!proc) return (am_value_t)UINTPTR_MAX;
+    am_obj_closure_t *cur = am_process_get_current_closure(proc);
+    return deref_impl(proc, proc->current_closure_handle, cur, varid);
 }
 
 
@@ -763,7 +910,7 @@ am_iaddr_t am_process_restore_continuation_snapshot(am_process_t *proc, am_handl
     }
     proc->fstack_top = proc->fstack + cont_fstack_length;
 
-    proc->current_closure_handle = cont->current_closure_handle;
+    am_process_set_current_closure(proc, cont->current_closure_handle);
     proc->current_dynamic_wind_entry = cont->current_dynamic_wind_entry_handle;
     proc->current_dynamic_wind_thunk = cont->current_dynamic_wind_thunk_handle;
 
