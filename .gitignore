@@ -1,5 +1,7 @@
 main
+main_amalg
 repl
+repl_amalg
 *.bin
 *.exe
 animac_core.c
