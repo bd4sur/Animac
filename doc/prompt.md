@@ -6973,6 +6973,76 @@ C 系（不固定 + 序列点）被公认为缺陷温床，后来的 C++17 甚�
 ------------------------------------
 
 
+# 2026-07-29
+
+请先阅读 @doc/AGENTS.md 和 @doc/manual.md ，了解本项目的开发约定和特性集合。
+
+本项目是一个完整的非标准Scheme解释器，采取编译器+中间语言VM架构。sky3（大气散射渲染应用）的性能专项归因显示：**解释器 CPU 的约 84% 花在闭包机制上**（`am_closure_init_free_var` 39.1% + `am_process_dereference` 32.6% + `am_closure_set_bound_var` 6.5% + `am_closure_init_bound_var` 3.7% + `am_process_get_closure` 2.6%），而散射物理本体（`Math.exp/sqrt/pow` 共 69.5 万次/120 帧）只占约 1%；**每次 Scheme 函数调用平均复制 253 条闭包绑定**（实测约 26 µs/次），指令构成里 `call` 只占 2.4%，纯数据搬运占 70.7%。业务侧杠杆是减少调用次数与二阶次要散射（关掉二阶后时间降到 23%）。
+
+请你先阅读项目全部C语言代码复核这份归因，再设计**改进闭包变量访问效率**的方案（本轮不要改代码），把方案输出到 @doc/todo/closure_frame.md ：方案需覆盖编译期与运行期两侧，给出必须保持的语义不变量、分阶段实施计划（每阶段可独立回滚）、回归与度量方法，并与 @doc/prompt.md 中 2026-07-15（未实现）记录的“嵌套环境帧”思路做对比。
+
+系统中安装了WSL（Ubuntu 24.04），具备gcc、make、gdb等工具。你可以使用WSL进行编译构建和测试。
+
+（方案评审后的追加指令：**完全采纳 F 方案，开始实施**。）
+
+## 一、复核结论（相对报告的修正与补充）
+
+1. **253 条的真实成因**：`copy_current_closure_bindings_as_free_vars`（src/am_runtime.c:348）在 `loadclosure`/`call`/`load` 三处把**当前闭包的全部绑定**逐条 `am_closure_init_free_var` 进新闭包；目标闭包刚创建、必然为空，所以每条插入的两次线性 `find` 必然落空却仍要扫全表，容量从 16 起按 2 倍增长、前 16 条后每次都 `malloc+memcpy+free` —— 严格 O(N²) 且带 N 次重分配。而“复制当前闭包全部绑定”之所以必要，是因为实现用**全复制**替代了编译期的**自由变量传递闭包**计算（`FV(λ) = (REF\BOUND) ∪ ⋃子λ的FV\BOUND`）。这才是“253”的根。
+2. **现语义模型**必须原样保住：`BOUND/FREE 双条目 + 脏标记` 实现的是「**创建时快照 + `set!` 写穿透失效**」，且 **`define` 不置脏**（重新绑定不影响历史快照），与 `set!` 有本质区别。这是最容易优化改坏的地方。
+3. **项目当前没有生效的 ARN**：`ast->var_arn_mapping` 只创建/复制/销毁，从未填充。因此“同名不同作用域共用一个 varid”是常态，遮蔽只能靠“本帧优先”，方案不得依赖 ARN。
+4. 两个隐蔽约束：**GC 压缩会搬移闭包对象**（任何指针缓存都要有失效点）；**`System.eval` 在运行期追加 ilcode 并重映射 varid**（描述符表必须可增长、varid 必须同步重映射，且 eval 的 `set!` 是唯一能破坏“只读快照”的路径）。
+5. 报告中“指令数不是好指标”的教训成立：同一份代码在紧凑循环里 7.7 ns/指令，在 sky3 热路径里 202 ns/指令（26×）。因此本方案的目标不是减少指令，而是**把变量访问的常数项与帧大小解耦**。
+
+## 二、方案要点（详见 doc/todo/closure_frame.md）
+
+三层，逐层可独立落地：
+
+- **① 编译期帧描述符**：`compile_lambda`/`compile_complex_application` 记录 λ 代码区间 → `am_frame_analysis` 按 ilcode 收集 `BOUND`/`REF`、做自由变量传递闭包、分配槽位（`slots[0..nbound)` 约束变量、`slots[nbound..)` 自由变量，FREE 槽携带“词法父帧中的槽号 `src`”）→ 并把可静态定位的变量访问改写为槽位寻址指令。
+- **② 运行期索引帧**：闭包按描述符一次成型（`frame_len` 固定、槽位下标语义固定，永不 resize），FREE 段按 `src` 从父帧 gather（逐槽 varid 校验，不匹配退回沿链通用解析）。
+- **③ 槽位指令**：新增 `load_slot/store_slot/set_slot/call_slot/tailcall_slot`（opcode 63–67，操作数 `(slot<<2)|flags`），热路径 = 一次数组索引 + 一次 `DEFINED` 位测试。
+- **只读判定**：自由变量槽只有在全模块从未被 `set!`/`capturecc` 触碰时才直读快照；可变的保留 varid 走通用解引用（`set!` 是少数派，用少数派换掉快路径上的全部校验成本）。
+- **安全网**：`frame_len` 是布局见证；`AM_BINDING_DEFINED` 位保住“未定义读穿透外层”；任何不符即退回带 varid 的通用路径（用槽位自身记录的 varid 回退），**只会慢不会错**；编译期 `-DAM_CLOSURE_VERIFY` 做“槽位直读 vs 通用解引用”影子验证。
+- **与 2026-07-15 的“嵌套环境帧（路线A）”对比**：两者都需要同一份“变量在哪个帧的哪个槽位”的信息，差别是**什么时候付这份解析成本**——E 方案每次**访问**重解析（沿帧链按 varid 扫，每跳还要一次堆 map 查找），F 方案在**创建闭包**时解析一次。用本报告的数字：每帧变量访问（load 29.4%+set 7.2%+store 5.0%+call 2.4%）约 128k 次，而每帧调用仅 532 次，**访问:调用 ≈ 241:1（仅 load 也是 161:1）**，所以把成本摊在“创建端”便宜两个数量级。E 方案的核心代价还有“不可回滚的语义迁移”（快照 → 共享环境）+ 尾调用帧增长 + 逃逸闭包持有整条祖先帧链三项长期负债。若日后确定要走环境帧，应直接做 E+路线B（编译期深度/偏移），且其编译期部分与本方案 §3.3 的分析同构。
+
+## 三、实施（评审结论：完全采纳 F 方案，P0–P2 已落地）
+
+| 阶段 | 内容 | 落点 |
+|---|---|---|
+| P0 | 批量继承自由变量（O(n²)→O(n)）；`dereference` 每层只扫一次；`current_closure_obj` 指针缓存；peephole 消除相邻 `push #undefined; pop`（带跳转目标保护）；“同一闭包内每个 varid 至多一条绑定”不变量 | am_closure.c / am_process.c / am_runtime.c / am_compiler.c |
+| P1 | λ 区间记录 → 帧描述符分析（BOUND/REF、自由变量传递闭包、槽位分配、src 解析）→ 模块序列化（版本 202608）→ 进程帧表 → 按描述符建帧 | 新增 include/am_frame.h、src/am_frame.c；am_module.c、am_process.c |
+| P2 | `AM_BINDING_DEFINED` 位与查找过滤、`frame_len` 见证、5 条槽位指令、操作数改写、`closure_fast` 降级、fork 帧表继承、eval 帧表 shift/merge/varid 重映射 | am_closure.c、am_runtime.c、am_frame.c、am_native_System.c |
+| 加做 | 取指内联（`am_runtime_execute` 不再逐指令经函数调用 + 两次边界检查取指） | am_runtime.c |
+
+必须维护的不变量（已写入 doc/AGENTS.md）：① 同闭包内每 varid 至多一条绑定；② 未赋值槽位不带 `AM_BINDING_DEFINED` 位且所有查找视其不存在；③ 有描述符的 λ **必须**按描述符建帧（不做“描述符失败就退化成旧布局”的兜底，否则槽位错位）；④ `fork` 必须连带复制帧表，`System.eval` 必须 shift/merge 帧表并重映射其 varid。
+
+## 四、实测（宿主 x86-64，3 次取优）
+
+| 基准 | 基线 | 现在 | 变化 |
+|---|---|---|---|
+| b1_loop / b2_arith | 212 / 410 ms | 99 / 168 ms | −53% / −59% |
+| b5_call（200 万次调用） | 641 ms | 359 ms | −44% |
+| c_call_K20 / K44（大帧调用） | 24 / 46 ms | 12 / 15 ms | −50% / −67% |
+| c_var_K64_last | 84 ms | 42 ms | −50% |
+| **test/closure_perf.scm（sky3 类结构基准）** | **7932 ms** | **1068 ms** | **−86.5%（7.4×）** |
+
+帧规模：**每次调用复制的 253 条绑定 → 平均 4.7 个槽位**（sky3 类负载中 `march` 的约 50 条 → 7 条）；808,802 个闭包 100% 走描述符路径、旧路径 0 次、分析缺口 0。原预期“P0 −8~12%、P1 累计 −30~40%、P2 累计 −50~65%”，实测分别约 −20~−30%、−30~−40%、−40~−70%（sky3 类负载 −86%）。
+
+## 五、验证与产物
+
+- `testall.sh`（已加入 test/closure_sem.scm）0 个 `[FAIL]`；`testall_errors.sh` 10/10；`testall_amalg.sh` 与 `main_amalg` 形态通过。
+- 对 40 个 `.scm` 用例做“基线跑两次取稳定行”的逐字节对照，差异仅剩三类已知噪声：main.c 断言行号、VM 工作区占用百分比、mlp 自身非确定性输出。
+- 影子验证（`-DAM_CLOSURE_VERIFY`）在 20 个大用例 + 5 个微观基准上“槽位直读 vs 通用解引用”**零不一致**。
+- 新增 test/closure_sem.scm（21 项语义专项：快照/写穿透/遮蔽/跨 GC/尾递归/call-cc/dynamic-wind，与基线逐字节一致）与 test/closure_perf.scm（sky3 类成本结构基准，手工运行）。
+- 调试开关：`AM_FRAME_TABLE` / `AM_FRAME_TRACE` / `AM_FRAME_STATS` / `AM_FRAME_DEBUG` / `AM_PRINT_IL`，及编译期 `AM_CLOSURE_VERIFY`。
+
+## 六、已知限制与后续
+
+- 动态父链场景（`(define f (lambda ...))` 存 iaddr，调用点才建闭包）的自由变量填充走沿链通用解析，语义正确但常数项略高。
+- `System.eval` 一旦编译出 `set!`/`capturecc` 就置 `proc->closure_fast = false`（正确优先），后续可细化为 per-varid 位图。
+- VM 工作区常驻占用上升约 0.3~1.3 个百分点（帧描述符表），运行期堆大幅下降（闭包从数百条绑定降到个位数槽位）。
+- 未做：P3 闭包对象池化、P4 超级指令 / 线程化派发。
+- **剩余热点已与闭包无关**（b5_call 上 gprof：`op_dispatch` 30%、取指 14%、`am_map_find_slot` 12%、GC 约 6%），后续杠杆在派发方式与 heap 表示（handle 直接索引化），以及业务侧的“减少调用次数/二阶降采样”。
+
 
 ------------------------------------
 
