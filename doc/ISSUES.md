@@ -4,6 +4,39 @@
 
 决定：①将2022年（#21）之前的工单迁移到本文档；②新工单使用本文档作记录和跟踪，不再使用GitHub自带工单管理机制。
 
+## 38 【故障】周期定时器回调可重入，慢回调被嵌套调用 Closed
+
+2026-10-21
+
+**现象描述**：`System.set_interval` 的回调若单次执行时间超过定时间隔（跨越多个时间片），事件循环会在该回调**尚未返回**时再次调用同一回调，形成“回调套回调”的重入；嵌套深度可随执行时间持续增长（最小复现实测 `max_depth=1024`）。重入期间，外层回调正在使用的模块级状态会被嵌套调用并发修改，表现为“循环体内 `define` / 全局变量偶发取到过期值”，且是否触发取决于无关代码的布局（即回调跨越时间片的概率）。
+
+**复现**（`test/test_timer_nonreent.scm`）：
+
+```scheme
+(native System)
+(define depth 0) (define maxdepth 0)
+(define cb (lambda () {
+  (set! depth (+ depth 1))
+  (if (> depth maxdepth) { (set! maxdepth depth) })
+  (define i 0)
+  (while (< i 60000) { (set! i (+ i 1)) })   ;; 单次回调跨多个时间片
+  (set! depth (- depth 1))
+}))
+(System.set_interval 1 cb)
+```
+
+修复前 `maxdepth` 远大于 1（可达 1024），修复后恒为 1。
+
+**根因**：`runtime_fire_expired_timers` 仅按进程状态决定恢复点，未区分“进程正在主流程中”与“进程已在某个异步回调中”。对后者仍直接 `am_runtime_call_async` 跳入回调，导致回调重入。工单 #36 确立的“运行中进程可被定时器打断”语义本身正确，但它只应作用于主流程，不应允许回调相互嵌套。
+
+**修复**：
+
+1. `src/am_runtime.c`：新增 `runtime_process_in_async_callback()`，扫描函数调用栈上的成对帧，检测 `AM_VALUE_TAG_ASYNC_RET` 标记；`runtime_fire_expired_timers` 在进程已处于异步回调中时**顺延**该定时器（保持 `expire_ms` 不变，回调返回后由下一轮事件循环触发；错过的周期合并为一次）。主流程打断语义（#36）保持不变。
+2. `src/am_frame.c`：闭包帧分析的词法父子关系改用 AST 节点父链接（`am_ast_find_nearest_lambda_handle`）。原实现依赖 parser 的 scope 对象，但 `cleanup_scope_objects` 在宏展开后会释放这些对象，导致 `parent` 恒为空、自由变量 `src` 全部退化为运行期动态查找。
+3. `src/am_parser.c`：scope 对象释放后同步清空 `ast->scopes`，避免模块转储/调试时暴露悬空把柄。
+
+**回归**：`test/test_timer_nonreent.scm` 修复前 `PASS: 1 FAIL: 2`、修复后 `PASS: 3 FAIL: 0`；`testall.sh` / `testall_amalg.sh` 全绿；`test_timer_setvar.scm`（#36 主流程打断）行为不变。
+
 ## 36 【故障】运行中进程被异步定时器回调打断后操作数栈错位 Closed
 
 2026-10-09

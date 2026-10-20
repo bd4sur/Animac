@@ -1711,6 +1711,14 @@ static void cleanup_scope_objects(parser_ctx_t *ctx) {
         for (size_t i = 0; i < data.count; i++) {
             am_heap_free_handle(ctx->ast->alloc, ctx->ast->alloc, ctx->ast->nodes, data.scope_handles[i]);
         }
+        // scope 对象已释放，同步清空 ast->scopes：该映射此后没有合法用途，
+        // 若继续保留会在模块转储/调试时暴露已释放的把柄，也会误导后续分析
+        // （闭包帧分析现已改用 AST 节点的父链接确定词法父子关系）。
+        am_map_destroy(ctx->ast->alloc, ctx->ast->scopes);
+        ctx->ast->scopes = am_map_create(ctx->ast->alloc, 16);
+        if (!ctx->ast->scopes) {
+            parser_set_error(ctx, L"failed to reset scopes map");
+        }
     }
     free(data.scope_handles);
 }

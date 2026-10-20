@@ -39,6 +39,7 @@ for t in \
     syntax_torture.scm \
     json.scm \
     test_timer_setvar.scm \
+    test_timer_nonreent.scm \
     errors_runtime.scm \
     linalg.scm \
     mpmc_pipeline.scm \

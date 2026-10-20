@@ -146,11 +146,11 @@ symbol是以其字面为ID的，相同拼写的symbol，无论在哪个上下文
 
 ## 测试体系与回归规范（2026-10 新增）
 
-三批自校验回归测试已建成，全部位于 `test/`，C 实现与 Amalgamation 形态双覆盖（主回归 41 用例 + 编译期错误矩阵 10 用例 = 51 个 .scm 文件，471 条断言，全 FAIL 0 基线）。
+三批自校验回归测试已建成，全部位于 `test/`，C 实现与 Amalgamation 形态双覆盖（主回归 43 用例 + 编译期错误矩阵 10 用例 = 53 个 .scm 文件，全 FAIL 0 基线）。
 
 ### 运行与判定
 
-- `bash testall.sh` / `bash testall_amalg.sh`：主回归（41 用例，其中 10 个为三批新增），脚本退出码 0 = 通过。每个用例为独立自校验文件，末行输出 `PASS: n  FAIL: m`；**m>0、脚本输出含 ❌/Segmentation、或退出码非 0 均为失败**。
+- `bash testall.sh` / `bash testall_amalg.sh`：主回归（43 用例），脚本退出码 0 = 通过。每个用例为独立自校验文件，末行输出 `PASS: n  FAIL: m`；**m>0、脚本输出含 ❌/Segmentation、或退出码非 0 均为失败**。
 - `bash testall_errors.sh`：编译期错误路径回归。`test/errors/*.scm` 中每个文件预期**非零退出**（当前实现为解析失败触发 main.c 断言终止，exit=134；理想行为是打印诊断后优雅非零退出，runner 不区分两者）。
 - C 形态与 Amalgamation 形态的输出必须逐字节一致，**例外仅限已知非确定性内容**：随机数独/排序（test.scm、shudu）、llm/mlp 的生成文本与训练轨迹、test_eval 的时间戳、yinyang 被超时截断的长度。出现其他任何差异即为回归。
 - 本轮回归环境：Ubuntu 24.04（gcc 13.3 / GNU Make 4.3 / Node 24），`libreadline-dev` 已安装（repl 与 repl_amalg 可编译）。
@@ -169,6 +169,7 @@ symbol是以其字面为ID的，相同拼写的symbol，无论在哪个上下文
 | test/minisql.scm | sq_ | 内存表查询引擎：投影/过滤/排序/聚合/宏 DSL |
 | test/miniprolog.scm | pl_ | 迷你 Prolog：合一/回溯/CPS/递归规则 |
 | test/test_timer_setvar.scm | tv_ | 工单 #36 验证用例（定时器打断场景） |
+| test/test_timer_nonreent.scm | tn_ | 工单 #38 验证用例（周期定时器回调不可重入） |
 
 ### 新增测试的编写规范
 
@@ -221,6 +222,7 @@ symbol是以其字面为ID的，相同拼写的symbol，无论在哪个上下文
 ### 已知缺陷、规避与工单索引
 
 - **#35（Open，优化）**：多参算术应编译期拒绝——未实施。当前行为：只发射一条运算指令、多余参数残留操作数栈（栈污染，见工单内插桩实证）。测试与库代码一律二元。
+- **#38（Closed，故障）**：周期定时器回调可重入（回调执行跨多个时间片时，同一回调在未返回前被再次调用，嵌套深度可达 1024）。已实施：`runtime_fire_expired_timers` 检测进程函数调用栈上的异步帧，存在时顺延该进程的定时器（主流程打断语义不变）；`test_timer_nonreent.scm` 为回归用例。配套修复：闭包帧分析的词法父子关系改用 AST 父链接（parser 宏展开后会清理 scope 对象），避免自由变量 `src` 全部退化。
 - **#36（Closed，故障）**：异步定时器回调打断运行中进程曾致操作数栈错位（回调返回值残留栈上）。已实施方案 A：`AM_VALUE_TAG_ASYNC_RET`（0x1B）异步帧标记 + `op_return` 丢弃回调返回值 + `push_stack_frame` 校验放宽，改动点见工单实施记录；`test_timer_setvar.scm` 为回归用例。**注意**：BLOCKED 进程定时器不触发、STOPPED 进程的 repeat 定时器每到期都会经 halt 分支重新入队执行一次回调——若主流程停止后仍有存活 interval，需在收尾回调中显式 clear。
 - **帧栈深度（手册 §3.6）**：非尾递归上限约 1023 帧（fstack 容量 2048），超出报"指令执行异常"；尾递归不受限。errors_runtime.scm E1 场景锁定此行为。
 - **自递归 tailcall 参数绑定丢失（未定位，勿采信任何未证机制）**：深互递归 + 调用点位于嵌套块内时，曾观测 `load: 变量 …a 未定义`（miniprolog 合一器、q95 最小形态）；强制非尾后消失。**机制未定位**——此前"栈错位"解释已被正确推理否定（参数弹取只依赖栈顶，与栈下值无关）。定位方法：插桩 `op_store`/`op_load`/`op_tailcall`，打印 current_closure_handle、varid 与操作数原始值。规避：自递归调用以 `(pl-append '() (…))` 包裹强制非尾。

@@ -179,23 +179,23 @@ static void am_frame_rewrite_operands(am_compiler_ctx_t *ctx, am_frame_table_t *
 // 从 ilcode 的 owner 数组中找出 λ 区间；同时计算可变变量集合。
 // owner[i] = 该指令所属区间的下标（SIZE_MAX 表示不属于任何 λ，如入口存根）。
 
-// 词法父子关系：优先使用 parser 记录的 scope（lambda -> scope -> parent_lambda），
-// 因为编译器的 λ 编译是"平铺"的（每个 λ 独立成块），本身不携带嵌套信息。
+// 词法父子关系：从 AST 节点的父链接出发，找到最近的祖先 λ。
+// 说明：编译器的 λ 编译是"平铺"的（每个 λ 独立成块），本身不携带嵌套信息；
+//       而 parser 的 scope 对象在宏展开后会被清理（arn cleanup_scope_objects），
+//       不能再作为帧分析的输入（否则 parent 恒为"无"，自由变量 src 全部退化为动态查找）。
+//       AST 节点的 parent 链接在宏展开后仍然有效，且与帧分析所需的词法父子关系一致。
 static int32_t frame_link_parents(am_ast_t *ast, frame_region_t *regions, size_t count) {
     if (!ast) return 0;
 
     for (size_t i = 0; i < count; i++) {
         if (regions[i].handle == AM_HANDLE_NULL) continue; // 临时 λ：父区间在编译期已记录
 
-        am_handle_t scope_hd = am_ast_get_scope(ast, regions[i].handle);
-        if (scope_hd == AM_HANDLE_NULL) continue;
+        am_value_t node_val = am_ast_get_node(ast, regions[i].handle);
+        if (!am_value_is_ptr(node_val)) continue;
+        am_object_t *obj = am_value_to_ptr(node_val);
+        if (obj->type != AM_OBJECT_TYPE_LIST) continue;
 
-        am_value_t scope_val = am_heap_get(ast->alloc, ast->alloc, ast->nodes, scope_hd);
-        if (!am_value_is_ptr(scope_val)) continue;
-        am_object_t *obj = am_value_to_ptr(scope_val);
-        if (obj->type != AM_OBJECT_TYPE_SCOPE) continue;
-
-        am_handle_t parent_lambda = ((am_scope_t *)obj)->parent_lambda_handle;
+        am_handle_t parent_lambda = am_ast_find_nearest_lambda_handle(ast, ((am_list_t *)obj)->parent);
         if (parent_lambda == AM_HANDLE_NULL || parent_lambda == regions[i].handle) continue;
 
         // 由把柄找到对应区间

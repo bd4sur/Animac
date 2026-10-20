@@ -2831,6 +2831,18 @@ static bool runtime_has_nonblocked_timer(am_runtime_t *rt, am_timestamp_t *neare
 }
 
 
+// 功能说明：判断进程当前是否正在执行异步回调（即函数调用栈上存在异步帧）。
+// 设计说明：异步帧成对压栈（current_closure_handle, ASYNC_RET(return_target)），
+//           故只需检查每对的第二个元素。返回 1 表示在回调中，0 表示不在。
+static int32_t runtime_process_in_async_callback(am_process_t *proc) {
+    if (!proc || !proc->fstack || !proc->fstack_top) return 0;
+    size_t used = (size_t)(proc->fstack_top - proc->fstack);
+    for (size_t i = 1; i < used; i += 2) {
+        if (AM_VALUE_IS_ASYNC_RET(proc->fstack[i])) return 1;
+    }
+    return 0;
+}
+
 // 触发所有已到期的定时器。
 static void runtime_fire_expired_timers(am_runtime_t *rt) {
     if (!rt || !rt->timer_list) return;
@@ -2857,6 +2869,17 @@ static void runtime_fire_expired_timers(am_runtime_t *rt) {
                 am_timer_t *to_free = *cur;
                 *cur = (*cur)->next;
                 am_free(rt->vm_alloc, to_free);
+                continue;
+            }
+
+            // 定时器回调不可重入：进程正在执行异步回调时，本次到期顺延到该回调返回后再触发。
+            // 说明：主流程（非回调）仍可被定时器打断（工单 #36 语义不变）；这里只禁止
+            //       "回调套回调"——否则一个执行时间超过定时间隔的回调会在自身尚未返回时
+            //       被再次调用，形成重入并共享/篡改其所在计算正在使用的全局状态。
+            //       周期定时器顺延后会在回调返回后的下一轮事件循环触发一次（错过的周期
+            //       按一次合并处理），与 JavaScript 定时器"回调不会与自身重入"的语义一致。
+            if (runtime_process_in_async_callback(proc)) {
+                cur = &timer->next;
                 continue;
             }
 
