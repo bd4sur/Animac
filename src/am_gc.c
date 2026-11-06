@@ -385,8 +385,16 @@ static int32_t gc_sweep(am_process_t *proc) {
 
         count++;
 
-        // 静态对象永不清理
-        if (am_object_check_static(obj) == 0) continue;
+        // 静态对象永不清理，但必须清空本轮存活标记：alive 是「本轮已标记」语义，
+        // 每轮 sweep 都必须复位，否则下一轮 gc_mark 会在该对象上因标记残留而短路
+        // 返回，其运行期子对象再也不会被标记而被全部误扫。
+        // 触发场景：对象头经 am_list_resize 等原样复制后会继承 static 标志，
+        // 使得被 push 扩容的静态列表字面量（如 '(0)）持有运行期句柄。
+        // 见 test/test_gc_static_alive.scm。
+        if (am_object_check_static(obj) == 0) {
+            am_object_set_alive(obj, -1);
+            continue;
+        }
 
         // keepalive 对象（如异步回调闭包）应跳过清理
         if (am_object_check_keepalive(obj) == 0) {
