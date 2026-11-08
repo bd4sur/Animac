@@ -283,6 +283,42 @@ static am_strindex_t *am_strindex_resize(am_allocator_t *alloc, am_strindex_t *s
     return new_si;
 }
 
+// 重建到更小的容量（仅用于压缩，new_capacity 必须小于当前 capacity）。
+// 成功返回新表并释放旧表；容量不需要缩小或分配失败时原样返回 si。
+static am_strindex_t *am_strindex_shrink(am_allocator_t *alloc, am_strindex_t *si, size_t new_capacity) {
+    size_t cap = am_strindex_round_up_capacity(new_capacity);
+    if (cap < 8) cap = 8;
+    if (cap >= si->capacity) return si;
+
+    size_t new_total_size = sizeof(am_strindex_t) + cap * sizeof(am_strindex_entry_t);
+    am_strindex_t *new_si = (am_strindex_t *)am_malloc(alloc, new_total_size);
+    if (!new_si) return si;
+
+    new_si->base = si->base;
+    new_si->capacity = cap;
+    new_si->mask = cap - 1;
+    new_si->length = 0;
+    new_si->tombstones = 0;
+
+    for (size_t i = 0; i < cap; i++) {
+        new_si->slots[i].hash = AM_STRINDEX_KEY_EMPTY;
+        new_si->slots[i].value = AM_VALUE_NULL;
+    }
+
+    for (size_t i = 0; i < si->capacity; i++) {
+        if (si->slots[i].hash != AM_STRINDEX_KEY_EMPTY &&
+            si->slots[i].hash != AM_STRINDEX_KEY_TOMBSTONE) {
+            size_t insert_idx = am_strindex_find_insert_slot(new_si, si->slots[i].hash);
+            new_si->slots[insert_idx].hash = si->slots[i].hash;
+            new_si->slots[insert_idx].value = si->slots[i].value;
+            new_si->length++;
+        }
+    }
+
+    am_free(alloc, si);
+    return new_si;
+}
+
 // ===============================================================================
 // 构造函数
 // ===============================================================================
@@ -550,6 +586,45 @@ int32_t am_strindex_delete(am_allocator_t *alloc, am_strindex_t *obj, am_value_t
         }
     }
     return -1;
+}
+
+// 弱驻留扫尾：单趟剔除 keep 为 false 的表项，并在存活率过低时重建压缩表。
+// 设计说明：运行期短串驻留表不再是 GC 根，GC 之后由调用方（gc 模块）按“本轮仍存活”
+//         谓词清掉已死字符串的表项。只要两个同内容字符串同时存活，它们在创建时就已去重，
+//         因此丢弃死串表项不会破坏 eq? 的短串保证；同时表项数随存活字符串数有界，
+//         而不再随程序运行时长单调增长。
+am_strindex_t *am_strindex_prune(am_allocator_t *alloc, am_strindex_t *obj,
+                                 am_strindex_keep_fn keep, void *ctx) {
+    if (!alloc || !obj || !keep) return obj;
+
+    // 第一趟：就地删除不保留的条目（转墓碑），无需额外内存
+    for (size_t i = 0; i < obj->capacity; i++) {
+        uint32_t hash = obj->slots[i].hash;
+        if (hash == AM_STRINDEX_KEY_EMPTY || hash == AM_STRINDEX_KEY_TOMBSTONE) continue;
+        if (!keep(obj->slots[i].value, ctx)) {
+            obj->slots[i].hash = AM_STRINDEX_KEY_TOMBSTONE;
+            obj->slots[i].value = AM_VALUE_NULL;
+            obj->length--;
+            obj->tombstones++;
+        }
+    }
+
+    // 第二趟：存活率低于 50% 时重建到按当前表项数计算的容量（VM 区有界，避免只增不减）
+    if (obj->capacity > 8 && obj->length * 2 < obj->capacity) {
+        size_t target = obj->length * 2 + 8;
+        if (target < 8) target = 8;
+        obj = am_strindex_shrink(alloc, obj, target);
+        if (obj->tombstones * 2 > obj->capacity) {
+            (void)am_strindex_rehash(alloc, obj);
+        }
+        return obj;
+    }
+
+    // 容量合适但墓碑过多：原地重哈希，避免探测链被墓碑拉长
+    if (obj->tombstones > 0 && obj->tombstones * 2 > obj->capacity) {
+        (void)am_strindex_rehash(alloc, obj);
+    }
+    return obj;
 }
 
 // 当前有效键值对数量

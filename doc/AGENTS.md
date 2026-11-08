@@ -55,6 +55,12 @@ Animac（灵机）是一款Scheme解释器，支持Scheme语言的子集和某�
   - L1（runtime 层）：`am_runtime_tick` 内每 `AM_GC_WATERMARK_CHECK_STRIDE` 条指令及 tick 末尾检查水位（`runtime_gc_watermark_check`），级别 1 做标记-清除、级别 2 强制压缩；发现 oom_flag 也强制一轮 GC 以挽救其余进程。水位兼顺两个维度：用量比（used/capacity）与碎片（用量≥30% 且最大空闲块低于 max(容量×1/32, 近期最大分配请求)，防止 first-fit 碎片化失败；largest_request 由 freelist 记账、压缩后清零；碎片维度两阶段查询，低于下限不遍历空闲链表）。
   - L2（事件循环层）：每 `AM_GC_PERIODIC_INTERVAL` 轮事件循环执行一轮兜底 GC（0 表示禁用，即纯水位）。
   - allocator 新增查询：`am_allocator_heap_usage`（used/capacity/largest_free_block/largest_request）、`am_allocator_heap_take_oom_flag`。
+- 字符串驻留为**弱驻留**（2026-10 起，方案 A，工单 #39）：`proc->strindex` 不再是 GC 根，而是“活串去重缓存”。
+  - `gc_sweep` 为每个存活对象（含 static/keepalive 对象）打本轮 GC 轮次戳（`am_object_set_gc_epoch`，gcmark 低 31 位）；sweep 之后 `am_gc_process` 调 `am_strindex_prune`，只保留指向“本轮存活 WSTRING”的表项。死串表项被丢弃不影响语义：两串同时存活时创建期已去重，`eq?` 短串保证与 Table 字符串键不变。
+  - `am_strindex_prune` 在存活率低于 50% 时重建压缩表（`length*2 < capacity`），避免 strindex 占据的 VM 区单调增长；墓碑过多时原地 rehash。
+  - `am_process_make_wstring_handle` 对短串（≤ `AM_PROCESS_STRINDEX_MAX_LEN`）改用栈上定长缓冲计算 hash/查询，候选 handle 也优先用栈数组，减少 VM 区抖动。模块加载时清空对象 gcmark 的低位轮次戳，避免转储遗留值误判。
+  - 可观测性：`System.memstat` 扩展为六元组 `(vm_capacity vm_used heap_capacity heap_used interned_count interned_bytes)`；`am_runtime_tick` 把 OOM 从“指令执行异常”中拆出，报 `[Runtime] 内存耗尽(OOM)` 并附内存池用量。
+  - 回归：`test/test_strindex_weak.scm`（eq? 不变量、跨 GC 存活、Table 键、20 万短串垃圾后驻留表/堆/VM 有界）。
 - 内存池（src/allocator.c）不直接依赖宿主系统的 malloc/calloc/realloc/free（依赖倒置）：宿主在调用 `am_allocator_pool_create` 时通过 `am_allocator_host_vtable_t` 虚函数表（见 include/allocator.h）注入 `host_malloc`/`host_calloc`/`host_realloc`/`host_free` 四个实现（均为必需，任一为 NULL 则 create 失败）。池控制块、池底层内存及堆压缩的临时工作数组均经由该表分配；池仅保存指针不拷贝，宿主须保证其生命周期不短于池。宿主侧参考实现为 include/host.h 的 `am_host_malloc` 等四函数及默认实例 `am_host_default_vtable`（src/host.c 与 src/host_esp32.cpp 各有一份，ESP32 版映射到 SPIRAM 的 heap_caps_* 系列）。
 - 运行时（src/runtime.c）不直接依赖宿主的输入输出回调、定时器与时间戳函数（依赖倒置）：宿主在调用 `am_runtime_create` 时通过 `am_runtime_vtable_t` 虚函数表（见 include/runtime.h）注入 6 个实现——事件回调 `on_tick`/`on_event`/`on_halt`/`on_error`（可选，为 NULL 则不触发）与时间函数 `now_ms`/`sleep_in_ms`（必需，为 NULL 则 create 失败）。runtime 仅保存 vtable 指针不拷贝，宿主须保证其生命周期不短于 runtime。桌面宿主的默认实现见 main.c 与 src/repl.c 中的 `g_host_vtable`（时间函数底层为 include/host.h 的 `am_current_timestamp_in_ms`/`am_sleep_in_ms`，src/host.c 与 src/host_esp32.cpp 各有一份实现）。
 
@@ -146,11 +152,11 @@ symbol是以其字面为ID的，相同拼写的symbol，无论在哪个上下文
 
 ## 测试体系与回归规范（2026-10 新增）
 
-三批自校验回归测试已建成，全部位于 `test/`，C 实现与 Amalgamation 形态双覆盖（主回归 43 用例 + 编译期错误矩阵 10 用例 = 53 个 .scm 文件，全 FAIL 0 基线）。
+三批自校验回归测试已建成，全部位于 `test/`，C 实现与 Amalgamation 形态双覆盖（主回归 45 用例 + 编译期错误矩阵 10 用例 = 55 个 .scm 文件，全 FAIL 0 基线）。
 
 ### 运行与判定
 
-- `bash testall.sh` / `bash testall_amalg.sh`：主回归（43 用例），脚本退出码 0 = 通过。每个用例为独立自校验文件，末行输出 `PASS: n  FAIL: m`；**m>0、脚本输出含 ❌/Segmentation、或退出码非 0 均为失败**。
+- `bash testall.sh` / `bash testall_amalg.sh`：主回归（45 用例），脚本退出码 0 = 通过。每个用例为独立自校验文件，末行输出 `PASS: n  FAIL: m`；**m>0、脚本输出含 ❌/Segmentation、或退出码非 0 均为失败**。
 - `bash testall_errors.sh`：编译期错误路径回归。`test/errors/*.scm` 中每个文件预期**非零退出**（当前实现为解析失败触发 main.c 断言终止，exit=134；理想行为是打印诊断后优雅非零退出，runner 不区分两者）。
 - C 形态与 Amalgamation 形态的输出必须逐字节一致，**例外仅限已知非确定性内容**：随机数独/排序（test.scm、shudu）、llm/mlp 的生成文本与训练轨迹、test_eval 的时间戳、yinyang 被超时截断的长度。出现其他任何差异即为回归。
 - 本轮回归环境：Ubuntu 24.04（gcc 13.3 / GNU Make 4.3 / Node 24），`libreadline-dev` 已安装（repl 与 repl_amalg 可编译）。
@@ -170,6 +176,7 @@ symbol是以其字面为ID的，相同拼写的symbol，无论在哪个上下文
 | test/miniprolog.scm | pl_ | 迷你 Prolog：合一/回溯/CPS/递归规则 |
 | test/test_timer_setvar.scm | tv_ | 工单 #36 验证用例（定时器打断场景） |
 | test/test_timer_nonreent.scm | tn_ | 工单 #38 验证用例（周期定时器回调不可重入） |
+| test/test_strindex_weak.scm | sw_ | 工单 #39 验证用例（短串弱驻留：eq? 不变量、跨 GC 存活、Table 键、驻留表/堆/VM 有界） |
 
 ### 新增测试的编写规范
 
@@ -220,6 +227,8 @@ symbol是以其字面为ID的，相同拼写的symbol，无论在哪个上下文
 要点：队列是虚拟机全局资源（fork 天然共享）；子进程死亡不影响父进程；子进程的 `[Runtime] 指令执行异常: PID=…` stderr 输出是预期行为；BLOCKED 进程的定时器暂不触发、STOPPED 进程的仍会触发（return_target 指向 halt）。
 
 ### 已知缺陷、规避与工单索引
+
+- **#39（Closed，故障）**：运行期短串（≤32）驻留表被当作永久 GC 根，只增不减；`String.concat` 的每层中间结果都会永久占住堆区，长时间运行的程序最终 OOM。已按方案 A 改为弱驻留：strindex 不再是根，GC 后按轮次戳扫尾、按存活率压缩，短串走栈缓冲；`System.memstat` 增加驻留计数/字节，OOM 单独报错。`test_strindex_weak.scm` 为回归用例。
 
 - **#35（Open，优化）**：多参算术应编译期拒绝——未实施。当前行为：只发射一条运算指令、多余参数残留操作数栈（栈污染，见工单内插桩实证）。测试与库代码一律二元。
 - **#38（Closed，故障）**：周期定时器回调可重入（回调执行跨多个时间片时，同一回调在未返回前被再次调用，嵌套深度可达 1024）。已实施：`runtime_fire_expired_timers` 检测进程函数调用栈上的异步帧，存在时顺延该进程的定时器（主流程打断语义不变）；`test_timer_nonreent.scm` 为回归用例。配套修复：闭包帧分析的词法父子关系改用 AST 父链接（parser 宏展开后会清理 scope 对象），避免自由变量 `src` 全部退化。

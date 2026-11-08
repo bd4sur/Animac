@@ -12,7 +12,9 @@
 // 内部辅助函数
 // ===============================================================================
 
-// 将proc->heap中所有对象标记为静态对象（通常用于从模块加载的初始AST数据）
+// 将proc->heap中所有对象标记为静态对象（通常用于从模块加载的初始AST数据），
+// 同时清空 GC 轮次戳：模块转储可能携带旧的 gcmark 位，新进程的 GC 轮次从 0 重新开始，
+// 不清空会让驻留表的弱引用扫尾把旧轮次误判为“本轮存活”。
 static void set_all_heap_objects_static(am_handle_t handle, am_value_t value, void *user_data) {
     (void)handle;
     (void)user_data;
@@ -20,6 +22,7 @@ static void set_all_heap_objects_static(am_handle_t handle, am_value_t value, vo
         am_object_t *obj = am_value_to_ptr(value);
         if (obj != NULL) {
             am_object_set_static(obj, 0);
+            obj->gcmark = 0;
         }
     }
 }
@@ -96,14 +99,28 @@ static size_t dynamic_wind_common_prefix(am_process_t *proc, am_list_t *target) 
 // 实现说明：当 len <= AM_PROCESS_STRINDEX_MAX_LEN 时，会先查询 proc->strindex；
 //         若已存在内容相同的字符串则复用其 handle，否则新建并登记。
 //         超过阈值的字符串直接新建，不参与驻留。
+//         短串（<= 阈值）使用栈上定长缓冲区计算 hash/查询，不向 VM 区申请临时缓冲；
+//         只有长串才向 VM 区申请 len+1 的临时缓冲区，以减少 VM 区抖动与碎片。
+//         驻留表是“弱驻留”：GC 时不是根，只保留仍被引用的表项（见 src/am_gc.c）。
 //         失败返回 AM_HANDLE_NULL。
 am_handle_t am_process_make_wstring_handle(am_process_t *proc, const wchar_t *str, size_t len) {
     // 注意：str 为 NULL 且 len 为 0 是合法的空字符串；仅拒绝无缓冲区的非空串
     if (!proc || !proc->heap || !proc->heap_alloc || (!str && len > 0)) return AM_HANDLE_NULL;
 
-    // 构造以 L'\0' 结尾的临时缓冲区，供 hash 计算和 strindex 查询使用
-    wchar_t *tmp = (wchar_t *)am_malloc(proc->vm_alloc, (len + 1) * sizeof(wchar_t));
-    if (!tmp) return AM_HANDLE_NULL;
+    bool internable = (proc->strindex != NULL && len <= AM_PROCESS_STRINDEX_MAX_LEN);
+
+    // 构造以 L'\0' 结尾的临时缓冲区，供 hash 计算和 strindex 查询使用。
+    // 短串走栈上定长缓冲；长串才使用 VM 区临时缓冲。
+    wchar_t stack_buf[AM_PROCESS_STRINDEX_MAX_LEN + 1];
+    wchar_t *tmp = NULL;
+    bool tmp_on_heap = false;
+    if (internable) {
+        tmp = stack_buf;
+    } else {
+        tmp = (wchar_t *)am_malloc(proc->vm_alloc, (len + 1) * sizeof(wchar_t));
+        if (!tmp) return AM_HANDLE_NULL;
+        tmp_on_heap = true;
+    }
     if (len > 0) {
         memcpy(tmp, str, len * sizeof(wchar_t));
     }
@@ -112,11 +129,16 @@ am_handle_t am_process_make_wstring_handle(am_process_t *proc, const wchar_t *st
     uint32_t hash = am_strindex_hash_string(tmp);
     am_handle_t result = AM_HANDLE_NULL;
 
-    if (proc->strindex && len <= AM_PROCESS_STRINDEX_MAX_LEN) {
+    if (internable) {
         size_t n_candidates = am_strindex_get_all(proc->vm_alloc, proc->strindex, tmp, NULL, 0);
         if (n_candidates != SIZE_MAX && n_candidates > 0) {
-            am_value_t *candidates = (am_value_t *)am_malloc(proc->vm_alloc,
-                                                              n_candidates * sizeof(am_value_t));
+            // 常见情况只有 1 个候选：优先用栈上数组，避免每次建串都扰动 VM 区
+            am_value_t cand_stack[8];
+            am_value_t *candidates = cand_stack;
+            if (n_candidates > 8) {
+                candidates = (am_value_t *)am_malloc(proc->vm_alloc,
+                                                     n_candidates * sizeof(am_value_t));
+            }
             if (candidates) {
                 size_t got = am_strindex_get_all(proc->vm_alloc, proc->strindex, tmp,
                                                  candidates, n_candidates);
@@ -142,7 +164,9 @@ am_handle_t am_process_make_wstring_handle(am_process_t *proc, const wchar_t *st
                         break;
                     }
                 }
-                am_free(proc->vm_alloc, candidates);
+                if (candidates != cand_stack) {
+                    am_free(proc->vm_alloc, candidates);
+                }
             }
         }
     }
@@ -150,7 +174,7 @@ am_handle_t am_process_make_wstring_handle(am_process_t *proc, const wchar_t *st
     if (result == AM_HANDLE_NULL) {
         am_wstring_t *ws = am_wstring_create(proc->heap_alloc, tmp, len);
         if (!ws) {
-            am_free(proc->vm_alloc, tmp);
+            if (tmp_on_heap) am_free(proc->vm_alloc, tmp);
             return AM_HANDLE_NULL;
         }
         ws->base.hash = hash;
@@ -158,7 +182,7 @@ am_handle_t am_process_make_wstring_handle(am_process_t *proc, const wchar_t *st
         am_handle_t hd = am_heap_alloc_handle(proc->vm_alloc, proc->heap_alloc, proc->heap);
         if (hd == AM_HANDLE_NULL) {
             am_wstring_destroy(proc->heap_alloc, ws);
-            am_free(proc->vm_alloc, tmp);
+            if (tmp_on_heap) am_free(proc->vm_alloc, tmp);
             return AM_HANDLE_NULL;
         }
 
@@ -166,14 +190,14 @@ am_handle_t am_process_make_wstring_handle(am_process_t *proc, const wchar_t *st
                         am_make_value_of_ptr((am_object_t *)ws)) != 0) {
             am_wstring_destroy(proc->heap_alloc, ws);
             am_heap_free_handle(proc->vm_alloc, proc->heap_alloc, proc->heap, hd);
-            am_free(proc->vm_alloc, tmp);
+            if (tmp_on_heap) am_free(proc->vm_alloc, tmp);
             return AM_HANDLE_NULL;
         }
 
         result = hd;
 
         // 短字符串登记到 strindex
-        if (proc->strindex && len <= AM_PROCESS_STRINDEX_MAX_LEN) {
+        if (internable) {
             am_strindex_t *new_si = am_strindex_set(proc->vm_alloc, proc->strindex, tmp,
                                                      am_make_value_of_handle(hd));
             if (new_si) {
@@ -182,7 +206,7 @@ am_handle_t am_process_make_wstring_handle(am_process_t *proc, const wchar_t *st
         }
     }
 
-    am_free(proc->vm_alloc, tmp);
+    if (tmp_on_heap) am_free(proc->vm_alloc, tmp);
     return result;
 }
 

@@ -28,6 +28,7 @@ for t in \
     test_exit_async.scm \
     test_gc_static_alive.scm \
     test_gc_watermark.scm \
+    test_strindex_weak.scm \
     test_ipc1.scm \
     test_ipc2.scm \
     test_kill_other.scm \

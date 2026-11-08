@@ -288,7 +288,7 @@ typedef struct am_wstring_t {       // include/am_wstring.h:18-23
 字符串驻留分两个层面：
 
 - **编译期**：`am_ast_t.strindex`，字符串字面量按内容去重登记，**无长度阈值**；模块链接时随 AST 合并机械合并；
-- **运行期**：`am_process_t.strindex`，进程启动时从模块 AST 的 strindex 拷贝。阈值宏 `AM_PROCESS_STRINDEX_MAX_LEN = 32`：长度 ≤ 32 的新字符串先查索引复用、未命中则登记；超阈值直接新建不驻留。GC 时 strindex 中的全部 handle 作为 GC 根（防止驻留字符串被回收后索引悬空）。
+- **运行期**：`am_process_t.strindex`，进程启动时从模块 AST 的 strindex 拷贝。阈值宏 `AM_PROCESS_STRINDEX_MAX_LEN = 32`：长度 ≤ 32 的新字符串先查索引复用、未命中则登记；超阈值直接新建不驻留。**驻留表不是 GC 根**（2026-10 起，工单 #39）：它是“活串去重缓存”，`gc_sweep` 给存活对象打本轮轮次戳，sweep 后 `am_strindex_prune` 只保留指向本轮存活 `am_wstring_t` 的表项；存活率低于 50% 时重建压缩，避免 VM 区单调增长。短串的 hash/查询使用栈上定长缓冲，不再为每次建串向 VM 区申请临时缓冲区。
 
 ---
 
@@ -378,11 +378,12 @@ GC 统一由 `gc` 模块实现（`include/am_gc.h`、`src/am_gc.c`），层级�
 `am_gc_process` 的根收集（`src/am_gc.c:108-285` 的 `gc_root`）包括：
 
 1. 当前闭包 handle 及其绑定中的所有 handle、opstack 中的所有 handle、fstack 各帧的闭包 handle 及其绑定（统一经 `gc_root_helper` 处理）；
-2. `proc->strindex` 中的全部有效 handle（驻留字符串）；
-3. `dynamic_wind_stack` / `dynamic_wind_after_stack` 中的 handle；
-4. wind 跳板暂存：`pending_cont_handle/value`、`current_dynamic_wind_entry/thunk`、`pending_after/before_entries`；
-5. 遍历堆中所有续体对象，加入其 dynamic-wind 相关 handle，并以 `gc_root_helper` 递归处理续体保存的 opstack/fstack/当前闭包；
-6. 堆中所有 `keepalive` 对象补入根集合。
+2. `dynamic_wind_stack` / `dynamic_wind_after_stack` 中的 handle；
+3. wind 跳板暂存：`pending_cont_handle/value`、`current_dynamic_wind_entry/thunk`、`pending_after/before_entries`；
+4. 遍历堆中所有续体对象，加入其 dynamic-wind 相关 handle，并以 `gc_root_helper` 递归处理续体保存的 opstack/fstack/当前闭包；
+5. 堆中所有 `keepalive` 对象补入根集合。
+
+注意：`proc->strindex`（运行期短串驻留表）**不在根集合中**。它是弱引用缓存，GC 后由 `am_strindex_prune` 按本轮轮次戳剔除死串表项；只要同内容字符串同时存活，创建期去重仍保证 `eq?` 与 Table 字符串键语义不变。
 
 ### 7.2 标记阶段
 
@@ -458,12 +459,12 @@ GC 统一由 `gc` 模块实现（`include/am_gc.h`、`src/am_gc.c`），层级�
 
 - `System.set_timeout` / `System.set_interval`：注册时对回调闭包设置 `keepalive` 标志——回调闭包在触发前不位于任何 GC 根可达路径上，否则可能在首次触发前就被回收；
 - `System.fork`：深拷贝当前进程，包括 IL、vocab、双栈、dynamic-wind 栈，以及整个进程堆（经两遍扫描：先为每个源 handle 分配新 handle 并复制对象，再修正对象内部的 handle 引用；IL 字面量中的 handle 也一并重写）；
-- `System.memstat`：返回 VM/heap 两区的容量与已用字节。
+- `System.memstat`：返回 VM/heap 两区的容量与已用字节，以及运行期短串驻留表的有效表项数与字节数（六元组）。
 
 ### 9.2 Math / String 库
 
 - 数值运算统一转 float，结果为 NaN 时返回 `#null`；
-- 字符串函数在 heap 区创建 `am_wstring_t`，经驻留索引去重（≤ 32 字符）后返回 handle。
+- 字符串函数在 heap 区创建 `am_wstring_t`，经驻留索引去重（≤ 32 字符）后返回 handle；驻留表为弱引用缓存，不再永久保活短串。
 
 ### 9.3 LLM 库
 

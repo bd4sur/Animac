@@ -321,6 +321,17 @@ int32_t am_object_set_keepalive(am_object_t *obj, int32_t is_keepalive);
 int32_t am_object_check_alive(am_object_t *obj);
 int32_t am_object_set_alive(am_object_t *obj, int32_t is_alive);
 
+// 获取/设置对象“GC 轮次戳”，用于弱驻留（strindex）扫尾。
+// gcmark 的低 31 位记录最近一次将其标记为存活的 GC 轮次（0 表示尚未打过戳）。
+// 每轮 GC 只保留“轮次戳 == 本轮轮次”的驻留表项，从而让驻留表不再充当永久根。
+#define AM_OBJECT_EPOCH_MASK ((uint32_t)0x7FFFFFFFu)
+
+// 返回对象的 GC 轮次戳（对象为 NULL 时返回 0）。
+uint32_t am_object_get_gc_epoch(am_object_t *obj);
+
+// 设置对象的 GC 轮次戳（保留 gcmark 最高位的 alive 标记）。成功返回 0，失败返回 -1。
+int32_t am_object_set_gc_epoch(am_object_t *obj, uint32_t epoch);
+
 
 
 

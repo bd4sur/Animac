@@ -15,6 +15,43 @@
 // 标记-清除：GC 根收集
 // ===============================================================================
 
+// 弱驻留扫尾：strindex 中的表项只在“本轮仍存活”时保留。
+// 驻留表不再是 GC 根，因此运行期产生的短字符串可随其引用者一起被回收；
+// 两个同内容字符串只要同时存活，创建时仍会去重为同一 handle，eq? 保证不变。
+typedef struct {
+    am_process_t *proc;
+    uint32_t epoch; // 本轮 GC 的轮次戳
+} gc_strindex_prune_ctx_t;
+
+// 返回本轮 GC 的轮次戳（1..0x7FFFFFFF，0 保留为“尚未打过戳”）。
+static uint32_t gc_epoch_for_round(const am_process_t *proc) {
+    uint32_t epoch = (uint32_t)((proc->gc_count + 1) & AM_OBJECT_EPOCH_MASK);
+    if (epoch == 0) epoch = 1;
+    return epoch;
+}
+
+// strindex 保留谓词：仅保留指向“本轮存活字符串对象”的表项。
+// 静态/keepalive 对象在 gc_sweep 中也会被戳上本轮轮次，因此其驻留表项永久保留。
+static bool gc_strindex_entry_is_live(am_value_t value, void *ctx) {
+    gc_strindex_prune_ctx_t *pc = (gc_strindex_prune_ctx_t *)ctx;
+    if (!pc || !pc->proc || !pc->proc->heap) return false;
+    if (!am_value_is_handle(value)) return false;
+
+    am_handle_t hd = am_value_to_handle(value);
+    if (hd == AM_HANDLE_NULL) return false;
+
+    am_process_t *proc = pc->proc;
+    if (am_heap_has_handle(proc->vm_alloc, proc->heap_alloc, proc->heap, hd) != 0) return false;
+
+    am_value_t obj_value = am_heap_get(proc->vm_alloc, proc->heap_alloc, proc->heap, hd);
+    if (!am_value_is_ptr(obj_value)) return false;
+
+    am_object_t *obj = am_value_to_ptr(obj_value);
+    if (!obj || obj->type != AM_OBJECT_TYPE_WSTRING) return false;
+
+    return am_object_get_gc_epoch(obj) == pc->epoch;
+}
+
 // 判断一个am_value_t是否为指向堆对象的把柄（handle）
 static inline bool is_handle_value(am_value_t v) {
     return am_value_is_handle(v);
@@ -119,20 +156,10 @@ static int32_t gc_root(am_process_t *proc, am_list_t **gcroots) {
         return -1;
     }
 
-    // 将 strindex 中所有有效 handle 加入 GC 根，防止驻留字符串被回收后产生悬空引用
-    if (proc->strindex) {
-        for (size_t i = 0; i < proc->strindex->capacity; i++) {
-            uint32_t hash = proc->strindex->slots[i].hash;
-            if (hash == AM_STRINDEX_KEY_EMPTY || hash == AM_STRINDEX_KEY_TOMBSTONE) continue;
-
-            am_value_t h_val = proc->strindex->slots[i].value;
-            if (!am_value_is_handle(h_val)) continue;
-
-            am_list_t *new_roots = am_list_push(proc->vm_alloc, *gcroots, h_val);
-            if (!new_roots) return -1;
-            *gcroots = new_roots;
-        }
-    }
+    // 注意：strindex（运行期短串驻留表）不是 GC 根。
+    // 旧实现把表中所有 handle 加入根集合，导致任何运行期短串（含 String.concat 的
+    // 每层中间结果）永久占住堆区。现在改为“弱驻留”：GC 后在 am_gc_process 末尾
+    // 按本轮存活判定扫尾，只保留仍被引用的字符串表项（见 gc_strindex_entry_is_live）。
 
     // 将当前 dynamic-wind 栈中的 entry handle 加入 GC 根
     if (proc->dynamic_wind_stack) {
@@ -364,8 +391,10 @@ static int32_t gc_mark(am_process_t *proc, am_value_t v) {
 }
 
 
-// 功能说明：基于存活标记结果，删除所有未被标记存活的非静态对象和对应的handle。成功返回0，失败返回-1
-static int32_t gc_sweep(am_process_t *proc) {
+// 功能说明：基于存活标记结果，删除所有未被标记存活的非静态对象和对应的handle。
+// 实现说明：同时为每个存活对象（含静态/keepalive 对象）打上本轮 GC 轮次戳，
+//         供 am_gc_process 末尾的驻留表弱引用扫尾使用。成功返回0，失败返回-1
+static int32_t gc_sweep(am_process_t *proc, uint32_t epoch) {
     if (!proc || !proc->heap || !proc->heap->table) return -1;
 
     size_t gcount = 0;
@@ -392,12 +421,14 @@ static int32_t gc_sweep(am_process_t *proc) {
         // 使得被 push 扩容的静态列表字面量（如 '(0)）持有运行期句柄。
         // 见 test/test_gc_static_alive.scm。
         if (am_object_check_static(obj) == 0) {
+            am_object_set_gc_epoch(obj, epoch);
             am_object_set_alive(obj, -1);
             continue;
         }
 
         // keepalive 对象（如异步回调闭包）应跳过清理
         if (am_object_check_keepalive(obj) == 0) {
+            am_object_set_gc_epoch(obj, epoch);
             am_object_set_alive(obj, -1);
             continue;
         }
@@ -415,7 +446,8 @@ static int32_t gc_sweep(am_process_t *proc) {
                 gcount++;
             }
             else {
-                // 对于存活对象，将其alive标识清空为否，以便下次gc重新标记
+                // 对于存活对象，打上本轮轮次戳并清空 alive 标记，以便下次 gc 重新标记
+                am_object_set_gc_epoch(obj, epoch);
                 am_object_set_alive(obj, -1);
             }
         }
@@ -474,9 +506,20 @@ int32_t am_gc_process(am_process_t *proc) {
         }
     }
 
-    // 清除未被标记为存活的非静态对象及其handle
-    if (gc_sweep(proc) != 0) {
+    // 清除未被标记为存活的非静态对象及其handle，并为存活对象打本轮轮次戳
+    uint32_t epoch = gc_epoch_for_round(proc);
+    if (gc_sweep(proc, epoch) != 0) {
         ret = -1;
+    }
+
+    // 弱驻留扫尾：驻留表不是根，这里丢弃本轮未被标记的字符串表项。
+    // 必须在 sweep 之后、任何新分配之前执行：此时死对象的 handle 已释放且尚未被复用，
+    // 存活的字符串对象都已打上 epoch，判定不会误保留也不会误删除。
+    if (proc->strindex) {
+        gc_strindex_prune_ctx_t prune_ctx = { proc, epoch };
+        am_strindex_t *pruned = am_strindex_prune(proc->vm_alloc, proc->strindex,
+                                                  gc_strindex_entry_is_live, &prune_ctx);
+        if (pruned) proc->strindex = pruned;
     }
 
     proc->gc_count++;

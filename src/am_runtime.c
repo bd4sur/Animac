@@ -3301,12 +3301,38 @@ int32_t am_runtime_tick(am_runtime_t *rt, uint32_t timeslice) {
     uint32_t since_check = 0;
     while (timeslice > 0 && proc->state == AM_PROCESS_STATE_RUNNING) {
         if (am_runtime_execute(rt, proc) != 0) {
-            // 补救：若失败由堆分配失败（OOM）引起，立即做一轮 GC 以挽救其余进程
-            runtime_gc_watermark_check(rt);
+            // 将“分配失败（OOM）”从笼统的“指令执行异常”中拆出来：
+            // heap 分配器彻底失败时会置 oom_flag（L0 已经尝试过向 VM 区让渡边界）。
+            // 这里先读取并清除标志，再按 OOM 路径做强制压缩补救与专项报错。
+            int32_t oom = (am_allocator_heap_take_oom_flag(rt->heap_alloc) == 1);
+            if (oom) {
+                // oom_flag 已被本处消费，显式做一轮强制标记-压缩，为其余进程争取空间
+                rt->gc_count++;
+                (void)am_gc_collect(rt->heap_alloc, rt->process_pool, rt->process_poll_counter,
+                                    rt->gc_count, 1);
+            } else {
+                runtime_gc_watermark_check(rt);
+            }
             proc->state = AM_PROCESS_STATE_STOPPED;
             if (rt->vtable->on_error) rt->vtable->on_error(rt);
-            wchar_t errmsg[256];
-            swprintf(errmsg, 256, L"[Runtime] 指令执行异常: PID=%zu PC=%zu\n", (size_t)pid, (size_t)proc->PC);
+            wchar_t errmsg[512];
+            if (oom) {
+                am_runtime_memory_stats_t ms;
+                if (am_runtime_get_memory_stats(rt, &ms) == 0) {
+                    swprintf(errmsg, 512,
+                             L"[Runtime] 内存耗尽(OOM): PID=%zu PC=%zu; VM=%zu/%zu B, heap=%zu/%zu B\n",
+                             (size_t)pid, (size_t)proc->PC,
+                             (size_t)ms.vm_used, (size_t)ms.vm_capacity,
+                             (size_t)ms.heap_used, (size_t)ms.heap_capacity);
+                } else {
+                    swprintf(errmsg, 512,
+                             L"[Runtime] 内存耗尽(OOM): PID=%zu PC=%zu (内存池统计不可用)\n",
+                             (size_t)pid, (size_t)proc->PC);
+                }
+            } else {
+                swprintf(errmsg, 512, L"[Runtime] 指令执行异常: PID=%zu PC=%zu\n",
+                         (size_t)pid, (size_t)proc->PC);
+            }
             if (getenv("AM_STACK_DEBUG")) {
                 size_t n = (size_t)(proc->opstack_top - proc->opstack);
                 printf("[stack-dbg] pc=%zu op=%u opstack_len=%zu fstack_len=%zu:", (size_t)proc->PC,

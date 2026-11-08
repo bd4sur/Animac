@@ -4,6 +4,32 @@
 
 决定：①将2022年（#21）之前的工单迁移到本文档；②新工单使用本文档作记录和跟踪，不再使用GitHub自带工单管理机制。
 
+## 39 【故障】运行期短字符串驻留表只增不减，导致内存泄漏 Closed
+
+2026-10-21
+
+**现象描述**：任何运行期构造的长度 ≤32 的字符串都会登记进进程驻留表 `proc->strindex`，而旧实现在每轮 GC 的根收集阶段把表中全部有效 handle 当作永久根。于是即使程序已不再引用这些字符串，GC 也永远无法回收它们。`(String.concat …)` 的**每一层中间结果**、`String.atom_to_string` 的临时结果、每秒/每帧变化的时钟文本都会永久占住堆区。典型表现：每秒拼接一次时间戳文本的程序在 16MB 池上约 390 s 后堆耗尽；驻留表项数与堆用量随运行时长单调上涨，GC 频率越来越高却收不回任何字节（`test/gc_attack/05`、`06`）。这与手册 §3.9 “解释器自动管理内存，用户无需也无法手动释放”的承诺冲突。
+
+**根因**：驻留表被当作 GC 根（`src/am_gc.c` 旧 `gc_root` 将 strindex 全部 handle 加入根集合），而登记策略（`am_process_make_wstring_handle` 对 `len <= AM_PROCESS_STRINDEX_MAX_LEN` 的新串一律登记）没有任何淘汰。驻留本身是手册 §3.4 的实现定义行为（用于保证短串 `eq?` 与 Table 字符串键），问题在于表项生命周期不受活引用约束。
+
+**修复方案 A（弱驻留，已实施）**：驻留表不再充当 GC 根，而是“活串去重缓存”。
+
+1. `include/am_object.h` / `src/am_object.c`：新增 GC 轮次戳访问器 `am_object_get_gc_epoch` / `am_object_set_gc_epoch`，复用 `gcmark` 低 31 位（0 表示未打过戳）。
+2. `src/am_gc.c`：`gc_sweep` 为每个存活对象（含 static/keepalive 对象）打本轮轮次戳；sweep 之后立即调用 `am_strindex_prune`，只保留指向“本轮存活 WSTRING”的表项（必须在任何新分配之前完成，避免释放后的 handle 被复用造成误判）。`gc_root` 删除 strindex 根注入。
+3. `include/am_wstring.h` / `src/am_wstring.c`：新增 `am_strindex_prune(alloc, table, keep_fn, ctx)` 与内部 `am_strindex_shrink`；存活率低于 50%（`length*2 < capacity`）时重建到按当前表项数计算的较小容量，墓碑过多时原地 rehash。
+4. `src/am_process.c`：短串（≤ 阈值）的 hash/查询改用栈上定长缓冲，候选 handle 优先用栈数组，消除每串一次 `vm_alloc` 临时缓冲；模块加载时清空对象 gcmark 低位轮次戳，避免转储遗留值误判。
+
+**语义不变量**：表项只在字符串“已不再被引用”时被丢弃，此时不存在可与它做 `eq?` 的另一方；两个同内容短串只要同时存活，创建期就会去重为同一 handle，因此手册 §3.4 的 `eq?` 短串保证与 §8.3 的 Table 字符串键继续成立（键本身是活引用，会保活对应驻留串）。
+
+**配套可观测性**：
+
+- `System.memstat` 由四元组扩展为六元组 `(vm_capacity vm_used heap_capacity heap_used interned_count interned_bytes)`，可直接观察驻留表规模；
+- `src/am_runtime.c` 的 tick 失败路径先读取 `am_allocator_heap_take_oom_flag`，OOM 时单独报 `[Runtime] 内存耗尽(OOM): PID=… PC=…; VM=used/cap B, heap=used/cap B`，并显式做一轮强制压缩补救，不再与“非尾递归过深/类型错误”共用笼统文案。
+
+**手册同步**：§3.4 补充弱驻留说明与“不要整串拼接每帧变化文本”的使用建议；§3.9 补充驻留表弱引用与 OOM 报错；§8.4 更新 memstat 六元组。
+
+**回归**：新增 `test/test_strindex_weak.scm`（前缀 sw_，15 断言），覆盖 GC 前后 `eq?` 不变量、字面量与运行期串去重、长串不驻留、存活串跨 GC 保活、Table 字符串键跨 GC、20 万短串垃圾后驻留表/堆/VM 有界。已登记 `testall.sh` 与 `testall_amalg.sh`；全量双形态回归全绿。实测 100 万次 `(String.concat "k" (String.atom_to_string i))`：修复前累计耗时呈二次增长并最终 OOM；修复后约 0.55 s 完成，驻留表项数在 GC 后回落到基线（6 项），堆/VM 用量有界。
+
 ## 38 【故障】周期定时器回调可重入，慢回调被嵌套调用 Closed
 
 2026-10-21

@@ -75,3 +75,14 @@ int32_t am_object_set_alive(am_object_t *obj, int32_t is_alive) {
     }
     return -1;
 }
+
+uint32_t am_object_get_gc_epoch(am_object_t *obj) {
+    if (obj == NULL) return 0;
+    return obj->gcmark & AM_OBJECT_EPOCH_MASK;
+}
+
+int32_t am_object_set_gc_epoch(am_object_t *obj, uint32_t epoch) {
+    if (obj == NULL) return -1;
+    obj->gcmark = (obj->gcmark & ~AM_OBJECT_EPOCH_MASK) | (epoch & AM_OBJECT_EPOCH_MASK);
+    return 0;
+}
