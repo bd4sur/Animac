@@ -152,12 +152,12 @@ symbol是以其字面为ID的，相同拼写的symbol，无论在哪个上下文
 
 ## 测试体系与回归规范（2026-10 新增）
 
-三批自校验回归测试已建成，全部位于 `test/`，C 实现与 Amalgamation 形态双覆盖（主回归 45 用例 + 编译期错误矩阵 10 用例 = 55 个 .scm 文件，全 FAIL 0 基线）。
+三批自校验回归测试已建成，全部位于 `test/`，C 实现与 Amalgamation 形态双覆盖（主回归 46 用例 + 编译期错误矩阵 20 用例 = 66 个 .scm 文件，全 FAIL 0 基线）。
 
 ### 运行与判定
 
-- `bash testall.sh` / `bash testall_amalg.sh`：主回归（45 用例），脚本退出码 0 = 通过。每个用例为独立自校验文件，末行输出 `PASS: n  FAIL: m`；**m>0、脚本输出含 ❌/Segmentation、或退出码非 0 均为失败**。
-- `bash testall_errors.sh`：编译期错误路径回归。`test/errors/*.scm` 中每个文件预期**非零退出**（当前实现为解析失败触发 main.c 断言终止，exit=134；理想行为是打印诊断后优雅非零退出，runner 不区分两者）。
+- `bash testall.sh` / `bash testall_amalg.sh`：主回归（46 用例），脚本退出码 0 = 通过。每个用例为独立自校验文件，末行输出 `PASS: n  FAIL: m`；**m>0、脚本输出含 ❌/Segmentation、或退出码非 0 均为失败**。
+- `bash testall_errors.sh`：编译期错误路径回归。`test/errors/*.scm` 中每个文件预期**非零退出**（当前实现为解析/编译失败触发 main.c 断言终止，exit=134；理想行为是打印诊断后优雅非零退出，runner 不区分两者）。若用例内含 `;; expect-stderr: <片段>` 行，runner 还要求 stderr 含该片段——内建元数用例（11–20）均带此行，用以锁定“因元数不符被拒绝”这一具体原因。
 - C 形态与 Amalgamation 形态的输出必须逐字节一致，**例外仅限已知非确定性内容**：随机数独/排序（test.scm、shudu）、llm/mlp 的生成文本与训练轨迹、test_eval 的时间戳、yinyang 被超时截断的长度。出现其他任何差异即为回归。
 - 本轮回归环境：Ubuntu 24.04（gcc 13.3 / GNU Make 4.3 / Node 24），`libreadline-dev` 已安装（repl 与 repl_amalg 可编译）。
 
@@ -168,6 +168,7 @@ symbol是以其字面为ID的，相同拼写的symbol，无论在哪个上下文
 | test/syntax_torture.scm | st_ | 语法/内建覆盖矩阵：pop、nan?、typeof、letrec-syntax、and/or 语义、数值边界（59 位回绕、mod 符号）、String 边界与参数序、空表/#null 区分、string? 模式、递归深度、quasiquote 现状、定时器控制 |
 | test/json.scm | js_ | JSON 解析/序列化/往返不变量/畸形输入/压力 |
 | test/errors_runtime.scm | er_ | 运行期致命错误矩阵（16 场景，fork 隔离） |
+| test/builtin_arity.scm | ba_ | 内建过程元数（工单 #35）：合法元数回归、同名形参遮蔽不误判、内建作为值的间接调用、`System.eval` 动态编译路径的编译期元数拒绝 |
 | test/linalg.scm | la_ | 线性代数：det/逆/幂法/Hilbert 病态矩阵/80×80 性能 |
 | test/mpmc_pipeline.scm | mp_ | 多进程 Map-Reduce、RPC、dynamic-wind 事务守卫、可终止性 |
 | test/huffman.scm | hf_ | Huffman 编解码：往返/压缩率/前缀码性质/退化边界 |
@@ -181,7 +182,7 @@ symbol是以其字面为ID的，相同拼写的symbol，无论在哪个上下文
 ### 新增测试的编写规范
 
 - 断言框架自包含：每文件定义自己的 pass/fail 计数与 `check`（equal?）/`check-near`（|a-b|<1e-9），**变量名加独立前缀**（如上表），避免跨文件语义干扰与同名 define 冲突。文件末行必须输出汇总。
-- **禁止多参算术**（工单 #35）：`+ - * / mod pow` 及比较符一律二元；链式需求用嵌套。`and`/`or` 例外（多参短路，恒返回布尔字面量）。
+- **禁止多参算术**（工单 #35）：`+ - * / mod pow` 及比较符一律二元；链式需求用嵌套。`and`/`or` 例外（多参短路，恒返回布尔字面量）。元数不符现已是**编译期错误**（见下文 #35），违规写法会直接编译失败而不是静默出错。
 - **禁止在 while 循环体内 define**（原因见"语言语义要点"第 3 条）；循环变量在所属 lambda 顶层 define 一次、循环内仅 `set!` 重置。
 - 自递归深递归（合一器/求解器类）**不要依赖自递归 tailcall**（见"已知缺陷"末条）；必要时以 `(pl-append '() (自递归调用))` 式包裹强制非尾。
 - **先探针后断言**：对未验证过的语义（键类型、参数序、边界行为）先写 /tmp 临时脚本实测，再固化为断言；**禁止凭 R5RS 印象或其他 Scheme 的习惯写期望值**。实测过的反直觉点见下节。
@@ -190,7 +191,7 @@ symbol是以其字面为ID的，相同拼写的symbol，无论在哪个上下文
 ### 语言语义要点（实测确认，写测试/代码必读）
 
 1. **define 无函数糖**：`(define (f x) …)` 会解析失败，必须 `(define f (lambda (x) …))`。
-2. **算术仅二元、无一元取负**：负值写 `(- 0 x)`；多参算术是非法程序且当前实现会产生操作数栈垃圾（#35）。
+2. **算术仅二元、无一元取负**：负值写 `(- 0 x)`；多参/少参算术（如 `(+ 1 2 3)`、`(- 1)`）是非法程序，自 2026-11 起由编译器做**元数检查**并报 `[Compiler] 编译错误`（#35 已关闭）。内建过程一律固定元数，见 `AM_BUILTIN_ARITY_MAP`。
 3. **while 不创建词法作用域**（doc/manual.md §4.2、test/sleepsort.scm）：循环体实质是 goto 跳转的 begin，体内 define 直接落入所属 lambda 作用域，且循环体内创建的闭包捕获的是同一变量绑定。因此：同一 lambda 内多个循环体的**同名 define 会解析失败**（"failed to add defines to scope"）；循环中注册异步回调必须手工封装 lambda 保存当次迭代值。
 4. `break`/`continue` 是裸符号，可在循环体内嵌套 if 中使用，不得出现在谓词中。
 5. **String.charCodeAt 参数序为 `(index str)`**（与 `charAt (str index)` 相反）；返回浮点，越界/负索引返回 0。`String.slice` 负索引自尾计数、越界钳制、start>end 返回空。`String.parseNumber` 非法/空输入返回 #undefined，合法输入恒为浮点。
@@ -230,7 +231,7 @@ symbol是以其字面为ID的，相同拼写的symbol，无论在哪个上下文
 
 - **#39（Closed，故障）**：运行期短串（≤32）驻留表被当作永久 GC 根，只增不减；`String.concat` 的每层中间结果都会永久占住堆区，长时间运行的程序最终 OOM。已按方案 A 改为弱驻留：strindex 不再是根，GC 后按轮次戳扫尾、按存活率压缩，短串走栈缓冲；`System.memstat` 增加驻留计数/字节，OOM 单独报错。`test_strindex_weak.scm` 为回归用例。
 
-- **#35（Open，优化）**：多参算术应编译期拒绝——未实施。当前行为：只发射一条运算指令、多余参数残留操作数栈（栈污染，见工单内插桩实证）。测试与库代码一律二元。
+- **#35（Closed，故障）**：多参算术（以及一切内建过程的元数不符）曾静默污染操作数栈。已实施：`AM_BUILTIN_ARITY_MAP`（与 `AM_GLOBAL_BUILTIN_VAR`／`AM_BUILTIN_OPCODE_MAP` 并列于 am_ast.c）给出全部 37 个内建变量的固定元数，编译器在 `compile_application` 编译实参之前调用 `compiler_check_builtin_arity` 拒绝非法程序。覆盖 `compile_application` 与 `System.eval` 两条编译路径；**已知限制**：内建过程经变量间接调用（`(define f +)` 后 `(f 1 2 3)`）时编译期看不到被调者，元数不作检查（内建过程并非一等值）。回归：`test/builtin_arity.scm` + `test/errors/11..20`。
 - **#38（Closed，故障）**：周期定时器回调可重入（回调执行跨多个时间片时，同一回调在未返回前被再次调用，嵌套深度可达 1024）。已实施：`runtime_fire_expired_timers` 检测进程函数调用栈上的异步帧，存在时顺延该进程的定时器（主流程打断语义不变）；`test_timer_nonreent.scm` 为回归用例。配套修复：闭包帧分析的词法父子关系改用 AST 父链接（parser 宏展开后会清理 scope 对象），避免自由变量 `src` 全部退化。
 - **#36（Closed，故障）**：异步定时器回调打断运行中进程曾致操作数栈错位（回调返回值残留栈上）。已实施方案 A：`AM_VALUE_TAG_ASYNC_RET`（0x1B）异步帧标记 + `op_return` 丢弃回调返回值 + `push_stack_frame` 校验放宽，改动点见工单实施记录；`test_timer_setvar.scm` 为回归用例。**注意**：BLOCKED 进程定时器不触发、STOPPED 进程的 repeat 定时器每到期都会经 halt 分支重新入队执行一次回调——若主流程停止后仍有存活 interval，需在收尾回调中显式 clear。
 - **帧栈深度（手册 §3.6）**：非尾递归上限约 1023 帧（fstack 容量 2048），超出报"指令执行异常"；尾递归不受限。errors_runtime.scm E1 场景锁定此行为。
@@ -242,3 +243,8 @@ symbol是以其字面为ID的，相同拼写的symbol，无论在哪个上下文
 
 - `src/am_process.c`：`am_process_make_wstring_handle` 允许 `str==NULL && len==0`（修复 `(String.atom_to_string "")` 崩溃；空串是完全合法的值）。
 - #36 方案 A（见工单实施记录）：`include/am_object.h`（ASYNC_RET 标记与宏）、`src/am_process.c`（校验放宽）、`src/am_runtime.c`（call_async 编码 / op_return 丢弃）。
+
+### 已实施修复记录（2026-11-25）
+
+- #35 内建过程元数检查（编译期）：`include/am_ast.h` / `src/am_ast.c` 新增 `AM_BUILTIN_ARITY_MAP`（37 项，与 `AM_GLOBAL_BUILTIN_VAR`／`AM_BUILTIN_OPCODE_MAP` 同下标并列维护）与 `am_ast_find_builtin_var_index`；`src/am_compiler.c` 新增 `compiler_builtin_arity_for_varid` / `compiler_check_builtin_arity`，在 `compile_application` 编译实参之前拒绝元数不符的内建调用（含 `call/cc` 一元、`dynamic-wind` 三元两条特殊形式路径；`System.eval` 走同一 `am_compile` 因而同样受检）。诊断文案 `[Compiler] 编译错误: 内建过程 <名字> 只接受 N 个参数，实际传入 M 个`。回归：`test/builtin_arity.scm`（ba_，已登记两份 testall 列表）+ `test/errors/11..20`（带 `;; expect-stderr:` 断言）。
+- 遗留：新增内建变量时必须同步 `AM_GLOBAL_BUILTIN_VAR`、`AM_BUILTIN_OPCODE_MAP`、`AM_BUILTIN_ARITY_MAP`、`compiler_statement_builtin_residue` 四处（前者三处同下标，后者按 opcode 分派），漏填元数会退化为“不检查”。

@@ -72,6 +72,65 @@ const int32_t AM_BUILTIN_OPCODE_MAP[AM_GLOBAL_BUILTIN_VAR_NUM] = {
 };
 
 
+// 全局内置变量的元数（引数个数）表。
+// 下标与 AM_GLOBAL_BUILTIN_VAR 一一对应；-1 表示不限元数（可变元数）。
+// 依据 doc/manual.md §6：内建过程一律固定元数（and/or 是特殊形式，不属本表）。
+// 编译器在 compile_application 中依本表做编译期元数检查（工单 #35）：
+// VM 指令按下标从操作数栈弹取固定个数的操作数，元数不符会静默污染操作数栈。
+const int32_t AM_BUILTIN_ARITY_MAP[AM_GLOBAL_BUILTIN_VAR_NUM] = {
+    [0]  = 2,    // (+ a b)                     §6.2.4
+    [1]  = 2,    // (- a b)                     §6.2.4（无一元取负）
+    [2]  = 2,    // (* a b)                     §6.2.4
+    [3]  = 2,    // (/ a b)                     §6.2.4
+    [4]  = 2,    // (mod a b)                   §6.2.4
+    [5]  = 2,    // (pow base exp)              §6.2.4
+    [6]  = 1,    // (not v)                     §6.3
+    [7]  = 2,    // (> a b)                     §6.2.5
+    [8]  = 2,    // (< a b)                     §6.2.5
+    [9]  = 2,    // (>= a b)                    §6.2.5
+    [10] = 2,    // (<= a b)                    §6.2.5
+    [11] = 2,    // (== a b)                    §6.1
+    [12] = 2,    // (eq? a b)                   §6.1
+    [13] = 2,    // (eqv? a b)                  §6.1
+    [14] = 2,    // (equal? a b)                §6.1
+    [15] = 1,    // (null? v)                   §6.5
+    [16] = 1,    // (undefined? v)              §6.5
+    [17] = 1,    // (atom? v)                   §6.5
+    [18] = 1,    // (list? v)                   §6.5
+    [19] = 1,    // (number? v)                 §6.5
+    [20] = 1,    // (nan? v)                    §6.5
+    [21] = 1,    // (typeof v)                  §6.5
+    [22] = 1,    // (car lst)                   §6.4
+    [23] = 1,    // (cdr lst)                   §6.4
+    [24] = 2,    // (cons elem lst)             §6.4
+    [25] = 2,    // (get_item lst index)        §6.4
+    [26] = 3,    // (set_item! lst index value) §6.4
+    [27] = 2,    // (push lst value)            §6.4
+    [28] = 1,    // (pop lst)                   §6.4
+    [29] = 1,    // (length lst)                §6.4
+    [30] = 1,    // (display v)                 §6.6
+    [31] = 0,    // (newline)                   §6.6
+    [32] = 2,    // (write ...) 已废弃的空操作   §6.6（历史元数，与语句型残留个数一致）
+    [33] = 0,    // (read ...)  已废弃的空操作   §6.6（历史元数，与语句型残留个数一致）
+    [34] = 1,    // (call/cc thunk)             §6.7
+    [35] = 0,    // (fork)      已废弃，执行即报错 §6.7
+    [36] = 3,    // (dynamic-wind before thunk after) §6.7
+};
+
+
+// 功能说明：按名字查找全局内置变量的下标。
+// 返回值：找到时为下标；不是内置变量时返回 SIZE_MAX。
+size_t am_ast_find_builtin_var_index(const wchar_t *name) {
+    if (!name) return SIZE_MAX;
+    for (size_t i = 0; i < AM_GLOBAL_BUILTIN_VAR_NUM; i++) {
+        if (AM_GLOBAL_BUILTIN_VAR[i] && wcscmp(name, AM_GLOBAL_BUILTIN_VAR[i]) == 0) {
+            return i;
+        }
+    }
+    return SIZE_MAX;
+}
+
+
 
 // ===============================================================================
 // 内部辅助函数

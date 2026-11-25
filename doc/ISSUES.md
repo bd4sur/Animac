@@ -168,9 +168,9 @@ parse-string → parse-u16 → read-hex4 嵌套链路正常（该链路的调用
 varid 重命名一致性——同一名义变量（形参 hfx）在被调 lambda 作用域与调用点
 作用域应解析到同一 varid。
 
-## 35 【优化】多参数算术调用应编译期拒绝（当前不拒绝且产生栈垃圾） Open
+## 35 【故障】内建过程元数不符（多参数算术等）应编译期拒绝 Closed
 
-2026-10-09
+2026-10-09（2026-11-25 关闭）
 
 **语义立场（明确）**：Animac 的算术运算符**只支持固定元数（二参数）**（doc/manual.md §6.2.4），**明确不支持多参数算术**（如 `(+ 1 2 3)`），更不支持变参数个数。因此 `(+ 1 2 3)` 是**非法程序**，不属于语言语义范畴——问题不在求值结果"应该是多少"，而在于**当前实现对非法程序不予拒绝**，使其静默产生错误结果，极易造成隐蔽的数据错误。
 
@@ -196,6 +196,27 @@ varid 重命名一致性——同一名义变量（形参 hfx）在被调 lambda
 3. 若未来改变语义支持多参/变参（关联 #11），须先定义精确的求值与栈纪律，本工单随之关闭。
 
 **复现**：`./main test/syntax_torture.scm` 无涉；直接运行上例即可。
+
+### 实施记录（2026-11-25，采用对策①并扩展到全部内建变量）
+
+**范围扩大**：问题不止于算术。全部 37 个内建变量都是固定元数（手册 §6），而对应 VM 指令一律按下标从操作数栈弹取固定个数的操作数、自身不做元数自检，因此 `(- 1)`（无一元取负）、`(not 1 2)`、`(cons 1)`、`(set_item! lst 0)`、`(display 1 2)`、`(newline 1)`、`(call/cc f g)`、`(dynamic-wind b t)` 等**同样是静默的栈污染**，一并在编译期拒绝。
+
+**实现要点**：
+
+1. `include/am_ast.h` / `src/am_ast.c`：新增 `AM_BUILTIN_ARITY_MAP`（与 `AM_GLOBAL_BUILTIN_VAR`、`AM_BUILTIN_OPCODE_MAP` 并列、同下标，逐项注明手册条目），以及查找助手 `am_ast_find_builtin_var_index`；元数与 opcode 的查询共用同一套“按名字找下标”逻辑，避免三处清单漂移。已废弃的 `write`/`read`/`fork` 按历史元数 2/0/0 登记（与 `compiler_statement_builtin_residue` 的残留个数一致，否则补偿代码本身就会错位）。
+2. `src/am_compiler.c`：新增 `compiler_builtin_arity_for_varid` 与 `compiler_check_builtin_arity`；`compile_application` 在**编译实参、发射指令之前**调用检查（fail fast），命中则打印
+   `[Compiler] 编译错误: 内建过程 <名字> 只接受 N 个参数，实际传入 M 个` 并返回 -1，编译中止（命令行解释器按既有约定经 main.c 断言终止，exit=134）。
+3. 覆盖 `call/cc`（1 元）与 `dynamic-wind`（3 元）两条特殊形式路径——它们原先分别是“多传忽略”与“静默返回 -1 无诊断”。
+4. 检查按**拼写**匹配 varid：被 ARN 换名的同名形参（`(lambda (+) …)`）带模块/作用域前缀，不会误判；`System.eval` 走 `am_compile`，故动态编译路径同样受检查。
+5. **已知限制**：内建过程经变量间接调用（`(define f +)` 后 `(f 1 2 3)`）时，调用点编译期看不到被调者，元数无法检查（VM 调用约定不携带参数个数）。内建过程并非一等值，手册已注明不应这样使用；`test/builtin_arity.scm` 场景 C 锁定“合法元数的间接调用不被破坏”。
+
+**手册同步**：§1.1.1 错误分类表、§4.3 过程调用要点、§6 通用约定、§6.2.4 算术运算、§11 与 RⁿRS 的区别——统一改为“元数不符是编译期错误”。
+
+**回归**：
+
+- 新增 `test/builtin_arity.scm`（前缀 `ba_`，53 断言）：合法元数全覆盖、同名形参遮蔽不误判、内建作为值的间接调用、`System.eval` 动态编译路径的 fork 双标记验证；
+- 新增 `test/errors/11..20`（10 个最小用例，覆盖多参算术、无一元取负、比较链、`cons`/`set_item!`/`display`/`not`/`call/cc`/`dynamic-wind`），并给 `testall_errors.sh` 增加可选的 `;; expect-stderr:` 断言，锁定“因元数不符被拒绝”这一具体原因（10 例均带此行）；
+- `testall.sh` / `testall_amalg.sh` 已登记 `builtin_arity.scm`；C 形态与 Amalgamation 形态全量回归均 FAIL 0，且该用例两形态输出逐字节一致。
 
 ## 34 【故障】begin表达式和lambda函数体污染操作数栈问题 Open
 

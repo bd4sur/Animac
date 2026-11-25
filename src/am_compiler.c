@@ -105,11 +105,40 @@ static int32_t compiler_builtin_opcode_for_varid(am_compiler_ctx_t *ctx, am_vari
 
     // 通过 AM_GLOBAL_BUILTIN_VAR 查找 builtin 下标，再通过 AM_BUILTIN_OPCODE_MAP 取得 opcode。
     // 这样 compiler 与 parser 对 builtin 的认知保持一致。
-    for (size_t i = 0; i < AM_GLOBAL_BUILTIN_VAR_NUM; i++) {
-        if (wcscmp(name, AM_GLOBAL_BUILTIN_VAR[i]) == 0) {
-            return AM_BUILTIN_OPCODE_MAP[i];
-        }
-    }
+    size_t idx = am_ast_find_builtin_var_index(name);
+    if (idx == SIZE_MAX) return -1;
+    return AM_BUILTIN_OPCODE_MAP[idx];
+}
+
+
+// 功能说明：查询某 varid 对应的内建变量元数（引数个数）。
+// 设计说明：元数表与 AM_GLOBAL_BUILTIN_VAR / AM_BUILTIN_OPCODE_MAP 同在 am_ast.c，
+// 编译器不另建清单，避免三处漂移。只有拼写与内置名完全相同的 varid 才命中：
+// 被 ARN 换名的同名形参（如 (lambda (+) ...)）带模块/作用域前缀，不会误判。
+// 实现说明：返回非负数为固定元数；返回-1 表示不是内建变量（元数不受本表约束）。
+static int32_t compiler_builtin_arity_for_varid(am_compiler_ctx_t *ctx, am_varid_t varid) {
+    if (!ctx || !ctx->ast || !ctx->ast->var_vocab) return -1;
+    wchar_t *name = am_vocab_get(ctx->ast->alloc, ctx->ast->var_vocab, &varid);
+    if (!name) return -1;
+    size_t idx = am_ast_find_builtin_var_index(name);
+    if (idx == SIZE_MAX) return -1;
+    return AM_BUILTIN_ARITY_MAP[idx];
+}
+
+
+// 功能说明：编译期元数检查（工单 #35）。
+// 设计说明：内建过程一律固定元数（doc/manual.md §6），参数个数不符是非法程序。
+// 由于 VM 指令按下标从操作数栈弹取固定个数的操作数，多传或少传都不会在运行期报错，
+// 只会静默污染操作数栈（后续指令取错值）。因此在生成任何代码之前就拒绝。
+// 实现说明：返回0表示元数合法或该 varid 不是内建变量；返回-1表示元数不符（已打印诊断）。
+static int32_t compiler_check_builtin_arity(am_compiler_ctx_t *ctx, am_varid_t varid, size_t argc) {
+    int32_t arity = compiler_builtin_arity_for_varid(ctx, varid);
+    if (arity < 0) return 0;
+    if ((size_t)arity == argc) return 0;
+
+    wchar_t *name = am_vocab_get(ctx->ast->alloc, ctx->ast->var_vocab, &varid);
+    fwprintf(stderr, L"[Compiler] 编译错误: 内建过程 %ls 只接受 %d 个参数，实际传入 %zu 个\n",
+             name ? name : L"?", arity, argc);
     return -1;
 }
 
@@ -676,9 +705,16 @@ static int32_t compile_application(am_compiler_ctx_t *ctx, am_handle_t handle) {
 
     // 首项是合法的可调用项，包括变量、Native、Builtin、Lambda
     if (am_value_is_handle(first) || am_value_is_varid(first) || am_value_is_symbol(first)) {
-        // call/cc 与 fork 是全局内置变量形式的特殊形式
+        int32_t builtin_opcode = -1;
+
+        // call/cc 与 dynamic-wind 是全局内置变量形式的特殊形式
         if (am_value_is_varid(first)) {
             am_varid_t first_varid = am_value_to_varid(first);
+
+            // 编译期元数检查（工单 #35）：内建过程一律固定元数，参数个数不符是非法程序。
+            // 必须在编译实参与生成代码之前拒绝——VM 指令不会自检元数，只会静默污染操作数栈。
+            if (compiler_check_builtin_arity(ctx, first_varid, node->length - 1) != 0) return -1;
+
             // 特殊Builtin：call/cc
             if (compiler_varid_name_equals(ctx, first_varid, L"call/cc") == 0) {
                 return compile_callcc(ctx, handle);
@@ -687,6 +723,8 @@ static int32_t compile_application(am_compiler_ctx_t *ctx, am_handle_t handle) {
             if (compiler_varid_name_equals(ctx, first_varid, L"dynamic-wind") == 0) {
                 return compile_dynamicwind(ctx, handle);
             }
+
+            builtin_opcode = compiler_builtin_opcode_for_varid(ctx, first_varid);
         }
 
         // 处理参数列表
@@ -695,14 +733,11 @@ static int32_t compile_application(am_compiler_ctx_t *ctx, am_handle_t handle) {
         }
 
         // 一般Builtin：对应特定VM指令
-        if (am_value_is_varid(first)) {
-            int32_t opcode = compiler_builtin_opcode_for_varid(ctx, am_value_to_varid(first));
-            if (opcode >= 0) {
-                if (emit_instruction(ctx, (uint32_t)opcode, AM_VALUE_UNDEFINED) != 0) return -1;
-                // 语句型内建（display/newline/push/set_item!/read/write/fork）：指令执行后不留下值，
-                // 补偿弹残留并 push #undefined，使调用形式净 +1（单值纪律）
-                return compiler_emit_statement_builtin_compensation(ctx, opcode);
-            }
+        if (builtin_opcode >= 0) {
+            if (emit_instruction(ctx, (uint32_t)builtin_opcode, AM_VALUE_UNDEFINED) != 0) return -1;
+            // 语句型内建（display/newline/push/set_item!/read/write/fork）：指令执行后不留下值，
+            // 补偿弹残留并 push #undefined，使调用形式净 +1（单值纪律）
+            return compiler_emit_statement_builtin_compensation(ctx, builtin_opcode);
         }
 
         uint32_t call_opcode = (is_tail == 0) ? AM_VM_OP_tailcall : AM_VM_OP_call;
